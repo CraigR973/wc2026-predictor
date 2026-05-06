@@ -1310,7 +1310,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 0 — Foundations
 
-**Phase 0.1: Repository Scaffolding** 🟢 Sonnet 4.6
+**Phase 0.1: Repository Scaffolding** 🟢 Sonnet 4.6 ✅ 2026-05-06
 - Monorepo structure (`apps/api`, `apps/web`, `packages/shared`, `migrations`, `docs`)
 - Git initialised, `.gitignore`, README, `.env.example`
 - Node + Python versions pinned, `pnpm` workspace configured
