@@ -1,0 +1,55 @@
+# Node
+node_modules/
+dist/
+.next/
+build/
+.pnpm-store/
+*.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Alembic
+migrations/versions/__pycache__/
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+lcov.info
+
+# Playwright
+playwright-report/
+test-results/
