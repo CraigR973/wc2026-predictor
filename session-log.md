@@ -71,4 +71,31 @@ Each entry follows this structure:
 - GITHUB_TOKEN env var not present in shell — CI polling skipped. Set it before Phase 0.5 when workflows are added.
 - `on_event` decorator is deprecated in FastAPI — replaced with `lifespan` context manager.
 
-**Next:** Phase 0.3 — Database Schema & Migrations (Alembic)
+---
+
+## Phase 0.3 — Frontend Skeleton
+**Date:** 2026-05-06  
+**Model:** Claude Sonnet 4.6  
+**Commit:** 11e79a461a709714f60b3842eec8c1b7a4065b33  
+**CI:** No workflows yet — skipped (GITHUB_TOKEN not set)
+
+**Files modified/created:**
+- `apps/web/index.html` — added Google Fonts (Bebas Neue, Outfit, JetBrains Mono), `class="dark"` on html element
+- `apps/web/src/index.css` — Tailwind directives + all §7.2 CSS custom property tokens
+- `apps/web/tailwind.config.ts` — full design token theme mapped to CSS vars, darkMode: 'class'
+- `apps/web/vite.config.ts` — reads PORT env var for preview tool compatibility
+- `apps/web/src/lib/utils.ts` — cn() helper (clsx + tailwind-merge)
+- `apps/web/src/components/ui/button.tsx` — shadcn/ui Button (5 variants: default, outline, ghost, accent, destructive)
+- `apps/web/src/components/ui/card.tsx` — shadcn/ui Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter
+- `apps/web/src/components/ui/badge.tsx` — shadcn/ui Badge (10 variants incl. live/animated)
+- `apps/web/src/main.tsx` — design system demo page showing all tokens, fonts, components
+- `apps/web/dev.sh` — nvm/Node 20 bootstrap wrapper for Claude Preview tool
+- `.claude/launch.json` — preview server config
+
+**Gotchas for future sessions:**
+- Preview tool (launch.json) shells out without nvm — `dev.sh` bootstraps Node 20 before running pnpm. Must keep this wrapper.
+- Vite reads `process.env['PORT']` to allow autoPort assignment from preview tool (config now dynamic, not hardcoded 5173).
+- shadcn/ui components are hand-rolled (no `npx shadcn-ui init`) — only `@radix-ui/react-slot` is needed (already in package.json). All other dependencies (cva, clsx, tailwind-merge) were pre-installed in Phase 0.2.
+- `pnpm --parallel -r dev` runs from workspace root — the preview tool uses this via `pnpm dev` from root which triggers all `dev` scripts.
+
+**Next:** Phase 0.4 — Database Schema & Migrations (Alembic)

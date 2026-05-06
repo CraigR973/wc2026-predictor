@@ -1324,7 +1324,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Ruff + mypy configured, structlog integrated
 - **Acceptance:** `uvicorn` starts, `/health` returns 200, lint passes
 
-**Phase 0.3: Frontend Skeleton** 🟢 Sonnet 4.6
+**Phase 0.3: Frontend Skeleton** 🟢 Sonnet 4.6 ✅ 2026-05-06
 - Vite + React 18 + TypeScript strict mode
 - Tailwind configured with full design token CSS variables (§7.2 colours, typography)
 - shadcn/ui initialised with Button, Card, Badge components
