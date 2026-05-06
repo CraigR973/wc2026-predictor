@@ -25,8 +25,9 @@ Each entry follows this structure:
 **Date:** 2026-05-06
 **Model:** Claude Sonnet 4.6
 **Status:** ✅ Complete
-**Commit:** 01cee39
-**CI:** No remote configured yet — push + CI pending remote setup
+**Commits:** 01cee39 (scaffold), 2e339f7 (close-out), aee293f (merge remote)
+**Remote:** git@github.com:CraigR973/wc2026-predictor.git
+**CI:** No GitHub Actions workflows defined yet — added in a future phase
 
 **Files created:**
 - `.gitignore`, `.nvmrc`, `.python-version`, `.env.example`, `LICENSE`, `README.md`
