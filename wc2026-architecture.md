@@ -1355,7 +1355,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 1 — Data & Tournament Seed
 
-**Phase 1.1: Core Schema — Profiles, Refresh Tokens, Invites, Teams, Groups** 🟢 Sonnet 4.6
+**Phase 1.1: Core Schema — Profiles, Refresh Tokens, Invites, Teams, Groups** 🟢 Sonnet 4.6 ✅ 2026-05-06
 - Alembic initialised
 - Migration for `profiles` (with `failed_login_count`, `locked_until`, `timezone`), `refresh_tokens`, `invites`, `teams` (with `eliminated_at_stage` ENUM and `football_data_team_id`), `groups`
 - `updated_at` trigger helper applied

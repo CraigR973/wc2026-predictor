@@ -99,3 +99,31 @@ Each entry follows this structure:
 - `pnpm --parallel -r dev` runs from workspace root — the preview tool uses this via `pnpm dev` from root which triggers all `dev` scripts.
 
 **Next:** Phase 0.4 — Database Schema & Migrations (Alembic)
+
+---
+
+## Phase 0.4 (= arch Phase 1.1): Database Schema & Migrations
+**Date:** 2026-05-06
+**Model:** claude-sonnet-4-6
+**Commits:** ee4308e
+
+### Files modified/created
+- `apps/api/src/models/` — new package: `base.py`, `group.py`, `team.py`, `profile.py`, `refresh_token.py`, `invite.py`, `__init__.py`
+- `apps/api/src/database.py` — removed inline `Base`; now imports from `src.models.base`
+- `apps/api/alembic.ini` — Alembic config; `script_location` uses `%(here)s` pointing to repo-root `migrations/`
+- `migrations/env.py` — async Alembic env (asyncpg); adds `apps/api` to `sys.path` for model imports
+- `migrations/script.py.mako` — standard Alembic template
+- `migrations/versions/001_core_schema.py` — creates ENUMs, tables, `updated_at` trigger, RLS policies
+- `apps/api/src/seed.py` — idempotent dev seed: 8 groups (A–H), 32 teams
+- `apps/api/tests/test_models.py` — 13 new tests (structure, FKs, enums, constraints); 16 total passing
+
+### CI
+No workflow files exist yet (Phase 0.5). No GITHUB_TOKEN in env — CI polling skipped.
+
+### Key facts / gotchas
+- Alembic is run from `apps/api/` with `PYTHONPATH=.`; command: `alembic upgrade head`
+- RLS policies wrapped in `DO $$ BEGIN IF EXISTS (auth schema) ... END $$` — safe to run on plain Postgres (silently skips RLS)
+- `TournamentStage` and `PlayerRole` use `StrEnum` (Python 3.11+) — avoids UP042 lint error
+- Unique constraints use named `__table_args__` `UniqueConstraint` (not `unique=True` on columns) so test assertions and migration DDL are consistent
+- Seed uses 2022 WC teams as placeholder data; Phase 1.4 replaces with the full 2026 draw (48 teams / 12 groups)
+- `gen_random_uuid()` is used for UUID defaults — requires pgcrypto or Postgres 13+ (Supabase has it)
