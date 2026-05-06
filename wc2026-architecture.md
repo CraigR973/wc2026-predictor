@@ -1316,7 +1316,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Node + Python versions pinned, `pnpm` workspace configured
 - **Acceptance:** `pnpm install` works; repo structure matches spec
 
-**Phase 0.2: Backend Skeleton** 🟢 Sonnet 4.6
+**Phase 0.2: Backend Skeleton** 🟢 Sonnet 4.6 ✅ 2026-05-06
 - FastAPI app with `/api/v1/health` and `/api/v1/health/ready`
 - Pydantic settings loader with `.env.example`
 - Uvicorn dev server, Dockerfile
