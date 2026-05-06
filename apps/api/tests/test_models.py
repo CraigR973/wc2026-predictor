@@ -1,4 +1,5 @@
 """Tests for SQLAlchemy model definitions — no DB connection required."""
+
 import src.models  # noqa: F401 — side-effect: registers all models on Base.metadata
 from src.models import Base, Group, Invite, Profile, RefreshToken, Team
 from src.models.profile import PlayerRole

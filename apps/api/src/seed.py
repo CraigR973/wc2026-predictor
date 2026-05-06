@@ -3,6 +3,7 @@
 Run from apps/api/ with:
     PYTHONPATH=. DATABASE_URL=<url> python -m src.seed
 """
+
 import asyncio
 import uuid
 from typing import Any
