@@ -23,7 +23,7 @@ export default defineConfig({
     alias: { '@': '/src' },
   },
   server: {
-    port: 5173,
+    port: process.env['PORT'] ? parseInt(process.env['PORT']) : 5173,
     proxy: {
       '/api': 'http://localhost:8000',
     },

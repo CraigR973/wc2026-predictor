@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #0A0F1E;
+    --surface: #131929;
+    --surface-elevated: #1C2540;
+    --border: #263354;
+    --text-primary: #F0F4FF;
+    --text-secondary: #8A9CC7;
+    --text-muted: #4A5A80;
+    --primary: #00E676;
+    --primary-dark: #00B854;
+    --accent: #3D7FFF;
+    --gold: #FFD700;
+    --silver: #C0C0C0;
+    --bronze: #CD7F32;
+    --success: #00E676;
+    --warning: #FF9800;
+    --error: #FF4757;
+    --locked: #4A5A80;
+    --live: #FF4757;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Bebas Neue', cursive;
+  }
+
+  .font-mono-custom {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  @keyframes pulse-live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .animate-pulse-live {
+    animation: pulse-live 1.2s ease-in-out infinite;
+  }
+}
