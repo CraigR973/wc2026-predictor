@@ -152,3 +152,42 @@ Push to main at commit 2e074be. CI polling skipped (repo private, no GITHUB_TOKE
 - Web lint had no ESLint config at all — added .eslintrc.cjs; needed @typescript-eslint/parser for TS syntax (not in original Phase 0.3 deps)
 - ruff format --check failed on 3 files (base.py, seed.py, test_models.py) — auto-fixed with ruff format
 - ESLint 8 is deprecated upstream; upgrade to ESLint 9 flat config is a future task (not blocking)
+
+---
+
+## Phase 0.6: Error Tracking
+
+**Date:** 2026-05-06
+**Model:** claude-sonnet-4-6
+**Commit:** f296b09
+
+### What was done
+- `sentry-sdk[fastapi]` was already installed; just needed wiring
+- Backend: `sentry_sdk.init()` in `apps/api/src/main.py` guarded by `settings.sentry_dsn_backend`; uses `FastApiIntegration` + `SqlalchemyIntegration`; `before_send=_scrub_pii` strips `display_name` and `username` from all Sentry user contexts
+- Backend: new `apps/api/src/middleware.py` — `CorrelationIdMiddleware(BaseHTTPMiddleware)` generates UUID4 per request, binds it to `structlog.contextvars` so every log line carries `correlation_id`, echoes it in `X-Correlation-ID` response header, and propagates a client-supplied header unchanged
+- Frontend: `@sentry/react` v10.51.0 installed; `apps/web/src/sentry.ts` init module (no-ops when `VITE_SENTRY_DSN` unset); `beforeSend` scrubs `display_name`; imported at top of `main.tsx`
+- `apps/web/src/vite-env.d.ts` added (was missing — caused `import.meta.env` TS errors)
+- `.env.example`: `SENTRY_DSN_FRONTEND` → `VITE_SENTRY_DSN` (Vite requires `VITE_` prefix to expose vars to browser bundle)
+- New tests: `test_correlation_id.py` (generated + passthrough), `test_sentry.py` (PII scrubber)
+- 21 backend tests pass; ruff clean; mypy clean; frontend typecheck + build green
+
+### Files modified
+- `apps/api/src/main.py` — Sentry init, `_scrub_pii`, middleware wiring
+- `apps/api/src/middleware.py` — new; `CorrelationIdMiddleware`
+- `apps/api/tests/test_correlation_id.py` — new
+- `apps/api/tests/test_sentry.py` — new
+- `apps/web/src/sentry.ts` — new
+- `apps/web/src/vite-env.d.ts` — new
+- `apps/web/src/main.tsx` — import sentry.ts at top
+- `apps/web/package.json` + `pnpm-lock.yaml` — @sentry/react added
+- `.env.example` — VITE_SENTRY_DSN
+
+### CI status
+Push to main at commit f296b09. CI polling skipped (no GITHUB_TOKEN in local env). All CI check types verified locally (ruff, mypy, pytest, tsc, vite build).
+
+### Key facts / gotchas
+- `vite-env.d.ts` was missing from the Phase 0.3 frontend scaffold — needed `/// <reference types="vite/client" />` for `import.meta.env` to resolve in TypeScript
+- Sentry v10 (`@sentry/react ^10.51.0`) uses `browserTracingIntegration()` (not the older `BrowserTracing` class)
+- `sentry_sdk.types.Event` and `Hint` are the correct types for `before_send` callbacks in mypy-strict projects — using plain `dict[str, Any]` triggers an arg-type error
+- `RequestResponseEndpoint` from `starlette.middleware.base` is the correct type for `call_next` in `BaseHTTPMiddleware.dispatch`
+- Middleware order: `CorrelationIdMiddleware` added AFTER `CORSMiddleware` in Starlette (last-added = outermost wrapper), so correlation ID is bound before CORS processing

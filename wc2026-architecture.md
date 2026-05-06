@@ -1345,7 +1345,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Runs on every PR
 - **Acceptance:** PR shows green checks; failing lint or migration blocks merge
 
-**Phase 0.6: Error Tracking** 🟢 Sonnet 4.6
+**Phase 0.6: Error Tracking** 🟢 Sonnet 4.6 ✅ 2026-05-06
 - Sentry integrated (frontend + backend)
 - structlog with correlation IDs on all requests
 - PII scrubbing configured
