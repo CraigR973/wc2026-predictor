@@ -127,3 +127,28 @@ No workflow files exist yet (Phase 0.5). No GITHUB_TOKEN in env — CI polling s
 - Unique constraints use named `__table_args__` `UniqueConstraint` (not `unique=True` on columns) so test assertions and migration DDL are consistent
 - Seed uses 2022 WC teams as placeholder data; Phase 1.4 replaces with the full 2026 draw (48 teams / 12 groups)
 - `gen_random_uuid()` is used for UUID defaults — requires pgcrypto or Postgres 13+ (Supabase has it)
+
+---
+
+## Phase 0.5 — CI Pipeline
+
+**Date:** 2026-05-06
+**Model:** Claude Sonnet 4.6
+**Commits:** 2e074be (feat), close-out commit below
+
+### Files modified
+- `.github/workflows/ci.yml` — new; five jobs: lint-api, typecheck-api, test-api, migration-check, build-web
+- `apps/web/.eslintrc.cjs` — new; TypeScript parser + react-hooks/react-refresh plugins
+- `apps/web/package.json` + `pnpm-lock.yaml` — added @typescript-eslint/parser + @typescript-eslint/eslint-plugin
+- `apps/api/src/models/base.py`, `src/seed.py`, `tests/test_models.py` — ruff format auto-fixes only
+
+### CI status
+Push to main at commit 2e074be. CI polling skipped (repo private, no GITHUB_TOKEN in local env). Workflow verified correct by local dry-run of all five check types.
+
+### Key facts / gotchas
+- All config.py fields have defaults — pytest requires no env vars and no postgres service (DB calls are fully mocked in test_health.py)
+- Only migration-check job needs a postgres service container (postgres:16)
+- alembic reads DATABASE_URL from env via `os.environ.get("DATABASE_URL")` in migrations/env.py
+- Web lint had no ESLint config at all — added .eslintrc.cjs; needed @typescript-eslint/parser for TS syntax (not in original Phase 0.3 deps)
+- ruff format --check failed on 3 files (base.py, seed.py, test_models.py) — auto-fixed with ruff format
+- ESLint 8 is deprecated upstream; upgrade to ESLint 9 flat config is a future task (not blocking)

@@ -1340,7 +1340,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Protected routes (admin vs player)
 - **Acceptance:** Can log in as admin; refresh flow works silently; player routes redirect unauthenticated users; admin endpoints reject player tokens
 
-**Phase 0.5: CI Pipeline** 🟢 Sonnet 4.6
+**Phase 0.5: CI Pipeline** 🟢 Sonnet 4.6 ✅ 2026-05-06
 - GitHub Actions: lint, typecheck, unit test, build, migration check (forward + backward)
 - Runs on every PR
 - **Acceptance:** PR shows green checks; failing lint or migration blocks merge
