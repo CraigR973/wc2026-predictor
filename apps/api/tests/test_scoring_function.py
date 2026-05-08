@@ -108,20 +108,21 @@ async def test_null_actual_with_real_prediction(db_conn: AsyncConnection) -> Non
         # Goals + result correct, not exact
         (3, 0, 2, 1, _expected(2, 3, 0)),  # both home win, total=3
         (0, 3, 1, 2, _expected(2, 3, 0)),  # both away win, total=3
-        (1, 1, 2, 2, _expected(2, 3, 0)),  # both draw, total=4 vs 4? no: 2+2=4
         # Result correct, goals wrong
         (2, 1, 3, 1, _expected(0, 3, 0)),  # both home win, totals differ
         (0, 2, 0, 4, _expected(0, 3, 0)),  # both away win, totals differ
         (1, 1, 3, 3, _expected(0, 3, 0)),  # both draw, totals differ
+        (1, 1, 2, 2, _expected(0, 3, 0)),  # both draw, totals differ (2 vs 4)
         # Goals correct, result wrong (same total goals different result)
         (2, 1, 1, 2, _expected(2, 0, 0)),  # 3 goals total, opposite winner
         (3, 0, 0, 3, _expected(2, 0, 0)),  # 3 goals total, opposite winner
+        (1, 0, 0, 1, _expected(2, 0, 0)),  # 1 goal total, opposite winner
         (2, 0, 1, 1, _expected(2, 0, 0)),  # 2 goals: home win vs draw
         (1, 1, 2, 0, _expected(2, 0, 0)),  # 2 goals: draw vs home win
         # Nothing matches
-        (1, 0, 0, 1, _expected(0, 0, 0)),  # opposite result, different goals
         (0, 0, 1, 0, _expected(0, 0, 0)),  # draw vs home win, different goals
-        (2, 2, 1, 0, _expected(0, 0, 0)),
+        (2, 2, 1, 0, _expected(0, 0, 0)),  # draw vs home win, different goals
+        (1, 0, 0, 2, _expected(0, 0, 0)),  # opposite result, different goals
     ],
 )
 async def test_group_stage_scoring(
