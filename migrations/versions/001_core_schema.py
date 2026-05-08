@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM as PgENUM
 from sqlalchemy.dialects.postgresql import UUID
 
 revision: str = "001"
@@ -67,7 +68,7 @@ def upgrade() -> None:
         sa.Column("pin_hash", sa.String(60), nullable=False),
         sa.Column(
             "role",
-            sa.Enum("player", "admin", name="player_role", create_type=False),
+            PgENUM(name="player_role", create_type=False),
             nullable=False,
             server_default="player",
         ),
@@ -105,18 +106,7 @@ def upgrade() -> None:
         sa.Column("group_id", UUID(as_uuid=True), sa.ForeignKey("groups.id"), nullable=True),
         sa.Column(
             "eliminated_at_stage",
-            sa.Enum(
-                "group",
-                "r32",
-                "r16",
-                "qf",
-                "sf",
-                "third_place",
-                "final",
-                "winner",
-                name="tournament_stage",
-                create_type=False,
-            ),
+            PgENUM(name="tournament_stage", create_type=False),
             nullable=True,
         ),
         sa.Column("is_host", sa.Boolean(), nullable=False, server_default="false"),
