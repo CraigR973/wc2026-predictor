@@ -1367,7 +1367,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Indexes on `kickoff_utc`, `(stage, status)`, `football_data_match_id`
 - **Acceptance:** Table exists; ENUM values enforced; indexes verified via `EXPLAIN`
 
-**Phase 1.3: Prediction & Notification Schema** 🟢 Sonnet 4.6
+**Phase 1.3: Prediction & Notification Schema** 🟢 Sonnet 4.6 ✅ 2026-05-08
 - Migration for `predictions` (with `update_count` default 0), `knockout_predictions`, `special_predictions`
 - Unique constraints on `(player_id, match_id)` and `(player_id, prediction_type)`
 - Migration for `leaderboard_snapshots`, `push_subscriptions`, `notification_preferences`, `notification_log`, `audit_log` (with full ENUM lists)

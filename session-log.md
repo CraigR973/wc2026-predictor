@@ -212,3 +212,26 @@ Push to main at commit 0ef2686. CI: completed success.
 - UniqueConstraint and Index must be declared in __table_args__ on the ORM model (not only in the migration) for SQLAlchemy metadata inspection — tests assert on Table.constraints and Table.indexes which read from metadata, not from the live DB
 - The tournament_stage ENUM is reused from migration 001 (create_type=False); only match_status and result_source are new
 - Matches table has 3 FK references to teams (home_team_id, away_team_id, penalty_winner_id), all with ondelete="SET NULL" — test_match_fks asserts "teams.id" in fk_targets (set membership, not count)
+
+---
+
+## Phase 1.3 — Prediction & Notification Schema
+**Date:** 2026-05-08
+**Model:** Claude Sonnet 4.6
+**Commits:** c0cc069, 38b764d
+
+### Files modified
+- `migrations/versions/003_prediction_notification_schema.py` — new; 5 ENUM types, 8 tables: predictions, knockout_predictions, special_predictions, leaderboard_snapshots, push_subscriptions, notification_preferences, notification_log, audit_log
+- `apps/api/src/models/prediction.py` — new; Prediction, KnockoutPrediction, SpecialPrediction, LeaderboardSnapshot, PushSubscription, NotificationPreferences ORM models
+- `apps/api/src/models/notification.py` — new; NotificationLog, AuditLog ORM models + NotificationType, DeliveryStatus, ActorType, ActionType enums
+- `apps/api/src/models/__init__.py` — updated to export all new model classes and enums
+- `apps/api/tests/test_models.py` — added 28 new tests; total 47 model tests passing
+
+### CI status
+Push to main at commits c0cc069 + 38b764d. CI: completed success (mypy fix required: dict → dict[str, Any]).
+
+### Key facts / gotchas
+- mypy requires explicit dict[str, Any] — bare `dict` or `dict | None` in Mapped[] type annotations fails mypy's [type-arg] check
+- notification_preferences uses player_id as the primary key (one row per player, no separate id UUID) — do NOT add UUIDPrimaryKeyMixin to that model
+- updated_at trigger is needed for predictions, knockout_predictions, special_predictions, notification_preferences — all others (leaderboard_snapshots, push_subscriptions, notification_log, audit_log) have no updated_at column
+- leaderboard_snapshots uses TimestampMixin (created_at only); notification_log and audit_log use UUIDPrimaryKeyMixin only (no timestamp mixin — they have custom timestamp/sent_at fields)
