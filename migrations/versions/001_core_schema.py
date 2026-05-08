@@ -19,11 +19,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # --- ENUM types ---
-    op.execute("CREATE TYPE player_role AS ENUM ('player', 'admin')")
-    op.execute(
-        "CREATE TYPE tournament_stage AS ENUM "
-        "('group', 'r32', 'r16', 'qf', 'sf', 'third_place', 'final', 'winner')"
-    )
+    # Wrapped in DO blocks so re-running is idempotent (Alembic 1.18+ may emit
+    # an extra CREATE TYPE despite create_type=False on the column definition).
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE player_role AS ENUM ('player', 'admin');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE tournament_stage AS ENUM
+                ('group', 'r32', 'r16', 'qf', 'sf', 'third_place', 'final', 'winner');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
 
     # --- groups ---
     op.create_table(
