@@ -1373,7 +1373,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Migration for `leaderboard_snapshots`, `push_subscriptions`, `notification_preferences`, `notification_log`, `audit_log` (with full ENUM lists)
 - **Acceptance:** Full schema deployed; FKs enforced; default values verified; test data insertable
 
-**Phase 1.4: Tournament Data Seed** 🟢 Sonnet 4.6
+**Phase 1.4: Tournament Data Seed** 🟢 Sonnet 4.6 ✅ 2026-05-08
 - Seed script inserts all 12 groups (A–L)
 - Seed script inserts all 48 teams with flags, group assignment, `football_data_team_id`
 - Seed script inserts all 72 group stage matches with kickoff times, venues, teams, `football_data_match_id`

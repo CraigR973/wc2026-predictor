@@ -235,3 +235,25 @@ Push to main at commits c0cc069 + 38b764d. CI: completed success (mypy fix requi
 - notification_preferences uses player_id as the primary key (one row per player, no separate id UUID) — do NOT add UUIDPrimaryKeyMixin to that model
 - updated_at trigger is needed for predictions, knockout_predictions, special_predictions, notification_preferences — all others (leaderboard_snapshots, push_subscriptions, notification_log, audit_log) have no updated_at column
 - leaderboard_snapshots uses TimestampMixin (created_at only); notification_log and audit_log use UUIDPrimaryKeyMixin only (no timestamp mixin — they have custom timestamp/sent_at fields)
+
+---
+
+## Phase 1.4 — Tournament Data Seed
+**Date:** 2026-05-08
+**Model:** Claude Sonnet 4.6
+**Commits:** 6d25a29
+
+### Files modified
+- `apps/api/src/seed.py` — full rewrite; 12 groups (A–L), 48 teams with flag emojis, 72 group stage matches with UTC kickoff times and venues; idempotent upserts by name/code/match_number
+- `apps/api/tests/test_seed_data.py` — new; 16 data-integrity tests (no DB needed): group counts, team uniqueness, 3-match-per-team, no duplicate fixtures, group-correct teams, simultaneous matchday-3 pairs, date window
+
+### CI status
+Push to main at commit 6d25a29. CI: completed success.
+
+### Key facts / gotchas
+- football_data_team_id and football_data_match_id are left NULL — these require the FOOTBALL_DATA_API_KEY to be configured and a separate API sync job to populate; the seed script is intentionally not responsible for those IDs
+- Kickoff times are in UTC, derived from UK BST (UTC+1) broadcast schedule (all UK times minus 1 hour)
+- Scotland uses the encoded Scottish flag emoji (🏴󠁧󠁢󠁳󠁣󠁴󠁿) which is composed of multiple Unicode code points — it correctly inserts but displays as a regional indicator sequence
+- England similarly uses the English flag emoji (🏴󠁧󠁢󠁥󠁮󠁧󠁿) not the Union Jack 🇬🇧
+- Matchday 3 simultaneous pairs: matches 49–72 in groups B-K/L are played simultaneously per group; the test verifies this invariant
+- Draw source: December 2025 draw at JFK Center, Washington DC (confirmed via multiple sources including openfootball/worldcup.json)
