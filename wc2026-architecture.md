@@ -1361,7 +1361,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - `updated_at` trigger helper applied
 - **Acceptance:** Migrations apply and rollback cleanly
 
-**Phase 1.2: Match Schema** 🟢 Sonnet 4.6
+**Phase 1.2: Match Schema** 🟢 Sonnet 4.6 ✅ 2026-05-08
 - Migration for `matches` with full state machine ENUM (scheduled, locked, live, completed, postponed, cancelled), `result_source` ENUM, `original_kickoff_utc`, `postponed_reason`
 - UNIQUE constraint on `match_number` and `football_data_match_id`
 - Indexes on `kickoff_utc`, `(stage, status)`, `football_data_match_id`

@@ -191,3 +191,24 @@ Push to main at commit f296b09. CI polling skipped (no GITHUB_TOKEN in local env
 - `sentry_sdk.types.Event` and `Hint` are the correct types for `before_send` callbacks in mypy-strict projects — using plain `dict[str, Any]` triggers an arg-type error
 - `RequestResponseEndpoint` from `starlette.middleware.base` is the correct type for `call_next` in `BaseHTTPMiddleware.dispatch`
 - Middleware order: `CorrelationIdMiddleware` added AFTER `CORSMiddleware` in Starlette (last-added = outermost wrapper), so correlation ID is bound before CORS processing
+
+---
+
+## Phase 1.2 — Match Schema
+**Date:** 2026-05-08
+**Model:** Claude Sonnet 4.6
+**Commits:** 0ef2686
+
+### Files modified
+- `migrations/versions/002_match_schema.py` — new; match_status and result_source ENUMs, matches table, unique constraints, 3 indexes, updated_at trigger
+- `apps/api/src/models/match.py` — new; Match ORM model with MatchStatus / ResultSource StrEnums, __table_args__ declaring constraints and indexes
+- `apps/api/src/models/__init__.py` — added Match, MatchStatus, ResultSource exports
+- `apps/api/tests/test_models.py` — added 7 tests (columns, ENUM values, unique constraints, indexes, FKs); metadata table set updated
+
+### CI status
+Push to main at commit 0ef2686. CI: completed success.
+
+### Key facts / gotchas
+- UniqueConstraint and Index must be declared in __table_args__ on the ORM model (not only in the migration) for SQLAlchemy metadata inspection — tests assert on Table.constraints and Table.indexes which read from metadata, not from the live DB
+- The tournament_stage ENUM is reused from migration 001 (create_type=False); only match_status and result_source are new
+- Matches table has 3 FK references to teams (home_team_id, away_team_id, penalty_winner_id), all with ondelete="SET NULL" — test_match_fks asserts "teams.id" in fk_targets (set membership, not count)
