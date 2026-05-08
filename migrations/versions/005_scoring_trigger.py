@@ -59,8 +59,8 @@ def upgrade() -> None:
         END;
         $func$;
     """)
+    op.execute("DROP TRIGGER IF EXISTS matches_set_result_entered_at ON matches")
     op.execute("""
-        DROP TRIGGER IF EXISTS matches_set_result_entered_at ON matches;
         CREATE TRIGGER matches_set_result_entered_at
         BEFORE UPDATE OF actual_home_score, actual_away_score ON matches
         FOR EACH ROW
@@ -180,8 +180,8 @@ def upgrade() -> None:
         END;
         $func$;
     """)
+    op.execute("DROP TRIGGER IF EXISTS matches_score_results ON matches")
     op.execute("""
-        DROP TRIGGER IF EXISTS matches_score_results ON matches;
         CREATE TRIGGER matches_score_results
         AFTER UPDATE OF actual_home_score, actual_away_score ON matches
         FOR EACH ROW
