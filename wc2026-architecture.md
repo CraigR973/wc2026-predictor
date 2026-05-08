@@ -1380,7 +1380,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Idempotent (safe to re-run)
 - **Acceptance:** After seed, all 72 group matches queryable with correct teams, kickoff times, and football-data IDs
 
-**Phase 1.5: Scoring Function** 🔴 Opus
+**Phase 1.5: Scoring Function** 🔴 Opus ✅ 2026-05-08
 - Postgres function `calculate_match_points(predicted_home, predicted_away, actual_home, actual_away, stage)` returns JSONB breakdown
 - Handles group stage rules (W/D/L for result; combined goals)
 - Handles knockout score predictions (no draws — result is always W/L based on 90-min score)

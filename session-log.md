@@ -257,3 +257,27 @@ Push to main at commit 6d25a29. CI: completed success.
 - England similarly uses the English flag emoji (🏴󠁧󠁢󠁥󠁮󠁧󠁿) not the Union Jack 🇬🇧
 - Matchday 3 simultaneous pairs: matches 49–72 in groups B-K/L are played simultaneously per group; the test verifies this invariant
 - Draw source: December 2025 draw at JFK Center, Washington DC (confirmed via multiple sources including openfootball/worldcup.json)
+
+---
+
+## Phase 1.5 — Scoring Function
+**Date:** 2026-05-08
+**Model:** Claude Opus 4.7
+**Commits:** ebed14a (function + tests + CI), faaba5d (loop scope fix), 05f68e8 (test expectation fix)
+
+### Files modified
+- `migrations/versions/004_scoring_function.py` — new; Postgres function `calculate_match_points(predicted_home, predicted_away, actual_home, actual_away, stage tournament_stage)` returning JSONB `{goals, result, exact, total, no_prediction}`. IMMUTABLE / `CREATE OR REPLACE` so re-running the migration is idempotent.
+- `apps/api/tests/conftest.py` — new; `db_engine` (session-scoped) + `db_conn` (function-scoped, auto-rollback) fixtures. Skip cleanly when `DATABASE_URL` is not set.
+- `apps/api/tests/test_scoring_function.py` — new; 47 parametrised test cases covering NULL prediction, NULL actual, exact / goals-only / result-only / nothing-matches in group stage, the same in every knockout stage, and the no-draw rule for knockout result points. Each test runs inside the connection's auto-begun transaction (acceptance criterion).
+- `apps/api/pyproject.toml` — set `asyncio_default_fixture_loop_scope = "session"` and `asyncio_default_test_loop_scope = "session"` so the asyncpg pool stays bound to the same loop tests run in.
+- `.github/workflows/ci.yml` — `test-api` job now provisions a postgres:16 service, runs `alembic upgrade head`, and exposes `DATABASE_URL` so the new tests run for real (rather than skipping).
+
+### CI status
+Push to main at commit 05f68e8. CI: all jobs completed success (lint, mypy, unit tests, migration check, build web).
+
+### Key facts / gotchas
+- pytest-asyncio's default function-scoped event loop breaks session-scoped DB fixtures: the asyncpg connection pool gets bound to one loop while subsequent tests run in fresh loops, raising `cannot perform operation: another operation is in progress`. Pinning both fixture and test loop scope to `session` fixes it. (Required `pytest-asyncio>=0.24` for `asyncio_default_test_loop_scope` — we have 1.3.0.)
+- asyncpg returns JSONB values to SQLAlchemy as Python dict OR JSON string depending on codec registration. Casting the function output to `::text` and using `json.loads` is portable across versions.
+- The scoring function uses Postgres `sign()` for W/D/L comparison: `sign(predicted_home - predicted_away) = sign(actual_home - actual_away)`. The knockout no-draw rule combines this with `NOT (is_knockout AND pred_diff = 0) AND NOT (is_knockout AND actual_diff = 0)` so neither side can earn result points on a 90-minute draw.
+- Same total goals + opposite winner = goals-only points (2pts), e.g. predicted 2-1 actual 1-2.
+- Two reflex test bugs caught by CI: predicted 1-1 vs actual 2-2 (totals differ → 0 goals pts) and predicted 1-0 vs actual 0-1 (totals match → 2 goals pts). Author had labelled both wrongly; the function was correct.
