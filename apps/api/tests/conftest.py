@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(loop_scope="session", scope="session")
 async def db_engine() -> AsyncIterator[AsyncEngine]:
     if not DATABASE_URL:
         pytest.skip("DATABASE_URL not set — Postgres-backed tests skipped")
@@ -29,16 +29,16 @@ async def db_engine() -> AsyncIterator[AsyncEngine]:
         await engine.dispose()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def db_conn(db_engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
-    """A connection wrapped in a transaction that always rolls back.
+    """Open a fresh connection per test and roll back on exit.
 
-    Tests should never see each other's writes — every test runs inside a
-    SAVEPOINT-style transaction that is discarded on exit.
+    Each test runs inside an auto-begun transaction. Rolling back keeps
+    the test suite hermetic even when tests insert rows (phase 1.6
+    trigger tests rely on this).
     """
     async with db_engine.connect() as conn:
-        trans = await conn.begin()
         try:
             yield conn
         finally:
-            await trans.rollback()
+            await conn.rollback()
