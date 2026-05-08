@@ -2,14 +2,27 @@
 
 import src.models  # noqa: F401 — side-effect: registers all models on Base.metadata
 from src.models import (
+    ActionType,
+    ActorType,
+    AuditLog,
     Base,
+    DeliveryStatus,
     Group,
     Invite,
+    KnockoutPrediction,
+    LeaderboardSnapshot,
     Match,
     MatchStatus,
+    NotificationLog,
+    NotificationPreferences,
+    NotificationType,
+    Prediction,
     Profile,
+    PushSubscription,
     RefreshToken,
     ResultSource,
+    SpecialPrediction,
+    SpecialPredictionType,
     Team,
 )
 from src.models.profile import PlayerRole
@@ -24,6 +37,14 @@ def test_metadata_has_expected_tables() -> None:
         "refresh_tokens",
         "invites",
         "matches",
+        "predictions",
+        "knockout_predictions",
+        "special_predictions",
+        "leaderboard_snapshots",
+        "push_subscriptions",
+        "notification_preferences",
+        "notification_log",
+        "audit_log",
     }
 
 
@@ -199,3 +220,275 @@ def test_match_fks() -> None:
     assert "groups.id" in fk_targets
     assert "teams.id" in fk_targets
     assert "profiles.id" in fk_targets
+
+
+# ---------------------------------------------------------------------------
+# Phase 1.3 — Prediction models
+# ---------------------------------------------------------------------------
+
+
+def test_prediction_columns() -> None:
+    cols = {c.name for c in Prediction.__table__.columns}
+    assert {
+        "id",
+        "player_id",
+        "match_id",
+        "predicted_home",
+        "predicted_away",
+        "submitted_at",
+        "update_count",
+        "points_awarded",
+        "points_breakdown",
+        "deleted_at",
+        "created_at",
+        "updated_at",
+    }.issubset(cols)
+
+
+def test_prediction_unique_constraint() -> None:
+    constraint_names = {c.name for c in Prediction.__table__.constraints}
+    assert "uq_predictions_player_match" in constraint_names
+
+
+def test_prediction_indexes() -> None:
+    index_names = {i.name for i in Prediction.__table__.indexes}
+    assert "ix_predictions_player_id" in index_names
+    assert "ix_predictions_match_id" in index_names
+
+
+def test_prediction_fks() -> None:
+    fk_targets = {fk.target_fullname for fk in Prediction.__table__.foreign_keys}
+    assert "profiles.id" in fk_targets
+    assert "matches.id" in fk_targets
+
+
+def test_prediction_update_count_default() -> None:
+    col = Prediction.__table__.c["update_count"]
+    assert col.server_default is not None
+
+
+def test_knockout_prediction_columns() -> None:
+    cols = {c.name for c in KnockoutPrediction.__table__.columns}
+    assert {
+        "id",
+        "player_id",
+        "match_id",
+        "predicted_winner_id",
+        "submitted_at",
+        "update_count",
+        "points_awarded",
+        "created_at",
+        "updated_at",
+    }.issubset(cols)
+
+
+def test_knockout_prediction_unique_constraint() -> None:
+    constraint_names = {c.name for c in KnockoutPrediction.__table__.constraints}
+    assert "uq_knockout_predictions_player_match" in constraint_names
+
+
+def test_knockout_prediction_fks() -> None:
+    fk_targets = {fk.target_fullname for fk in KnockoutPrediction.__table__.foreign_keys}
+    assert "profiles.id" in fk_targets
+    assert "matches.id" in fk_targets
+    assert "teams.id" in fk_targets
+
+
+def test_special_prediction_columns() -> None:
+    cols = {c.name for c in SpecialPrediction.__table__.columns}
+    assert {
+        "id",
+        "player_id",
+        "prediction_type",
+        "predicted_team_id",
+        "predicted_player_name",
+        "submitted_at",
+        "points_awarded",
+        "created_at",
+        "updated_at",
+    }.issubset(cols)
+
+
+def test_special_prediction_unique_constraint() -> None:
+    constraint_names = {c.name for c in SpecialPrediction.__table__.constraints}
+    assert "uq_special_predictions_player_type" in constraint_names
+
+
+def test_special_prediction_type_values() -> None:
+    assert {s.value for s in SpecialPredictionType} == {
+        "tournament_winner",
+        "golden_boot",
+        "top_scoring_team",
+    }
+
+
+def test_leaderboard_snapshot_columns() -> None:
+    cols = {c.name for c in LeaderboardSnapshot.__table__.columns}
+    assert {
+        "id",
+        "player_id",
+        "total_points",
+        "match_points",
+        "knockout_winner_points",
+        "special_points",
+        "rank",
+        "snapshot_at",
+        "triggered_by_match_id",
+        "created_at",
+    }.issubset(cols)
+
+
+def test_leaderboard_snapshot_indexes() -> None:
+    index_names = {i.name for i in LeaderboardSnapshot.__table__.indexes}
+    assert "ix_leaderboard_snapshots_snapshot_at_player_id" in index_names
+    assert "ix_leaderboard_snapshots_player_id" in index_names
+
+
+def test_leaderboard_snapshot_fks() -> None:
+    fk_targets = {fk.target_fullname for fk in LeaderboardSnapshot.__table__.foreign_keys}
+    assert "profiles.id" in fk_targets
+    assert "matches.id" in fk_targets
+
+
+def test_push_subscription_columns() -> None:
+    cols = {c.name for c in PushSubscription.__table__.columns}
+    assert {
+        "id",
+        "player_id",
+        "subscription",
+        "device_hint",
+        "failed_send_count",
+        "is_active",
+        "created_at",
+        "last_used_at",
+    }.issubset(cols)
+
+
+def test_push_subscription_defaults() -> None:
+    assert PushSubscription.__table__.c["failed_send_count"].server_default is not None
+    assert PushSubscription.__table__.c["is_active"].server_default is not None
+
+
+def test_notification_preferences_columns() -> None:
+    cols = {c.name for c in NotificationPreferences.__table__.columns}
+    assert {
+        "player_id",
+        "deadline_warning",
+        "match_locked",
+        "result_detected",
+        "leaderboard_shift",
+        "round_complete",
+        "match_postponed",
+        "special_results",
+        "global_mute",
+        "quiet_hours_start",
+        "quiet_hours_end",
+        "created_at",
+        "updated_at",
+    }.issubset(cols)
+
+
+def test_notification_preferences_pk_is_player_id() -> None:
+    pk_cols = {c.name for c in NotificationPreferences.__table__.primary_key}
+    assert pk_cols == {"player_id"}
+
+
+def test_notification_preferences_defaults() -> None:
+    t = NotificationPreferences.__table__
+    assert t.c["deadline_warning"].server_default is not None
+    assert t.c["global_mute"].server_default is not None
+
+
+# ---------------------------------------------------------------------------
+# Phase 1.3 — Notification log & audit log
+# ---------------------------------------------------------------------------
+
+
+def test_notification_log_columns() -> None:
+    cols = {c.name for c in NotificationLog.__table__.columns}
+    assert {
+        "id",
+        "player_id",
+        "notification_type",
+        "title",
+        "body",
+        "match_id",
+        "sent_at",
+        "delivery_status",
+    }.issubset(cols)
+
+
+def test_notification_type_values() -> None:
+    assert {n.value for n in NotificationType} == {
+        "deadline_warning",
+        "match_locked",
+        "result_detected",
+        "leaderboard_shift",
+        "round_complete",
+        "match_postponed",
+        "kickoff_changed",
+        "invite_accepted",
+        "auto_sync_failed",
+        "special_results",
+    }
+
+
+def test_delivery_status_values() -> None:
+    assert {s.value for s in DeliveryStatus} == {"sent", "failed", "expired", "suppressed"}
+
+
+def test_notification_log_indexes() -> None:
+    index_names = {i.name for i in NotificationLog.__table__.indexes}
+    assert "ix_notification_log_player_id" in index_names
+    assert "ix_notification_log_sent_at" in index_names
+
+
+def test_audit_log_columns() -> None:
+    cols = {c.name for c in AuditLog.__table__.columns}
+    assert {
+        "id",
+        "actor_id",
+        "actor_type",
+        "action_type",
+        "target_table",
+        "target_id",
+        "changes",
+        "timestamp",
+    }.issubset(cols)
+
+
+def test_actor_type_values() -> None:
+    assert {a.value for a in ActorType} == {"admin", "player", "system"}
+
+
+def test_action_type_values() -> None:
+    assert {a.value for a in ActionType} == {
+        "result_auto_fetched",
+        "result_manual_entered",
+        "result_overridden",
+        "match_postponed",
+        "match_rescheduled",
+        "match_cancelled",
+        "kickoff_changed",
+        "predictions_locked",
+        "player_removed",
+        "player_pin_reset",
+        "invite_created",
+        "invite_revoked",
+        "knockout_advanced",
+        "special_awarded",
+        "sync_triggered",
+        "sync_failed",
+        "tiebreaker_overridden",
+    }
+
+
+def test_audit_log_indexes() -> None:
+    index_names = {i.name for i in AuditLog.__table__.indexes}
+    assert "ix_audit_log_actor_id" in index_names
+    assert "ix_audit_log_timestamp" in index_names
+    assert "ix_audit_log_action_type" in index_names
+
+
+def test_audit_log_actor_id_nullable() -> None:
+    assert AuditLog.__table__.c["actor_id"].nullable is True
