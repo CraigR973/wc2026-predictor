@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -43,7 +44,7 @@ class Prediction(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     update_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     points_awarded: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    points_breakdown: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    points_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
 
 
@@ -123,7 +124,7 @@ class PushSubscription(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     player_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False
     )
-    subscription: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    subscription: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     device_hint: Mapped[str | None] = mapped_column(String(100), nullable=True)
     failed_send_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")

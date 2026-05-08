@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -102,7 +103,7 @@ class AuditLog(Base, UUIDPrimaryKeyMixin):
     )
     target_table: Mapped[str] = mapped_column(String(50), nullable=False)
     target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    changes: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    changes: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), server_default="now()", nullable=False
     )
