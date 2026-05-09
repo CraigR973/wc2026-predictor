@@ -4,7 +4,7 @@ import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 import bcrypt
 import jwt
@@ -80,7 +80,7 @@ def generate_opaque_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def decode_access_token(token: str) -> dict:
+def decode_access_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.jwt_access_secret, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
@@ -89,7 +89,7 @@ def decode_access_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
-def decode_refresh_token(token: str) -> dict:
+def decode_refresh_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.jwt_refresh_secret, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:

@@ -82,6 +82,7 @@ def _scalar(value: object) -> MagicMock:
 @asynccontextmanager
 async def _override_db(mock_db: AsyncMock) -> AsyncGenerator[None, None]:
     """Temporarily override the get_db dependency."""
+
     async def _fake_db() -> AsyncGenerator[AsyncSession, None]:
         yield mock_db
 
