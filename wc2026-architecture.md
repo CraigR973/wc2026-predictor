@@ -1332,7 +1332,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Bebas Neue + Outfit fonts loaded
 - **Acceptance:** `pnpm dev` starts; design tokens applied; correct colour palette visible
 
-**Phase 0.4: Supabase Setup & Auth** 🟢 Sonnet 4.6
+**Phase 0.4: Supabase Setup & Auth** 🟢 Sonnet 4.6 ✅ 2026-05-09
 - Supabase project created, credentials in `.env.example`
 - `profiles` + `refresh_tokens` tables + RLS policies
 - Name + PIN login flow with refresh token rotation

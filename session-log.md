@@ -306,3 +306,34 @@ Push to main at commit 28b2979. CI: all jobs completed success (lint, mypy, unit
 - `RANK()` (not `DENSE_RANK()`) was chosen for leaderboards — tied players share a rank and the next rank skips. So 10pts, 10pts, 0pts → ranks 1, 1, 3.
 - Tests build their own fixtures via raw SQL helpers (`_insert_group`, `_insert_team`, `_insert_profile`, `_insert_match`, `_insert_prediction`, `_insert_knockout_prediction`); the `db_conn` fixture rolls back on test exit so no cross-test pollution.
 - Reflex test bug caught by CI: predicted 0-1 vs actual 1-0 scores 2pts (matching totals), not 0pts. Test rewritten with carol predicting 0-2 to guarantee a clean zero.
+
+---
+
+## Phase 0.4 — Supabase Setup & Auth
+
+**Date:** 2026-05-09
+**Model:** Claude Sonnet 4.6
+**Commits:** fe44846 (auth impl), ee47ff2 (CI fixes — ruff format + mypy dict[str,Any])
+
+### Files modified
+- `apps/api/src/auth.py` — new; JWT creation/decode (access 24h, refresh 30d), bcrypt PIN helpers, `get_current_player` + `require_admin` FastAPI dependencies.
+- `apps/api/src/routers/auth.py` — new; `POST /api/v1/auth/login` (bcrypt verify, account lockout after 5 failures, 15-min lock, slowapi 10/min rate limit), `POST /api/v1/auth/refresh` (rotation — old record revoked, new issued), `POST /api/v1/auth/logout` (revoke token, always 204).
+- `apps/api/src/main.py` — import auth router, wire slowapi limiter + exception handler.
+- `apps/api/tests/test_auth.py` — new; 15 tests covering login happy/error paths, lockout, refresh rotation, logout idempotency, `require_admin` 403.
+- `apps/web/src/lib/tokens.ts` — new; localStorage helpers (store/get/clear access+refresh tokens + player info), JWT expiry check.
+- `apps/web/src/lib/api.ts` — new; `apiFetch` wrapper with proactive silent refresh (60s before expiry), 401 retry-once with refresh, redirect to /login on session expire.
+- `apps/web/src/contexts/AuthContext.tsx` — new; `AuthProvider` + `useAuth` hook (login, logout, stored player state).
+- `apps/web/src/pages/LoginPage.tsx` — new; name + PIN form, error display, redirects to `/` on success.
+- `apps/web/src/components/ProtectedRoute.tsx` — new; `<Outlet>` guard: unauthenticated → `/login`, non-admin on admin route → `/`.
+- `apps/web/src/App.tsx` — new; react-router-dom `<BrowserRouter>` with login route, player-protected `/`, admin-only `/admin`.
+- `apps/web/src/main.tsx` — rewritten; replaces design-system preview with `<App />`.
+
+### CI status
+Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tests (pytest), migration check, build web.
+
+### Key facts / gotchas
+- RLS policies were included in the Phase 1.1 migration (`001_core_schema.py`) with a DO-block that skips on plain Postgres and only enables them when the Supabase `auth` schema exists. No separate migration needed for Phase 0.4.
+- Refresh token scheme: the JWT refresh token itself is the client secret. We store `sha256(jwt_string)` in `refresh_tokens.token_hash` for O(1) lookup without exposing the token. On refresh: decode JWT → extract `jti` (= DB record UUID), hash the incoming JWT, `WHERE id = jti AND token_hash = hash AND revoked_at IS NULL`.
+- slowapi `_rate_limit_exceeded_handler` has a signature that doesn't match FastAPI's `add_exception_handler` expected type. Must add `# type: ignore[arg-type]` on that line for mypy strict mode.
+- `app.dependency_overrides[get_db]` is required to mock the DB in FastAPI tests — `patch("src.routers.auth.get_db")` does NOT work because FastAPI resolves dependencies at startup, not at call time.
+- The worktree branch `claude/dreamy-banach-eb8a80` was pushed to `origin main` via `git push origin HEAD:main` since the CI only runs on `main`/PRs targeting `main`.
