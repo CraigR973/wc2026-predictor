@@ -1389,7 +1389,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Unit tests covering 25+ edge cases
 - **Acceptance:** All test cases return correct points; function called within a transaction
 
-**Phase 1.6: Scoring Trigger & Snapshot Insert** 🔴 Opus
+**Phase 1.6: Scoring Trigger & Snapshot Insert** 🔴 Opus ✅ 2026-05-08
 - Postgres trigger on `matches` UPDATE: when scores set, calls scoring function for all predictions
 - Updates `predictions.points_awarded` + `predictions.points_breakdown`
 - Same for `knockout_predictions` (if knockout match)

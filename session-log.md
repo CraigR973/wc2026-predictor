@@ -281,3 +281,28 @@ Push to main at commit 05f68e8. CI: all jobs completed success (lint, mypy, unit
 - The scoring function uses Postgres `sign()` for W/D/L comparison: `sign(predicted_home - predicted_away) = sign(actual_home - actual_away)`. The knockout no-draw rule combines this with `NOT (is_knockout AND pred_diff = 0) AND NOT (is_knockout AND actual_diff = 0)` so neither side can earn result points on a 90-minute draw.
 - Same total goals + opposite winner = goals-only points (2pts), e.g. predicted 2-1 actual 1-2.
 - Two reflex test bugs caught by CI: predicted 1-1 vs actual 2-2 (totals differ → 0 goals pts) and predicted 1-0 vs actual 0-1 (totals match → 2 goals pts). Author had labelled both wrongly; the function was correct.
+
+---
+
+## Phase 1.6 — Scoring Trigger & Snapshot Insert
+**Date:** 2026-05-08
+**Model:** Claude Opus 4.7
+**Commits:** 1896c8a (trigger + tests), b7cbd8d (split DDL), 28b2979 (rank-tie test fix)
+
+### Files modified
+- `migrations/versions/005_scoring_trigger.py` — new; two triggers on `matches`:
+  - `matches_set_result_entered_at` (BEFORE UPDATE): stamps `result_entered_at = now()` atomically with the score update.
+  - `matches_score_results` (AFTER UPDATE): cascades scoring into `predictions`, `knockout_predictions`, and `leaderboard_snapshots` for every active player. Uses `RANK() OVER (ORDER BY total_points DESC)` so ties share a rank.
+  - Both fire only on the NULL → value transition of `actual_home_score`/`actual_away_score`, so unrelated UPDATEs (venue change, status flip) don't re-trigger.
+- `apps/api/tests/test_scoring_trigger.py` — new; 16 integration tests against a live Postgres covering: group-stage scoring, leaderboard snapshot row per active player, soft-deleted player exclusion, knockout round points per stage (parametrised across r32/r16/qf/sf/third_place/final), penalty-decided draws, group match leaving knockout_predictions untouched, RANK() tie semantics (1, 1, 3 — gap), NULL prediction → `no_prediction: true` breakdown, atomicity (predictions / snapshots / `result_entered_at` all visible together after the UPDATE returns).
+
+### CI status
+Push to main at commit 28b2979. CI: all jobs completed success (lint, mypy, unit tests, migration check, build web).
+
+### Key facts / gotchas
+- asyncpg + SQLAlchemy uses prepared statements and rejects multi-statement SQL with `cannot insert multiple commands into a prepared statement`. `DROP TRIGGER ... ; CREATE TRIGGER ...` must be split into separate `op.execute()` calls in alembic migrations.
+- The trigger's `WHEN` clause uses `(OLD.actual_home_score IS NULL OR OLD.actual_away_score IS NULL) AND NEW.actual_home_score IS NOT NULL AND NEW.actual_away_score IS NOT NULL` so any subsequent edit (including correcting a wrong score) won't re-fire and double-snapshot. A separate "result_overridden" path will be needed in a later phase if admins need to amend a result.
+- 90-min knockout draw: the trigger reads `NEW.penalty_winner_id` to determine the actual winner for `knockout_predictions`. If that field is NULL (e.g. ET-only match), no one is awarded the round points.
+- `RANK()` (not `DENSE_RANK()`) was chosen for leaderboards — tied players share a rank and the next rank skips. So 10pts, 10pts, 0pts → ranks 1, 1, 3.
+- Tests build their own fixtures via raw SQL helpers (`_insert_group`, `_insert_team`, `_insert_profile`, `_insert_match`, `_insert_prediction`, `_insert_knockout_prediction`); the `db_conn` fixture rolls back on test exit so no cross-test pollution.
+- Reflex test bug caught by CI: predicted 0-1 vs actual 1-0 scores 2pts (matching totals), not 0pts. Test rewritten with carol predicting 0-2 to guarantee a clean zero.
