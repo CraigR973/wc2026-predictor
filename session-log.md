@@ -337,3 +337,26 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 - slowapi `_rate_limit_exceeded_handler` has a signature that doesn't match FastAPI's `add_exception_handler` expected type. Must add `# type: ignore[arg-type]` on that line for mypy strict mode.
 - `app.dependency_overrides[get_db]` is required to mock the DB in FastAPI tests — `patch("src.routers.auth.get_db")` does NOT work because FastAPI resolves dependencies at startup, not at call time.
 - The worktree branch `claude/dreamy-banach-eb8a80` was pushed to `origin main` via `git push origin HEAD:main` since the CI only runs on `main`/PRs targeting `main`.
+
+---
+
+### Phase 2.1 — Invite API
+**Date:** 2026-05-09
+**Model:** Claude Sonnet 4.6
+**Status:** ✅ Complete
+**Commits:** 6221dfb (worktree), b7764d8 (main via cherry-pick)
+**CI:** ✅ All jobs green (run 25613178144)
+
+**Files modified:**
+- `apps/api/src/routers/admin.py` — new; `POST /api/v1/admin/invites` (create with optional display_name_hint + expires_in_days), `GET /api/v1/admin/invites` (list all, descending), `DELETE /api/v1/admin/invites/{id}` (revoke: sets is_active=False). All behind `AdminPlayer` dependency.
+- `apps/api/src/main.py` — registered admin router.
+- `apps/api/src/models/base.py` — added Python-level `default=_utcnow` to `TimestampMixin.created_at` so unit-tested ORM objects have valid timestamps without a DB round-trip.
+- `apps/api/src/models/invite.py` — added `default=True` to `is_active` for the same reason.
+- `apps/api/tests/test_invites.py` — new; 9 tests covering create (with/without hint, with/without expiry), list (multiple, empty), revoke (success, 404, already-revoked idempotency), auth guard.
+
+**Key facts / gotchas:**
+- SQLAlchemy `mapped_column(server_default=...)` does NOT set a Python attribute default — the value is only known after flush+SELECT from DB. Tests that mock `db.refresh` as a no-op need Python-level `default=` on any column the endpoint reads back post-commit, or must set attributes explicitly in the router before calling `_to_response`.
+- Phase 2.1 was built on the worktree branch `claude/great-shamir-f35fa7`. That branch diverged from main (main had 2 conftest commits the worktree lacked). Used `git cherry-pick` to land on main.
+- The `_to_response` helper is intentionally in the same file (not a shared util) — no other router needs it yet.
+
+**Next:** Phase 2.2 — Join Flow API

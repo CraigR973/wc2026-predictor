@@ -1401,7 +1401,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 2 — Auth & Player Management
 
-**Phase 2.1: Invite API** 🟢 Sonnet 4.6
+**Phase 2.1: Invite API** 🟢 Sonnet 4.6 ✅ 2026-05-09
 - `POST /api/v1/admin/invites` — create invite (optional name hint, expiry)
 - `GET /api/v1/admin/invites` — list all
 - `DELETE /api/v1/admin/invites/{id}` — revoke
