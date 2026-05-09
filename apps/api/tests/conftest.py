@@ -44,9 +44,7 @@ async def db_conn(db_engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
     from sqlalchemy import text
 
     async with db_engine.connect() as conn:
-        await conn.execute(
-            text("UPDATE profiles SET deleted_at = now() WHERE deleted_at IS NULL")
-        )
+        await conn.execute(text("UPDATE profiles SET deleted_at = now() WHERE deleted_at IS NULL"))
         try:
             yield conn
         finally:
