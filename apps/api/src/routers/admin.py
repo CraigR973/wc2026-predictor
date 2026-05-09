@@ -1,0 +1,121 @@
+"""Admin endpoints: invite management."""
+
+import uuid
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
+
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.auth import AdminPlayer, generate_opaque_token
+from src.database import get_db
+from src.models.invite import Invite
+
+log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
+
+router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+def _now() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+
+
+class CreateInviteRequest(BaseModel):
+    display_name_hint: str | None = None
+    expires_in_days: int | None = 7
+
+
+class InviteResponse(BaseModel):
+    id: str
+    token: str
+    display_name_hint: str | None
+    created_by: str
+    claimed_by: str | None
+    claimed_at: datetime | None
+    expires_at: datetime | None
+    is_active: bool
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/invites", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
+async def create_invite(
+    body: CreateInviteRequest,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> InviteResponse:
+    expires_at = None
+    if body.expires_in_days is not None:
+        expires_at = _now() + timedelta(days=body.expires_in_days)
+
+    invite = Invite(
+        token=generate_opaque_token(),
+        display_name_hint=body.display_name_hint,
+        created_by=admin.id,
+        expires_at=expires_at,
+        is_active=True,
+        created_at=_now(),
+    )
+    db.add(invite)
+    await db.commit()
+    await db.refresh(invite)
+
+    log.info("invite created", invite_id=str(invite.id), admin_id=str(admin.id))
+    return _to_response(invite)
+
+
+@router.get("/invites", response_model=list[InviteResponse])
+async def list_invites(
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[InviteResponse]:
+    result = await db.execute(select(Invite).order_by(Invite.created_at.desc()))
+    invites = result.scalars().all()
+    return [_to_response(i) for i in invites]
+
+
+@router.delete("/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_invite(
+    invite_id: uuid.UUID,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    result = await db.execute(select(Invite).where(Invite.id == invite_id))
+    invite = result.scalar_one_or_none()
+    if invite is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+
+    invite.is_active = False
+    await db.commit()
+    log.info("invite revoked", invite_id=str(invite_id), admin_id=str(admin.id))
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _to_response(invite: Invite) -> InviteResponse:
+    return InviteResponse(
+        id=str(invite.id),
+        token=invite.token,
+        display_name_hint=invite.display_name_hint,
+        created_by=str(invite.created_by),
+        claimed_by=str(invite.claimed_by) if invite.claimed_by else None,
+        claimed_at=invite.claimed_at,
+        expires_at=invite.expires_at,
+        is_active=invite.is_active,
+        created_at=invite.created_at,
+    )

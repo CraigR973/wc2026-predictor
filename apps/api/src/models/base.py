@@ -1,9 +1,13 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Base(DeclarativeBase):
@@ -16,7 +20,7 @@ class UUIDPrimaryKeyMixin:
 
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), server_default=func.now(), nullable=False
+        DateTime(timezone=False), server_default=func.now(), default=_utcnow, nullable=False
     )
 
 

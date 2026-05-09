@@ -22,4 +22,6 @@ class Invite(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="true", default=True
+    )
