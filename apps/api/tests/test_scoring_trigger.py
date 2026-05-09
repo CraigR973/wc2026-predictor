@@ -570,10 +570,11 @@ async def test_leaderboard_rank_with_tie(db_conn: AsyncConnection) -> None:
         away_team_id=away,
         group_id=g,
     )
-    # alice & bob both predict 1-0 (exact = 10pts), carol predicts 0-1 (0pts).
+    # alice & bob both predict 1-0 (exact = 10pts), carol predicts 0-2 (0pts —
+    # totals differ AND opposite winner).
     await _insert_prediction(db_conn, player_id=alice, match_id=match, home=1, away=0)
     await _insert_prediction(db_conn, player_id=bob, match_id=match, home=1, away=0)
-    await _insert_prediction(db_conn, player_id=carol, match_id=match, home=0, away=1)
+    await _insert_prediction(db_conn, player_id=carol, match_id=match, home=0, away=2)
 
     await _enter_result(db_conn, match, 1, 0)
 
