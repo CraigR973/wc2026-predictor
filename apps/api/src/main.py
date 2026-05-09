@@ -9,11 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.types import Event, Hint
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from src.config import settings
 from src.logging_config import configure_logging
 from src.middleware import CorrelationIdMiddleware
-from src.routers import health
+from src.routers import auth, health
 
 configure_logging(settings.log_level)
 
@@ -46,6 +49,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
+_limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="WC2026 Prediction League API",
     version="0.1.0",
@@ -54,6 +59,9 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
+
+app.state.limiter = _limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,3 +73,4 @@ app.add_middleware(
 app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(health.router)
+app.include_router(auth.router)
