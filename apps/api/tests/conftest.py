@@ -36,8 +36,17 @@ async def db_conn(db_engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
     Each test runs inside an auto-begun transaction. Rolling back keeps
     the test suite hermetic even when tests insert rows (phase 1.6
     trigger tests rely on this).
+
+    Pre-existing committed profiles (e.g. the admin seeded in production)
+    are soft-deleted within the transaction so they don't inflate trigger-
+    driven leaderboard snapshot counts. The rollback restores them.
     """
+    from sqlalchemy import text
+
     async with db_engine.connect() as conn:
+        await conn.execute(
+            text("UPDATE profiles SET deleted_at = now() WHERE deleted_at IS NULL")
+        )
         try:
             yield conn
         finally:
