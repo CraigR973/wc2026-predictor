@@ -1,42 +1,49 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { JoinPage } from './pages/JoinPage';
+import { SchedulePage } from './pages/SchedulePage';
+import { GroupsPage } from './pages/GroupsPage';
+import { GroupDetailPage } from './pages/GroupDetailPage';
 import { AdminInvitesPage } from './pages/admin/InvitesPage';
 import { AdminPlayersPage } from './pages/admin/PlayersPage';
 import { useAuth } from './contexts/AuthContext';
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 function Dashboard() {
-  const { player, logout } = useAuth();
+  const { player } = useAuth();
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="font-display text-4xl text-primary tracking-wider">WC 2026 PREDICTOR</h1>
-          <button
-            onClick={logout}
-            className="text-sm text-text-secondary hover:text-text-primary font-sans transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
-        <p className="text-text-secondary font-sans">
-          Welcome, <span className="text-text-primary font-medium">{player?.displayName}</span>
-          {player?.role === 'admin' && (
-            <span className="ml-2 text-xs text-primary font-mono">[admin]</span>
-          )}
-        </p>
-        {player?.role === 'admin' && (
-          <div className="mt-6 p-4 rounded-lg border border-border bg-surface flex gap-4">
-            <a href="/admin/invites" className="text-sm text-primary hover:underline font-sans">
-              Manage invites
-            </a>
-            <a href="/admin/players" className="text-sm text-primary hover:underline font-sans">
-              Manage players
-            </a>
-          </div>
-        )}
+    <div>
+      <h1 className="font-display text-4xl text-primary tracking-wider mb-4">WC 2026 PREDICTOR</h1>
+      <p className="text-text-secondary font-sans">
+        Welcome back, <span className="text-text-primary font-medium">{player?.displayName}</span>!
+      </p>
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a
+          href="/schedule"
+          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
+        >
+          <p className="font-display text-xl text-primary tracking-wider">Schedule</p>
+          <p className="text-text-muted text-sm font-sans mt-1">Browse all 104 matches</p>
+        </a>
+        <a
+          href="/groups"
+          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
+        >
+          <p className="font-display text-xl text-primary tracking-wider">Groups</p>
+          <p className="text-text-muted text-sm font-sans mt-1">Live group standings</p>
+        </a>
       </div>
     </div>
   );
@@ -44,26 +51,35 @@ function Dashboard() {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/join/:token" element={<JoinPage />} />
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/join/:token" element={<JoinPage />} />
 
-          {/* Player routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Dashboard />} />
-          </Route>
+            {/* Player routes — wrapped in Layout (NavBar + main) */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/schedule" element={<SchedulePage />} />
+                <Route path="/groups" element={<GroupsPage />} />
+                <Route path="/groups/:name" element={<GroupDetailPage />} />
+              </Route>
+            </Route>
 
-          {/* Admin-only routes */}
-          <Route element={<ProtectedRoute requireAdmin />}>
-            <Route path="/admin/invites" element={<AdminInvitesPage />} />
-            <Route path="/admin/players" element={<AdminPlayersPage />} />
-          </Route>
+            {/* Admin-only routes */}
+            <Route element={<ProtectedRoute requireAdmin />}>
+              <Route element={<Layout />}>
+                <Route path="/admin/invites" element={<AdminInvitesPage />} />
+                <Route path="/admin/players" element={<AdminPlayersPage />} />
+              </Route>
+            </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }

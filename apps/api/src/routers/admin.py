@@ -1,4 +1,4 @@
-"""Admin endpoints: invite management, player management."""
+"""Admin endpoints: invite management, player management, standings override."""
 
 import secrets
 import uuid
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import AdminPlayer, generate_opaque_token, hash_pin
 from src.database import get_db
+from src.models.group import Group
 from src.models.invite import Invite
 from src.models.profile import Profile
 
@@ -49,6 +50,10 @@ class InviteResponse(BaseModel):
 
 class ResetPinResponse(BaseModel):
     temp_pin: str
+
+
+class OverrideStandingsRequest(BaseModel):
+    positions: list[str]  # ordered list of team codes, position 1 first
 
 
 class AdminPlayerResponse(BaseModel):
@@ -165,6 +170,22 @@ async def reset_player_pin(
 
     log.info("pin reset by admin", player_id=str(player_id), admin_id=str(admin.id))
     return ResetPinResponse(temp_pin=temp_pin)
+
+
+@router.post("/groups/{name}/override-standings", status_code=status.HTTP_204_NO_CONTENT)
+async def override_standings(
+    name: str,
+    body: OverrideStandingsRequest,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    result = await db.execute(select(Group).where(Group.name == name.upper()))
+    group = result.scalar_one_or_none()
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    group.standings_override = body.positions
+    await db.commit()
+    log.info("standings override set", group=name.upper(), positions=body.positions)
 
 
 @router.delete("/players/{player_id}", status_code=status.HTTP_204_NO_CONTENT)

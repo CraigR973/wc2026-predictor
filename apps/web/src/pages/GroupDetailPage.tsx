@@ -1,0 +1,124 @@
+import { useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from '../lib/api';
+import type { GroupResponse } from '../lib/types';
+import { supabase } from '../lib/supabase';
+
+export function GroupDetailPage() {
+  const { name } = useParams<{ name: string }>();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading, error } = useQuery<GroupResponse>({
+    queryKey: ['group', name],
+    queryFn: () => apiFetch<GroupResponse>(`/api/v1/groups/${name}`),
+    staleTime: 30_000,
+    enabled: !!name,
+  });
+
+  // Supabase Realtime: invalidate this group's query on any match change
+  useEffect(() => {
+    const channel = supabase
+      .channel(`group-${name}-changes`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'matches' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['group', name] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [name, queryClient]);
+
+  if (isLoading) {
+    return <p className="text-text-muted font-sans text-sm">Loading…</p>;
+  }
+  if (error || !data) {
+    return (
+      <div>
+        <p className="text-error font-sans text-sm">Group not found.</p>
+        <Link to="/groups" className="text-primary text-sm hover:underline">
+          ← Back to groups
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-4 mb-6">
+        <Link to="/groups" className="text-text-muted hover:text-primary text-sm font-sans transition-colors">
+          ← Groups
+        </Link>
+        <h1 className="font-display text-3xl text-primary tracking-wider">
+          Group {data.name}
+        </h1>
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface overflow-hidden">
+        <table className="w-full text-sm font-sans">
+          <thead>
+            <tr className="border-b border-border text-text-muted text-xs bg-surface-elevated">
+              <th className="py-3 pl-4 text-left w-8">#</th>
+              <th className="py-3 text-left">Team</th>
+              <th className="py-3 text-center w-10">P</th>
+              <th className="py-3 text-center w-10">W</th>
+              <th className="py-3 text-center w-10">D</th>
+              <th className="py-3 text-center w-10">L</th>
+              <th className="py-3 text-center w-12">GF</th>
+              <th className="py-3 text-center w-12">GA</th>
+              <th className="py-3 text-center w-12">GD</th>
+              <th className="py-3 pr-4 text-center w-12 font-semibold">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.standings.map((s, idx) => (
+              <tr
+                key={s.team_id}
+                className={`border-b border-border/50 last:border-0 transition-colors hover:bg-surface-elevated ${
+                  idx < 2 ? 'border-l-2 border-l-primary' : ''
+                }`}
+              >
+                <td className="py-3 pl-4 text-text-muted font-mono">{s.position}</td>
+                <td className="py-3">
+                  <span className="mr-2 text-base">{s.flag_emoji}</span>
+                  <span className="text-text-primary font-medium">{s.team_name}</span>
+                  <span className="text-text-muted ml-2 text-xs font-mono">({s.team_code})</span>
+                </td>
+                <td className="py-3 text-center text-text-secondary">{s.played}</td>
+                <td className="py-3 text-center text-text-secondary">{s.won}</td>
+                <td className="py-3 text-center text-text-secondary">{s.drawn}</td>
+                <td className="py-3 text-center text-text-secondary">{s.lost}</td>
+                <td className="py-3 text-center text-text-secondary">{s.gf}</td>
+                <td className="py-3 text-center text-text-secondary">{s.ga}</td>
+                <td className="py-3 text-center text-text-secondary">
+                  {s.gd > 0 ? `+${s.gd}` : s.gd}
+                </td>
+                <td className="py-3 pr-4 text-center font-bold text-text-primary text-base">
+                  {s.points}
+                </td>
+              </tr>
+            ))}
+            {data.standings.length === 0 && (
+              <tr>
+                <td colSpan={10} className="py-8 text-center text-text-muted text-sm">
+                  No results yet — check back after matches are played.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {data.standings.length > 0 && (
+        <p className="text-xs text-text-muted font-sans mt-3">
+          Top 2 teams (highlighted) advance to the Round of 32.
+        </p>
+      )}
+    </div>
+  );
+}
