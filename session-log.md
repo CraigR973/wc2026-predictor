@@ -367,7 +367,7 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 
 **Model:** claude-sonnet-4-6
 **Commits:** `aa3914f` (feat), close-out commit to follow
-**CI:** GITHUB_TOKEN not available in session; push succeeded via SSH; CI status unverified locally
+**CI:** ✅ green (run 25625656979) — two extra fix commits needed: ruff E501 (line length) and ruff format
 
 ### Files modified
 - `apps/api/src/routers/auth.py` — added `POST /auth/join`, `GET /auth/me`, `PUT /auth/me/pin`
@@ -384,5 +384,7 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 - `NotificationPreferences` model is in `src/models/prediction.py` (shared file with Prediction, etc.) — import from there.
 - `hash_pin` is in `src/auth.py` alongside `verify_pin`; both are importable into routers.
 - The venv for this project is at `apps/api/.venv` in the **main repo**, not in the worktree directory — use the absolute path `/Users/craigrobinson/wc_2026_predictor/apps/api/.venv/bin/pytest` when running tests from within a worktree.
+- `GITHUB_TOKEN` is in `/Users/craigrobinson/wc_2026_predictor/.env`. The `gh` CLI is NOT installed — use `curl` + the GitHub REST API directly. See memory file `reference_github_token.md` for the full polling pattern.
+- CI runs both `ruff check` (lint) and `ruff format --check` (formatting). Always run both locally before pushing: `ruff check . && ruff format .` from `apps/api/`.
 
 **Next:** Phase 2.5 — Join & Login UI
