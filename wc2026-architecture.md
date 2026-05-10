@@ -1490,7 +1490,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Audit: `submitted_at` set on first save, `updated_at` auto, `update_count` increments
 - **Acceptance:** Prediction saved before lock; rejected after lock with `PREDICTION_LOCKED`; another player's predictions hidden pre-lock
 
-**Phase 4.2: My Predictions UI** 🟢 Sonnet 4.6
+**Phase 4.2: My Predictions UI** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `/predictions` page with group tabs (A–L)
 - Prediction card per match
 - Locked / postponed / cancelled matches: read-only with appropriate visual state

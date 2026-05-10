@@ -478,3 +478,27 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 - badge.tsx variants in this project: `default`, `success`, `error`, `muted`, `accent` — NOT `secondary` or `destructive`.
 
 **Next:** Phase 3.5 — Match Lock Scheduler & Reschedule Handling
+
+---
+
+## Phase 4.2 — My Predictions UI
+**Date:** 2026-05-10
+**Model:** claude-sonnet-4-6
+**Commits:** 786be84
+**CI:** ✅ green
+
+### Files modified
+- `apps/web/src/lib/types.ts` — added `PredictionResponse` + `PointsBreakdown` types
+- `apps/web/src/pages/PredictionsPage.tsx` — new: `/predictions` page — group tabs A–L, prediction card per match, debounced autosave (800 ms), save-all button per group, points badge once result entered, locked/postponed/cancelled inputs disabled with visual state
+- `apps/web/src/test/PredictionsPage.test.tsx` — new: 10 vitest tests (tab rendering, editable/disabled inputs, voided badge, points badge, autosave PUT call, save button state)
+- `apps/web/src/App.tsx` — added `/predictions` route + dashboard card
+- `apps/web/src/components/NavBar.tsx` — added "Predict" nav item
+
+### Key facts for future sessions
+- `@testing-library/jest-dom` was missing from the installed packages — added it as a devDep. It's now in `apps/web/package.json` and the lockfile.
+- vitest localStorage stubs must use the correct keys from `tokens.ts`: `wc2026_access`, `wc2026_refresh`, `wc2026_player` — NOT `wc_access_token` / `wc_player`.
+- `isAccessTokenExpiringSoon()` parses the JWT — tests need a fake JWT with a future `exp`, not just `'fake-token'`. Pattern: `eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwMSIsImV4cCI6OTk5OTk5OTk5OX0.fake`
+- The predictions page uses debounced autosave (800 ms) per match ID stored in a `useRef<Record<string, ReturnType<typeof setTimeout>>>`. Save-all skips matches with empty inputs.
+- PUT `/api/v1/predictions/{match_id}` returns 409 `PREDICTION_LOCKED` when match is not `scheduled` — the component only enables inputs for `scheduled` status.
+
+**Next:** Phase 4.3 (TBD — check architecture doc)
