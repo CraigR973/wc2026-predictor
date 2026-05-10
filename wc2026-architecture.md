@@ -1408,13 +1408,13 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Integration tests
 - **Acceptance:** Admin creates invite; token is unique; deletion revokes access
 
-**Phase 2.2: Join Flow API** 🟢 Sonnet 4.6
+**Phase 2.2: Join Flow API** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `POST /api/v1/auth/join` — validate token, check display_name uniqueness, create profile + notification_preferences row, issue JWT pair
 - Enforce max 15 active players at claim time
 - Mark invite as claimed
 - **Acceptance:** Valid token creates player + default preferences; second use rejected; 16th player rejected; duplicate name rejected
 
-**Phase 2.3: Login & Refresh API** 🟢 Sonnet 4.6
+**Phase 2.3: Login & Refresh API** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `POST /api/v1/auth/login` — name + PIN, return JWT pair, manage `failed_login_count` and `locked_until`
 - `POST /api/v1/auth/refresh` — exchange refresh token for new pair (with rotation)
 - `POST /api/v1/auth/logout` — invalidate refresh token
@@ -1423,7 +1423,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - `POST /api/v1/admin/players/{id}/reset-pin`
 - **Acceptance:** Correct PIN returns JWT pair; wrong PIN increments counter; 5th fail locks for 15 min; refresh rotates token; logout invalidates
 
-**Phase 2.4: Player API** 🟢 Sonnet 4.6
+**Phase 2.4: Player API** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `GET /api/v1/players` — list active players (`is_active = true`)
 - `GET /api/v1/players/{id}` — profile + stats stub (works for soft-deleted too, with flag)
 - `DELETE /api/v1/admin/players/{id}` — soft delete (`is_active = false`)

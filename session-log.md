@@ -360,3 +360,29 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 - The `_to_response` helper is intentionally in the same file (not a shared util) — no other router needs it yet.
 
 **Next:** Phase 2.2 — Join Flow API
+
+---
+
+## Session: 2026-05-10 — Phases 2.2, 2.3, 2.4
+
+**Model:** claude-sonnet-4-6
+**Commits:** `aa3914f` (feat), close-out commit to follow
+**CI:** GITHUB_TOKEN not available in session; push succeeded via SSH; CI status unverified locally
+
+### Files modified
+- `apps/api/src/routers/auth.py` — added `POST /auth/join`, `GET /auth/me`, `PUT /auth/me/pin`
+- `apps/api/src/routers/admin.py` — added `POST /admin/players/{id}/reset-pin`, `DELETE /admin/players/{id}`
+- `apps/api/src/routers/players.py` — new file: `GET /players`, `GET /players/{id}`
+- `apps/api/src/main.py` — registered `players` router
+- `apps/api/tests/test_join.py` — 8 tests for join flow
+- `apps/api/tests/test_auth_extras.py` — 7 tests for me/pin/reset-pin
+- `apps/api/tests/test_players.py` — 10 tests for player list/get/delete
+
+### Key facts for future sessions
+- `UUIDPrimaryKeyMixin.id` uses `default=uuid.uuid4` which is a column-level INSERT default in SQLAlchemy 2.x — it is NOT set on the Python object at `__init__` time. Any router that needs the new object's id before a real DB flush (e.g. to set FK on a related object) must pass `id=uuid.uuid4()` explicitly in the ORM constructor. This is done in `POST /auth/join`.
+- `CurrentPlayer` type alias lives in `src/auth.py` — import it directly there, not from the router.
+- `NotificationPreferences` model is in `src/models/prediction.py` (shared file with Prediction, etc.) — import from there.
+- `hash_pin` is in `src/auth.py` alongside `verify_pin`; both are importable into routers.
+- The venv for this project is at `apps/api/.venv` in the **main repo**, not in the worktree directory — use the absolute path `/Users/craigrobinson/wc_2026_predictor/apps/api/.venv/bin/pytest` when running tests from within a worktree.
+
+**Next:** Phase 2.5 — Join & Login UI
