@@ -388,3 +388,49 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 - CI runs both `ruff check` (lint) and `ruff format --check` (formatting). Always run both locally before pushing: `ruff check . && ruff format .` from `apps/api/`.
 
 **Next:** Phase 2.5 — Join & Login UI
+
+---
+
+## Session: 2026-05-10 — Phases 2.5 & 2.6
+
+**Model:** claude-sonnet-4-6
+**Commits:** `3b4230e` (feat), `35bcd28` (fix: empty interface + mypy dict type), `0ed5b54` (fix: tsconfig TS6305)
+**CI:** ✅ green (run 25627812713) — 3 extra fix commits: eslint empty-interface, mypy type-arg, tsconfig TS6305
+
+### Files modified / created
+
+**Backend:**
+- `apps/api/src/routers/auth.py` — added `GET /auth/invite/{token}` (public invite preview)
+- `apps/api/src/routers/players.py` — added `GET /players/names` (public, no auth)
+- `apps/api/src/routers/admin.py` — added `GET /admin/players` (include_deleted flag)
+- `apps/api/tests/test_new_endpoints.py` — 10 new tests
+
+**Frontend:**
+- `apps/web/src/pages/JoinPage.tsx` — new: /join/:token, invite validation, PIN + timezone
+- `apps/web/src/pages/LoginPage.tsx` — updated: name dropdown from API, locked-account error
+- `apps/web/src/pages/admin/InvitesPage.tsx` — new: /admin/invites (list/create/copy/revoke)
+- `apps/web/src/pages/admin/PlayersPage.tsx` — new: /admin/players (list/delete/reset-PIN modal)
+- `apps/web/src/App.tsx` — added routes for /join/:token, /admin/invites, /admin/players
+- `apps/web/src/components/ui/input.tsx` — new shadcn component
+- `apps/web/src/components/ui/label.tsx` — new shadcn component
+- `apps/web/src/components/ui/select.tsx` — new shadcn component (Radix)
+- `apps/web/src/components/ui/dialog.tsx` — new shadcn component (Radix)
+- `apps/web/src/test/JoinPage.test.tsx` — 4 vitest tests
+- `apps/web/src/test/LoginPage.test.tsx` — 3 vitest tests
+- `apps/web/src/test/setup.ts` — vitest setup with @testing-library/jest-dom
+- `apps/web/vite.config.ts` — added vitest config block (jsdom + globals + setupFiles); changed `@` alias to `fileURLToPath(new URL('./src', import.meta.url))`
+- `apps/web/package.json` — added @radix-ui/react-dialog, @radix-ui/react-label, @radix-ui/react-select, sonner, @testing-library/jest-dom
+- `pnpm-lock.yaml` — updated for new packages
+
+### Key facts for future sessions
+- `GET /api/v1/players/names` is **unauthenticated** — designed for the login dropdown. Do not add auth to it.
+- `GET /api/v1/auth/invite/{token}` is **unauthenticated** — returns only `{display_name_hint}`. Used by JoinPage on mount.
+- JoinPage stores tokens by calling `storeTokens()` directly (import from `@/lib/tokens`) and then does `window.location.href = '/'` to force AuthProvider to re-read from localStorage. It does NOT use the `login()` from AuthContext because join returns a full token pair, not just player+pin.
+- vitest must be run from `apps/web/` directory (not monorepo root) — the `vite.config.ts` is at workspace level and vitest resolves aliases relative to it.
+- pnpm is at `/usr/local/bin/pnpm` but requires node ≥18 — use `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm ...` in the worktree shell where only node 14 is on PATH.
+- The `@/` alias in `vite.config.ts` uses `fileURLToPath(new URL('./src', import.meta.url))` — `'/src'` absolute path works in dev server but not in vitest (which runs from the workspace root).
+- badge.tsx variants: `default` (blue), `success` (green), `error` (red), `muted` (grey), `accent` (orange) — NOT `secondary` or `destructive`.
+- ESLint rule `@typescript-eslint/no-empty-object-type` rejects `interface Foo extends Bar {}` with no members — use `type Foo = Bar` instead.
+- mypy requires `dict[str, str | None]` not bare `dict` for return types.
+
+**Next:** Phase 3 — Predictions & Scoring

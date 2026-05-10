@@ -1429,14 +1429,14 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - `DELETE /api/v1/admin/players/{id}` — soft delete (`is_active = false`)
 - **Acceptance:** Admin removes player; player can no longer log in; predictions and stats preserved historically; player hidden from default leaderboard
 
-**Phase 2.5: Join & Login UI** 🟢 Sonnet 4.6
+**Phase 2.5: Join & Login UI** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `/join/{token}` page — name confirm + PIN creation form
 - `/login` page — name dropdown + PIN entry
 - Error states (locked account, invalid PIN, duplicate name)
 - JWT pair stored, silent refresh wired up
 - **Acceptance:** Full join flow works end-to-end; locked account shows lockout time; expired access token silently refreshes
 
-**Phase 2.6: Admin Invite & Player UI** 🟢 Sonnet 4.6
+**Phase 2.6: Admin Invite & Player UI** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `/admin/invites` — generate, list, revoke
 - `/admin/players` — list, remove, reset PIN
 - Reset PIN flow returns a temporary PIN to admin (displayed once, copy to clipboard)
