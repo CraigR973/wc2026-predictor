@@ -25,6 +25,23 @@ class PlayerProfileResponse(BaseModel):
     created_at: datetime
 
 
+class PlayerNameItem(BaseModel):
+    id: str
+    display_name: str
+
+
+@router.get("/names", response_model=list[PlayerNameItem])
+async def list_player_names(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[PlayerNameItem]:
+    """Public — returns active player names for the login dropdown."""
+    result = await db.execute(
+        select(Profile).where(Profile.deleted_at.is_(None)).order_by(Profile.display_name)
+    )
+    players = result.scalars().all()
+    return [PlayerNameItem(id=str(p.id), display_name=p.display_name) for p in players]
+
+
 @router.get("", response_model=list[PlayerProfileResponse])
 async def list_players(
     _player: CurrentPlayer,

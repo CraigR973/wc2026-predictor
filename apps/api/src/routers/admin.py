@@ -51,9 +51,43 @@ class ResetPinResponse(BaseModel):
     temp_pin: str
 
 
+class AdminPlayerResponse(BaseModel):
+    id: str
+    display_name: str
+    role: str
+    timezone: str
+    is_deleted: bool
+    created_at: datetime
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.get("/players", response_model=list[AdminPlayerResponse])
+async def list_all_players(
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    include_deleted: bool = False,
+) -> list[AdminPlayerResponse]:
+    query = select(Profile)
+    if not include_deleted:
+        query = query.where(Profile.deleted_at.is_(None))
+    query = query.order_by(Profile.created_at)
+    result = await db.execute(query)
+    players = result.scalars().all()
+    return [
+        AdminPlayerResponse(
+            id=str(p.id),
+            display_name=p.display_name,
+            role=p.role.value,
+            timezone=p.timezone,
+            is_deleted=p.deleted_at is not None,
+            created_at=p.created_at,
+        )
+        for p in players
+    ]
 
 
 @router.post("/invites", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)

@@ -2,6 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { JoinPage } from './pages/JoinPage';
+import { AdminInvitesPage } from './pages/admin/InvitesPage';
+import { AdminPlayersPage } from './pages/admin/PlayersPage';
 import { useAuth } from './contexts/AuthContext';
 
 function Dashboard() {
@@ -25,21 +28,15 @@ function Dashboard() {
           )}
         </p>
         {player?.role === 'admin' && (
-          <div className="mt-6 p-4 rounded-lg border border-border bg-surface">
-            <p className="text-xs text-text-muted font-sans">Admin panel — coming in Phase 2</p>
+          <div className="mt-6 p-4 rounded-lg border border-border bg-surface flex gap-4">
+            <a href="/admin/invites" className="text-sm text-primary hover:underline font-sans">
+              Manage invites
+            </a>
+            <a href="/admin/players" className="text-sm text-primary hover:underline font-sans">
+              Manage players
+            </a>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function AdminPanel() {
-  return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="font-display text-4xl text-primary">Admin</h1>
-        <p className="text-text-secondary font-sans mt-4">Admin-only area — coming in Phase 2</p>
       </div>
     </div>
   );
@@ -51,6 +48,7 @@ export function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/join/:token" element={<JoinPage />} />
 
           {/* Player routes */}
           <Route element={<ProtectedRoute />}>
@@ -59,7 +57,8 @@ export function App() {
 
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute requireAdmin />}>
-            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/admin/invites" element={<AdminInvitesPage />} />
+            <Route path="/admin/players" element={<AdminPlayersPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

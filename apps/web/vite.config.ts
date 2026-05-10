@@ -1,8 +1,14 @@
+import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['src/test/setup.ts'],
+  },
   plugins: [
     react(),
     VitePWA({
@@ -20,7 +26,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: { '@': '/src' },
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
     port: process.env['PORT'] ? parseInt(process.env['PORT']) : 5173,

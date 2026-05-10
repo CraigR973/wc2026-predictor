@@ -345,6 +345,29 @@ async def join(
     )
 
 
+@router.get("/invite/{token}")
+async def preview_invite(
+    token: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Public — returns display_name_hint so the join page can pre-fill the name."""
+    result = await db.execute(select(Invite).where(Invite.token == token))
+    invite = result.scalar_one_or_none()
+
+    if invite is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token")
+    if not invite.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has been revoked"
+        )
+    if invite.claimed_by is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
+    if invite.expires_at is not None and invite.expires_at < _now():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
+
+    return {"display_name_hint": invite.display_name_hint}
+
+
 @router.get("/me", response_model=PlayerInfo)
 async def me(player: CurrentPlayer) -> PlayerInfo:
     return PlayerInfo(
