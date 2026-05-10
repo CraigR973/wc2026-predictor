@@ -1446,24 +1446,24 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 3 — Matches & Schedule
 
-**Phase 3.1: Match API** 🟢 Sonnet 4.6
+**Phase 3.1: Match API** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `GET /api/v1/matches`, `/{id}`, `/upcoming`, `/live`, `/stage/{stage}`
 - All status states surfaced (scheduled, locked, live, completed, postponed, cancelled)
 - **Acceptance:** All 72 seeded matches returned correctly; filters work; kickoff times in UTC
 
-**Phase 3.2: Groups API** 🟢 Sonnet 4.6
+**Phase 3.2: Groups API** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `GET /api/v1/groups` and `/groups/{name}` with FIFA tiebreaker rules
 - `POST /api/v1/admin/groups/{name}/override-standings` for manual tiebreakers
 - **Acceptance:** After seeding 3 test results in Group A, standings reflect correct order; override sets exact positions
 
-**Phase 3.3: Match Schedule UI** 🟢 Sonnet 4.6
+**Phase 3.3: Match Schedule UI** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `/schedule` page — matches grouped by date
 - Match card component: teams, flags, kickoff time (player's IANA timezone via `date-fns-tz`), venue, full status pill set
 - Countdown timer for upcoming matches
 - Filter bar: by group, by stage, by date range, by team
 - **Acceptance:** All 72 matches visible; filters work; countdown accurate to player's timezone; postponed/cancelled matches visually distinct
 
-**Phase 3.4: Group Standings UI** 🟢 Sonnet 4.6
+**Phase 3.4: Group Standings UI** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `/groups` and `/groups/{name}` pages
 - Supabase Realtime subscription — table updates when result entered
 - **Acceptance:** Entering a test result in admin immediately updates the group table in another browser tab

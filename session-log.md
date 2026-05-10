@@ -434,3 +434,47 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 - mypy requires `dict[str, str | None]` not bare `dict` for return types.
 
 **Next:** Phase 3 — Predictions & Scoring
+
+---
+
+## Session: 2026-05-10 — Phases 3.1–3.4
+
+**Model:** claude-sonnet-4-6
+**Commits:** `d219ee2` (feat: Phases 3.1–3.4 Match API, Groups API, Schedule UI, Group Standings UI), `6821d05` (fix: mypy typed generics + test_group_columns standings_override)
+**CI:** ✅ green (run 25640340275) — 1 fix commit after first run failed (mypy + pytest)
+
+### Files modified / created
+
+**Backend:**
+- `migrations/versions/006_groups_standings_override.py` — adds JSONB `standings_override` column to groups table
+- `apps/api/src/models/group.py` — added `standings_override: Mapped[Any]` JSONB column
+- `apps/api/src/routers/matches.py` — new: GET /api/v1/matches, /upcoming, /live, /{id} with team resolution
+- `apps/api/src/routers/groups.py` — new: GET /api/v1/groups, /groups/{name} with FIFA tiebreaker (points→GD→GF→H2H)
+- `apps/api/src/routers/admin.py` — added POST /api/v1/admin/groups/{name}/override-standings
+- `apps/api/src/main.py` — registered matches and groups routers
+- `apps/api/tests/test_matches.py` — 7 tests (auth guard, list, list with stage filter, upcoming, live, get by id, invalid stage)
+- `apps/api/tests/test_groups.py` — 11 tests (6 unit tests for _compute_standings, 5 HTTP endpoint tests)
+- `apps/api/tests/test_models.py` — updated test_group_columns to include standings_override
+
+**Frontend:**
+- `apps/web/src/lib/types.ts` — new: TeamRef, MatchResponse, TeamStanding, GroupResponse types
+- `apps/web/src/lib/supabase.ts` — new: Supabase JS client singleton
+- `apps/web/src/hooks/useCountdown.ts` — new: countdown hook (1s interval) returning CountdownParts
+- `apps/web/src/components/NavBar.tsx` — new: sticky nav with brand + NavLinks
+- `apps/web/src/components/Layout.tsx` — new: NavBar + Outlet wrapper
+- `apps/web/src/pages/SchedulePage.tsx` — new: /schedule — matches by timezone date, countdown, stage filter
+- `apps/web/src/pages/GroupsPage.tsx` — new: /groups — all groups with Supabase Realtime subscription
+- `apps/web/src/pages/GroupDetailPage.tsx` — new: /groups/:name — standings table with H2H highlighting
+- `apps/web/src/App.tsx` — rewrote with QueryClientProvider, Layout, new routes
+- `apps/web/.env.local` — created (not committed) with VITE_SUPABASE_URL/ANON_KEY
+
+### Key facts for future sessions
+- `_apply_h2h` in groups.py has a guard `if len(sorted_codes) > 1` — needed to avoid IndexError on empty groups.
+- All typed generics in groups.py use `dict[str, Any]` / `dict[str, dict[str, Any]]` — bare `dict` fails mypy strict.
+- FastAPI returns **401** (not 403) when the bearer token is missing — auth guard tests must use `assert resp.status_code in (401, 403)`.
+- Supabase Realtime subscription: subscribe to `postgres_changes` on `matches` table, invalidate React Query cache key `['groups']` or `['group', name]` on any event.
+- `apps/web/.env.local` is gitignored — Supabase URL/anon key come from the main `.env`. Copy them manually to the worktree's `.env.local` when starting a new session.
+- vitest must run from `apps/web/` (not monorepo root): `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir apps/web test`.
+- badge.tsx variants in this project: `default`, `success`, `error`, `muted`, `accent` — NOT `secondary` or `destructive`.
+
+**Next:** Phase 3.5 — Match Lock Scheduler & Reschedule Handling
