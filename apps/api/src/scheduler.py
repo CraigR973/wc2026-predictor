@@ -9,7 +9,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import structlog
-from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
+from apscheduler.schedulers.asyncio import (  # type: ignore[import-untyped,unused-ignore]
+    AsyncIOScheduler,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
