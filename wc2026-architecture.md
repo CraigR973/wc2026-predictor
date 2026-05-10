@@ -1468,7 +1468,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Supabase Realtime subscription — table updates when result entered
 - **Acceptance:** Entering a test result in admin immediately updates the group table in another browser tab
 
-**Phase 3.5: Match Lock Scheduler & Reschedule Handling** 🔴 Opus
+**Phase 3.5: Match Lock Scheduler & Reschedule Handling** 🔴 Opus ✅ 2026-05-10
 - APScheduler integration in FastAPI startup
 - On startup: register `DateTrigger` lock job for every scheduled match
 - Lock job: sets `status = locked`, `locked_at = now()`, fires push

@@ -481,6 +481,32 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 
 ---
 
+## 2026-05-10 — Phase 3.5: Match Lock Scheduler & Reschedule Handling
+**Model:** Opus 4.7
+**Commits:** `dba69df` (feat), `1323b87` (mypy fix)
+**CI:** ✅ all 5 jobs green (lint, mypy, tests, migration check, web build)
+
+### What changed
+**Backend:**
+- `apps/api/src/scheduler.py` — new: APScheduler `AsyncIOScheduler` with `lock_due_matches` job. Selects scheduled matches with `kickoff_utc ≤ now` and `deleted_at IS NULL`, transitions them to `locked`, sets `locked_at`, and writes one `audit_log` row per lock (`action_type=predictions_locked`, `actor_type=system`).
+- `apps/api/src/main.py` — lifespan starts the scheduler when `settings.scheduler_enabled` is True and shuts it down on exit (`wait=False`).
+- `apps/api/src/config.py` — new `scheduler_enabled: bool = True` setting.
+- `apps/api/src/routers/admin.py` — three new endpoints under `/api/v1/admin/matches/{id}`:
+  - `POST /reschedule` — body `{ kickoff_utc }`; sets `original_kickoff_utc` if not already set; if status=locked and `locked_at < new_kickoff`, re-opens to `scheduled` and clears `locked_at`; writes `kickoff_changed` audit row.
+  - `POST /postpone` — body `{ reason }`; sets status=postponed and `postponed_reason`; writes `match_postponed` audit row.
+  - `POST /cancel` — sets status=cancelled; writes `match_cancelled` audit row.
+- `apps/api/tests/test_scheduler.py` — 7 tests: lock logic with mock session+clock, audit row contents, no-op when nothing due, scheduler config (job id + 1-min interval), lifespan start/stop with `scheduler_enabled=True/False`.
+- `apps/api/tests/test_admin_matches.py` — 9 tests: reschedule (basic, preserves existing original, re-opens locked, 404), postpone (basic, 404), cancel (basic, 404), auth guard.
+
+### Key facts for future sessions
+- The lifespan lazy-creates the scheduler and only starts it when `settings.scheduler_enabled` is True. Httpx `ASGITransport` does **not** drive lifespan by default, so existing tests never start a real scheduler.
+- `AsyncIOScheduler.running` doesn't flip to False synchronously after `shutdown(wait=False)`; need an `await asyncio.sleep(0)` to let the event loop process the shutdown callback. Tests rely on this.
+- The architecture doc's text "locked_at > new kickoff" is functionally inverted; implementation uses `locked_at < new_kickoff` (re-open when rescheduling forward past the lock instant) — matches user-facing intent.
+- mypy 1.x (local) flags `apscheduler` as `[import-untyped]`; mypy 2.x (CI) silences it via `ignore_missing_imports=true` but then complains about `unused-ignore`. Use combined `# type: ignore[import-untyped,unused-ignore]` for both.
+- `coalesce=True, max_instances=1` on the lock job — if the API hangs, the scheduler skips overlapping runs instead of queueing them.
+
+---
+
 ## Phase 4.2 — My Predictions UI
 **Date:** 2026-05-10
 **Model:** claude-sonnet-4-6
