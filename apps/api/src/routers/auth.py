@@ -349,7 +349,7 @@ async def join(
 async def preview_invite(
     token: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict:
+) -> dict[str, str | None]:
     """Public — returns display_name_hint so the join page can pre-fill the name."""
     result = await db.execute(select(Invite).where(Invite.token == token))
     invite = result.scalar_one_or_none()
