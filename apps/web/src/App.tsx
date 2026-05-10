@@ -10,6 +10,7 @@ import { GroupsPage } from './pages/GroupsPage';
 import { GroupDetailPage } from './pages/GroupDetailPage';
 import { AdminInvitesPage } from './pages/admin/InvitesPage';
 import { AdminPlayersPage } from './pages/admin/PlayersPage';
+import { PredictionsPage } from './pages/PredictionsPage';
 import { useAuth } from './contexts/AuthContext';
 
 const queryClient = new QueryClient({
@@ -30,6 +31,13 @@ function Dashboard() {
         Welcome back, <span className="text-text-primary font-medium">{player?.displayName}</span>!
       </p>
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a
+          href="/predictions"
+          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
+        >
+          <p className="font-display text-xl text-primary tracking-wider">Predictions</p>
+          <p className="text-text-muted text-sm font-sans mt-1">Submit your match scores</p>
+        </a>
         <a
           href="/schedule"
           className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
@@ -63,6 +71,7 @@ export function App() {
               <Route element={<Layout />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/schedule" element={<SchedulePage />} />
+                <Route path="/predictions" element={<PredictionsPage />} />
                 <Route path="/groups" element={<GroupsPage />} />
                 <Route path="/groups/:name" element={<GroupDetailPage />} />
               </Route>

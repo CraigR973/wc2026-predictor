@@ -45,3 +45,18 @@ export interface GroupResponse {
   name: string;
   standings: TeamStanding[];
 }
+
+export interface PointsBreakdown {
+  correct_result: boolean;
+  correct_goals: boolean;
+  exact_score: boolean;
+  no_prediction: boolean;
+}
+
+export interface PredictionResponse {
+  match_id: string;
+  predicted_home: number | null;
+  predicted_away: number | null;
+  points: number | null;
+  points_breakdown: PointsBreakdown | null;
+}
