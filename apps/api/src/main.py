@@ -17,6 +17,7 @@ from src.config import settings
 from src.logging_config import configure_logging
 from src.middleware import CorrelationIdMiddleware
 from src.routers import admin, auth, groups, health, matches, players, predictions
+from src.scheduler import create_scheduler
 
 configure_logging(settings.log_level)
 
@@ -46,7 +47,17 @@ if settings.sentry_dsn_backend:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("api starting", environment=settings.environment)
-    yield
+    scheduler = create_scheduler()
+    app.state.scheduler = scheduler
+    if settings.scheduler_enabled:
+        scheduler.start()
+        log.info("scheduler started")
+    try:
+        yield
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+            log.info("scheduler stopped")
 
 
 _limiter = Limiter(key_func=get_remote_address)

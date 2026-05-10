@@ -28,5 +28,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     environment: str = "development"
 
+    # Background scheduler (APScheduler) — disable in tests / one-off scripts.
+    scheduler_enabled: bool = True
+
 
 settings = Settings()

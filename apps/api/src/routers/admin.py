@@ -91,6 +91,24 @@ class ResultResponse(BaseModel):
 _VALID_RESULT_STATUSES = {MatchStatus.locked, MatchStatus.live, MatchStatus.completed}
 
 
+class RescheduleRequest(BaseModel):
+    kickoff_utc: datetime
+
+
+class PostponeRequest(BaseModel):
+    reason: str
+
+
+class MatchAdminResponse(BaseModel):
+    id: str
+    match_number: int
+    status: str
+    kickoff_utc: datetime
+    original_kickoff_utc: datetime | None
+    locked_at: datetime | None
+    postponed_reason: str | None
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -230,6 +248,147 @@ async def delete_player(
     player.deleted_at = _now()
     await db.commit()
     log.info("player soft-deleted", player_id=str(player_id), admin_id=str(admin.id))
+
+
+async def _load_match(db: AsyncSession, match_id: uuid.UUID) -> Match:
+    result = await db.execute(select(Match).where(Match.id == match_id, Match.deleted_at.is_(None)))
+    match = result.scalar_one_or_none()
+    if match is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+    return match
+
+
+def _strip_tz(dt: datetime) -> datetime:
+    """Strip timezone from a datetime, normalising to UTC first if aware."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(UTC).replace(tzinfo=None)
+
+
+def _match_admin_response(m: Match) -> MatchAdminResponse:
+    return MatchAdminResponse(
+        id=str(m.id),
+        match_number=m.match_number,
+        status=m.status.value,
+        kickoff_utc=m.kickoff_utc,
+        original_kickoff_utc=m.original_kickoff_utc,
+        locked_at=m.locked_at,
+        postponed_reason=m.postponed_reason,
+    )
+
+
+@router.post(
+    "/matches/{match_id}/reschedule",
+    response_model=MatchAdminResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def reschedule_match(
+    match_id: uuid.UUID,
+    body: RescheduleRequest,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MatchAdminResponse:
+    match = await _load_match(db, match_id)
+    new_kickoff = _strip_tz(body.kickoff_utc)
+    old_kickoff = match.kickoff_utc
+
+    if match.original_kickoff_utc is None:
+        match.original_kickoff_utc = old_kickoff
+
+    match.kickoff_utc = new_kickoff
+
+    # If the match was locked but is being rescheduled to a time later than
+    # the lock instant, re-open it for predictions.
+    if (
+        match.status == MatchStatus.locked
+        and match.locked_at is not None
+        and match.locked_at < new_kickoff
+    ):
+        match.status = MatchStatus.scheduled
+        match.locked_at = None
+
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action_type=ActionType.kickoff_changed,
+            target_table="matches",
+            target_id=match.id,
+            changes={
+                "old_kickoff_utc": old_kickoff.isoformat(),
+                "new_kickoff_utc": new_kickoff.isoformat(),
+            },
+        )
+    )
+    await db.commit()
+    await db.refresh(match)
+    log.info(
+        "match rescheduled",
+        match_id=str(match.id),
+        admin_id=str(admin.id),
+        new_kickoff=new_kickoff.isoformat(),
+    )
+    return _match_admin_response(match)
+
+
+@router.post(
+    "/matches/{match_id}/postpone",
+    response_model=MatchAdminResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def postpone_match(
+    match_id: uuid.UUID,
+    body: PostponeRequest,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MatchAdminResponse:
+    match = await _load_match(db, match_id)
+    match.status = MatchStatus.postponed
+    match.postponed_reason = body.reason
+
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action_type=ActionType.match_postponed,
+            target_table="matches",
+            target_id=match.id,
+            changes={"reason": body.reason},
+        )
+    )
+    await db.commit()
+    await db.refresh(match)
+    log.info("match postponed", match_id=str(match.id), admin_id=str(admin.id))
+    return _match_admin_response(match)
+
+
+@router.post(
+    "/matches/{match_id}/cancel",
+    response_model=MatchAdminResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def cancel_match(
+    match_id: uuid.UUID,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MatchAdminResponse:
+    match = await _load_match(db, match_id)
+    match.status = MatchStatus.cancelled
+
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action_type=ActionType.match_cancelled,
+            target_table="matches",
+            target_id=match.id,
+            changes=None,
+        )
+    )
+    await db.commit()
+    await db.refresh(match)
+    log.info("match cancelled", match_id=str(match.id), admin_id=str(admin.id))
+    return _match_admin_response(match)
 
 
 # ---------------------------------------------------------------------------
