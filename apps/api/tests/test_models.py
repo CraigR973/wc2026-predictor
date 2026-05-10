@@ -50,7 +50,7 @@ def test_metadata_has_expected_tables() -> None:
 
 def test_group_columns() -> None:
     cols = {c.name for c in Group.__table__.columns}
-    assert cols == {"id", "name", "created_at"}
+    assert cols == {"id", "name", "created_at", "standings_override"}
 
 
 def test_profile_columns() -> None:

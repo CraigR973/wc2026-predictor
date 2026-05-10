@@ -1,6 +1,6 @@
 """Group standings endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -57,7 +57,7 @@ def _compute_standings(
     override: list[str] | None,
 ) -> list[TeamStanding]:
     """Compute group standings with FIFA tiebreaker: points → GD → GF → H2H."""
-    stats: dict[str, dict] = {
+    stats: dict[str, dict[str, Any]] = {
         t.code: {
             "team": t,
             "played": 0,
@@ -69,7 +69,7 @@ def _compute_standings(
         }
         for t in teams
     }
-    team_by_id = {t.id: t for t in teams}
+    team_by_id: dict[Any, Team] = {t.id: t for t in teams}
 
     for m in matches:
         if m.status != MatchStatus.completed:
@@ -101,11 +101,11 @@ def _compute_standings(
             stats[ht.code]["drawn"] += 1
             stats[at.code]["drawn"] += 1
 
-    def _pts(s: dict) -> int:
-        return s["won"] * 3 + s["drawn"]
+    def _pts(s: dict[str, Any]) -> int:
+        return int(s["won"]) * 3 + int(s["drawn"])
 
-    def _gd(s: dict) -> int:
-        return s["gf"] - s["ga"]
+    def _gd(s: dict[str, Any]) -> int:
+        return int(s["gf"]) - int(s["ga"])
 
     def _primary_key(code: str) -> tuple[int, int, int, str]:
         s = stats[code]
@@ -145,17 +145,17 @@ def _compute_standings(
 
 def _apply_h2h(
     sorted_codes: list[str],
-    stats: dict[str, dict],
+    stats: dict[str, dict[str, Any]],
     matches: list[Match],
-    team_by_id: dict,
+    team_by_id: dict[Any, Any],
 ) -> list[str]:
     """Re-sort within blocks of teams tied on points, GD, and GF using H2H."""
 
-    def _pts(s: dict) -> int:
-        return s["won"] * 3 + s["drawn"]
+    def _pts(s: dict[str, Any]) -> int:
+        return int(s["won"]) * 3 + int(s["drawn"])
 
-    def _gd(s: dict) -> int:
-        return s["gf"] - s["ga"]
+    def _gd(s: dict[str, Any]) -> int:
+        return int(s["gf"]) - int(s["ga"])
 
     # Partition consecutive equal-statistic blocks
     blocks: list[list[str]] = []
