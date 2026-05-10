@@ -96,11 +96,13 @@ _VALID_BODY = {
 
 async def test_join_success(client: AsyncClient) -> None:
     invite = _make_invite()
-    mock_db = _stub_db([
-        _scalar(invite),   # invite lookup
-        _scalar(None),     # display_name uniqueness check
-        _count(5),         # active player count
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(invite),  # invite lookup
+            _scalar(None),  # display_name uniqueness check
+            _count(5),  # active player count
+        ]
+    )
 
     with patch("src.routers.auth._issue_token_pair", AsyncMock(return_value=("acc", "ref"))):
         async with _override_db(mock_db):
@@ -154,10 +156,12 @@ async def test_join_expired_invite(client: AsyncClient) -> None:
 async def test_join_duplicate_display_name(client: AsyncClient) -> None:
     invite = _make_invite()
     existing = MagicMock(spec=Profile)
-    mock_db = _stub_db([
-        _scalar(invite),    # invite lookup
-        _scalar(existing),  # display_name taken
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(invite),  # invite lookup
+            _scalar(existing),  # display_name taken
+        ]
+    )
     async with _override_db(mock_db):
         resp = await client.post("/api/v1/auth/join", json=_VALID_BODY)
     assert resp.status_code == 400
@@ -166,11 +170,13 @@ async def test_join_duplicate_display_name(client: AsyncClient) -> None:
 
 async def test_join_league_full(client: AsyncClient) -> None:
     invite = _make_invite()
-    mock_db = _stub_db([
-        _scalar(invite),  # invite lookup
-        _scalar(None),    # display_name not taken
-        _count(15),       # league full
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(invite),  # invite lookup
+            _scalar(None),  # display_name not taken
+            _count(15),  # league full
+        ]
+    )
     async with _override_db(mock_db):
         resp = await client.post("/api/v1/auth/join", json=_VALID_BODY)
     assert resp.status_code == 400
@@ -179,11 +185,13 @@ async def test_join_league_full(client: AsyncClient) -> None:
 
 async def test_join_default_timezone(client: AsyncClient) -> None:
     invite = _make_invite()
-    mock_db = _stub_db([
-        _scalar(invite),
-        _scalar(None),
-        _count(0),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(invite),
+            _scalar(None),
+            _count(0),
+        ]
+    )
 
     with patch("src.routers.auth._issue_token_pair", AsyncMock(return_value=("acc", "ref"))):
         async with _override_db(mock_db):

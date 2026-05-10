@@ -276,13 +276,9 @@ async def join(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has been revoked"
         )
     if invite.claimed_by is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
     if invite.expires_at is not None and invite.expires_at < _now():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
 
     name_result = await db.execute(
         select(Profile).where(
