@@ -272,11 +272,17 @@ async def join(
     if invite is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid invite token")
     if not invite.is_active:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has been revoked")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has been revoked"
+        )
     if invite.claimed_by is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used"
+        )
     if invite.expires_at is not None and invite.expires_at < _now():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired"
+        )
 
     name_result = await db.execute(
         select(Profile).where(
@@ -285,13 +291,17 @@ async def join(
         )
     )
     if name_result.scalar_one_or_none() is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Display name already taken")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Display name already taken"
+        )
 
     count_result = await db.execute(
         select(func.count()).select_from(Profile).where(Profile.deleted_at.is_(None))
     )
     if (count_result.scalar() or 0) >= MAX_PLAYERS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="League is full (max 15 players)")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="League is full (max 15 players)"
+        )
 
     new_player = Profile(
         id=uuid.uuid4(),
@@ -356,7 +366,9 @@ async def change_pin(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> None:
     if not verify_pin(body.current_pin, player.pin_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current PIN is incorrect")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Current PIN is incorrect"
+        )
     player.pin_hash = hash_pin(body.new_pin)
     await db.commit()
     log.info("pin changed", player_id=str(player.id))
