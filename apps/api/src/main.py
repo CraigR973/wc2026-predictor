@@ -16,7 +16,7 @@ from slowapi.util import get_remote_address
 from src.config import settings
 from src.logging_config import configure_logging
 from src.middleware import CorrelationIdMiddleware
-from src.routers import admin, auth, health
+from src.routers import admin, auth, health, players
 
 configure_logging(settings.log_level)
 
@@ -75,3 +75,4 @@ app.add_middleware(CorrelationIdMiddleware)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(players.router)

@@ -1,4 +1,4 @@
-"""Auth endpoints: login, refresh, logout."""
+"""Auth endpoints: login, refresh, logout, join, me, pin change."""
 
 import uuid
 from datetime import UTC, datetime
@@ -9,21 +9,25 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import (
     LOCKOUT_DURATION,
     MAX_FAILED_ATTEMPTS,
     REFRESH_TTL,
+    CurrentPlayer,
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
+    hash_pin,
     hash_token,
     verify_pin,
 )
 from src.database import get_db
-from src.models.profile import Profile
+from src.models.invite import Invite
+from src.models.prediction import NotificationPreferences
+from src.models.profile import PlayerRole, Profile
 from src.models.refresh_token import RefreshToken
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -70,6 +74,21 @@ class AccessTokenResponse(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str
+
+
+class JoinRequest(BaseModel):
+    token: str
+    display_name: str
+    pin: str
+    timezone: str = "UTC"
+
+
+class ChangePinRequest(BaseModel):
+    current_pin: str
+    new_pin: str
+
+
+MAX_PLAYERS = 15
 
 
 # ---------------------------------------------------------------------------
@@ -240,3 +259,104 @@ async def logout(
     except Exception:
         # Logout is always successful to the client
         pass
+
+
+@router.post("/join", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+async def join(
+    body: JoinRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TokenResponse:
+    invite_result = await db.execute(select(Invite).where(Invite.token == body.token))
+    invite = invite_result.scalar_one_or_none()
+
+    if invite is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid invite token")
+    if not invite.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has been revoked")
+    if invite.claimed_by is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
+    if invite.expires_at is not None and invite.expires_at < _now():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
+
+    name_result = await db.execute(
+        select(Profile).where(
+            Profile.display_name == body.display_name,
+            Profile.deleted_at.is_(None),
+        )
+    )
+    if name_result.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Display name already taken")
+
+    count_result = await db.execute(
+        select(func.count()).select_from(Profile).where(Profile.deleted_at.is_(None))
+    )
+    if (count_result.scalar() or 0) >= MAX_PLAYERS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="League is full (max 15 players)")
+
+    new_player = Profile(
+        id=uuid.uuid4(),
+        display_name=body.display_name,
+        pin_hash=hash_pin(body.pin),
+        role=PlayerRole.player,
+        timezone=body.timezone,
+        failed_login_count=0,
+        locked_until=None,
+        deleted_at=None,
+    )
+    db.add(new_player)
+
+    prefs = NotificationPreferences(
+        player_id=new_player.id,
+        deadline_warning=True,
+        match_locked=True,
+        result_detected=True,
+        leaderboard_shift=True,
+        round_complete=True,
+        match_postponed=True,
+        special_results=True,
+        global_mute=False,
+    )
+    db.add(prefs)
+
+    invite.claimed_by = new_player.id
+    invite.claimed_at = _now()
+    invite.is_active = False
+
+    await db.commit()
+    await db.refresh(new_player)
+
+    access, refresh = await _issue_token_pair(new_player, db)
+    log.info("player joined", player_id=str(new_player.id))
+    return TokenResponse(
+        access_token=access,
+        refresh_token=refresh,
+        player=PlayerInfo(
+            id=str(new_player.id),
+            display_name=new_player.display_name,
+            role=new_player.role.value,
+            timezone=new_player.timezone,
+        ),
+    )
+
+
+@router.get("/me", response_model=PlayerInfo)
+async def me(player: CurrentPlayer) -> PlayerInfo:
+    return PlayerInfo(
+        id=str(player.id),
+        display_name=player.display_name,
+        role=player.role.value,
+        timezone=player.timezone,
+    )
+
+
+@router.put("/me/pin", status_code=status.HTTP_204_NO_CONTENT)
+async def change_pin(
+    body: ChangePinRequest,
+    player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    if not verify_pin(body.current_pin, player.pin_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current PIN is incorrect")
+    player.pin_hash = hash_pin(body.new_pin)
+    await db.commit()
+    log.info("pin changed", player_id=str(player.id))

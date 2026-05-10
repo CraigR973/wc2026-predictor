@@ -1,5 +1,6 @@
-"""Admin endpoints: invite management."""
+"""Admin endpoints: invite management, player management."""
 
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
@@ -10,9 +11,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth import AdminPlayer, generate_opaque_token
+from src.auth import AdminPlayer, generate_opaque_token, hash_pin
 from src.database import get_db
 from src.models.invite import Invite
+from src.models.profile import Profile
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -43,6 +45,10 @@ class InviteResponse(BaseModel):
     expires_at: datetime | None
     is_active: bool
     created_at: datetime
+
+
+class ResetPinResponse(BaseModel):
+    temp_pin: str
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +106,49 @@ async def revoke_invite(
     invite.is_active = False
     await db.commit()
     log.info("invite revoked", invite_id=str(invite_id), admin_id=str(admin.id))
+
+
+@router.post(
+    "/players/{player_id}/reset-pin",
+    response_model=ResetPinResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def reset_player_pin(
+    player_id: uuid.UUID,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ResetPinResponse:
+    result = await db.execute(
+        select(Profile).where(Profile.id == player_id, Profile.deleted_at.is_(None))
+    )
+    player = result.scalar_one_or_none()
+    if player is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+
+    temp_pin = f"{secrets.randbelow(1000000):06d}"
+    player.pin_hash = hash_pin(temp_pin)
+    await db.commit()
+
+    log.info("pin reset by admin", player_id=str(player_id), admin_id=str(admin.id))
+    return ResetPinResponse(temp_pin=temp_pin)
+
+
+@router.delete("/players/{player_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_player(
+    player_id: uuid.UUID,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    result = await db.execute(
+        select(Profile).where(Profile.id == player_id, Profile.deleted_at.is_(None))
+    )
+    player = result.scalar_one_or_none()
+    if player is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+
+    player.deleted_at = _now()
+    await db.commit()
+    log.info("player soft-deleted", player_id=str(player_id), admin_id=str(admin.id))
 
 
 # ---------------------------------------------------------------------------
