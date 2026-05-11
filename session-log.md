@@ -523,3 +523,26 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 - `formatCountdown` is a module-level helper in PredictionsPage.tsx — used by both the lock indicator and the deadline warning.
 
 **Next:** Phase 4.4 (check architecture doc)
+
+---
+
+## Phase 4 Integration Fix
+
+**Date:** 2026-05-11
+**Model:** claude-sonnet-4-6
+**Commits:** ff5cc6a
+**CI:** ✅ green
+
+### What happened
+Phases 4.1 (Prediction API) and 4.4 (Match Detail Page) were built in a separate worktree session (`sweet-einstein-5ff706`) and merged to remote main by the user as commit `1bf2fd8`. The current worktree was behind that merge. Cherry-picked the feature commits and resolved a one-line import conflict in App.tsx.
+
+Discovered that Phase 4.1 renamed `PredictionResponse.points` → `points_awarded` and dropped `points_breakdown`. Updated the three test fixtures in PredictionsPage.test.tsx to match the actual type shape.
+
+### Files modified
+- `apps/web/src/test/PredictionsPage.test.tsx` — fixtures updated: `points` → `points_awarded`, `points_breakdown` removed
+- `wc2026-architecture.md` — Phase 4.1 and 4.4 marked ✅
+
+### Key facts for future sessions
+- `PredictionResponse` (in types.ts) has `points_awarded: number | null` — NOT `points`. No `points_breakdown` field.
+- `noSubmission` in PredictionCard is `isCompleted && !prediction` (no prediction object at all), not a `no_prediction` flag.
+- All four Phase 4 sub-phases are now merged to main and CI-green.
