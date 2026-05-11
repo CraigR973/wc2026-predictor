@@ -94,6 +94,17 @@ const NO_PRED_CANCELLED = {
   },
 };
 
+// Match scheduled with NO prediction yet — triggers "Not predicted yet" warning
+const MATCH_SCHEDULED_NOPRED = {
+  ...MATCH_SCHEDULED,
+  id: 'm5',
+  match_number: 5,
+  status: 'scheduled',
+  home_team: { id: 't9', name: 'Mexico', code: 'MEX', flag_emoji: '🇲🇽' },
+  away_team: { id: 't10', name: 'USA', code: 'USA', flag_emoji: '🇺🇸' },
+  kickoff_utc: '2026-06-15T18:00:00Z',
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -185,7 +196,7 @@ describe('PredictionsPage', () => {
     await waitFor(() => screen.getByRole('tab', { name: /Group A/i }));
 
     // Group A tab is active by default — find home score input for match 1
-    const homeInput = screen.getByLabelText(/Home score for match 1/i) as HTMLInputElement;
+    const homeInput = screen.getByLabelText('Home score for match 1') as HTMLInputElement;
     expect(homeInput.disabled).toBe(false);
   });
 
@@ -194,7 +205,7 @@ describe('PredictionsPage', () => {
     renderPage();
     await waitFor(() => screen.getByRole('tab', { name: /Group A/i }));
 
-    const lockedInput = screen.getByLabelText(/Home score for match 2/i) as HTMLInputElement;
+    const lockedInput = screen.getByLabelText('Home score for match 2') as HTMLInputElement;
     expect(lockedInput.disabled).toBe(true);
   });
 
@@ -217,7 +228,7 @@ describe('PredictionsPage', () => {
     renderPage();
     await waitFor(() => screen.getByRole('tab', { name: /Group A/i }));
 
-    const homeInput = screen.getByLabelText(/Home score for match 1/i) as HTMLInputElement;
+    const homeInput = screen.getByLabelText('Home score for match 1') as HTMLInputElement;
     expect(homeInput.value).toBe('1');
   });
 
@@ -233,9 +244,9 @@ describe('PredictionsPage', () => {
   it('enables save button after user edits a score', async () => {
     vi.stubGlobal('fetch', makeFetch());
     renderPage();
-    await waitFor(() => screen.getByLabelText(/Home score for match 1/i));
+    await waitFor(() => screen.getByLabelText('Home score for match 1'));
 
-    const homeInput = screen.getByLabelText(/Home score for match 1/i);
+    const homeInput = screen.getByLabelText('Home score for match 1');
     fireEvent.change(homeInput, { target: { value: '2' } });
 
     await waitFor(() => {
@@ -248,9 +259,9 @@ describe('PredictionsPage', () => {
     const fetchMock = makeFetch();
     vi.stubGlobal('fetch', fetchMock);
     renderPage();
-    await waitFor(() => screen.getByLabelText(/Home score for match 1/i));
+    await waitFor(() => screen.getByLabelText('Home score for match 1'));
 
-    const homeInput = screen.getByLabelText(/Home score for match 1/i);
+    const homeInput = screen.getByLabelText('Home score for match 1');
     fireEvent.change(homeInput, { target: { value: '3' } });
 
     await waitFor(() => {
@@ -275,5 +286,78 @@ describe('PredictionsPage', () => {
     vi.stubGlobal('fetch', makeFetch());
     renderPage();
     expect(screen.getByText('Loading…')).toBeTruthy();
+  });
+
+  it('shows lock indicator on locked match', async () => {
+    vi.stubGlobal('fetch', makeFetch());
+    renderPage();
+    await waitFor(() => screen.getByTestId('prediction-card-m2'));
+    expect(screen.getByTestId('lock-indicator')).toBeTruthy();
+  });
+
+  it('shows not-predicted warning for scheduled match with no prediction', async () => {
+    vi.stubGlobal('fetch', makeFetch({
+      matches: [MATCH_SCHEDULED, MATCH_LOCKED, MATCH_CANCELLED, MATCH_COMPLETED, MATCH_SCHEDULED_NOPRED],
+      predictions: [PRED_SCHEDULED, PRED_COMPLETED, NO_PRED_CANCELLED],
+    }));
+    renderPage();
+    await waitFor(() => screen.getByTestId('prediction-card-m5'));
+    expect(screen.getByTestId('not-predicted-warning')).toBeTruthy();
+  });
+
+  it('does not show not-predicted warning when prediction is already filled', async () => {
+    vi.stubGlobal('fetch', makeFetch());
+    renderPage();
+    await waitFor(() => screen.getByTestId('prediction-card-m1'));
+    expect(screen.queryByTestId('not-predicted-warning')).toBeNull();
+  });
+
+  it('shows deadline warning when scheduled match kicks off within 1 hour', async () => {
+    // Mock Date.now only (no fake timers — preserves waitFor's setTimeout)
+    const kickoff = new Date('2026-06-11T20:00:00Z').getTime();
+    vi.spyOn(Date, 'now').mockReturnValue(kickoff - 30 * 60 * 1000);
+
+    vi.stubGlobal('fetch', makeFetch());
+    renderPage();
+    await waitFor(() => screen.getByTestId('prediction-card-m1'));
+    expect(screen.getByTestId('deadline-warning')).toBeTruthy();
+  });
+
+  it('score spinner increments value on ▲ click', async () => {
+    vi.stubGlobal('fetch', makeFetch());
+    renderPage();
+    await waitFor(() => screen.getByLabelText('Home score for match 1'));
+
+    const homeInput = screen.getByLabelText('Home score for match 1') as HTMLInputElement;
+    expect(homeInput.value).toBe('1');
+
+    const incrementBtn = screen.getByLabelText('Increment Home score for match 1');
+    fireEvent.click(incrementBtn);
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Home score for match 1') as HTMLInputElement).value).toBe('2');
+    });
+  });
+
+  it('score spinner decrements value on ▼ click', async () => {
+    vi.stubGlobal('fetch', makeFetch());
+    renderPage();
+    await waitFor(() => screen.getByLabelText('Home score for match 1'));
+
+    const decrementBtn = screen.getByLabelText('Decrement Home score for match 1');
+    fireEvent.click(decrementBtn);
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Home score for match 1') as HTMLInputElement).value).toBe('0');
+    });
+  });
+
+  it('shows points badge for completed match (count-up resolves to final value)', async () => {
+    vi.stubGlobal('fetch', makeFetch());
+    renderPage();
+    // waitFor retries until animation finishes (600ms max) or times out
+    await waitFor(() => {
+      expect(screen.getByTestId('points-badge').textContent).toBe('5 pts');
+    }, { timeout: 3000 });
   });
 });

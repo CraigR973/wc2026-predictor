@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
+import { Lock } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { MatchResponse, GroupResponse, PredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { useCountdown } from '../hooks/useCountdown';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -85,25 +87,93 @@ function ScoreInput({
   disabled: boolean;
   'aria-label': string;
 }) {
+  const num = value === '' ? null : Number(value);
+
+  function step(delta: number) {
+    const next = Math.max(0, Math.min(99, (num ?? 0) + delta));
+    onChange(String(next));
+  }
+
   return (
-    <input
-      type="number"
-      min={0}
-      max={99}
-      value={value}
-      onChange={(e) => {
-        const raw = e.target.value;
-        if (raw === '' || /^\d{1,2}$/.test(raw)) onChange(raw);
-      }}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      className={`w-12 h-10 text-center font-mono text-base rounded-md border bg-surface focus:outline-none focus:ring-1 focus:ring-primary tabular-nums
-        ${disabled
-          ? 'text-text-muted border-border cursor-not-allowed opacity-50'
-          : 'text-text-primary border-border hover:border-primary/50'
-        }`}
-    />
+    <div className="flex flex-col items-center gap-0.5">
+      {!disabled && (
+        <button
+          type="button"
+          onClick={() => step(1)}
+          aria-label={`Increment ${ariaLabel}`}
+          className="w-8 h-5 text-text-muted hover:text-primary leading-none text-xs select-none"
+        >
+          ▲
+        </button>
+      )}
+      <input
+        type="number"
+        min={0}
+        max={99}
+        value={value}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (raw === '' || /^\d{1,2}$/.test(raw)) onChange(raw);
+        }}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        className={`w-12 h-12 text-center font-display text-3xl rounded-md border bg-surface focus:outline-none focus:ring-1 focus:ring-primary tabular-nums
+          ${disabled
+            ? 'text-text-muted border-border cursor-not-allowed opacity-50'
+            : 'text-text-primary border-border hover:border-primary/50'
+          }`}
+      />
+      {!disabled && (
+        <button
+          type="button"
+          onClick={() => step(-1)}
+          aria-label={`Decrement ${ariaLabel}`}
+          className="w-8 h-5 text-text-muted hover:text-primary leading-none text-xs select-none"
+        >
+          ▼
+        </button>
+      )}
+    </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Points badge with count-up animation
+// ---------------------------------------------------------------------------
+
+function PointsBadge({ points }: { points: number }) {
+  const [displayed, setDisplayed] = useState(0);
+
+  useEffect(() => {
+    if (points === 0) { setDisplayed(0); return; }
+    setDisplayed(0);
+    const steps = points;
+    const intervalMs = Math.max(30, Math.min(120, 600 / steps));
+    let current = 0;
+    const id = setInterval(() => {
+      current++;
+      setDisplayed(current);
+      if (current >= steps) clearInterval(id);
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [points]);
+
+  return (
+    <Badge variant={points > 0 ? 'success' : 'muted'} data-testid="points-badge">
+      {displayed} {displayed === 1 ? 'pt' : 'pts'}
+    </Badge>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Countdown helpers
+// ---------------------------------------------------------------------------
+
+function formatCountdown(parts: { days: number; hours: number; minutes: number; seconds: number; expired: boolean }): string {
+  if (parts.expired) return 'Started';
+  if (parts.days > 0) return `${parts.days}d ${parts.hours}h`;
+  if (parts.hours > 0) return `${parts.hours}h ${parts.minutes}m`;
+  return `${parts.minutes}m ${parts.seconds}s`;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,9 +201,19 @@ function PredictionCard({
     'EEE d MMM, HH:mm',
   );
 
+  const countdown = useCountdown(match.kickoff_utc);
+
   const editable = canEdit(match.status);
   const isVoided = match.status === 'cancelled' || match.status === 'postponed';
   const isCompleted = match.status === 'completed';
+  const isLocked = match.status === 'locked';
+
+  // Deadline warning: scheduled + < 1hr remaining
+  const isDeadlineWarning =
+    match.status === 'scheduled' &&
+    !countdown.expired &&
+    countdown.days === 0 &&
+    countdown.hours === 0;
 
   const homeLabel = match.home_team
     ? `${match.home_team.flag_emoji} ${match.home_team.name}`
@@ -148,16 +228,33 @@ function PredictionCard({
   const points = prediction?.points ?? null;
   const noSubmission = prediction?.points_breakdown?.no_prediction;
 
+  // Not-predicted warning: editable match with no saved or local values
+  const notPredicted =
+    editable &&
+    homeVal === '' &&
+    awayVal === '';
+
   return (
     <div
-      className={`rounded-lg border bg-surface p-3 transition-opacity ${
+      className={`rounded-lg border bg-surface p-3 transition-all ${
         isVoided ? 'opacity-50' : ''
-      }`}
+      } ${isDeadlineWarning ? 'border-warning/60' : 'border-border'}`}
       data-testid={`prediction-card-${match.id}`}
     >
       {/* Header row */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        <span className="text-xs font-mono text-text-muted">{kickoffLocal}</span>
+        <span
+          className={`text-xs font-mono ${
+            isDeadlineWarning ? 'text-warning font-semibold' : 'text-text-muted'
+          }`}
+        >
+          {kickoffLocal}
+          {isDeadlineWarning && (
+            <span className="ml-1.5" data-testid="deadline-warning">
+              · {formatCountdown(countdown)} left
+            </span>
+          )}
+        </span>
         <div className="flex items-center gap-2">
           {local?.saving && (
             <span className="text-xs font-sans text-text-muted animate-pulse">Saving…</span>
@@ -166,9 +263,7 @@ function PredictionCard({
             <span className="text-xs font-sans text-error">Save failed</span>
           )}
           {isCompleted && points !== null && !noSubmission && (
-            <Badge variant={points > 0 ? 'success' : 'muted'}>
-              {points} {points === 1 ? 'pt' : 'pts'}
-            </Badge>
+            <PointsBadge points={points} />
           )}
           {isCompleted && noSubmission && (
             <Badge variant="muted">No entry</Badge>
@@ -206,6 +301,21 @@ function PredictionCard({
           {awayLabel}
         </div>
       </div>
+
+      {/* Lock indicator */}
+      {isLocked && (
+        <div className="mt-2 flex items-center justify-center gap-1.5 text-xs font-sans text-warning" data-testid="lock-indicator">
+          <Lock size={12} aria-hidden="true" />
+          <span>Kicks off in {formatCountdown(countdown)}</span>
+        </div>
+      )}
+
+      {/* Not-predicted warning */}
+      {notPredicted && (
+        <div className="mt-2 text-center text-xs font-sans text-warning" data-testid="not-predicted-warning">
+          Not predicted yet
+        </div>
+      )}
 
       {/* Actual result (when completed) */}
       {isCompleted && match.actual_home_score !== null && match.actual_away_score !== null && (
