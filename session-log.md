@@ -594,3 +594,66 @@ Discovered that Phase 4.1 renamed `PredictionResponse.points` → `points_awarde
 - `FootballDataClient` always injects `X-Auth-Token` into `.headers` even when a custom httpx.AsyncClient is passed (needed for test transport injection without losing auth).
 - Tests run with `PYTHONPATH=apps/api` — the venv is at `/Users/craigrobinson/wc_2026_predictor/apps/api/.venv/` and is NOT symlinked into the worktree.
 - Services live in `apps/api/src/services/` — not yet registered in `main.py` (the client is instantiated on demand, no global singleton yet).
+
+---
+
+## Phase 5.3 — Auto Result Fetch Job
+
+**Date:** 2026-05-11
+**Model:** claude-opus-4-7
+**Commits:** 6eb88fa
+**CI:** ✅ green (first run)
+**Merged to main:** yes (fast-forward)
+
+### What shipped
+A 5-minute APScheduler IntervalTrigger that pulls the WC competition feed
+from football-data.org and applies a per-match status delta with row-level
+locks. Idempotent at the DB level (skips when `result_source IS NOT NULL`),
+race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
+`actor_type=system`. Three consecutive API failures write
+`auto_sync_failed` notifications to every admin profile.
+
+### Files modified
+- `apps/api/src/services/result_sync.py` — new: `sync_results()` driver +
+  per-status appliers (`_apply_finished`, `_apply_postponed`,
+  `_apply_cancelled`, `_apply_live`, `_apply_kickoff_drift`) +
+  `_record_failure` with admin-alert escalation. Module-level
+  `_consecutive_failures` counter resets to 0 on every successful run.
+- `apps/api/src/scheduler.py` — registered `sync_results` job:
+  `interval=5min`, `id=sync_results`, `coalesce=True`, `max_instances=1`.
+- `apps/api/tests/test_result_sync.py` — new: 13 unit tests covering all
+  acceptance criteria (FINISHED write+audit, idempotent no-op,
+  manual-entry race skip, POSTPONED/CANCELLED/IN_PLAY transitions,
+  kickoff drift updates + preserves original_kickoff_utc, no-drift no-op,
+  single-failure audit row, three-consecutive-failure admin alert,
+  counter reset on success, unknown FD ID silent skip, scheduler job
+  registration).
+
+### Key facts for future sessions
+- The "lock-job re-registration on kickoff change" requirement is
+  satisfied by the existing periodic `lock_due_matches` job (Phase 3.5
+  design) — there's no per-match DateTrigger to cancel/re-register, so
+  the kickoff_utc DB update alone suffices. The next 1-minute tick of
+  the lock job picks up the new kickoff naturally.
+- `_consecutive_failures` is process-local. Across a Railway worker
+  restart the streak resets — acceptable for this phase, would need a
+  `system_state` table to survive restarts.
+- The FINISHED handler only writes when local status ∈ {locked, live,
+  completed}; if the local match is still `scheduled` (lock job hasn't
+  fired yet) the result is intentionally deferred. The next 5-min tick
+  retries once the lock job catches up.
+- `FootballDataError` (base class) catches both `*RateLimitError` and
+  `*ServerError`. Failure path commits its own audit row in a separate
+  session-factory transaction so the main loop's commit still runs on
+  the happy path.
+- Tests use a MagicMock-based session, NOT a real Postgres. The
+  `SELECT ... FOR UPDATE` and BEFORE/AFTER scoring triggers are only
+  exercised in CI's integration job — guard tests with `db_engine`
+  fixture when adding Postgres-specific coverage.
+- venv lives at `/Users/craigrobinson/wc_2026_predictor/apps/api/.venv/`,
+  not in the worktree. Use absolute paths to invoke it
+  (`PYTHONPATH=<worktree>/apps/api .venv/bin/python -m pytest <tests>`)
+  rather than `cd` — `cd` outside the worktree root triggers a sandbox
+  block in this environment.
+
+**Next:** Phase 5.4 — Admin Sync UI (🟢 Sonnet 4.6)

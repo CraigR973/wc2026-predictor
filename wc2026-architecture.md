@@ -1532,7 +1532,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Unit tests: FINISHED, IN_PLAY, SCHEDULED kickoff change, POSTPONED, CANCELLED, 429, 5xx
 - **Acceptance:** Client fetches all WC matches; all status types map correctly; handles errors gracefully
 
-**Phase 5.3: Auto Result Fetch Job** 🔴 Opus
+**Phase 5.3: Auto Result Fetch Job** 🔴 Opus ✅ 2026-05-11
 - APScheduler `IntervalTrigger` every 5 minutes
 - Full status delta handling (§5.1)
 - Row-level locks (`SELECT ... FOR UPDATE`) for concurrency safety
