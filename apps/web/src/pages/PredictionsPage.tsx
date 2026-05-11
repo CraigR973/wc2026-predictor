@@ -225,8 +225,8 @@ function PredictionCard({
   const homeVal = local?.home ?? (prediction?.predicted_home !== null && prediction?.predicted_home !== undefined ? String(prediction.predicted_home) : '');
   const awayVal = local?.away ?? (prediction?.predicted_away !== null && prediction?.predicted_away !== undefined ? String(prediction.predicted_away) : '');
 
-  const points = prediction?.points ?? null;
-  const noSubmission = prediction?.points_breakdown?.no_prediction;
+  const points = prediction?.points_awarded ?? null;
+  const noSubmission = isCompleted && !prediction;
 
   // Not-predicted warning: editable match with no saved or local values
   const notPredicted =

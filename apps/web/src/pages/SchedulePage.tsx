@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '../lib/api';
@@ -79,8 +80,9 @@ function MatchCard({ match, timezone }: { match: MatchResponse; timezone: string
     match.status === 'postponed' || match.status === 'cancelled';
 
   return (
-    <div
-      className={`rounded-lg border bg-surface p-3 flex items-center gap-3 ${
+    <Link
+      to={`/matches/${match.id}`}
+      className={`rounded-lg border bg-surface p-3 flex items-center gap-3 hover:bg-surface-elevated transition-colors ${
         isPostponedOrCancelled ? 'opacity-60' : ''
       }`}
     >
@@ -143,7 +145,7 @@ function MatchCard({ match, timezone }: { match: MatchResponse; timezone: string
           {STATUS_LABEL[match.status]}
         </Badge>
       </div>
-    </div>
+    </Link>
   );
 }
 

@@ -1482,7 +1482,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 4 — Predictions
 
-**Phase 4.1: Prediction API** 🟢 Sonnet 4.6
+**Phase 4.1: Prediction API** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `PUT /api/v1/predictions/{match_id}` — submit/update (rejected if status ≠ scheduled)
 - `GET /api/v1/predictions/me`
 - `GET /api/v1/predictions/match/{match_id}` (post-lock only — checks status)
@@ -1506,7 +1506,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Deadline warning style (orange) when < 1hr to kickoff
 - **Acceptance:** Visual states correct across all match statuses; animation plays on points reveal
 
-**Phase 4.4: Match Detail Page** 🟢 Sonnet 4.6
+**Phase 4.4: Match Detail Page** 🟢 Sonnet 4.6 ✅ 2026-05-10
 - `/matches/{id}` — all players' predictions in a comparison table (post-lock)
 - Pre-lock: shows only own prediction + lock countdown
 - Cancelled match: shows voided notice, no scoring

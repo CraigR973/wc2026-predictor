@@ -11,6 +11,7 @@ import { GroupDetailPage } from './pages/GroupDetailPage';
 import { AdminInvitesPage } from './pages/admin/InvitesPage';
 import { AdminPlayersPage } from './pages/admin/PlayersPage';
 import { PredictionsPage } from './pages/PredictionsPage';
+import { MatchDetailPage } from './pages/MatchDetailPage';
 import { useAuth } from './contexts/AuthContext';
 
 const queryClient = new QueryClient({
@@ -74,6 +75,7 @@ export function App() {
                 <Route path="/predictions" element={<PredictionsPage />} />
                 <Route path="/groups" element={<GroupsPage />} />
                 <Route path="/groups/:name" element={<GroupDetailPage />} />
+                <Route path="/matches/:id" element={<MatchDetailPage />} />
               </Route>
             </Route>
 

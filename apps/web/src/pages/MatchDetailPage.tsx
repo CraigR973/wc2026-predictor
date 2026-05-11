@@ -1,0 +1,386 @@
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { formatInTimeZone } from 'date-fns-tz';
+import { apiFetch } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import type {
+  MatchResponse,
+  PredictionResponse,
+  MatchPredictionsResponse,
+} from '../lib/types';
+import { Badge } from '../components/ui/badge';
+import { useCountdown } from '../hooks/useCountdown';
+
+// ---------------------------------------------------------------------------
+// Status helpers
+// ---------------------------------------------------------------------------
+
+type StatusVariant = 'default' | 'success' | 'error' | 'muted' | 'accent' | 'warning' | 'live';
+
+const STATUS_LABEL: Record<MatchResponse['status'], string> = {
+  scheduled: 'Scheduled',
+  locked: 'Locked',
+  live: 'Live',
+  completed: 'FT',
+  postponed: 'Postponed',
+  cancelled: 'Cancelled',
+};
+
+const STATUS_VARIANT: Record<MatchResponse['status'], StatusVariant> = {
+  scheduled: 'muted',
+  locked: 'warning',
+  live: 'live',
+  completed: 'success',
+  postponed: 'warning',
+  cancelled: 'error',
+};
+
+// ---------------------------------------------------------------------------
+// Match header
+// ---------------------------------------------------------------------------
+
+function MatchHeader({ match, timezone }: { match: MatchResponse; timezone: string }) {
+  const homeLabel = match.home_team
+    ? `${match.home_team.flag_emoji} ${match.home_team.name}`
+    : match.home_team_placeholder ?? 'TBD';
+  const awayLabel = match.away_team
+    ? `${match.away_team.flag_emoji} ${match.away_team.name}`
+    : match.away_team_placeholder ?? 'TBD';
+
+  const kickoffLocal = formatInTimeZone(
+    new Date(match.kickoff_utc),
+    timezone,
+    'EEE d MMM yyyy, HH:mm',
+  );
+
+  const isResult =
+    match.status === 'completed' &&
+    match.actual_home_score !== null &&
+    match.actual_away_score !== null;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-mono text-text-muted uppercase tracking-wider">
+          Match {match.match_number} · {match.stage.toUpperCase()}
+        </span>
+        <Badge variant={STATUS_VARIANT[match.status]}>{STATUS_LABEL[match.status]}</Badge>
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-lg font-sans text-text-primary font-semibold text-center flex-1">
+          {homeLabel}
+        </span>
+
+        {isResult ? (
+          <span className="font-mono text-3xl font-bold text-text-primary tabular-nums shrink-0">
+            {match.actual_home_score} – {match.actual_away_score}
+          </span>
+        ) : (
+          <span className="text-text-muted font-mono text-xl shrink-0">vs</span>
+        )}
+
+        <span className="text-lg font-sans text-text-primary font-semibold text-center flex-1">
+          {awayLabel}
+        </span>
+      </div>
+
+      <div className="mt-4 text-center space-y-1">
+        <p className="text-sm font-mono text-text-secondary">{kickoffLocal}</p>
+        {match.venue && (
+          <p className="text-xs text-text-muted font-sans">{match.venue}</p>
+        )}
+        {match.extra_time && (
+          <p className="text-xs text-text-muted font-mono">
+            {match.penalties ? 'After extra time & penalties' : 'After extra time'}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cancelled notice
+// ---------------------------------------------------------------------------
+
+function CancelledNotice({ reason }: { reason: string | null }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface p-4 text-center">
+      <p className="text-error font-sans font-semibold mb-1">Match Cancelled</p>
+      <p className="text-sm text-text-muted font-sans">
+        {reason ?? 'This match has been cancelled. No points will be awarded.'}
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lock countdown
+// ---------------------------------------------------------------------------
+
+function LockCountdown({ kickoffUtc }: { kickoffUtc: string }) {
+  const { days, hours, minutes, seconds, expired } = useCountdown(kickoffUtc);
+  if (expired) return null;
+  const parts =
+    days > 0
+      ? `${days}d ${hours}h ${minutes}m`
+      : hours > 0
+        ? `${hours}h ${minutes}m ${seconds}s`
+        : `${minutes}m ${seconds}s`;
+  return (
+    <div className="text-center mb-4">
+      <p className="text-xs text-text-muted font-sans mb-1">Predictions lock at kickoff</p>
+      <p className="font-mono text-primary font-bold tabular-nums">{parts}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pre-lock: own prediction form
+// ---------------------------------------------------------------------------
+
+interface PredictionFormProps {
+  matchId: string;
+  existing: PredictionResponse | undefined;
+}
+
+function PredictionForm({ matchId, existing }: PredictionFormProps) {
+  const queryClient = useQueryClient();
+  const [home, setHome] = useState<string>(
+    existing?.predicted_home !== null && existing?.predicted_home !== undefined
+      ? String(existing.predicted_home)
+      : '',
+  );
+  const [away, setAway] = useState<string>(
+    existing?.predicted_away !== null && existing?.predicted_away !== undefined
+      ? String(existing.predicted_away)
+      : '',
+  );
+  const [saved, setSaved] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: (body: { predicted_home: number; predicted_away: number }) =>
+      apiFetch<PredictionResponse>(`/api/v1/predictions/${matchId}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      queryClient.invalidateQueries({ queryKey: ['predictions', 'me'] });
+    },
+  });
+
+  const homeVal = parseInt(home, 10);
+  const awayVal = parseInt(away, 10);
+  const isValid = !isNaN(homeVal) && !isNaN(awayVal) && homeVal >= 0 && awayVal >= 0;
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isValid) return;
+    mutation.mutate({ predicted_home: homeVal, predicted_away: awayVal });
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-lg text-primary tracking-wider mb-4">Your Prediction</h2>
+
+      {existing?.submitted_at && (
+        <p className="text-xs text-text-muted font-sans mb-3">
+          Last saved · updated {existing.update_count} time{existing.update_count !== 1 ? 's' : ''}
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex items-center gap-3">
+        <input
+          type="number"
+          min={0}
+          value={home}
+          onChange={(e) => setHome(e.target.value)}
+          placeholder="0"
+          className="w-16 text-center bg-background border border-border rounded-md px-2 py-2 font-mono text-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <span className="font-mono text-text-muted">–</span>
+        <input
+          type="number"
+          min={0}
+          value={away}
+          onChange={(e) => setAway(e.target.value)}
+          placeholder="0"
+          className="w-16 text-center bg-background border border-border rounded-md px-2 py-2 font-mono text-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <button
+          type="submit"
+          disabled={!isValid || mutation.isPending}
+          className="ml-2 px-4 py-2 rounded-md bg-primary text-background font-sans text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
+        >
+          {mutation.isPending ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+        </button>
+      </form>
+
+      {mutation.isError && (
+        <p className="text-error text-xs font-sans mt-2">Failed to save. Try again.</p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Post-lock: comparison table
+// ---------------------------------------------------------------------------
+
+interface ComparisonTableProps {
+  response: MatchPredictionsResponse;
+  currentPlayerId: string;
+}
+
+function ComparisonTable({ response, currentPlayerId }: ComparisonTableProps) {
+  if (response.predictions.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-surface p-4 text-center">
+        <p className="text-text-muted font-sans text-sm">No predictions were submitted.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-surface overflow-hidden">
+      <h2 className="font-display text-lg text-primary tracking-wider p-4 border-b border-border">
+        All Predictions
+      </h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm font-sans">
+          <thead>
+            <tr className="border-b border-border bg-background">
+              <th className="text-left px-4 py-2 text-text-muted font-mono text-xs uppercase tracking-wider">
+                Player
+              </th>
+              <th className="text-center px-4 py-2 text-text-muted font-mono text-xs uppercase tracking-wider">
+                Prediction
+              </th>
+              <th className="text-center px-4 py-2 text-text-muted font-mono text-xs uppercase tracking-wider">
+                Points
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {response.predictions.map((item) => (
+              <tr
+                key={item.player_id}
+                className={`border-b border-border last:border-0 ${
+                  item.player_id === currentPlayerId ? 'bg-surface-elevated' : ''
+                }`}
+              >
+                <td className="px-4 py-3 text-text-primary">
+                  {item.player_name}
+                  {item.player_id === currentPlayerId && (
+                    <span className="ml-2 text-xs text-text-muted">(you)</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center font-mono text-text-primary tabular-nums">
+                  {item.predicted_home !== null && item.predicted_away !== null
+                    ? `${item.predicted_home} – ${item.predicted_away}`
+                    : <span className="text-text-muted">–</span>}
+                </td>
+                <td className="px-4 py-3 text-center font-mono text-text-primary tabular-nums">
+                  {item.points_awarded !== null ? item.points_awarded : <span className="text-text-muted">–</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+export function MatchDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { player } = useAuth();
+  const timezone = player?.timezone ?? 'UTC';
+
+  const matchQuery = useQuery<MatchResponse>({
+    queryKey: ['match', id],
+    queryFn: () => apiFetch<MatchResponse>(`/api/v1/matches/${id}`),
+    enabled: !!id,
+  });
+
+  const myPredsQuery = useQuery<PredictionResponse[]>({
+    queryKey: ['predictions', 'me'],
+    queryFn: () => apiFetch<PredictionResponse[]>('/api/v1/predictions/me'),
+    staleTime: 30_000,
+  });
+
+  const isPreLock = matchQuery.data?.status === 'scheduled';
+
+  const matchPredsQuery = useQuery<MatchPredictionsResponse>({
+    queryKey: ['predictions', 'match', id],
+    queryFn: () => apiFetch<MatchPredictionsResponse>(`/api/v1/predictions/match/${id}`),
+    enabled: !!id && !isPreLock,
+    staleTime: 30_000,
+  });
+
+  if (matchQuery.isLoading) {
+    return <p className="text-text-muted font-sans text-sm">Loading match…</p>;
+  }
+  if (matchQuery.error || !matchQuery.data) {
+    return <p className="text-error font-sans text-sm">Match not found.</p>;
+  }
+
+  const match = matchQuery.data;
+  const myPrediction = myPredsQuery.data?.find((p) => p.match_id === id);
+
+  return (
+    <div>
+      <button
+        onClick={() => navigate(-1)}
+        className="text-xs text-text-muted font-sans mb-4 hover:text-text-secondary transition-colors"
+      >
+        ← Back
+      </button>
+
+      <MatchHeader match={match} timezone={timezone} />
+
+      {match.status === 'cancelled' && (
+        <CancelledNotice reason={match.postponed_reason} />
+      )}
+
+      {isPreLock && (
+        <>
+          <LockCountdown kickoffUtc={match.kickoff_utc} />
+          <PredictionForm matchId={id!} existing={myPrediction} />
+        </>
+      )}
+
+      {!isPreLock && match.status !== 'cancelled' && (
+        <>
+          {matchPredsQuery.isLoading && (
+            <p className="text-text-muted font-sans text-sm">Loading predictions…</p>
+          )}
+          {matchPredsQuery.data && (
+            <ComparisonTable
+              response={matchPredsQuery.data}
+              currentPlayerId={player?.id ?? ''}
+            />
+          )}
+        </>
+      )}
+
+      {match.status === 'cancelled' && matchPredsQuery.data && (
+        <div className="mt-4">
+          <ComparisonTable
+            response={matchPredsQuery.data}
+            currentPlayerId={player?.id ?? ''}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

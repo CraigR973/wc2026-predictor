@@ -46,17 +46,27 @@ export interface GroupResponse {
   standings: TeamStanding[];
 }
 
-export interface PointsBreakdown {
-  correct_result: boolean;
-  correct_goals: boolean;
-  exact_score: boolean;
-  no_prediction: boolean;
-}
-
 export interface PredictionResponse {
+  id: string;
+  player_id: string;
   match_id: string;
   predicted_home: number | null;
   predicted_away: number | null;
-  points: number | null;
-  points_breakdown: PointsBreakdown | null;
+  submitted_at: string | null;
+  update_count: number;
+  points_awarded: number | null;
+  updated_at: string;
+}
+
+export interface MatchPredictionItem {
+  player_id: string;
+  player_name: string;
+  predicted_home: number | null;
+  predicted_away: number | null;
+  points_awarded: number | null;
+}
+
+export interface MatchPredictionsResponse {
+  match_id: string;
+  predictions: MatchPredictionItem[];
 }
