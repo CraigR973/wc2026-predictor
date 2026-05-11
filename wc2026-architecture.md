@@ -1516,7 +1516,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 5 — Results & Auto-Fetch
 
-**Phase 5.1: Admin Results API** 🟢 Sonnet 4.6
+**Phase 5.1: Admin Results API** 🟢 Sonnet 4.6 ✅ 2026-05-11
 - `POST /admin/results/{match_id}` — manual entry (fallback)
 - `PUT /admin/results/{match_id}` — override
 - Validates match is `locked`, `live`, or `completed` (not `scheduled`/`postponed`/`cancelled`)
@@ -1524,7 +1524,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Triggers scoring; logs to audit
 - **Acceptance:** Manual entry works; override recalculates; source field correct in each case
 
-**Phase 5.2: football-data.org Client** 🟢 Sonnet 4.6
+**Phase 5.2: football-data.org Client** 🟢 Sonnet 4.6 ✅ 2026-05-11
 - Python API client for v4
 - Typed Pydantic models for match response
 - Rate-limit-aware

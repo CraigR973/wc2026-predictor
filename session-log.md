@@ -546,3 +546,25 @@ Discovered that Phase 4.1 renamed `PredictionResponse.points` → `points_awarde
 - `PredictionResponse` (in types.ts) has `points_awarded: number | null` — NOT `points`. No `points_breakdown` field.
 - `noSubmission` in PredictionCard is `isCompleted && !prediction` (no prediction object at all), not a `no_prediction` flag.
 - All four Phase 4 sub-phases are now merged to main and CI-green.
+
+---
+
+## Phase 5A — Admin Results API + football-data.org Client
+
+**Date:** 2026-05-11
+**Model:** claude-sonnet-4-6
+**Commits:** e7164ed
+**CI:** ✅ green
+
+### Files modified
+- `apps/api/src/routers/admin.py` — added `POST /api/v1/admin/results/{match_id}` (manual entry) and `PUT /api/v1/admin/results/{match_id}` (override); new schemas `ResultRequest`, `ResultResponse`; audit_log writes on every call
+- `apps/api/src/services/__init__.py` — new package (empty)
+- `apps/api/src/services/football_data.py` — `FootballDataClient` with typed Pydantic models (`FDMatch`, `FDScore`, `FDTeam`, `FDMatchesResponse`, `FDMatchStatus`); 429 exponential backoff; `FootballDataRateLimitError` / `FootballDataServerError`
+- `apps/api/tests/test_admin_results.py` — 15 HTTP-layer tests (mock DB, always run) + 2 DB-backed integration tests (skip without DATABASE_URL)
+- `apps/api/tests/test_football_data_client.py` — 13 unit tests covering all status types, 429 retry path, 5xx error, auth header injection
+
+### Key facts for future sessions
+- The scoring trigger fires on NULL→non-NULL transition for `actual_home_score`/`actual_away_score`. The override (PUT) nulls out scores first via `db.flush()`, then re-sets them — this is required to re-trigger the WHEN condition.
+- `FootballDataClient` always injects `X-Auth-Token` into `.headers` even when a custom httpx.AsyncClient is passed (needed for test transport injection without losing auth).
+- Tests run with `PYTHONPATH=apps/api` — the venv is at `/Users/craigrobinson/wc_2026_predictor/apps/api/.venv/` and is NOT symlinked into the worktree.
+- Services live in `apps/api/src/services/` — not yet registered in `main.py` (the client is instantiated on demand, no global singleton yet).
