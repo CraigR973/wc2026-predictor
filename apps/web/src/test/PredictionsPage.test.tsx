@@ -64,34 +64,21 @@ const PRED_SCHEDULED = {
   match_id: 'm1',
   predicted_home: 1,
   predicted_away: 0,
-  points: null,
-  points_breakdown: null,
+  points_awarded: null,
 };
 
 const PRED_COMPLETED = {
   match_id: 'm4',
   predicted_home: 2,
   predicted_away: 1,
-  points: 5,
-  points_breakdown: {
-    correct_result: true,
-    correct_goals: true,
-    exact_score: true,
-    no_prediction: false,
-  },
+  points_awarded: 5,
 };
 
 const NO_PRED_CANCELLED = {
   match_id: 'm3',
   predicted_home: null,
   predicted_away: null,
-  points: 0,
-  points_breakdown: {
-    correct_result: false,
-    correct_goals: false,
-    exact_score: false,
-    no_prediction: true,
-  },
+  points_awarded: 0,
 };
 
 // Match scheduled with NO prediction yet — triggers "Not predicted yet" warning
