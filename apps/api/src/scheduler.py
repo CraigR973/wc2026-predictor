@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from src.database import AsyncSessionLocal
 from src.models.match import Match, MatchStatus
 from src.models.notification import ActionType, ActorType, AuditLog
+from src.services.result_sync import sync_results
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -77,6 +78,15 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger="interval",
         minutes=1,
         id="lock_due_matches",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        sync_results,
+        trigger="interval",
+        minutes=5,
+        id="sync_results",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
