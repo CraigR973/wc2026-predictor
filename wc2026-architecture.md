@@ -1498,7 +1498,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Save button per group with debounced autosave
 - **Acceptance:** Player submits all Group A predictions; locked matches show as read-only; cancelled matches show voided
 
-**Phase 4.3: Prediction Card Polish** 🟢 Sonnet 4.6
+**Phase 4.3: Prediction Card Polish** 🟢 Sonnet 4.6 ✅ 2026-05-11
 - Score input: number spinner, large Bebas Neue font
 - Lock indicator: padlock icon + "Kicks off in Xh Ym" countdown
 - Points badge animation on result reveal (count-up)

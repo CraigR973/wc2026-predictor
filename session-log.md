@@ -502,3 +502,24 @@ Push to main at ee47ff2. All jobs green: lint (ruff), typecheck (mypy), unit tes
 - PUT `/api/v1/predictions/{match_id}` returns 409 `PREDICTION_LOCKED` when match is not `scheduled` — the component only enables inputs for `scheduled` status.
 
 **Next:** Phase 4.3 (TBD — check architecture doc)
+
+---
+
+## Phase 4.3 — Prediction Card Polish
+
+**Date:** 2026-05-11
+**Model:** claude-sonnet-4-6
+**Commits:** 5767257
+**CI:** ✅ green
+
+### Files modified
+- `apps/web/src/pages/PredictionsPage.tsx` — ScoreInput: Bebas Neue font (`font-display text-3xl`) + ▲/▼ spinner buttons; `PointsBadge` component with count-up animation; lock indicator (padlock icon + live countdown) for `locked` matches; "Not predicted yet" warning for empty editable cards; deadline warning (orange border + kickoff text) when < 1hr to kickoff; imported `useCountdown` hook + `Lock` from lucide-react
+- `apps/web/src/test/PredictionsPage.test.tsx` — 7 new tests: lock indicator, not-predicted warning, deadline warning, spinner ▲/▼ clicks, count-up badge; fixed existing tests to use exact aria-label strings (regex matched spinner buttons as false positives)
+
+### Key facts for future sessions
+- `getByLabelText(/pattern/i)` regex will now match spinner button labels ("Increment X", "Decrement X") as well as the input — always use exact string `'Home score for match N'` for input queries.
+- `vi.useFakeTimers()` breaks `waitFor` (which uses real `setTimeout` internally). For time-dependent tests: mock `Date.now` only via `vi.spyOn(Date, 'now').mockReturnValue(...)`. For animation tests: just use `waitFor` with a longer timeout — the count-up finishes in ≤ 600ms.
+- The `PointsBadge` component starts from 0 and increments at `Math.max(30, Math.min(120, 600/points))` ms per step. For 5 pts that's 120ms/step × 5 = 600ms total.
+- `formatCountdown` is a module-level helper in PredictionsPage.tsx — used by both the lock indicator and the deadline warning.
+
+**Next:** Phase 4.4 (check architecture doc)
