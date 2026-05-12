@@ -1563,23 +1563,23 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 6 — Leaderboard
 
-**Phase 6.1: Leaderboard API** 🟢 Sonnet 4.6
+**Phase 6.1: Leaderboard API** 🟢 Sonnet 4.6 ✅ 2026-05-12
 - `GET /leaderboard`, `/history`, `/round/{stage}`
 - Excludes inactive players by default; admin flag `?include_inactive=true`
 - **Acceptance:** Totals correct after multiple results; round filter works; inactive players hidden by default
 
-**Phase 6.2: Leaderboard UI** 🟢 Sonnet 4.6
+**Phase 6.2: Leaderboard UI** 🟢 Sonnet 4.6 ✅ 2026-05-12
 - `/leaderboard` page with rank, medal, name, total, breakdown
 - Realtime subscription
 - **Acceptance:** Live updates; rank arrows correct; expand/collapse works
 
-**Phase 6.3: Leaderboard History Chart** 🟢 Sonnet 4.6
+**Phase 6.3: Leaderboard History Chart** 🟢 Sonnet 4.6 ✅ 2026-05-12
 - `/leaderboard/history` — Recharts line chart of rank per player over time
 - Aggregated by `snapshot_at` timestamp (one x-axis point per result)
 - Player toggle for lines
 - **Acceptance:** After 10 test results entered, chart shows 10 x-axis points (per-result snapshots), 15 lines (one per active player)
 
-**Phase 6.4: Round Leaderboard** 🟢 Sonnet 4.6
+**Phase 6.4: Round Leaderboard** 🟢 Sonnet 4.6 ✅ 2026-05-12
 - `/leaderboard/round/{stage}` — round-specific points only
 - **Acceptance:** Selecting a round shows only that round's points; ordering may differ from overall
 

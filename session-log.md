@@ -696,3 +696,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Dashboard refetches every 30 s (staleTime 15 s).
 
 **Next:** Phase 5.7 — Leaderboard Page (🟢 Sonnet 4.6)
+
+---
+
+## Phases 6.1–6.4 — Leaderboard API, UI, History Chart, Round Leaderboard
+**Commits:** 9f830ed · CI ✅
+
+### Key facts for future sessions
+- Migration 007 adds `profiles.is_active BOOLEAN NOT NULL DEFAULT TRUE`. Separate from `deleted_at` (hard-delete). Leaderboard filters `is_active=true` by default; pass `?include_inactive=true` to see all.
+- Round leaderboard uses a subquery to pre-filter predictions by stage before aggregating — direct outer join would sum all prediction points regardless of stage.
+- Recharts Tooltip `formatter` prop: both `value` (ValueType | undefined) and `name` (NameType | undefined) must not be typed as `string`/`number` — let TS infer, handle undefined with `?? ''`.
+- ESLint no-unused-expressions fires on ternaries used as statements (`cond ? a : b` as a statement). Pattern: use `if/else` instead.
+- Worktree node_modules must be symlinked to parent repo for Vite dev server: `ln -sfn <parent>/apps/web/node_modules <worktree>/apps/web/node_modules`.
+
+**Next:** Phase 6.5 — Predictions Lock UI (🟢 Sonnet 4.6)
