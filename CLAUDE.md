@@ -65,6 +65,7 @@ That is the whole entry — commits, CI marker, key facts, next pointer. Date, m
 | `packages/shared/` | Shared Zod schemas, TS types, scoring logic |
 | `migrations/` | Alembic migrations |
 | `docs/runbooks/` | Operational runbooks (restore, kickoff change, cancelled match, PIN reset, etc.) |
+| `docs/phase-batches.md` | Multi-phase session batches for amortizing the cold system prompt — consult at close-out |
 | `.env.example` | All required environment variables documented |
 
 ---
