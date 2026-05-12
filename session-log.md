@@ -657,3 +657,42 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
   block in this environment.
 
 **Next:** Phase 5.4 — Admin Sync UI (🟢 Sonnet 4.6)
+
+---
+
+## Phase 5.4 — Admin Sync UI
+**Commits:** f60307c · CI ✅
+
+### Key facts for future sessions
+- `GET /api/v1/admin/sync/status` derives last-run from audit_log (actor_type=system, action_type ∈ {result_auto_fetched, sync_failed, kickoff_changed, sync_triggered}). `next_run_at` comes from `request.app.state.scheduler.get_job("sync_results").next_run_time`.
+- `POST /api/v1/admin/sync/trigger` calls `await sync_results()` directly then returns updated status — no separate audit write needed.
+- `GET /api/v1/admin/results` lists completed matches ordered by result_entered_at DESC, limit 100. Team query is conditionally skipped when all home/away team IDs are None (all placeholder matches).
+- `/admin` route now exists as `AdminDashboardPage`; Phase 5.6 expanded it.
+
+**Next:** Phase 5.5 — Points Reveal (🟢 Sonnet 4.6)
+
+---
+
+## Phase 5.5 — Points Reveal
+**Commits:** f60307c · CI ✅
+
+### Key facts for future sessions
+- sonner `<Toaster>` added to `App.tsx` (position=bottom-right, richColors, closeButton). sonner was already in package.json.
+- Realtime subscription in `PredictionsPage` uses channel name `predictions-match-results` on `matches` table UPDATE. Detects null→non-null transition via `prevScoresRef` (a ref tracking which match IDs had null scores after the last `matches` query render).
+- On result arrival: invalidates `['matches','group']`, then `fetchQuery` for `['predictions','me']` (not just invalidate — needs the fresh data synchronously to build the toast). Card highlight lasts 2500 ms via `highlightedMatchIds` Set state.
+- `PredictionCard` now takes a `highlighted` boolean prop; `GroupPanel` takes `highlightedMatchIds: Set<string>` and passes it down.
+
+**Next:** Phase 5.6 — Admin Dashboard (🟢 Sonnet 4.6)
+
+---
+
+## Phase 5.6 — Admin Dashboard
+**Commits:** f60307c · CI ✅
+
+### Key facts for future sessions
+- `GET /api/v1/admin/dashboard` runs 5-6 DB queries (players, upcoming locks, pending results, optional team map, audit, then 2 sync-status queries). Team query is skipped when all lock+pending matches have null team IDs — test mocks must account for this (6 side-effects, not 7).
+- "Pending results" = locked or live matches with `result_source IS NULL`. Does NOT include manually-delayed completed matches.
+- "Active players" = all profiles where deleted_at IS NULL (includes admins).
+- Dashboard refetches every 30 s (staleTime 15 s).
+
+**Next:** Phase 5.7 — Leaderboard Page (🟢 Sonnet 4.6)

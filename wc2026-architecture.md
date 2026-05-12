@@ -1543,19 +1543,19 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Unit tests: new result, existing match update, race with manual, postponed detection, kickoff change detection, API failure
 - **Acceptance:** Full status flow tested with mocked API; race condition handled correctly; reschedule triggers lock-job re-registration
 
-**Phase 5.4: Admin Sync UI** 🟢 Sonnet 4.6
+**Phase 5.4: Admin Sync UI** 🟢 Sonnet 4.6 ✅ 2026-05-12
 - `/admin/sync` — sync status, last run time, next run countdown, error log
 - "Sync Now" button
 - Sync status widget on admin dashboard
 - `/admin/results` updated to show source badges
 - **Acceptance:** Admin sees last sync; manual trigger works; error state visible
 
-**Phase 5.5: Points Reveal** 🟢 Sonnet 4.6
+**Phase 5.5: Points Reveal** 🟢 Sonnet 4.6 ✅ 2026-05-12
 - Result detected → Realtime broadcast → prediction card animates
 - Toast notification with points scored
 - **Acceptance:** Two browser tabs; auto-fetch fires; player tab animates within 2 seconds without admin action
 
-**Phase 5.6: Admin Dashboard** 🟢 Sonnet 4.6
+**Phase 5.6: Admin Dashboard** 🟢 Sonnet 4.6 ✅ 2026-05-12
 - `/admin` — sync status widget, upcoming locks (next 24hrs), pending overrides, active players, recent audit entries
 - **Acceptance:** All widgets populated; error state visible when API failing
 
