@@ -21,7 +21,20 @@ Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
 - Session log: `session-log.md` (repo root)
 - Architecture/plan doc: `wc2026-architecture.md` (repo root)
 - Remote: `origin main`
-- CI: GitHub Actions — poll via GitHub API with token from env `GITHUB_TOKEN`
+- Always merge the feature branch back to `main` (`git checkout main && git merge --ff-only <branch> && git push origin main`) after CI is green
+- CI: GitHub Actions — token in `.env` as `GITHUB_TOKEN`. **Do not foreground-poll CI in a tight loop** — each iteration pollutes chat context. Pattern: one immediate check, then one or two follow-up checks via `run_in_background` bash spaced ~3 min apart, OR push and rely on the cached result endpoint at the end. Never write 10+ polling lines into the conversation.
+
+---
+
+## Bash discipline (token-saving)
+
+- **Never `cd`.** The sandbox blocks `cd` outside the worktree root and each blocked call wastes a turn. Use absolute paths in every command.
+- Python interpreter for backend work: `/Users/craigrobinson/wc_2026_predictor/apps/api/.venv/bin/python` — the venv is NOT inside the worktree.
+- Backend test/lint/typecheck invocation pattern:
+  - `PYTHONPATH=<worktree>/apps/api /Users/craigrobinson/wc_2026_predictor/apps/api/.venv/bin/python -m pytest <abs-path-to-tests>`
+  - Same shape for `-m ruff check`, `-m ruff format --check`, `-m mypy src`
+- Frontend test invocation: `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir <worktree>/apps/web test`
+- Prefer `grep` with line ranges over reading whole files. `wc2026-architecture.md` is 1600+ lines — always grep for the section heading first, then read a small `offset`/`limit` window.
 
 ---
 
@@ -42,22 +55,7 @@ Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
 
 ## Environment variables
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | Postgres connection string (for Alembic + asyncpg) — `postgresql+asyncpg://...` |
-| `SUPABASE_URL` | Supabase project URL (REST API) |
-| `SUPABASE_ANON_KEY` | Supabase anon/public key (frontend) |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key (backend only — never exposed to frontend) |
-| `JWT_ACCESS_SECRET` | Secret for signing access tokens (HS256, 24h TTL) |
-| `JWT_REFRESH_SECRET` | Secret for signing refresh tokens |
-| `FOOTBALL_DATA_API_KEY` | football-data.org API key (free tier) |
-| `VAPID_PUBLIC_KEY` | Web Push VAPID public key (also exposed to frontend) |
-| `VAPID_PRIVATE_KEY` | Web Push VAPID private key (backend only) |
-| `VAPID_CONTACT_EMAIL` | Contact email for VAPID registration |
-| `FRONTEND_ORIGIN` | Allowed CORS origin (e.g. `https://app.example.com`) |
-| `SENTRY_DSN_BACKEND` | Sentry DSN for backend error tracking |
-| `SENTRY_DSN_FRONTEND` | Sentry DSN for frontend error tracking |
-| `GITHUB_TOKEN` | GitHub API token for CI polling during phase close-out |
+All required variables are documented in `.env.example` with inline comments. Read that file when you need a specific name or purpose; do not duplicate them here.
 
 ---
 
@@ -85,24 +83,9 @@ Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
 
 ---
 
-## Scoring rules (reference)
+## Scoring rules
 
-**Per-match score predictions:**
-
-| Criteria | Points |
-|---|---|
-| Correct combined total goals | 2 |
-| Correct result (W/D/L) | 3 |
-| Exact scoreline | 5 |
-| **Max per match** | **10** |
-
-**Knockout winner predictions (per-round, max 295pts total):**  
-R32=5 (×16), R16=10 (×8), QF=15 (×4), SF=20 (×2), 3rd Place=10 (×1), Final=25 (×1)
-
-**Specials (max 45pts):**  
-Tournament winner=20, Golden Boot=15, Top scoring team=10
-
-**No prediction submitted = 0 points** (flagged in `points_breakdown.no_prediction = true`)
+The authoritative scoring rules live in `wc2026-architecture.md` (§7) and the Postgres trigger in `migrations/`. Read them on-demand when touching scoring logic.
 
 ---
 
