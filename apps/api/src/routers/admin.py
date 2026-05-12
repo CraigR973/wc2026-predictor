@@ -3,12 +3,12 @@
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import AdminPlayer, generate_opaque_token, hash_pin
@@ -18,6 +18,7 @@ from src.models.invite import Invite
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.profile import Profile
+from src.services.result_sync import sync_results
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -89,6 +90,67 @@ class ResultResponse(BaseModel):
 
 
 _VALID_RESULT_STATUSES = {MatchStatus.locked, MatchStatus.live, MatchStatus.completed}
+
+_SYNC_ACTION_TYPES = {
+    ActionType.result_auto_fetched,
+    ActionType.sync_failed,
+    ActionType.kickoff_changed,
+    ActionType.sync_triggered,
+}
+
+
+class AuditEntryResponse(BaseModel):
+    id: str
+    action_type: str
+    timestamp: datetime
+    changes: dict[str, Any] | None
+
+
+class SyncStatusResponse(BaseModel):
+    last_sync_at: datetime | None
+    last_sync_action: str | None
+    next_run_at: datetime | None
+    recent_errors: list[AuditEntryResponse]
+
+
+class AdminMatchResultResponse(BaseModel):
+    match_id: str
+    match_number: int
+    status: str
+    kickoff_utc: datetime
+    home_team: str | None
+    away_team: str | None
+    actual_home_score: int | None
+    actual_away_score: int | None
+    extra_time: bool
+    penalties: bool
+    result_source: str | None
+    result_entered_at: datetime | None
+
+
+class UpcomingLockResponse(BaseModel):
+    match_id: str
+    match_number: int
+    kickoff_utc: datetime
+    home_team: str | None
+    away_team: str | None
+    minutes_until_lock: int
+
+
+class DashboardAuditEntry(BaseModel):
+    id: str
+    action_type: str
+    actor_type: str
+    timestamp: datetime
+    target_table: str
+
+
+class AdminDashboardResponse(BaseModel):
+    active_players: int
+    upcoming_locks: list[UpcomingLockResponse]
+    pending_result_matches: list[AdminMatchResultResponse]
+    recent_audit: list[DashboardAuditEntry]
+    sync_status: SyncStatusResponse
 
 
 class RescheduleRequest(BaseModel):
@@ -543,6 +605,250 @@ async def override_result(
 
     log.info("result overridden", match_id=str(match_id), admin_id=str(admin.id))
     return _to_result_response(match)
+
+
+# ---------------------------------------------------------------------------
+# Admin dashboard
+# ---------------------------------------------------------------------------
+
+
+@router.get("/dashboard", response_model=AdminDashboardResponse)
+async def get_dashboard(
+    admin: AdminPlayer,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AdminDashboardResponse:
+    """Return all widgets for the admin dashboard in a single request."""
+    from src.models.team import Team
+
+    now = _now()
+    window_end = now + timedelta(hours=24)
+
+    # Active players (non-deleted, non-admin for the count)
+    active_result = await db.execute(select(Profile).where(Profile.deleted_at.is_(None)))
+    players = list(active_result.scalars().all())
+    active_players = len(players)
+
+    # Upcoming locks: scheduled matches kicking off in next 24 h
+    locks_result = await db.execute(
+        select(Match)
+        .where(
+            Match.status == MatchStatus.scheduled,
+            Match.kickoff_utc >= now,
+            Match.kickoff_utc <= window_end,
+            Match.deleted_at.is_(None),
+        )
+        .order_by(Match.kickoff_utc)
+        .limit(20)
+    )
+    lock_matches = list(locks_result.scalars().all())
+
+    # Pending result: locked/live matches that have no result yet
+    pending_result = await db.execute(
+        select(Match)
+        .where(
+            Match.status.in_([MatchStatus.locked, MatchStatus.live]),
+            Match.result_source.is_(None),
+            Match.deleted_at.is_(None),
+        )
+        .order_by(Match.kickoff_utc)
+        .limit(20)
+    )
+    pending_matches = list(pending_result.scalars().all())
+
+    # Build team name map for both sets
+    all_team_ids = (
+        {m.home_team_id for m in lock_matches}
+        | {m.away_team_id for m in lock_matches}
+        | {m.home_team_id for m in pending_matches}
+        | {m.away_team_id for m in pending_matches}
+    )
+    all_team_ids.discard(None)
+    team_map: dict[uuid.UUID, str] = {}
+    if all_team_ids:
+        teams_result = await db.execute(select(Team).where(Team.id.in_(list(all_team_ids))))
+        for t in teams_result.scalars().all():
+            team_map[t.id] = t.name
+
+    # Recent audit entries (last 10)
+    audit_result = await db.execute(select(AuditLog).order_by(desc(AuditLog.timestamp)).limit(10))
+    audit_rows = list(audit_result.scalars().all())
+
+    # Sync status (reuse existing helper)
+    sync = await get_sync_status(admin, request, db)
+
+    def _team_name(tid: uuid.UUID | None, placeholder: str | None) -> str | None:
+        if tid and tid in team_map:
+            return team_map[tid]
+        return placeholder
+
+    return AdminDashboardResponse(
+        active_players=active_players,
+        upcoming_locks=[
+            UpcomingLockResponse(
+                match_id=str(m.id),
+                match_number=m.match_number,
+                kickoff_utc=m.kickoff_utc,
+                home_team=_team_name(m.home_team_id, m.home_team_placeholder),
+                away_team=_team_name(m.away_team_id, m.away_team_placeholder),
+                minutes_until_lock=max(0, int((m.kickoff_utc - now).total_seconds() // 60)),
+            )
+            for m in lock_matches
+        ],
+        pending_result_matches=[
+            AdminMatchResultResponse(
+                match_id=str(m.id),
+                match_number=m.match_number,
+                status=m.status.value,
+                kickoff_utc=m.kickoff_utc,
+                home_team=_team_name(m.home_team_id, m.home_team_placeholder),
+                away_team=_team_name(m.away_team_id, m.away_team_placeholder),
+                actual_home_score=m.actual_home_score,
+                actual_away_score=m.actual_away_score,
+                extra_time=m.extra_time,
+                penalties=m.penalties,
+                result_source=m.result_source.value if m.result_source else None,
+                result_entered_at=m.result_entered_at,
+            )
+            for m in pending_matches
+        ],
+        recent_audit=[
+            DashboardAuditEntry(
+                id=str(a.id),
+                action_type=a.action_type.value,
+                actor_type=a.actor_type.value,
+                timestamp=a.timestamp,
+                target_table=a.target_table,
+            )
+            for a in audit_rows
+        ],
+        sync_status=sync,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Sync status / trigger
+# ---------------------------------------------------------------------------
+
+
+@router.get("/sync/status", response_model=SyncStatusResponse)
+async def get_sync_status(
+    _admin: AdminPlayer,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> SyncStatusResponse:
+    """Return the last sync timestamp, next scheduled run, and recent errors."""
+    # Latest system audit row that relates to a sync activity
+    last_row_result = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.actor_type == ActorType.system,
+            AuditLog.action_type.in_(list(_SYNC_ACTION_TYPES)),
+        )
+        .order_by(desc(AuditLog.timestamp))
+        .limit(1)
+    )
+    last_row = last_row_result.scalar_one_or_none()
+
+    # Recent failures
+    errors_result = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.actor_type == ActorType.system,
+            AuditLog.action_type == ActionType.sync_failed,
+        )
+        .order_by(desc(AuditLog.timestamp))
+        .limit(5)
+    )
+    errors = list(errors_result.scalars().all())
+
+    # Next scheduled run from APScheduler
+    next_run_at: datetime | None = None
+    try:
+        job = request.app.state.scheduler.get_job("sync_results")
+        if job and job.next_run_time:
+            next_run_at = job.next_run_time.replace(tzinfo=None)
+    except Exception:
+        pass
+
+    return SyncStatusResponse(
+        last_sync_at=last_row.timestamp if last_row else None,
+        last_sync_action=last_row.action_type.value if last_row else None,
+        next_run_at=next_run_at,
+        recent_errors=[
+            AuditEntryResponse(
+                id=str(e.id),
+                action_type=e.action_type.value,
+                timestamp=e.timestamp,
+                changes=e.changes,
+            )
+            for e in errors
+        ],
+    )
+
+
+@router.post("/sync/trigger", response_model=SyncStatusResponse, status_code=status.HTTP_200_OK)
+async def trigger_sync(
+    admin: AdminPlayer,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> SyncStatusResponse:
+    """Manually kick off an immediate sync and return the updated sync status."""
+    log.info("manual sync triggered", admin_id=str(admin.id))
+    await sync_results()
+    return await get_sync_status(admin, request, db)
+
+
+# ---------------------------------------------------------------------------
+# Admin results list
+# ---------------------------------------------------------------------------
+
+
+@router.get("/results", response_model=list[AdminMatchResultResponse])
+async def list_results(
+    _admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[AdminMatchResultResponse]:
+    """List all completed matches with their result sources."""
+    from src.models.team import Team
+
+    result = await db.execute(
+        select(Match)
+        .where(
+            Match.status == MatchStatus.completed,
+            Match.deleted_at.is_(None),
+        )
+        .order_by(desc(Match.result_entered_at))
+        .limit(100)
+    )
+    matches = list(result.scalars().all())
+
+    # Build team name map
+    all_team_ids = {m.home_team_id for m in matches} | {m.away_team_id for m in matches}
+    all_team_ids.discard(None)
+    team_map: dict[uuid.UUID, str] = {}
+    if all_team_ids:
+        teams_result = await db.execute(select(Team).where(Team.id.in_(list(all_team_ids))))
+        for t in teams_result.scalars().all():
+            team_map[t.id] = t.name
+
+    return [
+        AdminMatchResultResponse(
+            match_id=str(m.id),
+            match_number=m.match_number,
+            status=m.status.value,
+            kickoff_utc=m.kickoff_utc,
+            home_team=team_map.get(m.home_team_id) if m.home_team_id else m.home_team_placeholder,
+            away_team=team_map.get(m.away_team_id) if m.away_team_id else m.away_team_placeholder,
+            actual_home_score=m.actual_home_score,
+            actual_away_score=m.actual_away_score,
+            extra_time=m.extra_time,
+            penalties=m.penalties,
+            result_source=m.result_source.value if m.result_source else None,
+            result_entered_at=m.result_entered_at,
+        )
+        for m in matches
+    ]
 
 
 # ---------------------------------------------------------------------------

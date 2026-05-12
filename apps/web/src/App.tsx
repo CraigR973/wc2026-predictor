@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout';
@@ -10,6 +11,9 @@ import { GroupsPage } from './pages/GroupsPage';
 import { GroupDetailPage } from './pages/GroupDetailPage';
 import { AdminInvitesPage } from './pages/admin/InvitesPage';
 import { AdminPlayersPage } from './pages/admin/PlayersPage';
+import { AdminDashboardPage } from './pages/admin/DashboardPage';
+import { AdminSyncPage } from './pages/admin/SyncPage';
+import { AdminResultsPage } from './pages/admin/ResultsPage';
 import { PredictionsPage } from './pages/PredictionsPage';
 import { MatchDetailPage } from './pages/MatchDetailPage';
 import { useAuth } from './contexts/AuthContext';
@@ -63,6 +67,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
+          <Toaster position="bottom-right" richColors closeButton />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/join/:token" element={<JoinPage />} />
@@ -82,6 +87,9 @@ export function App() {
             {/* Admin-only routes */}
             <Route element={<ProtectedRoute requireAdmin />}>
               <Route element={<Layout />}>
+                <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/sync" element={<AdminSyncPage />} />
+                <Route path="/admin/results" element={<AdminResultsPage />} />
                 <Route path="/admin/invites" element={<AdminInvitesPage />} />
                 <Route path="/admin/players" element={<AdminPlayersPage />} />
               </Route>

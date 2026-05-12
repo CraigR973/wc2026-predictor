@@ -1,9 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Lock } from 'lucide-react';
+import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import type { MatchResponse, GroupResponse, PredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { useCountdown } from '../hooks/useCountdown';
@@ -185,6 +188,7 @@ function PredictionCard({
   prediction,
   local,
   timezone,
+  highlighted,
   onHomeChange,
   onAwayChange,
 }: {
@@ -192,6 +196,7 @@ function PredictionCard({
   prediction: PredictionResponse | undefined;
   local: LocalPrediction | undefined;
   timezone: string;
+  highlighted: boolean;
   onHomeChange: (matchId: string, value: string) => void;
   onAwayChange: (matchId: string, value: string) => void;
 }) {
@@ -235,11 +240,13 @@ function PredictionCard({
     awayVal === '';
 
   return (
-    <div
+    <motion.div
       className={`rounded-lg border bg-surface p-3 transition-all ${
         isVoided ? 'opacity-50' : ''
-      } ${isDeadlineWarning ? 'border-warning/60' : 'border-border'}`}
+      } ${isDeadlineWarning ? 'border-warning/60' : highlighted ? 'border-primary' : 'border-border'}`}
       data-testid={`prediction-card-${match.id}`}
+      animate={highlighted ? { scale: [1, 1.02, 1] } : {}}
+      transition={{ duration: 0.4 }}
     >
       {/* Header row */}
       <div className="flex items-center justify-between gap-2 mb-3">
@@ -332,7 +339,7 @@ function PredictionCard({
           {match.postponed_reason}
         </p>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -346,6 +353,7 @@ function GroupPanel({
   predictions,
   local,
   timezone,
+  highlightedMatchIds,
   onHomeChange,
   onAwayChange,
   onSaveAll,
@@ -355,6 +363,7 @@ function GroupPanel({
   predictions: PredictionResponse[];
   local: LocalPredictions;
   timezone: string;
+  highlightedMatchIds: Set<string>;
   onHomeChange: (matchId: string, value: string) => void;
   onAwayChange: (matchId: string, value: string) => void;
   onSaveAll: (groupMatches: MatchResponse[]) => void;
@@ -378,6 +387,7 @@ function GroupPanel({
               prediction={predByMatch[m.id]}
               local={local[m.id]}
               timezone={timezone}
+              highlighted={highlightedMatchIds.has(m.id)}
               onHomeChange={onHomeChange}
               onAwayChange={onAwayChange}
             />
@@ -415,10 +425,14 @@ const DEBOUNCE_MS = 800;
 export function PredictionsPage() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
+  const queryClient = useQueryClient();
 
   const [activeGroup, setActiveGroup] = useState(0);
   const [local, setLocal] = useState<LocalPredictions>({});
+  const [highlightedMatchIds, setHighlightedMatchIds] = useState<Set<string>>(new Set());
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Track which match IDs had a null score before the last Realtime update
+  const prevScoresRef = useRef<Record<string, boolean>>({});
 
   // Fetch groups A–L
   const { data: groups = [], isLoading: groupsLoading } = useQuery<GroupResponse[]>({
@@ -456,6 +470,61 @@ export function PredictionsPage() {
       });
     }
   }, [predictions]);
+
+  // Keep a shadow of which matches had null scores so we can detect result arrival
+  useEffect(() => {
+    for (const m of matches) {
+      prevScoresRef.current[m.id] = m.actual_home_score === null;
+    }
+  }, [matches]);
+
+  // Realtime: subscribe to matches table — when a result is set, refetch and animate
+  useEffect(() => {
+    const channel = supabase
+      .channel('predictions-match-results')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'matches' },
+        async (payload) => {
+          const updated = payload.new as { id: string; actual_home_score: number | null; actual_away_score: number | null };
+          const wasNull = prevScoresRef.current[updated.id] ?? true;
+          const nowSet = updated.actual_home_score !== null && updated.actual_away_score !== null;
+
+          // Invalidate matches so the card shows the new score
+          await queryClient.invalidateQueries({ queryKey: ['matches', 'group'] });
+
+          if (wasNull && nowSet) {
+            // Result just arrived — refetch predictions to get updated points, then toast
+            const fresh = await queryClient.fetchQuery<PredictionResponse[]>({
+              queryKey: ['predictions', 'me'],
+              queryFn: () => apiFetch<PredictionResponse[]>('/api/v1/predictions/me'),
+            });
+            const pred = fresh.find((p) => p.match_id === updated.id);
+            const pts = pred?.points_awarded ?? null;
+
+            if (pts !== null) {
+              toast.success(
+                `Result: ${updated.actual_home_score}–${updated.actual_away_score} · You scored ${pts} pt${pts !== 1 ? 's' : ''}`,
+                { duration: 6000 },
+              );
+            }
+
+            // Flash the card for 2.5 s
+            setHighlightedMatchIds((prev) => new Set([...prev, updated.id]));
+            setTimeout(() => {
+              setHighlightedMatchIds((prev) => {
+                const next = new Set(prev);
+                next.delete(updated.id);
+                return next;
+              });
+            }, 2500);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const savePrediction = useCallback(
     async (matchId: string, home: string, away: string) => {
@@ -579,6 +648,7 @@ export function PredictionsPage() {
               predictions={predictions}
               local={local}
               timezone={timezone}
+              highlightedMatchIds={highlightedMatchIds}
               onHomeChange={handleHomeChange}
               onAwayChange={handleAwayChange}
               onSaveAll={handleSaveAll}
