@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Enum, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Enum, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models.base import Base, UpdatedAtMixin, UUIDPrimaryKeyMixin
@@ -24,6 +24,7 @@ class Profile(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
         server_default="player",
     )
     timezone: Mapped[str] = mapped_column(String(100), nullable=False, server_default="UTC")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     failed_login_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)

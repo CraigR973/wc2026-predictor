@@ -16,6 +16,9 @@ import { AdminSyncPage } from './pages/admin/SyncPage';
 import { AdminResultsPage } from './pages/admin/ResultsPage';
 import { PredictionsPage } from './pages/PredictionsPage';
 import { MatchDetailPage } from './pages/MatchDetailPage';
+import { LeaderboardPage } from './pages/LeaderboardPage';
+import { LeaderboardHistoryPage } from './pages/LeaderboardHistoryPage';
+import { RoundLeaderboardPage } from './pages/RoundLeaderboardPage';
 import { useAuth } from './contexts/AuthContext';
 
 const queryClient = new QueryClient({
@@ -81,6 +84,9 @@ export function App() {
                 <Route path="/groups" element={<GroupsPage />} />
                 <Route path="/groups/:name" element={<GroupDetailPage />} />
                 <Route path="/matches/:id" element={<MatchDetailPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/leaderboard/history" element={<LeaderboardHistoryPage />} />
+                <Route path="/leaderboard/round/:stage" element={<RoundLeaderboardPage />} />
               </Route>
             </Route>
 

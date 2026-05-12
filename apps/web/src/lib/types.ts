@@ -70,3 +70,33 @@ export interface MatchPredictionsResponse {
   match_id: string;
   predictions: MatchPredictionItem[];
 }
+
+export interface LeaderboardEntry {
+  rank: number;
+  player_id: string;
+  player_name: string;
+  total_points: number;
+  match_points: number;
+  knockout_winner_points: number;
+  special_points: number;
+  is_active: boolean;
+}
+
+export interface SnapshotPoint {
+  snapshot_at: string;
+  total_points: number;
+  rank: number;
+}
+
+export interface HistoryEntry {
+  player_id: string;
+  player_name: string;
+  snapshots: SnapshotPoint[];
+}
+
+export interface RoundEntry {
+  rank: number;
+  player_id: string;
+  player_name: string;
+  points: number;
+}
