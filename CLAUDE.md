@@ -24,6 +24,22 @@ Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
 - Always merge the feature branch back to `main` (`git checkout main && git merge --ff-only <branch> && git push origin main`) after CI is green
 - CI: GitHub Actions — token in `.env` as `GITHUB_TOKEN`. **Do not foreground-poll CI in a tight loop** — each iteration pollutes chat context. Pattern: one immediate check, then one or two follow-up checks via `run_in_background` bash spaced ~3 min apart, OR push and rely on the cached result endpoint at the end. Never write 10+ polling lines into the conversation.
 
+### Session log entry format (use this, override the global protocol's verbose template)
+
+```
+## Phase X.Y — Title
+
+**Date / Model / Commits / CI / Merged-to-main:** one-line each
+
+### Key facts for future sessions
+- <only non-obvious gotchas a future session can't discover by reading code or `git log`>
+- <max ~6 bullets>
+
+**Next:** Phase X.Z — Title (model tag)
+```
+
+Do NOT write "Files modified" or "What shipped" sections — they're recoverable from `git show --stat <commit>` and the commit message. Keep the entry under ~25 lines.
+
 ---
 
 ## Bash discipline (token-saving)
@@ -35,6 +51,7 @@ Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
   - Same shape for `-m ruff check`, `-m ruff format --check`, `-m mypy src`
 - Frontend test invocation: `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir <worktree>/apps/web test`
 - Prefer `grep` with line ranges over reading whole files. `wc2026-architecture.md` is 1600+ lines — always grep for the section heading first, then read a small `offset`/`limit` window.
+- **Spawn the Explore subagent when investigating >3 files** to answer a "where is X / how is Y wired" question. Explore returns a summary at much lower token cost to the main session than 5–8 grep + read calls in main context.
 
 ---
 
