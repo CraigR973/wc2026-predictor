@@ -28,8 +28,7 @@ Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
 
 ```
 ## Phase X.Y — Title
-
-**Date / Model / Commits / CI / Merged-to-main:** one-line each
+**Commits:** <hash>[, <hash>] · CI ✅
 
 ### Key facts for future sessions
 - <only non-obvious gotchas a future session can't discover by reading code or `git log`>
@@ -38,7 +37,7 @@ Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
 **Next:** Phase X.Z — Title (model tag)
 ```
 
-Do NOT write "Files modified" or "What shipped" sections — they're recoverable from `git show --stat <commit>` and the commit message. Keep the entry under ~25 lines.
+That is the whole entry — commits, CI marker, key facts, next pointer. Date, model, files-modified, what-shipped are ALL recoverable from `git show <hash>` / `git log --format=%ci %an` and must NOT be duplicated. Keep entries under ~15 lines.
 
 ---
 
