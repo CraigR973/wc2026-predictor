@@ -5,7 +5,7 @@ Use this table to pick the next batch at close-out. Update as phases land.
 
 | Batch | Model | Phases | Rationale |
 |---|---|---|---|
-| 1 | 🟢 Sonnet | 6.1, 6.2, 6.3, 6.4 | Leaderboard API + UI + history + round filter — shared realtime + frontend patterns |
+| ~~1~~ | ~~🟢 Sonnet~~ | ~~6.1, 6.2, 6.3, 6.4~~ | ✅ Shipped 2026-05-12 |
 | 2 | 🔴 Opus | 7.1 | Knockout match creation — seeding logic + external client |
 | 3 | 🟢 Sonnet | 7.2, 7.4 | Knockout prediction API + UI — shared lock-countdown |
 | 4 | 🔴 Opus | 7.3 | Bracket SVG — responsive visual iteration |
