@@ -24,6 +24,17 @@ Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
 - Always merge the feature branch back to `main` (`git checkout main && git merge --ff-only <branch> && git push origin main`) after CI is green
 - CI: GitHub Actions — token in `.env` as `GITHUB_TOKEN`. **Do not foreground-poll CI in a tight loop** — each iteration pollutes chat context. Pattern: one immediate check, then one or two follow-up checks via `run_in_background` bash spaced ~3 min apart, OR push and rely on the cached result endpoint at the end. Never write 10+ polling lines into the conversation.
 
+### MANDATORY: generating the next-phase prompt
+
+When writing the next-phase copy-paste prompt at close-out, you MUST:
+
+1. `grep` `docs/phase-batches.md` to find the next un-struck-through batch. The prompt scope is **the entire batch**, not a single phase. A batch may contain 1–4 phases.
+2. For every phase ID in the batch, `grep -n -A 6 "Phase X.Y:" wc2026-architecture.md` to pull the acceptance criteria verbatim. NEVER invent a phase number. If `grep` returns no match, the phase does not exist — stop and ask the user.
+3. The model tag (🟢 Sonnet / 🔴 Opus) is fixed by the batch row. Do not propose a different model.
+4. After the user starts the next session, strike through or delete the completed batch row in `docs/phase-batches.md` as part of close-out.
+
+If `docs/phase-batches.md` does not exist or has no remaining batches, fall back to grepping `wc2026-architecture.md` for the next unticked phase heading — but say so explicitly so the user can confirm.
+
 ### Session log entry format (use this, override the global protocol's verbose template)
 
 ```
