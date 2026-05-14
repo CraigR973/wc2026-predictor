@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git -C /Users/craigrobinson/wc_2026_predictor symbolic-ref --short HEAD 2>/dev/null | grep -qv '^main$' && echo '⚠️  Feature branch active — if phase complete, run /phase-closeout <ids>' || true"
+            "command": "DIR=${CLAUDE_PROJECT_DIR:-/Users/craigrobinson/wc_2026_predictor}; B=$(git -C \"$DIR\" symbolic-ref --short HEAD 2>/dev/null); [ -n \"$B\" ] && [ \"$B\" != \"main\" ] && [ -z \"$(git -C \"$DIR\" status --porcelain 2>/dev/null)\" ] && [ \"$(git -C \"$DIR\" rev-list @{u}..HEAD --count 2>/dev/null)\" = \"0\" ] && echo '⚠️  Branch clean and pushed — run /phase-closeout <ids> if ready to close out' || true"
           }
         ]
       }
