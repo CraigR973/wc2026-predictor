@@ -53,3 +53,8 @@ lcov.info
 # Playwright
 playwright-report/
 test-results/
+
+# Claude Code runtime artifacts (settings.json and commands/ stay tracked)
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+.mcp.json
