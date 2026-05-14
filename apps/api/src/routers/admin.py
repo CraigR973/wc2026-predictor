@@ -2,8 +2,9 @@
 
 import secrets
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -12,13 +13,23 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import AdminPlayer, generate_opaque_token, hash_pin
+from src.config import settings
 from src.database import get_db
 from src.models.group import Group
 from src.models.invite import Invite
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.profile import Profile
+from src.services.football_data import FDMatch, FootballDataClient, FootballDataError
+from src.services.knockout_advancement import (
+    AlreadyAdvancedError,
+    GroupStageIncompleteError,
+    MissingKickoffsError,
+    advance_to_r32,
+)
 from src.services.result_sync import sync_results
+
+FdFetcher = Callable[[], Awaitable[list[FDMatch]]]
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -169,6 +180,29 @@ class MatchAdminResponse(BaseModel):
     original_kickoff_utc: datetime | None
     locked_at: datetime | None
     postponed_reason: str | None
+
+
+class KnockoutAdvanceRequest(BaseModel):
+    # Phase 7.1 only supports advancing out of the group stage. Later
+    # phases will widen this to {"r32", "r16", "qf", "sf"}.
+    from_stage: Literal["group"] = "group"
+
+
+class KnockoutMatchResponse(BaseModel):
+    id: str
+    match_number: int
+    stage: str
+    kickoff_utc: datetime
+    home_team_id: str
+    away_team_id: str
+    home_team_placeholder: str
+    away_team_placeholder: str
+    football_data_match_id: int | None
+
+
+class KnockoutAdvanceResponse(BaseModel):
+    to_stage: str
+    matches: list[KnockoutMatchResponse]
 
 
 # ---------------------------------------------------------------------------
@@ -849,6 +883,86 @@ async def list_results(
         )
         for m in matches
     ]
+
+
+# ---------------------------------------------------------------------------
+# Knockout advancement (Phase 7.1)
+# ---------------------------------------------------------------------------
+
+
+async def _default_fd_fetcher() -> list[FDMatch]:
+    """Live football-data.org fetcher used in production.
+
+    A dependency so tests can override it via ``app.dependency_overrides``
+    without monkey-patching the client.
+    """
+    client = FootballDataClient(api_key=settings.football_data_api_key)
+    try:
+        response = await client.get_competition_matches()
+        return response.matches
+    finally:
+        await client.close()
+
+
+def get_fd_fetcher() -> FdFetcher:
+    return _default_fd_fetcher
+
+
+@router.post(
+    "/knockout/advance",
+    response_model=KnockoutAdvanceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def advance_knockout(
+    body: KnockoutAdvanceRequest,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    fd_fetcher: Annotated[FdFetcher, Depends(get_fd_fetcher)],
+) -> KnockoutAdvanceResponse:
+    """Create the next round's matches from completed prior-round results.
+
+    Phase 7.1 implements the ``group → r32`` advancement only. Subsequent
+    rounds will be handled in later phases of the architecture plan.
+    """
+    if body.from_stage != "group":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Advancement from stage '{body.from_stage}' is not yet supported",
+        )
+
+    try:
+        matches = await advance_to_r32(db, admin.id, fd_fetcher)
+    except AlreadyAdvancedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except GroupStageIncompleteError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    except MissingKickoffsError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    except FootballDataError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"football-data.org request failed: {exc}",
+        ) from exc
+
+    return KnockoutAdvanceResponse(
+        to_stage="r32",
+        matches=[
+            KnockoutMatchResponse(
+                id=str(m.id),
+                match_number=m.match_number,
+                stage=m.stage.value,
+                kickoff_utc=m.kickoff_utc,
+                home_team_id=str(m.home_team_id),
+                away_team_id=str(m.away_team_id),
+                home_team_placeholder=m.home_team_placeholder or "",
+                away_team_placeholder=m.away_team_placeholder or "",
+                football_data_match_id=m.football_data_match_id,
+            )
+            for m in matches
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------
