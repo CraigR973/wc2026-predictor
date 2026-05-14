@@ -16,12 +16,12 @@ This file provides Claude with project-specific context and configuration for ev
 
 ## Phase close-out protocol
 
-Follow the global phase close-out protocol from `~/.claude/CLAUDE.md` exactly.
+Close-out is triggered by `/phase-closeout <ids>` (see `.claude/commands/phase-closeout.md`). Do not auto-run it at end-of-phase — wait for the slash command so the user can review the work first. The global `~/.claude/CLAUDE.md` defers to this same explicit-trigger rule.
 
 - Session log: `session-log.md` (repo root)
 - Architecture/plan doc: `wc2026-architecture.md` (repo root)
 - Remote: `origin main`
-- Always merge the feature branch back to `main` (`git checkout main && git merge --ff-only <branch> && git push origin main`) after CI is green
+- After CI is green, merge the feature branch back to `main` via `git checkout main && git merge --ff-only <branch> && git push origin main`
 - CI: GitHub Actions — token in `.env` as `GITHUB_TOKEN`. **Do not foreground-poll CI in a tight loop** — each iteration pollutes chat context. Pattern: one immediate check, then one or two follow-up checks via `run_in_background` bash spaced ~3 min apart, OR push and rely on the cached result endpoint at the end. Never write 10+ polling lines into the conversation.
 
 ### MANDATORY: generating the next-phase prompt
