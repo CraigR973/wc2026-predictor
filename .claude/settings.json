@@ -10,5 +10,18 @@
       "mcp__Claude_Preview__preview_list",
       "mcp__Claude_Preview__preview_network"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git -C /Users/craigrobinson/wc_2026_predictor symbolic-ref --short HEAD 2>/dev/null | grep -qv '^main$' && echo '⚠️  Feature branch active — if phase complete, run /phase-closeout <ids>' || true"
+          }
+        ]
+      }
+    ]
   }
 }
