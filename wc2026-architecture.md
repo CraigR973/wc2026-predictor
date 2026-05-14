@@ -1587,7 +1587,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 7 — Knockout Bracket
 
-**Phase 7.1: Knockout Match Creation API** 🔴 Opus
+**Phase 7.1: Knockout Match Creation API** 🔴 Opus ✅ 2026-05-14
 - `POST /admin/knockout/advance` — creates next round's matches with correct seeding
 - Pulls kickoff times from football-data.org client during creation
 - Validates advancing teams have correct results

@@ -710,3 +710,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Worktree node_modules must be symlinked to parent repo for Vite dev server: `ln -sfn <parent>/apps/web/node_modules <worktree>/apps/web/node_modules`.
 
 **Next:** Phase 6.5 — Predictions Lock UI (🟢 Sonnet 4.6)
+
+---
+
+## Phase 7.1 — Knockout Match Creation API
+**Commits:** e607047 · CI ✅
+
+### Key facts for future sessions
+- R32 bracket is a hardcoded `BRACKET_R32: list[tuple[str, str]]` in `apps/api/src/services/knockout_advancement.py` using slot labels `1A..1L`, `2A..2L`, `T1..T8`. Each label is used exactly once; admin can reshuffle pairings per-match later — the architecture explicitly leaves this open.
+- Best-3rd ranking sorts by `(-pts, -gd, -gf, team_code)` — the team_code tiebreak is deterministic, not FIFA-spec.
+- `_FD_R32_STAGE_LABELS = {"LAST_32", "ROUND_OF_32", "PRELIMINARY_ROUND"}` — football-data.org has no confirmed 2026 R32 label yet; we accept any of the three.
+- Endpoint maps service exceptions to HTTP: `AlreadyAdvancedError → 409`, `GroupStageIncompleteError → 422`, `MissingKickoffsError → 502`, `FootballDataError → 502`.
+- One `AuditLog` row per created match (16 total) with `action_type=knockout_advanced` and the slot labels + team codes in `changes`.
+- CI gotcha: `.github/workflows/ci.yml` only triggers `on: push` for `main` and `claude/**`. A `feat/*` branch won't fire CI on push — open a PR or mirror to `claude/<name>` (and the personal access token in `.env` lacks PR-creation scope, so use the mirror trick).
+
+**Next:** Batch 3 — Phases 7.2 & 7.4 (🟢 Sonnet 4.6)
