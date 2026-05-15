@@ -740,3 +740,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Two ruff CI failures on first push: long import line (E501/I001 in `main.py`) and unformatted router (format check). Fixed in c7165dc and 40e1077.
 
 **Next:** Phase 7.3 — Bracket Visualisation (🔴 Opus)
+
+---
+
+## Phase 7.3 — Bracket Visualisation
+**Commits:** c066e2d · CI ✅
+
+### Key facts for future sessions
+- Per-player accent colour is computed by hashing `player.id` into the shared 15-colour `PALETTE` (same array as `LeaderboardHistoryPage`). The `Profile` model has no `avatar_color` field — when one is added later, replace `playerColor()` in `BracketPage.tsx` with the stored colour.
+- Bracket SVG uses `<foreignObject>` for each match box so Tailwind classes work inside the SVG — handy when a future round needs richer hover/focus states.
+- Round-to-round pairing is **schematic only** — adjacent match_number pairs feed the next round in order. The architecture lets admin reshuffle R16+ pairings; if/when shuffling happens, the connector lines will look misleading. Fix would be a real bracket graph (parent_match_id on matches).
+- BracketPage subscribes to NO realtime channel — picks are read-only here. Updates flow through the existing `KnockoutPredictionsPage` invalidations on `['knockout-predictions', 'me']`.
+- Worktree dev-server gotcha (not committed): vite resolves project root from `process.cwd()`. `bash apps/web/dev.sh` from a parent CWD ends up serving parent files; the worktree's dev.sh must `cd "$(dirname "$0")"` (or be invoked from inside apps/web) for HMR to pick up worktree edits.
+
+**Next:** Batch 5 — Phases 8.1, 8.2 — Specials API + UI (🟢 Sonnet 4.6)

@@ -1599,7 +1599,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - `GET /knockout-predictions/match/{match_id}` (post-round-lock)
 - **Acceptance:** Predictions submitted for R32; locked at first R32 kickoff; points awarded on result
 
-**Phase 7.3: Bracket Visualisation** 🔴 Opus
+**Phase 7.3: Bracket Visualisation** 🔴 Opus ✅ 2026-05-15
 - `/bracket` — interactive SVG bracket tree
 - Placeholder text for unset matchups
 - Predicted winners shown in player's avatar colour
