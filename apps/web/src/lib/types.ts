@@ -111,3 +111,26 @@ export interface KnockoutPredictionResponse {
   points_awarded: number | null;
   updated_at: string;
 }
+
+export type SpecialType = 'tournament_winner' | 'golden_boot' | 'top_scoring_team';
+
+export interface SpecialPredictionItem {
+  id: string;
+  prediction_type: SpecialType;
+  predicted_team_id: string | null;
+  predicted_player_name: string | null;
+  submitted_at: string | null;
+  points_awarded: number | null;
+}
+
+export interface MySpecialsResponse {
+  is_locked: boolean;
+  lock_at: string | null;
+  predictions: SpecialPredictionItem[];
+}
+
+export interface PlayerSpecialsItem {
+  player_id: string;
+  player_name: string;
+  predictions: SpecialPredictionItem[];
+}

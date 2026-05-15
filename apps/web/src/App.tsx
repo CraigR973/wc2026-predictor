@@ -16,6 +16,7 @@ import { AdminSyncPage } from './pages/admin/SyncPage';
 import { AdminResultsPage } from './pages/admin/ResultsPage';
 import { PredictionsPage } from './pages/PredictionsPage';
 import { KnockoutPredictionsPage } from './pages/KnockoutPredictionsPage';
+import { SpecialsPage } from './pages/SpecialsPage';
 import { BracketPage } from './pages/BracketPage';
 import { MatchDetailPage } from './pages/MatchDetailPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
@@ -56,6 +57,13 @@ function Dashboard() {
           <p className="text-text-muted text-sm font-sans mt-1">Pick winners for each round</p>
         </a>
         <a
+          href="/predictions/specials"
+          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
+        >
+          <p className="font-display text-xl text-primary tracking-wider">Specials</p>
+          <p className="text-text-muted text-sm font-sans mt-1">Tournament winner, Golden Boot, top scorer</p>
+        </a>
+        <a
           href="/schedule"
           className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
         >
@@ -91,6 +99,7 @@ export function App() {
                 <Route path="/schedule" element={<SchedulePage />} />
                 <Route path="/predictions" element={<PredictionsPage />} />
                 <Route path="/predictions/knockout" element={<KnockoutPredictionsPage />} />
+                <Route path="/predictions/specials" element={<SpecialsPage />} />
                 <Route path="/bracket" element={<BracketPage />} />
                 <Route path="/groups" element={<GroupsPage />} />
                 <Route path="/groups/:name" element={<GroupDetailPage />} />
