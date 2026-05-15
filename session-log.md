@@ -725,3 +725,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - CI gotcha: `.github/workflows/ci.yml` only triggers `on: push` for `main` and `claude/**`. A `feat/*` branch won't fire CI on push — open a PR or mirror to `claude/<name>` (and the personal access token in `.env` lacks PR-creation scope, so use the mirror trick).
 
 **Next:** Batch 3 — Phases 7.2 & 7.4 (🟢 Sonnet 4.6)
+
+---
+
+## Phases 7.2, 7.4 — Knockout Prediction API + UI
+**Commits:** 0e07f38, 7048736, c7165dc, 40e1077 · CI ✅
+
+### Key facts for future sessions
+- Round-level lock: `PUT /api/v1/knockout-predictions/{match_id}` checks if ANY match in the same stage is no longer `scheduled`. If so, the whole round is locked (409 `PREDICTION_LOCKED`). This differs from group-stage which is per-match.
+- `KnockoutPrediction` model has no `deleted_at` field — queries don't filter on it (unlike `Prediction`).
+- `predicted_winner_id` validated against `match.home_team_id` / `away_team_id` only when both are non-null; future rounds with TBD teams bypass validation.
+- Frontend fetches ALL matches (`GET /api/v1/matches`) and filters knockout stages client-side; group + winner stages excluded.
+- CI check: always use `claude/` branch prefix (not `feat/`) — `feat/` branches don't trigger the workflow.
+- Two ruff CI failures on first push: long import line (E501/I001 in `main.py`) and unformatted router (format check). Fixed in c7165dc and 40e1077.
+
+**Next:** Phase 7.3 — Bracket Visualisation (🔴 Opus)

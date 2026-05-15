@@ -1593,7 +1593,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Validates advancing teams have correct results
 - **Acceptance:** After group stage, admin advances to R32; all 16 R32 matches created with teams + kickoffs
 
-**Phase 7.2: Knockout Prediction API** 🟢 Sonnet 4.6
+**Phase 7.2: Knockout Prediction API** 🟢 Sonnet 4.6 ✅ 2026-05-15
 - `PUT /knockout-predictions/{match_id}`
 - `GET /knockout-predictions/me`
 - `GET /knockout-predictions/match/{match_id}` (post-round-lock)
@@ -1607,7 +1607,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Mobile-responsive (horizontal scroll)
 - **Acceptance:** Bracket renders all rounds; predicted winners visible; responsive on mobile
 
-**Phase 7.4: Knockout Prediction UI** 🟢 Sonnet 4.6
+**Phase 7.4: Knockout Prediction UI** 🟢 Sonnet 4.6 ✅ 2026-05-15
 - `/predictions/knockout` with round tabs
 - Lock countdown per round
 - **Acceptance:** Player picks winners for all R32 matches; locked at first kickoff
