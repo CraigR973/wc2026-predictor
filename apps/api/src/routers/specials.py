@@ -124,7 +124,9 @@ async def get_my_specials(
     result = await db.execute(
         select(SpecialPrediction).where(SpecialPrediction.player_id == player.id)
     )
-    preds = {p.prediction_type: p for p in result.scalars().all()}
+    preds: dict[SpecialPredictionType, SpecialPrediction] = {
+        p.prediction_type: p for p in result.scalars().all()
+    }
 
     items: list[SpecialPredictionItem] = []
     for ptype in SpecialPredictionType:
@@ -235,14 +237,18 @@ async def get_all_specials(
     )
     rows = result.all()
 
-    by_player: dict[str, dict] = {}
+    by_player: dict[str, PlayerSpecialsItem] = {}
     for pred, prof in rows:
         pid = str(prof.id)
         if pid not in by_player:
-            by_player[pid] = {"player_id": pid, "player_name": prof.display_name, "predictions": []}
-        by_player[pid]["predictions"].append(_to_item(pred))
+            by_player[pid] = PlayerSpecialsItem(
+                player_id=pid,
+                player_name=prof.display_name,
+                predictions=[],
+            )
+        by_player[pid].predictions.append(_to_item(pred))
 
-    return [PlayerSpecialsItem(**v) for v in by_player.values()]
+    return list(by_player.values())
 
 
 # ---------------------------------------------------------------------------
