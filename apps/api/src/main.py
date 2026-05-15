@@ -16,7 +16,17 @@ from slowapi.util import get_remote_address
 from src.config import settings
 from src.logging_config import configure_logging
 from src.middleware import CorrelationIdMiddleware
-from src.routers import admin, auth, groups, health, knockout_predictions, leaderboard, matches, players, predictions
+from src.routers import (
+    admin,
+    auth,
+    groups,
+    health,
+    knockout_predictions,
+    leaderboard,
+    matches,
+    players,
+    predictions,
+)
 from src.scheduler import create_scheduler
 
 configure_logging(settings.log_level)
