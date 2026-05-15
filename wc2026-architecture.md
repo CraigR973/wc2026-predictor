@@ -1646,7 +1646,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Handles edge cases (one player didn't predict; one player removed)
 - **Acceptance:** Comparison data correct including edge cases
 
-**Phase 9.4: Head-to-Head UI** 🔴 Opus
+**Phase 9.4: Head-to-Head UI** 🔴 Opus ✅ 2026-05-15
 - `/compare` — player picker + side-by-side comparison
 - Summary bar with W/D/L
 - Long-press from leaderboard

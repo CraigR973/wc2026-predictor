@@ -784,3 +784,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - CI branch rule: use `claude/` prefix — `feat/` branches don't trigger the workflow (unchanged from prior sessions).
 
 **Next:** Batch 7 — Phase 9.4 — H2H UI (🔴 Opus)
+
+---
+
+## Phase 9.4 — Head-to-Head UI
+**Commits:** c20d164 · CI ✅
+
+### Key facts for future sessions
+- `/compare` state lives entirely in URL search params (`?a=&b=`) — both the dropdown pickers and the leaderboard long-press navigation write/read the same params, so deep links work and there's no in-component state to keep in sync.
+- Default-A-to-current-user runs only when both `a` and `b` are empty (one-time effect on mount); switching A back to "Select…" via the dropdown won't re-trigger the default.
+- `useLongPress` hook uses pointer events, 500 ms default, 10 px move-cancel threshold, suppresses the trailing click after a long-press fires, and suppresses the context menu only when fired (so right-click still works on links inside the row).
+- `LeaderboardRow` was extracted as a sub-component so each row can call `useLongPress` legally; the nested player-name `<Link>` calls `stopPropagation` on both pointerdown and click so it can't start the long-press timer.
+- Winner highlight is `bg-primary/10` + `text-primary` on the points number — draws leave both sides unhighlighted; the per-row marker glyph (`◀`/`▶`/`=`) is purely cosmetic.
+
+**Next:** Batch 8 — Phases 10.1, 10.2, 10.3, 10.4 — PWA + Web Push end-to-end (🟢 Sonnet 4.6)
