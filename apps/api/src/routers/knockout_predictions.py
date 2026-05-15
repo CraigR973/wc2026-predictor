@@ -76,9 +76,7 @@ def _to_response(pred: KnockoutPrediction) -> KnockoutPredictionResponse:
 
 
 async def _get_match_or_404(match_id: uuid.UUID, db: AsyncSession) -> Match:
-    result = await db.execute(
-        select(Match).where(Match.id == match_id, Match.deleted_at.is_(None))
-    )
+    result = await db.execute(select(Match).where(Match.id == match_id, Match.deleted_at.is_(None)))
     match = result.scalar_one_or_none()
     if match is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
