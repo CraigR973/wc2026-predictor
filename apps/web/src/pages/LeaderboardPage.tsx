@@ -136,9 +136,13 @@ export function LeaderboardPage() {
                       <td className="py-3">
                         <div className="flex items-center gap-2">
                           <span className={`text-xs font-mono ${aClass}`}>{arrow}</span>
-                          <span className="text-text-primary font-medium">
+                          <Link
+                            to={`/players/${entry.player_id}`}
+                            className="text-text-primary font-medium hover:text-primary transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {entry.player_name}
-                          </span>
+                          </Link>
                           {!entry.is_active && (
                             <span className="text-[10px] text-text-muted bg-surface-elevated px-1.5 py-0.5 rounded">
                               inactive

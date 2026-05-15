@@ -1,0 +1,107 @@
+"""Stats endpoints — per-player and league-wide."""
+
+import uuid
+from typing import Annotated
+
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.auth import CurrentPlayer
+from src.database import get_db
+from src.models.profile import Profile
+from src.services.stats import PlayerStatsData, get_league_stats, get_player_stats
+
+log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
+
+router = APIRouter(prefix="/api/v1/stats", tags=["stats"])
+
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+
+
+class PlayerStatsOut(BaseModel):
+    player_id: str
+    player_name: str
+    total_predictions_settled: int
+    accuracy_pct: float
+    exact_rate_pct: float
+    avg_pts_per_prediction: float
+    total_points: int
+    best_round: str | None
+    best_round_points: int | None
+    worst_round: str | None
+    worst_round_points: int | None
+    current_streak: int
+    avg_prediction_timing_mins: float | None
+
+
+def _to_out(data: PlayerStatsData) -> PlayerStatsOut:
+    return PlayerStatsOut(
+        player_id=data.player_id,
+        player_name=data.player_name,
+        total_predictions_settled=data.total_predictions_settled,
+        accuracy_pct=data.accuracy_pct,
+        exact_rate_pct=data.exact_rate_pct,
+        avg_pts_per_prediction=data.avg_pts_per_prediction,
+        total_points=data.total_points,
+        best_round=data.best_round,
+        best_round_points=data.best_round_points,
+        worst_round=data.worst_round,
+        worst_round_points=data.worst_round_points,
+        current_streak=data.current_streak,
+        avg_prediction_timing_mins=data.avg_prediction_timing_mins,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/stats/me
+# ---------------------------------------------------------------------------
+
+
+@router.get("/me", response_model=PlayerStatsOut)
+async def get_my_stats(
+    player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> PlayerStatsOut:
+    stats = await get_player_stats(player.id, player.display_name, db)
+    return _to_out(stats)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/stats/league
+# ---------------------------------------------------------------------------
+
+
+@router.get("/league", response_model=list[PlayerStatsOut])
+async def get_league(
+    _player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[PlayerStatsOut]:
+    stats_list = await get_league_stats(db)
+    return [_to_out(s) for s in stats_list]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/stats/{player_id}
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{player_id}", response_model=PlayerStatsOut)
+async def get_player_stats_by_id(
+    player_id: uuid.UUID,
+    _player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> PlayerStatsOut:
+    result = await db.execute(
+        select(Profile).where(Profile.id == player_id, Profile.deleted_at.is_(None))
+    )
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+    stats = await get_player_stats(player_id, profile.display_name, db)
+    return _to_out(stats)

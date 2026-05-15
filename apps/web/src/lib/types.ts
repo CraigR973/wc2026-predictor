@@ -134,3 +134,34 @@ export interface PlayerSpecialsItem {
   player_name: string;
   predictions: SpecialPredictionItem[];
 }
+
+export interface PlayerStats {
+  player_id: string;
+  player_name: string;
+  total_predictions_settled: number;
+  accuracy_pct: number;
+  exact_rate_pct: number;
+  avg_pts_per_prediction: number;
+  total_points: number;
+  best_round: string | null;
+  best_round_points: number | null;
+  worst_round: string | null;
+  worst_round_points: number | null;
+  current_streak: number;
+  avg_prediction_timing_mins: number | null;
+}
+
+export interface RecentPrediction {
+  match_id: string;
+  stage: string;
+  kickoff_utc: string;
+  home_team_name: string | null;
+  away_team_name: string | null;
+  home_team_flag: string | null;
+  away_team_flag: string | null;
+  actual_home: number | null;
+  actual_away: number | null;
+  predicted_home: number | null;
+  predicted_away: number | null;
+  points_awarded: number | null;
+}

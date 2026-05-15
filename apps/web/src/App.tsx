@@ -22,6 +22,7 @@ import { MatchDetailPage } from './pages/MatchDetailPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { LeaderboardHistoryPage } from './pages/LeaderboardHistoryPage';
 import { RoundLeaderboardPage } from './pages/RoundLeaderboardPage';
+import { PlayerProfilePage } from './pages/PlayerProfilePage';
 import { useAuth } from './contexts/AuthContext';
 
 const queryClient = new QueryClient({
@@ -107,6 +108,7 @@ export function App() {
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/leaderboard/history" element={<LeaderboardHistoryPage />} />
                 <Route path="/leaderboard/round/:stage" element={<RoundLeaderboardPage />} />
+                <Route path="/players/:id" element={<PlayerProfilePage />} />
               </Route>
             </Route>
 

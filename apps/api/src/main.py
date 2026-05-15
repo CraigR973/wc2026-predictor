@@ -19,6 +19,7 @@ from src.middleware import CorrelationIdMiddleware
 from src.routers import (
     admin,
     auth,
+    compare,
     groups,
     health,
     knockout_predictions,
@@ -27,6 +28,7 @@ from src.routers import (
     players,
     predictions,
     specials,
+    stats,
 )
 from src.scheduler import create_scheduler
 
@@ -105,3 +107,5 @@ app.include_router(knockout_predictions.router)
 app.include_router(leaderboard.router)
 app.include_router(specials.router)
 app.include_router(specials.admin_router)
+app.include_router(stats.router)
+app.include_router(compare.router)
