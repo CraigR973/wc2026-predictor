@@ -100,3 +100,14 @@ export interface RoundEntry {
   player_name: string;
   points: number;
 }
+
+export interface KnockoutPredictionResponse {
+  id: string;
+  player_id: string;
+  match_id: string;
+  predicted_winner_id: string | null;
+  submitted_at: string | null;
+  update_count: number;
+  points_awarded: number | null;
+  updated_at: string;
+}
