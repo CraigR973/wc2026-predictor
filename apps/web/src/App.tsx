@@ -24,6 +24,7 @@ import { LeaderboardHistoryPage } from './pages/LeaderboardHistoryPage';
 import { RoundLeaderboardPage } from './pages/RoundLeaderboardPage';
 import { PlayerProfilePage } from './pages/PlayerProfilePage';
 import { ComparePage } from './pages/ComparePage';
+import { OfflinePage } from './pages/OfflinePage';
 import { useAuth } from './contexts/AuthContext';
 
 const queryClient = new QueryClient({
@@ -118,6 +119,7 @@ export function App() {
                 <Route path="/leaderboard/round/:stage" element={<RoundLeaderboardPage />} />
                 <Route path="/players/:id" element={<PlayerProfilePage />} />
                 <Route path="/compare" element={<ComparePage />} />
+                <Route path="/offline" element={<OfflinePage />} />
               </Route>
             </Route>
 
