@@ -23,6 +23,7 @@ import { LeaderboardPage } from './pages/LeaderboardPage';
 import { LeaderboardHistoryPage } from './pages/LeaderboardHistoryPage';
 import { RoundLeaderboardPage } from './pages/RoundLeaderboardPage';
 import { PlayerProfilePage } from './pages/PlayerProfilePage';
+import { ComparePage } from './pages/ComparePage';
 import { useAuth } from './contexts/AuthContext';
 
 const queryClient = new QueryClient({
@@ -78,6 +79,13 @@ function Dashboard() {
           <p className="font-display text-xl text-primary tracking-wider">Groups</p>
           <p className="text-text-muted text-sm font-sans mt-1">Live group standings</p>
         </a>
+        <a
+          href="/compare"
+          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
+        >
+          <p className="font-display text-xl text-primary tracking-wider">Compare</p>
+          <p className="text-text-muted text-sm font-sans mt-1">Head-to-head between any two players</p>
+        </a>
       </div>
     </div>
   );
@@ -109,6 +117,7 @@ export function App() {
                 <Route path="/leaderboard/history" element={<LeaderboardHistoryPage />} />
                 <Route path="/leaderboard/round/:stage" element={<RoundLeaderboardPage />} />
                 <Route path="/players/:id" element={<PlayerProfilePage />} />
+                <Route path="/compare" element={<ComparePage />} />
               </Route>
             </Route>
 

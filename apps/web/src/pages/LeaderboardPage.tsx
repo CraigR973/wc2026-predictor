@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { LeaderboardEntry } from '../lib/types';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { useLongPress } from '../hooks/useLongPress';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
@@ -17,8 +19,66 @@ function arrowClass(prev: number | undefined, curr: number): string {
   return prev > curr ? 'text-green-400' : 'text-red-400';
 }
 
+function LeaderboardRow({
+  entry,
+  prevRank,
+  isOpen,
+  onToggle,
+  onLongPress,
+}: {
+  entry: LeaderboardEntry;
+  prevRank: number | undefined;
+  isOpen: boolean;
+  onToggle: () => void;
+  onLongPress: () => void;
+}) {
+  const arrow = rankArrow(prevRank, entry.rank);
+  const aClass = arrowClass(prevRank, entry.rank);
+  const handlers = useLongPress({ onLongPress, onClick: onToggle });
+
+  return (
+    <tr
+      data-testid={`leaderboard-row-${entry.player_id}`}
+      className="border-b border-border/50 last:border-0 hover:bg-surface-elevated transition-colors cursor-pointer select-none"
+      {...handlers}
+    >
+      <td className="py-3 pl-4">
+        <span className="text-text-muted font-mono text-xs">
+          {MEDAL[entry.rank] ?? entry.rank}
+        </span>
+      </td>
+      <td className="py-3">
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-mono ${aClass}`}>{arrow}</span>
+          <Link
+            to={`/players/${entry.player_id}`}
+            className="text-text-primary font-medium hover:text-primary transition-colors"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {entry.player_name}
+          </Link>
+          {!entry.is_active && (
+            <span className="text-[10px] text-text-muted bg-surface-elevated px-1.5 py-0.5 rounded">
+              inactive
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="py-3 text-center font-bold text-primary pr-2">
+        {entry.total_points}
+      </td>
+      <td className="py-3 pr-4 text-center text-text-muted text-xs">
+        {isOpen ? '▲' : '▼'}
+      </td>
+    </tr>
+  );
+}
+
 export function LeaderboardPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { player: currentUser } = useAuth();
   const prevDataRef = useRef<LeaderboardEntry[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -61,6 +121,14 @@ export function LeaderboardPage() {
     });
   }
 
+  function openCompare(playerId: string) {
+    if (!currentUser?.id || currentUser.id === playerId) {
+      navigate(`/compare?b=${playerId}`);
+      return;
+    }
+    navigate(`/compare?a=${currentUser.id}&b=${playerId}`);
+  }
+
   const prevByPlayer = Object.fromEntries(
     prevDataRef.current.map((e) => [e.player_id, e.rank]),
   );
@@ -86,6 +154,12 @@ export function LeaderboardPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-display text-3xl text-primary tracking-wider">Leaderboard</h1>
         <div className="flex gap-3">
+          <Link
+            to="/compare"
+            className="text-sm text-text-muted hover:text-primary font-sans transition-colors"
+          >
+            Compare →
+          </Link>
           <Link
             to="/leaderboard/history"
             className="text-sm text-text-muted hover:text-primary font-sans transition-colors"
@@ -119,49 +193,17 @@ export function LeaderboardPage() {
             <tbody>
               {data.map((entry) => {
                 const isOpen = expanded.has(entry.player_id);
-                const arrow = rankArrow(prevByPlayer[entry.player_id], entry.rank);
-                const aClass = arrowClass(prevByPlayer[entry.player_id], entry.rank);
                 return (
-                  <>
-                    <tr
-                      key={entry.player_id}
-                      className="border-b border-border/50 last:border-0 hover:bg-surface-elevated transition-colors cursor-pointer"
-                      onClick={() => toggleExpand(entry.player_id)}
-                    >
-                      <td className="py-3 pl-4">
-                        <span className="text-text-muted font-mono text-xs">
-                          {MEDAL[entry.rank] ?? entry.rank}
-                        </span>
-                      </td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-mono ${aClass}`}>{arrow}</span>
-                          <Link
-                            to={`/players/${entry.player_id}`}
-                            className="text-text-primary font-medium hover:text-primary transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {entry.player_name}
-                          </Link>
-                          {!entry.is_active && (
-                            <span className="text-[10px] text-text-muted bg-surface-elevated px-1.5 py-0.5 rounded">
-                              inactive
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 text-center font-bold text-primary pr-2">
-                        {entry.total_points}
-                      </td>
-                      <td className="py-3 pr-4 text-center text-text-muted text-xs">
-                        {isOpen ? '▲' : '▼'}
-                      </td>
-                    </tr>
+                  <Fragment key={entry.player_id}>
+                    <LeaderboardRow
+                      entry={entry}
+                      prevRank={prevByPlayer[entry.player_id]}
+                      isOpen={isOpen}
+                      onToggle={() => toggleExpand(entry.player_id)}
+                      onLongPress={() => openCompare(entry.player_id)}
+                    />
                     {isOpen && (
-                      <tr
-                        key={`${entry.player_id}-breakdown`}
-                        className="bg-surface-elevated border-b border-border/50"
-                      >
+                      <tr className="bg-surface-elevated border-b border-border/50">
                         <td colSpan={4} className="py-3 pl-10 pr-4">
                           <div className="flex gap-6 text-xs text-text-muted">
                             <span>
@@ -186,7 +228,7 @@ export function LeaderboardPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

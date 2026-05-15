@@ -151,6 +151,52 @@ export interface PlayerStats {
   avg_prediction_timing_mins: number | null;
 }
 
+export interface PlayerListItem {
+  id: string;
+  display_name: string;
+  role: string;
+  timezone: string;
+  is_deleted: boolean;
+  created_at: string;
+}
+
+export interface H2HPlayerRef {
+  id: string;
+  name: string;
+}
+
+export interface H2HSummary {
+  player_a_wins: number;
+  player_b_wins: number;
+  draws: number;
+}
+
+export interface H2HMatchEntry {
+  match_id: string;
+  stage: string;
+  kickoff_utc: string;
+  home_team_name: string | null;
+  away_team_name: string | null;
+  home_team_flag: string | null;
+  away_team_flag: string | null;
+  actual_home: number | null;
+  actual_away: number | null;
+  player_a_predicted_home: number | null;
+  player_a_predicted_away: number | null;
+  player_a_points: number;
+  player_b_predicted_home: number | null;
+  player_b_predicted_away: number | null;
+  player_b_points: number;
+  winner: 'a' | 'b' | 'draw';
+}
+
+export interface H2HResponse {
+  player_a: H2HPlayerRef;
+  player_b: H2HPlayerRef;
+  summary: H2HSummary;
+  matches: H2HMatchEntry[];
+}
+
 export interface RecentPrediction {
   match_id: string;
   stage: string;
