@@ -1616,13 +1616,13 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 8 — Special Predictions
 
-**Phase 8.1: Special Predictions API** 🟢 Sonnet 4.6
+**Phase 8.1: Special Predictions API** 🟢 Sonnet 4.6 ✅ 2026-05-15
 - `GET /specials`, `PUT /specials/{type}`, `GET /specials/all`
 - `POST /admin/specials/award`
 - Locked at tournament opening kickoff
 - **Acceptance:** All 3 specials submitted; locked correctly; admin awards at tournament end
 
-**Phase 8.2: Special Predictions UI** 🟢 Sonnet 4.6
+**Phase 8.2: Special Predictions UI** 🟢 Sonnet 4.6 ✅ 2026-05-15
 - `/predictions/specials` — team pickers + free text
 - Lock countdown to opening kickoff
 - Post-lock comparison view

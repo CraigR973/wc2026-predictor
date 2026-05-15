@@ -754,3 +754,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Worktree dev-server gotcha (not committed): vite resolves project root from `process.cwd()`. `bash apps/web/dev.sh` from a parent CWD ends up serving parent files; the worktree's dev.sh must `cd "$(dirname "$0")"` (or be invoked from inside apps/web) for HMR to pick up worktree edits.
 
 **Next:** Batch 5 — Phases 8.1, 8.2 — Specials API + UI (🟢 Sonnet 4.6)
+
+---
+
+## Phases 8.1, 8.2 — Special Predictions API + UI
+**Commits:** c4234e8, 0184b01, 17a356d · CI ✅
+
+### Key facts for future sessions
+- Lock sentinel is the earliest `kickoff_utc` among all `stage='group'` matches (not a config value). `GET /specials` returns `lock_at` and `is_locked` so the frontend doesn't need to re-query matches.
+- `GET /specials/all` returns 403 pre-lock and 200 post-lock — designed for the comparison view. No separate "reveal" step needed.
+- `POST /admin/specials/award` sets `points_awarded` on ALL predictions for the type (correct → N pts, wrong → 0 pts). Can be re-run to correct an error.
+- Golden boot matching is case-insensitive `.strip().lower()` on both sides — intentional, keeps it simple.
+- mypy strict caught `dict[str, dict]` (bare unparameterized generic) in `get_all_specials`; fixed to `dict[str, PlayerSpecialsItem]`.
+- Frontend team picker sources teams from `GET /api/v1/groups` (standings), not a dedicated `/teams` endpoint.
+
+**Next:** Batch 6 — Phases 9.1, 9.2, 9.3 — Stats API + profile page + H2H API (🟢 Sonnet 4.6)
