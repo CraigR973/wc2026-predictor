@@ -7,6 +7,7 @@ const navItems = [
   { to: '/schedule', label: 'Schedule', exact: false },
   { to: '/predictions', label: 'Predict', exact: false },
   { to: '/groups', label: 'Groups', exact: false },
+  { to: '/bracket', label: 'Bracket', exact: false },
   { to: '/leaderboard', label: 'Leaderboard', exact: false },
 ];
 

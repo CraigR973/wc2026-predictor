@@ -16,6 +16,7 @@ import { AdminSyncPage } from './pages/admin/SyncPage';
 import { AdminResultsPage } from './pages/admin/ResultsPage';
 import { PredictionsPage } from './pages/PredictionsPage';
 import { KnockoutPredictionsPage } from './pages/KnockoutPredictionsPage';
+import { BracketPage } from './pages/BracketPage';
 import { MatchDetailPage } from './pages/MatchDetailPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { LeaderboardHistoryPage } from './pages/LeaderboardHistoryPage';
@@ -90,6 +91,7 @@ export function App() {
                 <Route path="/schedule" element={<SchedulePage />} />
                 <Route path="/predictions" element={<PredictionsPage />} />
                 <Route path="/predictions/knockout" element={<KnockoutPredictionsPage />} />
+                <Route path="/bracket" element={<BracketPage />} />
                 <Route path="/groups" element={<GroupsPage />} />
                 <Route path="/groups/:name" element={<GroupDetailPage />} />
                 <Route path="/matches/:id" element={<MatchDetailPage />} />
