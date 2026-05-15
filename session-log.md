@@ -769,3 +769,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Frontend team picker sources teams from `GET /api/v1/groups` (standings), not a dedicated `/teams` endpoint.
 
 **Next:** Batch 6 — Phases 9.1, 9.2, 9.3 — Stats API + profile page + H2H API (🟢 Sonnet 4.6)
+
+---
+
+## Phases 9.1, 9.2, 9.3 — Stats API + Player Profile UI + H2H API
+**Commits:** e5d04e7 · CI ✅
+
+### Key facts for future sessions
+- Stats accuracy/exact rate uses only group predictions (they have `points_breakdown` with `result`/`exact` keys); knockout predictions have no score breakdown so they only count toward total_points/streak/best_worst_round.
+- `GET /players/{player_id}/predictions/recent` added to players router (not stats router) — returns last N settled group predictions with team names via a batch team fetch.
+- `GET /compare/{a}/{b}` allows soft-deleted players (no `deleted_at` filter on profile lookup) so historical predictions remain visible after a player is removed.
+- H2H "winner" per match is purely by `points_awarded` comparison; a missing prediction from one side is treated as 0 pts (player A wins that match by default).
+- Frontend H2H mini table on PlayerProfilePage uses stats-endpoint data (no Phase 9.3 API); Phase 9.4 will build the full interactive compare UI with the compare API.
+- CI branch rule: use `claude/` prefix — `feat/` branches don't trigger the workflow (unchanged from prior sessions).
+
+**Next:** Batch 7 — Phase 9.4 — H2H UI (🔴 Opus)

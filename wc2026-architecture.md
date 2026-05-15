@@ -1632,16 +1632,16 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 9 — Stats & Comparison
 
-**Phase 9.1: Stats API** 🟢 Sonnet 4.6
+**Phase 9.1: Stats API** 🟢 Sonnet 4.6 ✅ 2026-05-15
 - `GET /stats/me`, `/stats/{player_id}`, `/stats/league`
 - Calculate: accuracy %, exact rate, avg pts, best/worst round, current streak, prediction timing
 - **Acceptance:** Stats correct from test data; endpoints under 200ms
 
-**Phase 9.2: Player Profile UI** 🟢 Sonnet 4.6
+**Phase 9.2: Player Profile UI** 🟢 Sonnet 4.6 ✅ 2026-05-15
 - `/players/{id}` — profile, stat cards, recent predictions, head-to-head mini table
 - **Acceptance:** Stats display correctly; accessible from leaderboard row
 
-**Phase 9.3: Head-to-Head API** 🟢 Sonnet 4.6
+**Phase 9.3: Head-to-Head API** 🟢 Sonnet 4.6 ✅ 2026-05-15
 - `GET /compare/{player_a_id}/{player_b_id}`
 - Handles edge cases (one player didn't predict; one player removed)
 - **Acceptance:** Comparison data correct including edge cases
