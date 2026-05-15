@@ -8,7 +8,7 @@ Use this table to pick the next batch at close-out. Update as phases land.
 | ~~1~~ | ~~🟢 Sonnet~~ | ~~6.1, 6.2, 6.3, 6.4~~ | ✅ Shipped 2026-05-12 |
 | ~~2~~ | ~~🔴 Opus~~ | ~~7.1~~ | ✅ Shipped 2026-05-14 |
 | ~~3~~ | ~~🟢 Sonnet~~ | ~~7.2, 7.4~~ | ✅ Shipped 2026-05-15 |
-| 4 | 🔴 Opus | 7.3 | Bracket SVG — responsive visual iteration |
+| ~~4~~ | ~~🔴 Opus~~ | ~~7.3~~ | ✅ Shipped 2026-05-15 |
 | 5 | 🟢 Sonnet | 8.1, 8.2 | Specials API + UI |
 | 6 | 🟢 Sonnet | 9.1, 9.2, 9.3 | Stats API + profile page + H2H API |
 | 7 | 🔴 Opus | 9.4 | H2H UI — heavy state management |
