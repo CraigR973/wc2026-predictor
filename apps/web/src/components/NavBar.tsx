@@ -9,6 +9,7 @@ const navItems = [
   { to: '/groups', label: 'Groups', exact: false },
   { to: '/bracket', label: 'Bracket', exact: false },
   { to: '/leaderboard', label: 'Leaderboard', exact: false },
+  { to: '/settings', label: 'Settings', exact: false },
 ];
 
 export function NavBar() {
