@@ -20,7 +20,6 @@ interface LocalPrediction {
   away: string;
   dirty: boolean;
   saving: boolean;
-  error: boolean;
 }
 
 type LocalPredictions = Record<string, LocalPrediction>;
@@ -69,7 +68,6 @@ function initLocal(predictions: PredictionResponse[]): LocalPredictions {
       away: p.predicted_away !== null ? String(p.predicted_away) : '',
       dirty: false,
       saving: false,
-      error: false,
     };
   }
   return result;
@@ -263,13 +261,7 @@ function PredictionCard({
           )}
         </span>
         <div className="flex items-center gap-2">
-          {local?.saving && (
-            <span className="text-xs font-sans text-text-muted animate-pulse">Saving…</span>
-          )}
-          {local?.error && (
-            <span className="text-xs font-sans text-error">Save failed</span>
-          )}
-          {isCompleted && points !== null && !noSubmission && (
+            {isCompleted && points !== null && !noSubmission && (
             <PointsBadge points={points} />
           )}
           {isCompleted && noSubmission && (
@@ -531,7 +523,7 @@ export function PredictionsPage() {
       if (home === '' || away === '') return;
       setLocal((prev) => ({
         ...prev,
-        [matchId]: { ...prev[matchId], saving: true, error: false },
+        [matchId]: { ...prev[matchId], saving: true },
       }));
       try {
         await apiFetch(`/api/v1/predictions/${matchId}`, {
@@ -540,16 +532,27 @@ export function PredictionsPage() {
         });
         setLocal((prev) => ({
           ...prev,
-          [matchId]: { ...prev[matchId], dirty: false, saving: false, error: false },
+          [matchId]: { ...prev[matchId], dirty: false, saving: false },
         }));
       } catch {
+        // Rollback to last server-confirmed values and notify
+        const serverPreds =
+          queryClient.getQueryData<PredictionResponse[]>(['predictions', 'me']) ?? [];
+        const sp = serverPreds.find((p) => p.match_id === matchId);
         setLocal((prev) => ({
           ...prev,
-          [matchId]: { ...prev[matchId], saving: false, error: true },
+          [matchId]: {
+            home: sp?.predicted_home != null ? String(sp.predicted_home) : '',
+            away: sp?.predicted_away != null ? String(sp.predicted_away) : '',
+            dirty: false,
+            saving: false,
+            error: false,
+          },
         }));
+        toast.error('Prediction not saved — check your connection and try again');
       }
     },
-    [],
+    [queryClient],
   );
 
   const scheduleDebounce = useCallback(
@@ -565,7 +568,7 @@ export function PredictionsPage() {
   const handleHomeChange = useCallback(
     (matchId: string, value: string) => {
       setLocal((prev) => {
-        const cur = prev[matchId] ?? { home: '', away: '', dirty: false, saving: false, error: false };
+        const cur = prev[matchId] ?? { home: '', away: '', dirty: false, saving: false };
         const next = { ...cur, home: value, dirty: true };
         scheduleDebounce(matchId, value, cur.away);
         return { ...prev, [matchId]: next };
@@ -577,7 +580,7 @@ export function PredictionsPage() {
   const handleAwayChange = useCallback(
     (matchId: string, value: string) => {
       setLocal((prev) => {
-        const cur = prev[matchId] ?? { home: '', away: '', dirty: false, saving: false, error: false };
+        const cur = prev[matchId] ?? { home: '', away: '', dirty: false, saving: false };
         const next = { ...cur, away: value, dirty: true };
         scheduleDebounce(matchId, cur.home, value);
         return { ...prev, [matchId]: next };

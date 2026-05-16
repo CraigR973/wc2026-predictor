@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,7 @@ from src.models.invite import Invite
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.profile import Profile
+from src.services.backup import BackupInfo, create_backup, list_backups, resolve_backup_path
 from src.services.football_data import FDMatch, FootballDataClient, FootballDataError
 from src.services.knockout_advancement import (
     AlreadyAdvancedError,
@@ -991,6 +993,65 @@ async def advance_knockout(
             )
             for m in matches
         ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Backup endpoints (Phase 11.4)
+# ---------------------------------------------------------------------------
+
+
+class BackupResponse(BaseModel):
+    filename: str
+    size_bytes: int
+    created_at: datetime
+
+
+def _to_backup_response(info: BackupInfo) -> BackupResponse:
+    return BackupResponse(
+        filename=info.filename,
+        size_bytes=info.size_bytes,
+        created_at=info.created_at,
+    )
+
+
+@router.post(
+    "/backup",
+    response_model=BackupResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def trigger_backup(admin: AdminPlayer) -> BackupResponse:
+    """Create a new pg_dump backup of the database."""
+    log.info("manual backup triggered", admin_id=str(admin.id))
+    try:
+        info = await create_backup(settings.backup_dir, settings.database_url)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Backup failed: {exc}",
+        ) from exc
+    return _to_backup_response(info)
+
+
+@router.get("/backups", response_model=list[BackupResponse])
+async def get_backups(_admin: AdminPlayer) -> list[BackupResponse]:
+    """List all available backups, newest first."""
+    return [_to_backup_response(i) for i in list_backups(settings.backup_dir)]
+
+
+@router.get("/backups/{filename}")
+async def download_backup(_admin: AdminPlayer, filename: str) -> FileResponse:
+    """Download a backup file."""
+    try:
+        path = resolve_backup_path(settings.backup_dir, filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Backup not found")
+    return FileResponse(
+        path=str(path),
+        media_type="application/octet-stream",
+        filename=filename,
     )
 
 

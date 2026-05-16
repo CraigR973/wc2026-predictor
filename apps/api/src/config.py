@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     environment: str = "development"
 
+    # Backup
+    backup_dir: str = "/tmp/wc2026_backups"
+
     # Background scheduler (APScheduler) — disable in tests / one-off scripts.
     scheduler_enabled: bool = True
 

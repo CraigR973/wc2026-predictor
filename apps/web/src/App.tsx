@@ -26,7 +26,7 @@ import { PlayerProfilePage } from './pages/PlayerProfilePage';
 import { ComparePage } from './pages/ComparePage';
 import { OfflinePage } from './pages/OfflinePage';
 import { SettingsPage } from './pages/SettingsPage';
-import { useAuth } from './contexts/AuthContext';
+import { DashboardPage } from './pages/DashboardPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,62 +36,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-function Dashboard() {
-  const { player } = useAuth();
-  return (
-    <div>
-      <h1 className="font-display text-4xl text-primary tracking-wider mb-4">WC 2026 PREDICTOR</h1>
-      <p className="text-text-secondary font-sans">
-        Welcome back, <span className="text-text-primary font-medium">{player?.displayName}</span>!
-      </p>
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <a
-          href="/predictions"
-          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
-        >
-          <p className="font-display text-xl text-primary tracking-wider">Predictions</p>
-          <p className="text-text-muted text-sm font-sans mt-1">Submit your match scores</p>
-        </a>
-        <a
-          href="/predictions/knockout"
-          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
-        >
-          <p className="font-display text-xl text-primary tracking-wider">Knockout Picks</p>
-          <p className="text-text-muted text-sm font-sans mt-1">Pick winners for each round</p>
-        </a>
-        <a
-          href="/predictions/specials"
-          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
-        >
-          <p className="font-display text-xl text-primary tracking-wider">Specials</p>
-          <p className="text-text-muted text-sm font-sans mt-1">Tournament winner, Golden Boot, top scorer</p>
-        </a>
-        <a
-          href="/schedule"
-          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
-        >
-          <p className="font-display text-xl text-primary tracking-wider">Schedule</p>
-          <p className="text-text-muted text-sm font-sans mt-1">Browse all 104 matches</p>
-        </a>
-        <a
-          href="/groups"
-          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
-        >
-          <p className="font-display text-xl text-primary tracking-wider">Groups</p>
-          <p className="text-text-muted text-sm font-sans mt-1">Live group standings</p>
-        </a>
-        <a
-          href="/compare"
-          className="block p-4 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors"
-        >
-          <p className="font-display text-xl text-primary tracking-wider">Compare</p>
-          <p className="text-text-muted text-sm font-sans mt-1">Head-to-head between any two players</p>
-        </a>
-      </div>
-    </div>
-  );
-}
 
 export function App() {
   return (
@@ -106,7 +50,7 @@ export function App() {
             {/* Player routes — wrapped in Layout (NavBar + main) */}
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<DashboardPage />} />
                 <Route path="/schedule" element={<SchedulePage />} />
                 <Route path="/predictions" element={<PredictionsPage />} />
                 <Route path="/predictions/knockout" element={<KnockoutPredictionsPage />} />

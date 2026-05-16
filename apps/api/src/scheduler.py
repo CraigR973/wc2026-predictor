@@ -15,9 +15,11 @@ from apscheduler.schedulers.asyncio import (  # type: ignore[import-untyped,unus
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.config import settings
 from src.database import AsyncSessionLocal
 from src.models.match import Match, MatchStatus
 from src.models.notification import ActionType, ActorType, AuditLog
+from src.services.backup import create_backup
 from src.services.notification_triggers import (
     MatchUpdate,
     check_deadline_warnings,
@@ -91,6 +93,15 @@ async def lock_due_matches(
     return locked_count
 
 
+async def run_scheduled_backup() -> None:
+    """Daily backup job — runs at 03:00 UTC."""
+    try:
+        info = await create_backup(settings.backup_dir, settings.database_url)
+        log.info("scheduled backup complete", filename=info.filename, size_bytes=info.size_bytes)
+    except Exception:
+        log.exception("scheduled backup failed")
+
+
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
@@ -117,6 +128,16 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger="interval",
         minutes=1,
         id="deadline_warnings",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        run_scheduled_backup,
+        trigger="cron",
+        hour=3,
+        minute=0,
+        id="daily_backup",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
