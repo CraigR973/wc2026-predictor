@@ -25,6 +25,7 @@ from src.routers import (
     knockout_predictions,
     leaderboard,
     matches,
+    notifications,
     players,
     predictions,
     specials,
@@ -109,3 +110,4 @@ app.include_router(specials.router)
 app.include_router(specials.admin_router)
 app.include_router(stats.router)
 app.include_router(compare.router)
+app.include_router(notifications.router)
