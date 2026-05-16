@@ -813,3 +813,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Quiet hours overnight window (e.g. 23:00–07:00): `_is_quiet` checks `t >= start or t < end`; daytime window uses `start <= t < end`.
 
 **Next:** Batch 9 — Phases 11.1, 11.3, 11.4, 11.5 — Dashboard + optimistic UI + backup + runbooks (🟢 Sonnet 4.6)
+
+---
+
+## Phases 11.1, 11.3, 11.4, 11.5 — Dashboard + Optimistic UI + Backup + Runbooks
+**Commits:** 94e809c · CI ✅
+
+### Key facts for future sessions
+- Dashboard lives in `DashboardPage.tsx` (extracted from inline `Dashboard` fn in `App.tsx`); three parallel queries: leaderboard, `GET /matches/upcoming?n=1`, `GET /players/{id}/predictions/recent?limit=1`.
+- Mini leaderboard appends the current player's row below a `···` separator if they're outside the top 5 — no separate stat card needed.
+- Optimistic saves: `LocalPrediction.error` field removed; on `savePrediction` failure, local state rolls back to `queryClient.getQueryData(['predictions', 'me'])` + `toast.error`.
+- Backup service (`src/services/backup.py`) uses `pg_dump --format=plain`; filename regex `wc2026_\d{8}_\d{6}\.sql` guards path traversal at the service layer; Railway `/tmp` is ephemeral — download backups immediately after creation.
+- Daily backup job: `run_scheduled_backup` cron at 03:00 UTC in `scheduler.py`; requires `pg_dump` in PATH (verify in Railway Docker image).
+
+**Next:** Batch 10 — Phase 11.2 — Offline service worker (🔴 Opus)

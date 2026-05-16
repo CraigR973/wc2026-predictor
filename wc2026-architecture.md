@@ -1686,7 +1686,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 11 — Polish & Resilience
 
-**Phase 11.1: Home Dashboard** 🟢 Sonnet 4.6
+**Phase 11.1: Home Dashboard** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - `/` — rank, points, next match countdown, latest result, mini leaderboard
 - **Acceptance:** Loads in < 1.5s; all widgets correct
 
@@ -1697,17 +1697,17 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Offline banner
 - **Acceptance:** Schedule + predictions browsable offline; submitted prediction syncs on reconnect
 
-**Phase 11.3: Optimistic UI** 🟢 Sonnet 4.6
+**Phase 11.3: Optimistic UI** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - Prediction save optimistic; rollback with toast on failure
 - **Acceptance:** Instant save UX; network failure rolls back cleanly
 
-**Phase 11.4: Backup & Restore** 🟢 Sonnet 4.6
+**Phase 11.4: Backup & Restore** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - `POST /admin/backup`, `GET /admin/backups`, download endpoint
 - `docs/runbooks/restore.md` written and tested
 - Pre-tournament automated backup configured
 - **Acceptance:** Manual backup works; runbook tested by performing a real restore on a staging copy
 
-**Phase 11.5: Operational Runbooks** 🟢 Sonnet 4.6
+**Phase 11.5: Operational Runbooks** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - All runbooks in `docs/runbooks/` (restore, kickoff-change, cancelled-match, pin-reset, auto-sync-broken, tournament-end)
 - **Acceptance:** Each runbook has clear step-by-step instructions; admin can follow without dev knowledge
 
