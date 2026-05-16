@@ -17,7 +17,7 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from pywebpush import WebPushException, webpush  # type: ignore[import-untyped]
+from pywebpush import WebPushException, webpush  # type: ignore[import-untyped,unused-ignore]
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
