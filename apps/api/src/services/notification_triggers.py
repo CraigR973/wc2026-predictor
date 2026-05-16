@@ -72,9 +72,7 @@ async def _admin_players(session: AsyncSession) -> list[Profile]:
     return list(result.scalars().all())
 
 
-async def _team_name(
-    session: AsyncSession, team_id: UUID | None, placeholder: str | None
-) -> str:
+async def _team_name(session: AsyncSession, team_id: UUID | None, placeholder: str | None) -> str:
     if team_id is None:
         return placeholder or "TBD"
     result = await session.execute(select(Team).where(Team.id == team_id))
@@ -141,9 +139,7 @@ async def notify_leaderboard_shifts(session: AsyncSession, match_id: UUID) -> No
     """Notify each player whose rank changed in the snapshot triggered by match_id."""
     # New snapshots (written by DB trigger on result commit)
     new_snaps_result = await session.execute(
-        select(LeaderboardSnapshot).where(
-            LeaderboardSnapshot.triggered_by_match_id == match_id
-        )
+        select(LeaderboardSnapshot).where(LeaderboardSnapshot.triggered_by_match_id == match_id)
     )
     new_snaps = {s.player_id: s for s in new_snaps_result.scalars().all()}
     if not new_snaps:
@@ -181,7 +177,9 @@ async def notify_leaderboard_shifts(session: AsyncSession, match_id: UUID) -> No
 async def notify_round_complete(session: AsyncSession, stage: str) -> None:
     """Send round_complete when every non-cancelled match in a stage is finished."""
     total_result = await session.execute(
-        select(func.count()).select_from(Match).where(
+        select(func.count())
+        .select_from(Match)
+        .where(
             Match.stage == stage,
             Match.deleted_at.is_(None),
             Match.status != MatchStatus.cancelled,
@@ -190,7 +188,9 @@ async def notify_round_complete(session: AsyncSession, stage: str) -> None:
     total = total_result.scalar() or 0
 
     done_result = await session.execute(
-        select(func.count()).select_from(Match).where(
+        select(func.count())
+        .select_from(Match)
+        .where(
             Match.stage == stage,
             Match.deleted_at.is_(None),
             Match.status == MatchStatus.completed,

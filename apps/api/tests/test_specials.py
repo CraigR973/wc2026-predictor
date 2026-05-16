@@ -22,6 +22,7 @@ def _no_notify_specials() -> None:
     with patch("src.routers.specials.notify_special_results_awarded", new_callable=AsyncMock):
         yield
 
+
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------

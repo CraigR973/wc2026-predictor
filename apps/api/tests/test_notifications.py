@@ -23,7 +23,6 @@ from src.services.push_notification_service import (
     send_notification,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -124,8 +123,9 @@ class TestPrefEnabled:
 @pytest.mark.asyncio
 async def test_send_notification_skips_when_no_vapid() -> None:
     session = AsyncMock()
-    with patch.object(settings, "vapid_private_key", ""), patch.object(
-        settings, "vapid_public_key", ""
+    with (
+        patch.object(settings, "vapid_private_key", ""),
+        patch.object(settings, "vapid_public_key", ""),
     ):
         sent = await send_notification(
             session, uuid.uuid4(), NotificationType.result_detected, "T", "B"
@@ -145,8 +145,9 @@ async def test_send_notification_suppressed_when_global_mute() -> None:
         MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[sub])))),
     ]
 
-    with patch.object(settings, "vapid_private_key", "private"), patch.object(
-        settings, "vapid_public_key", "public"
+    with (
+        patch.object(settings, "vapid_private_key", "private"),
+        patch.object(settings, "vapid_public_key", "public"),
     ):
         sent = await send_notification(
             session, player_id, NotificationType.result_detected, "T", "B"
@@ -169,10 +170,10 @@ async def test_send_notification_delivers_and_logs() -> None:
         MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[sub])))),
     ]
 
-    with patch.object(settings, "vapid_private_key", "priv"), patch.object(
-        settings, "vapid_public_key", "pub"
-    ), patch(
-        "src.services.push_notification_service._send_push_sync"
+    with (
+        patch.object(settings, "vapid_private_key", "priv"),
+        patch.object(settings, "vapid_public_key", "pub"),
+        patch("src.services.push_notification_service._send_push_sync"),
     ):  # no-op push
         sent = await send_notification(
             session, player_id, NotificationType.result_detected, "Title", "Body"
@@ -201,9 +202,11 @@ async def test_send_notification_auto_disables_after_3_failures() -> None:
     def _fail(*_: Any, **__: Any) -> None:
         raise WebPushException("410 Gone")
 
-    with patch.object(settings, "vapid_private_key", "priv"), patch.object(
-        settings, "vapid_public_key", "pub"
-    ), patch("src.services.push_notification_service._send_push_sync", side_effect=_fail):
+    with (
+        patch.object(settings, "vapid_private_key", "priv"),
+        patch.object(settings, "vapid_public_key", "pub"),
+        patch("src.services.push_notification_service._send_push_sync", side_effect=_fail),
+    ):
         sent = await send_notification(
             session, player_id, NotificationType.result_detected, "T", "B"
         )
@@ -237,9 +240,7 @@ async def test_get_vapid_public_key_503_when_not_configured() -> None:
 async def test_subscribe_push() -> None:
     player = _player()
     mock_db = AsyncMock()
-    mock_db.execute.return_value = MagicMock(
-        scalar_one_or_none=MagicMock(return_value=None)
-    )
+    mock_db.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
 
     app.dependency_overrides[get_current_player] = lambda: player
     app.dependency_overrides[get_db] = _db_with(mock_db)
@@ -351,7 +352,12 @@ async def test_patch_preferences() -> None:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             r = await client.patch(
                 "/api/v1/notifications/preferences",
-                json={"global_mute": True, "result_detected": False, "quiet_hours_start": "22:00", "quiet_hours_end": "07:00"},
+                json={
+                    "global_mute": True,
+                    "result_detected": False,
+                    "quiet_hours_start": "22:00",
+                    "quiet_hours_end": "07:00",
+                },
             )
         assert r.status_code == 200
         assert prefs.global_mute is True

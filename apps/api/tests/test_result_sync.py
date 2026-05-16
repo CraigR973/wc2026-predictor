@@ -141,9 +141,11 @@ def _reset_counter() -> None:
 
 @pytest.fixture(autouse=True)
 def _no_notify(monkeypatch: pytest.MonkeyPatch) -> None:
-    with patch("src.services.result_sync.notify_result_detected", new_callable=AsyncMock), \
-         patch("src.services.result_sync.notify_kickoff_changed", new_callable=AsyncMock), \
-         patch("src.services.result_sync.notify_match_postponed", new_callable=AsyncMock):
+    with (
+        patch("src.services.result_sync.notify_result_detected", new_callable=AsyncMock),
+        patch("src.services.result_sync.notify_kickoff_changed", new_callable=AsyncMock),
+        patch("src.services.result_sync.notify_match_postponed", new_callable=AsyncMock),
+    ):
         yield
 
 

@@ -22,8 +22,10 @@ from src.models.profile import PlayerRole, Profile
 
 @pytest.fixture(autouse=True)
 def _no_notify_admin() -> None:
-    with patch("src.routers.admin.notify_kickoff_changed", new_callable=AsyncMock), \
-         patch("src.routers.admin.notify_match_postponed", new_callable=AsyncMock):
+    with (
+        patch("src.routers.admin.notify_kickoff_changed", new_callable=AsyncMock),
+        patch("src.routers.admin.notify_match_postponed", new_callable=AsyncMock),
+    ):
         yield
 
 

@@ -154,9 +154,7 @@ async def send_notification(
             "keys": sub.subscription.get("keys", {}),
         }
         try:
-            await loop.run_in_executor(
-                None, partial(_send_push_sync, sub_info, payload)
-            )
+            await loop.run_in_executor(None, partial(_send_push_sync, sub_info, payload))
             sub.failed_send_count = 0
             sub.last_used_at = now
             status = DeliveryStatus.sent

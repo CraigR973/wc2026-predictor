@@ -81,8 +81,10 @@ async def test_notify_match_locked_calls_send_for_all_players() -> None:
         scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
     )
 
-    with patch(_SEND, new_callable=AsyncMock) as mock_send, \
-         patch(_TEAM, new_callable=AsyncMock, return_value="France"):
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+    ):
         await notify_match_locked(session, update)
 
     assert mock_send.call_count == len(players)
@@ -102,10 +104,12 @@ async def test_notify_result_detected_dispatches_dependent_triggers() -> None:
         scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
     )
 
-    with patch(_SEND, new_callable=AsyncMock) as mock_send, \
-         patch(_TEAM, new_callable=AsyncMock, return_value="France"), \
-         patch(_LB_SHIFTS, new_callable=AsyncMock) as mock_lb, \
-         patch(_RC, new_callable=AsyncMock) as mock_rc:
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+        patch(_LB_SHIFTS, new_callable=AsyncMock) as mock_lb,
+        patch(_RC, new_callable=AsyncMock) as mock_rc,
+    ):
         await notify_result_detected(session, update)
 
     # result notification + leaderboard_shifts + round_complete both fired
@@ -128,7 +132,9 @@ async def test_notify_leaderboard_shifts_sends_when_rank_changed() -> None:
     # First execute: new snapshots
     # Second execute: previous snapshot per player
     session.execute.side_effect = [
-        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[new_snap])))),
+        MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[new_snap])))
+        ),
         MagicMock(scalar_one_or_none=MagicMock(return_value=old_snap)),
     ]
 
@@ -150,7 +156,9 @@ async def test_notify_leaderboard_shifts_no_send_when_rank_unchanged() -> None:
 
     session = AsyncMock()
     session.execute.side_effect = [
-        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[new_snap])))),
+        MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[new_snap])))
+        ),
         MagicMock(scalar_one_or_none=MagicMock(return_value=old_snap)),
     ]
 
@@ -201,8 +209,10 @@ async def test_notify_match_postponed() -> None:
     session.execute.return_value = MagicMock(
         scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
     )
-    with patch(_SEND, new_callable=AsyncMock) as mock_send, \
-         patch(_TEAM, new_callable=AsyncMock, return_value="X"):
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="X"),
+    ):
         await notify_match_postponed(session, update)
     for call in mock_send.call_args_list:
         assert call.args[2] == NotificationType.match_postponed
@@ -222,8 +232,10 @@ async def test_notify_kickoff_changed_includes_new_time() -> None:
     session.execute.return_value = MagicMock(
         scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
     )
-    with patch(_SEND, new_callable=AsyncMock) as mock_send, \
-         patch(_TEAM, new_callable=AsyncMock, return_value="X"):
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="X"),
+    ):
         await notify_kickoff_changed(session, update)
     assert mock_send.call_count == 1
     assert "18:00" in mock_send.call_args.args[4]
@@ -312,8 +324,10 @@ async def test_deadline_warning_fires_for_imminent_match() -> None:
     mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
     now = datetime(2026, 6, 14, 17, 44)  # 16 min before 18:00, within 14–16 min window
-    with patch(_SEND, new_callable=AsyncMock) as mock_send, \
-         patch(_TEAM, new_callable=AsyncMock, return_value="France"):
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+    ):
         count = await check_deadline_warnings(mock_factory, now=now)
 
     assert count == 1
