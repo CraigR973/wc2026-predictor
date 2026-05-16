@@ -16,6 +16,12 @@ from src.models.invite import Invite
 from src.models.profile import PlayerRole, Profile
 
 
+@pytest.fixture(autouse=True)
+def _no_notify_invite() -> None:
+    with patch("src.routers.auth.notify_invite_accepted", new_callable=AsyncMock):
+        yield
+
+
 def _now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 

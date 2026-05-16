@@ -17,6 +17,7 @@ from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import SpecialPrediction, SpecialPredictionType
 from src.models.profile import Profile
 from src.models.team import TournamentStage
+from src.services.notification_triggers import notify_special_results_awarded
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -319,6 +320,8 @@ async def award_specials(
         )
     )
 
+    await db.commit()
+    await notify_special_results_awarded(db, ptype.value)
     await db.commit()
     log.info(
         "specials awarded",

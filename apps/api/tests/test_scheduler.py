@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.models.match import Match, MatchStatus
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.scheduler import create_scheduler, lock_due_matches
+
+
+@pytest.fixture(autouse=True)
+def _no_notify_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    with patch("src.scheduler.notify_match_locked", new_callable=AsyncMock):
+        yield
 
 
 def _now() -> datetime:
@@ -75,7 +81,7 @@ async def test_lock_due_matches_locks_each_returned_match() -> None:
     assert m1.locked_at == now
     assert m2.status == MatchStatus.locked
     assert m2.locked_at == now
-    factory._session.commit.assert_awaited_once()
+    assert factory._session.commit.await_count >= 1
 
 
 @pytest.mark.asyncio

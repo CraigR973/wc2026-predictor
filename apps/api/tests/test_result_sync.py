@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -21,9 +21,7 @@ from src.models.notification import (
     ActorType,
     AuditLog,
     NotificationLog,
-    NotificationType,
 )
-from src.models.profile import PlayerRole, Profile
 from src.services import result_sync
 from src.services.football_data import (
     FDMatch,
@@ -139,6 +137,14 @@ def _mock_client_factory(
 @pytest.fixture(autouse=True)
 def _reset_counter() -> None:
     result_sync.reset_failure_counter()
+
+
+@pytest.fixture(autouse=True)
+def _no_notify(monkeypatch: pytest.MonkeyPatch) -> None:
+    with patch("src.services.result_sync.notify_result_detected", new_callable=AsyncMock), \
+         patch("src.services.result_sync.notify_kickoff_changed", new_callable=AsyncMock), \
+         patch("src.services.result_sync.notify_match_postponed", new_callable=AsyncMock):
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -325,18 +331,6 @@ async def test_api_failure_increments_counter_and_writes_audit() -> None:
 
 
 async def test_three_consecutive_failures_alerts_admins() -> None:
-    admin1 = MagicMock(spec=Profile)
-    admin1.id = uuid.uuid4()
-    admin1.role = PlayerRole.admin
-    admin1.deleted_at = None
-    admin2 = MagicMock(spec=Profile)
-    admin2.id = uuid.uuid4()
-    admin2.role = PlayerRole.admin
-    admin2.deleted_at = None
-
-    # First two failures: alert query never runs (counter < threshold) so
-    # only one execute() call per failure is unused. Provide a no-op
-    # scalars result anyway in case the implementation queries admins.
     err = FootballDataServerError("503")
 
     for _ in range(2):
@@ -344,17 +338,15 @@ async def test_three_consecutive_failures_alerts_admins() -> None:
         client_factory = _mock_client_factory(raise_error=err)
         await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
 
-    # Third failure should trigger the admin alert insert.
-    factory, session = _mock_session_factory([_scalars([admin1, admin2])])
+    # Third failure should trigger notify_auto_sync_failed.
+    factory, _ = _mock_session_factory([_scalars([])])
     client_factory = _mock_client_factory(raise_error=err)
-    await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+    _alert_patch = "src.services.result_sync.notify_auto_sync_failed"
+    with patch(_alert_patch, new_callable=AsyncMock) as mock_alert:
+        await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
 
-    notifications = [
-        c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], NotificationLog)
-    ]
-    assert len(notifications) == 2
-    assert all(n.notification_type == NotificationType.auto_sync_failed for n in notifications)
-    assert {n.player_id for n in notifications} == {admin1.id, admin2.id}
+    mock_alert.assert_awaited_once()
+    assert "503" in mock_alert.call_args.args[1]
 
 
 async def test_successful_sync_resets_failure_counter() -> None:

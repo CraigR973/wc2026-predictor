@@ -6,7 +6,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -18,6 +18,13 @@ from src.main import app
 from src.models.match import Match, MatchStatus
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.profile import PlayerRole, Profile
+
+
+@pytest.fixture(autouse=True)
+def _no_notify_admin() -> None:
+    with patch("src.routers.admin.notify_kickoff_changed", new_callable=AsyncMock), \
+         patch("src.routers.admin.notify_match_postponed", new_callable=AsyncMock):
+        yield
 
 
 def _now() -> datetime:

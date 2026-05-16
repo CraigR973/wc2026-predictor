@@ -18,6 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from src.database import AsyncSessionLocal
 from src.models.match import Match, MatchStatus
 from src.models.notification import ActionType, ActorType, AuditLog
+from src.services.notification_triggers import (
+    MatchUpdate,
+    check_deadline_warnings,
+    notify_match_locked,
+)
 from src.services.result_sync import sync_results
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -49,6 +54,7 @@ async def lock_due_matches(
         )
         matches = list(result.scalars().all())
 
+        locked_updates: list[MatchUpdate] = []
         for match in matches:
             match.status = MatchStatus.locked
             match.locked_at = current
@@ -62,11 +68,25 @@ async def lock_due_matches(
                     changes={"locked_at": current.isoformat()},
                 )
             )
+            locked_updates.append(
+                MatchUpdate(
+                    event_type="match_locked",
+                    match_id=match.id,
+                    stage=match.stage.value,
+                    home_team_id=match.home_team_id,
+                    away_team_id=match.away_team_id,
+                    home_placeholder=match.home_team_placeholder,
+                    away_placeholder=match.away_team_placeholder,
+                )
+            )
             locked_count += 1
 
         if locked_count:
             await session.commit()
             log.info("matches locked", count=locked_count)
+            for upd in locked_updates:
+                await notify_match_locked(session, upd)
+            await session.commit()
 
     return locked_count
 
@@ -87,6 +107,16 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger="interval",
         minutes=5,
         id="sync_results",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        check_deadline_warnings,
+        kwargs={"session_factory": AsyncSessionLocal},
+        trigger="interval",
+        minutes=1,
+        id="deadline_warnings",
         replace_existing=True,
         coalesce=True,
         max_instances=1,

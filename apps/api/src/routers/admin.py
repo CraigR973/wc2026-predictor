@@ -27,6 +27,11 @@ from src.services.knockout_advancement import (
     MissingKickoffsError,
     advance_to_r32,
 )
+from src.services.notification_triggers import (
+    MatchUpdate,
+    notify_kickoff_changed,
+    notify_match_postponed,
+)
 from src.services.result_sync import sync_results
 
 FdFetcher = Callable[[], Awaitable[list[FDMatch]]]
@@ -416,6 +421,19 @@ async def reschedule_match(
             },
         )
     )
+    upd = MatchUpdate(
+        event_type="kickoff_changed",
+        match_id=match.id,
+        stage=match.stage.value,
+        home_team_id=match.home_team_id,
+        away_team_id=match.away_team_id,
+        home_placeholder=match.home_team_placeholder,
+        away_placeholder=match.away_team_placeholder,
+        old_kickoff=old_kickoff,
+        new_kickoff=new_kickoff,
+    )
+    await db.commit()
+    await notify_kickoff_changed(db, upd)
     await db.commit()
     await db.refresh(match)
     log.info(
@@ -452,6 +470,17 @@ async def postpone_match(
             changes={"reason": body.reason},
         )
     )
+    upd = MatchUpdate(
+        event_type="postponed",
+        match_id=match.id,
+        stage=match.stage.value,
+        home_team_id=match.home_team_id,
+        away_team_id=match.away_team_id,
+        home_placeholder=match.home_team_placeholder,
+        away_placeholder=match.away_team_placeholder,
+    )
+    await db.commit()
+    await notify_match_postponed(db, upd)
     await db.commit()
     await db.refresh(match)
     log.info("match postponed", match_id=str(match.id), admin_id=str(admin.id))

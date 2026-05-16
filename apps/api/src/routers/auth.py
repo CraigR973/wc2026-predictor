@@ -29,6 +29,7 @@ from src.models.invite import Invite
 from src.models.prediction import NotificationPreferences
 from src.models.profile import PlayerRole, Profile
 from src.models.refresh_token import RefreshToken
+from src.services.notification_triggers import notify_invite_accepted
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -330,6 +331,9 @@ async def join(
 
     await db.commit()
     await db.refresh(new_player)
+
+    await notify_invite_accepted(db, new_player.display_name)
+    await db.commit()
 
     access, refresh = await _issue_token_pair(new_player, db)
     log.info("player joined", player_id=str(new_player.id))

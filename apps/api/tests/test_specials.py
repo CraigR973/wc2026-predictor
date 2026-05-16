@@ -4,7 +4,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -15,6 +15,12 @@ from src.database import get_db
 from src.main import app
 from src.models.prediction import SpecialPrediction, SpecialPredictionType
 from src.models.profile import PlayerRole, Profile
+
+
+@pytest.fixture(autouse=True)
+def _no_notify_specials() -> None:
+    with patch("src.routers.specials.notify_special_results_awarded", new_callable=AsyncMock):
+        yield
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

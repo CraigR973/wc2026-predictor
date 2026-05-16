@@ -42,16 +42,19 @@ from src.models.notification import (
     ActionType,
     ActorType,
     AuditLog,
-    DeliveryStatus,
-    NotificationLog,
-    NotificationType,
 )
-from src.models.profile import PlayerRole, Profile
 from src.services.football_data import (
     FDMatch,
     FDMatchStatus,
     FootballDataClient,
     FootballDataError,
+)
+from src.services.notification_triggers import (
+    MatchUpdate,
+    notify_auto_sync_failed,
+    notify_kickoff_changed,
+    notify_match_postponed,
+    notify_result_detected,
 )
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -119,19 +122,37 @@ async def sync_results(
         await client.close()
 
     updates = 0
+    match_updates: list[MatchUpdate] = []
     async with session_factory() as session:
         for fd_match in fd_matches:
-            if await _sync_one_match(session, fd_match):
+            changed, update = await _sync_one_match(session, fd_match)
+            if changed:
                 updates += 1
+            if update:
+                match_updates.append(update)
         await session.commit()
+
+        # Dispatch push notifications after commit so leaderboard snapshots
+        # (written by the DB scoring trigger) are visible to the session.
+        for upd in match_updates:
+            if upd.event_type == "finished":
+                await notify_result_detected(session, upd)
+            elif upd.event_type == "postponed":
+                await notify_match_postponed(session, upd)
+            elif upd.event_type == "kickoff_changed":
+                await notify_kickoff_changed(session, upd)
+        if match_updates:
+            await session.commit()
 
     _consecutive_failures = 0
     log.info("auto sync complete", updated=updates, total=len(fd_matches))
     return updates
 
 
-async def _sync_one_match(session: AsyncSession, fd_match: FDMatch) -> bool:
-    """Apply the feed's view of a single match. Returns True when changed."""
+async def _sync_one_match(
+    session: AsyncSession, fd_match: FDMatch
+) -> tuple[bool, MatchUpdate | None]:
+    """Apply the feed's view of a single match. Returns (changed, MatchUpdate|None)."""
     row = await session.execute(
         select(Match)
         .where(
@@ -142,29 +163,54 @@ async def _sync_one_match(session: AsyncSession, fd_match: FDMatch) -> bool:
     )
     match = row.scalar_one_or_none()
     if match is None:
-        # Match isn't seeded locally — happens for friendly fixtures the
-        # feed includes but we don't track. Silently ignore.
-        return False
+        return False, None
 
     now = _now()
     fd_status = fd_match.status
 
+    def _base(event_type: str, **extra: object) -> MatchUpdate:
+        return MatchUpdate(
+            event_type=event_type,
+            match_id=match.id,
+            stage=match.stage.value,
+            home_team_id=match.home_team_id,
+            away_team_id=match.away_team_id,
+            home_placeholder=match.home_team_placeholder,
+            away_placeholder=match.away_team_placeholder,
+            **extra,  # type: ignore[arg-type]
+        )
+
     if fd_status == FDMatchStatus.FINISHED:
-        return _apply_finished(session, match, fd_match, now)
+        if _apply_finished(session, match, fd_match, now):
+            return True, _base(
+                "finished",
+                home_score=fd_match.score.fullTime.home,
+                away_score=fd_match.score.fullTime.away,
+            )
+        return False, None
 
     if fd_status == FDMatchStatus.POSTPONED:
-        return _apply_postponed(session, match, now)
+        if _apply_postponed(session, match, now):
+            return True, _base("postponed")
+        return False, None
 
     if fd_status == FDMatchStatus.CANCELLED:
-        return _apply_cancelled(session, match, now)
+        return _apply_cancelled(session, match, now), None
 
     if fd_status in _LIVE_STATUSES:
-        return _apply_live(session, match, now)
+        return _apply_live(session, match, now), None
 
     if fd_status in _SCHEDULED_STATUSES:
-        return _apply_kickoff_drift(session, match, fd_match, now)
+        old_kickoff = match.kickoff_utc
+        if _apply_kickoff_drift(session, match, fd_match, now):
+            return True, _base(
+                "kickoff_changed",
+                old_kickoff=old_kickoff,
+                new_kickoff=match.kickoff_utc,
+            )
+        return False, None
 
-    return False
+    return False, None
 
 
 def _apply_finished(session: AsyncSession, match: Match, fd_match: FDMatch, now: datetime) -> bool:
@@ -326,29 +372,7 @@ async def _record_failure(session_factory: SessionFactory, reason: str) -> None:
         )
 
         if _consecutive_failures == _FAILURE_ALERT_THRESHOLD:
-            admins = await session.execute(
-                select(Profile).where(
-                    Profile.role == PlayerRole.admin,
-                    Profile.deleted_at.is_(None),
-                )
-            )
-            now = _now()
-            for admin in admins.scalars().all():
-                session.add(
-                    NotificationLog(
-                        player_id=admin.id,
-                        notification_type=NotificationType.auto_sync_failed,
-                        title="Result auto-sync is failing",
-                        body=(
-                            f"The football-data.org sync has failed "
-                            f"{_FAILURE_ALERT_THRESHOLD} consecutive times. "
-                            f"Last error: {reason[:200]}"
-                        ),
-                        match_id=None,
-                        sent_at=now,
-                        delivery_status=DeliveryStatus.sent,
-                    )
-                )
+            await notify_auto_sync_failed(session, reason)
 
         await session.commit()
 
