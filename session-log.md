@@ -827,3 +827,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Daily backup job: `run_scheduled_backup` cron at 03:00 UTC in `scheduler.py`; requires `pg_dump` in PATH (verify in Railway Docker image).
 
 **Next:** Batch 10 — Phase 11.2 — Offline service worker (🔴 Opus)
+
+---
+
+## Phase 11.2 — Offline Support
+**Commits:** 7073c61 · CI ✅
+
+### Key facts for future sessions
+- SW route matcher is by `url.pathname` (not full URL) so it works with both same-origin dev (`/api/v1/...` via vite proxy) and cross-origin prod (`VITE_API_URL`) without an origin allowlist.
+- API caching split: `StaleWhileRevalidate` for `matches|groups` (shared, 24h, 80 entries); `NetworkFirst` with 3s timeout for per-player `predictions|leaderboard|players|stats|specials|knockout-predictions` (1h, 80 entries). `CacheableResponsePlugin` restricts to 200s so 401/403 are never poisoned into the cache.
+- `offlineQueue.flushQueue()` is in-flight-coalesced via a module-scoped promise — concurrent flushes (e.g. `online` event firing twice, or mount-flush racing event-flush) return the same promise rather than double-sending.
+- `useOfflineQueue` invalidates `['predictions','me']` after a successful flush so RQ refetches authoritative server state and clears the dirty local optimistic value.
+- PredictionsPage `savePrediction` checks `!navigator.onLine` BOTH before `apiFetch` (skip the call entirely) AND in the catch (fetch failed mid-request). Otherwise the existing rollback + error toast path runs.
+- Banner has three states keyed off `(isOnline, pendingCount)`: hidden / amber "offline — N queued" / green "syncing N pending…". Test selector: `data-testid="offline-banner"`.
+
+**Next:** Batch 11 — Phases 11.6, 11.7 — A11y sweep + E2E tests (🟢 Sonnet)

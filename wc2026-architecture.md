@@ -1690,7 +1690,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - `/` — rank, points, next match countdown, latest result, mini leaderboard
 - **Acceptance:** Loads in < 1.5s; all widgets correct
 
-**Phase 11.2: Offline Support** 🔴 Opus
+**Phase 11.2: Offline Support** 🔴 Opus ✅ 2026-05-16
 - Service worker caches schedule, predictions, leaderboard
 - Stale-while-revalidate for match data
 - Write queue for offline prediction saves
