@@ -842,3 +842,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Banner has three states keyed off `(isOnline, pendingCount)`: hidden / amber "offline — N queued" / green "syncing N pending…". Test selector: `data-testid="offline-banner"`.
 
 **Next:** Batch 11 — Phases 11.6, 11.7 — A11y sweep + E2E tests (🟢 Sonnet)
+
+---
+
+## Phases 11.6, 11.7 — Accessibility Pass + Playwright E2E Tests
+**Commits:** be1075c, 8dbf591, 0342ab6 · CI ✅
+
+### Key facts for future sessions
+- Supabase client in `src/lib/supabase.ts` must have `?? fallback` values — `createClient(undefined, undefined)` throws at module load time and crashes the entire React module graph. CI never sets `VITE_SUPABASE_URL`.
+- Playwright route matching is LIFO: register `catchAllApi()` FIRST in every test, then specific handlers after — last registered wins for a given URL.
+- jest-axe tests disable the `color-contrast` rule (`AXE_CONFIG`) because jsdom can't resolve CSS custom properties; all structural/ARIA rules remain enabled.
+- `CardTitle` uses `<h2>` (not `<h3>`) to satisfy axe heading-order — skipping h2 is a violation.
+- E2E `e2e/` dir excluded from vitest via `exclude: ['**/e2e/**']` in `vite.config.ts`; without this, vitest tries to run Playwright spec files.
+- `getByRole('spinbutton', { name: '…' })` targets `<input type="number">` uniquely; `getByLabel` was ambiguous because ▲/▼ increment buttons share the same label prefix.
+
+**Next:** Batch 12 — Phase 11.8 — Visual Polish & Empty States (🔴 Opus)

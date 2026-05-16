@@ -1711,13 +1711,13 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - All runbooks in `docs/runbooks/` (restore, kickoff-change, cancelled-match, pin-reset, auto-sync-broken, tournament-end)
 - **Acceptance:** Each runbook has clear step-by-step instructions; admin can follow without dev knowledge
 
-**Phase 11.6: Accessibility Pass** 🟢 Sonnet 4.6
+**Phase 11.6: Accessibility Pass** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - Keyboard reachable, ARIA labels, contrast ≥ 4.5:1
 - VoiceOver + NVDA tested
 - `prefers-reduced-motion` respected
 - **Acceptance:** axe-core 0 violations; keyboard navigation works throughout
 
-**Phase 11.7: Playwright E2E Tests** 🟢 Sonnet 4.6
+**Phase 11.7: Playwright E2E Tests** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - Critical flows: join → predict → auto-fetch result → see points → leaderboard update
 - Lock enforcement
 - Reschedule flow
