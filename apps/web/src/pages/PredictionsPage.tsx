@@ -5,6 +5,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
+import { enqueuePrediction } from '../lib/offlineQueue';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { MatchResponse, GroupResponse, PredictionResponse } from '../lib/types';
@@ -525,6 +526,19 @@ export function PredictionsPage() {
         ...prev,
         [matchId]: { ...prev[matchId], saving: true },
       }));
+
+      // Offline: persist to the write queue, keep the optimistic local value,
+      // and let `useOfflineQueue` replay on the next `online` event.
+      if (!navigator.onLine) {
+        enqueuePrediction({ matchId, home: Number(home), away: Number(away) });
+        setLocal((prev) => ({
+          ...prev,
+          [matchId]: { ...prev[matchId], dirty: false, saving: false },
+        }));
+        toast.success('Saved offline — will sync when you’re back online');
+        return;
+      }
+
       try {
         await apiFetch(`/api/v1/predictions/${matchId}`, {
           method: 'PUT',
@@ -535,7 +549,18 @@ export function PredictionsPage() {
           [matchId]: { ...prev[matchId], dirty: false, saving: false },
         }));
       } catch {
-        // Rollback to last server-confirmed values and notify
+        // If the fetch failed because we went offline mid-request, enqueue rather
+        // than roll back. Otherwise (server error while online) roll back to last
+        // server-confirmed values and notify the user to retry.
+        if (!navigator.onLine) {
+          enqueuePrediction({ matchId, home: Number(home), away: Number(away) });
+          setLocal((prev) => ({
+            ...prev,
+            [matchId]: { ...prev[matchId], dirty: false, saving: false },
+          }));
+          toast.success('Saved offline — will sync when you’re back online');
+          return;
+        }
         const serverPreds =
           queryClient.getQueryData<PredictionResponse[]>(['predictions', 'me']) ?? [];
         const sp = serverPreds.find((p) => p.match_id === matchId);

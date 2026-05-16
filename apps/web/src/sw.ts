@@ -1,7 +1,7 @@
 /// <reference lib="WebWorker" />
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { NetworkFirst, CacheFirst } from 'workbox-strategies';
+import { NetworkFirst, CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
@@ -22,6 +22,41 @@ registerRoute(
     }),
     { denylist: [/^\/api/] },
   ),
+);
+
+// ─── API caching (Phase 11.2 — offline support) ───────────────────────────────
+// Match/group data is shared across players and rarely changes → stale-while-revalidate.
+// Per-player data (predictions, leaderboard, stats) is dynamic → network-first with
+// a 3s timeout so cached data is used when offline. Both restrict cached responses
+// to GET 200s; auth-rejected (401/403) and mutating verbs are never cached.
+
+registerRoute(
+  ({ url, request }) =>
+    request.method === 'GET' &&
+    /^\/api\/v1\/(matches|groups)(\/|$|\?)/.test(url.pathname),
+  new StaleWhileRevalidate({
+    cacheName: 'api-matches',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 }),
+      new CacheableResponsePlugin({ statuses: [200] }),
+    ],
+  }),
+);
+
+registerRoute(
+  ({ url, request }) =>
+    request.method === 'GET' &&
+    /^\/api\/v1\/(predictions|leaderboard|players|stats|specials|knockout-predictions)(\/|$|\?)/.test(
+      url.pathname,
+    ),
+  new NetworkFirst({
+    cacheName: 'api-user-data',
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 80, maxAgeSeconds: 60 * 60 }),
+      new CacheableResponsePlugin({ statuses: [200] }),
+    ],
+  }),
 );
 
 // Google Fonts stylesheets

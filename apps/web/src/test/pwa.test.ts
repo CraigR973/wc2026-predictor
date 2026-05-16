@@ -1,7 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { createElement, type PropsWithChildren } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { useOfflineQueue } from '@/hooks/useOfflineQueue';
+import { clearQueue, enqueuePrediction, getQueueCount } from '@/lib/offlineQueue';
+
+vi.mock('@/lib/api', () => ({
+  apiFetch: vi.fn(),
+}));
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+import { apiFetch } from '@/lib/api';
+const mockApiFetch = vi.mocked(apiFetch);
 
 // ─── useOnlineStatus ─────────────────────────────────────────────────────────
 
@@ -101,5 +115,68 @@ describe('useInstallPrompt', () => {
     });
     expect(mockPrompt).toHaveBeenCalledOnce();
     expect(result.current.canInstall).toBe(false);
+  });
+});
+
+// ─── useOfflineQueue ──────────────────────────────────────────────────────────
+
+describe('useOfflineQueue', () => {
+  function wrapper({ children }: PropsWithChildren) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return createElement(QueryClientProvider, { client }, children);
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    clearQueue();
+    mockApiFetch.mockReset();
+    vi.stubGlobal('navigator', { ...navigator, onLine: true });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    clearQueue();
+  });
+
+  it('returns the current queue count', () => {
+    vi.stubGlobal('navigator', { ...navigator, onLine: false });
+    enqueuePrediction({ matchId: 'm1', home: 1, away: 0 });
+    const { result } = renderHook(() => useOfflineQueue(), { wrapper });
+    expect(result.current).toBe(1);
+  });
+
+  it('reacts to new enqueues from another caller', () => {
+    vi.stubGlobal('navigator', { ...navigator, onLine: false });
+    const { result } = renderHook(() => useOfflineQueue(), { wrapper });
+    expect(result.current).toBe(0);
+    act(() => {
+      enqueuePrediction({ matchId: 'm1', home: 2, away: 1 });
+    });
+    expect(result.current).toBe(1);
+  });
+
+  it('flushes the queue when the `online` event fires', async () => {
+    vi.stubGlobal('navigator', { ...navigator, onLine: false });
+    enqueuePrediction({ matchId: 'm1', home: 3, away: 2 });
+    mockApiFetch.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useOfflineQueue(), { wrapper });
+    expect(result.current).toBe(1);
+
+    vi.stubGlobal('navigator', { ...navigator, onLine: true });
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getQueueCount()).toBe(0));
+  });
+
+  it('flushes on mount if items remain and we are already online', async () => {
+    enqueuePrediction({ matchId: 'm1', home: 1, away: 1 });
+    mockApiFetch.mockResolvedValue(undefined);
+
+    renderHook(() => useOfflineQueue(), { wrapper });
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
   });
 });
