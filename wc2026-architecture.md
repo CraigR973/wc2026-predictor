@@ -1656,14 +1656,14 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 
 ### Stage 10 — Notifications & PWA
 
-**Phase 10.1: PWA Setup** 🟢 Sonnet 4.6
+**Phase 10.1: PWA Setup** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - Web App Manifest
 - Service worker registration
 - Install prompt
 - Offline fallback page
 - **Acceptance:** Installable on iOS and Android; offline page shows when no connection
 
-**Phase 10.2: Web Push Backend** 🟢 Sonnet 4.6
+**Phase 10.2: Web Push Backend** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - VAPID key generation
 - Subscription endpoints
 - pywebpush integration
@@ -1671,12 +1671,12 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Failed-send tracking; auto-disable after 3 fails
 - **Acceptance:** Test push delivered; suppressed notifications logged correctly; failed subscriptions auto-disabled
 
-**Phase 10.3: Notification Triggers** 🟢 Sonnet 4.6
+**Phase 10.3: Notification Triggers** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - Wire all 10 trigger types: deadline_warning, match_locked, result_detected, leaderboard_shift, round_complete, match_postponed, kickoff_changed, invite_accepted, auto_sync_failed, special_results
 - All logged to `notification_log` with appropriate status
 - **Acceptance:** Each trigger type tested; all delivered correctly with preferences respected
 
-**Phase 10.4: Notification Preferences UI** 🟢 Sonnet 4.6
+**Phase 10.4: Notification Preferences UI** 🟢 Sonnet 4.6 ✅ 2026-05-16
 - `/settings` — per-category toggles, global mute, quiet hours
 - Test notification button
 - PWA install prompt

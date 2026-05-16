@@ -798,3 +798,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Winner highlight is `bg-primary/10` + `text-primary` on the points number — draws leave both sides unhighlighted; the per-row marker glyph (`◀`/`▶`/`=`) is purely cosmetic.
 
 **Next:** Batch 8 — Phases 10.1, 10.2, 10.3, 10.4 — PWA + Web Push end-to-end (🟢 Sonnet 4.6)
+
+---
+
+## Phases 10.1, 10.2, 10.3, 10.4 — PWA + Web Push end-to-end
+**Commits:** 3a3d7ae, eb788d2, abeb289, 85d369f, 0a2b75e, 65fa3b8 · CI ✅
+
+### Key facts for future sessions
+- `vite-plugin-pwa` must use `strategies: 'injectManifest'` (not `generateSW`) so the custom `sw.ts` can handle `push` events; `workbox:` config block is not valid under injectManifest.
+- `session_factory` in scheduler/result_sync tests must be `MagicMock()` (not `AsyncMock()`); an `AsyncMock` returns a coroutine when called, breaking `async with session_factory() as session`.
+- Existing tests that mock `session.execute` with a fixed `side_effect` list broke when notification trigger calls added extra `execute()` calls — fixed by `autouse=True` fixtures that patch the trigger functions in `test_scheduler.py`, `test_result_sync.py`, `test_join.py`, `test_specials.py`, `test_admin_matches.py`.
+- `send_notification` is called with positional args (not kwargs) — test assertions must use `call_args.args[2]` for `notification_type`, `.args[3]` for title, `.args[4]` for body.
+- CI uses mypy 2.1.0 which ships pywebpush stubs; `# type: ignore[import-untyped]` became unused — silenced with `# type: ignore[import-untyped,unused-ignore]`.
+- Quiet hours overnight window (e.g. 23:00–07:00): `_is_quiet` checks `t >= start or t < end`; daytime window uses `start <= t < end`.
+
+**Next:** Batch 9 — Phases 11.1, 11.3, 11.4, 11.5 — Dashboard + optimistic UI + backup + runbooks (🟢 Sonnet 4.6)
