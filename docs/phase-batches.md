@@ -14,7 +14,7 @@ Use this table to pick the next batch at close-out. Update as phases land.
 | ~~7~~ | ~~🔴 Opus~~ | ~~9.4~~ | ✅ Shipped 2026-05-15 |
 | ~~8~~ | ~~🟢 Sonnet~~ | ~~10.1, 10.2, 10.3, 10.4~~ | ✅ Shipped 2026-05-16 |
 | ~~9~~ | ~~🟢 Sonnet~~ | ~~11.1, 11.3, 11.4, 11.5~~ | ✅ Shipped 2026-05-16 |
-| 10 | 🔴 Opus | 11.2 | Offline service worker |
+| ~~10~~ | ~~🔴 Opus~~ | ~~11.2~~ | ✅ Shipped 2026-05-16 |
 | 11 | 🟢 Sonnet | 11.6, 11.7 | A11y sweep + E2E tests |
 | 12 | 🔴 Opus | 11.8 | Visual polish — design loop |
 
