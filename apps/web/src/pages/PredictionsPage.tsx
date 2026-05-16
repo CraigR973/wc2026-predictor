@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -103,7 +103,7 @@ function ScoreInput({
           type="button"
           onClick={() => step(1)}
           aria-label={`Increment ${ariaLabel}`}
-          className="w-8 h-5 text-text-muted hover:text-primary leading-none text-xs select-none"
+          className="w-8 h-5 text-text-muted hover:text-primary leading-none text-xs select-none rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
         >
           ▲
         </button>
@@ -130,7 +130,7 @@ function ScoreInput({
           type="button"
           onClick={() => step(-1)}
           aria-label={`Decrement ${ariaLabel}`}
-          className="w-8 h-5 text-text-muted hover:text-primary leading-none text-xs select-none"
+          className="w-8 h-5 text-text-muted hover:text-primary leading-none text-xs select-none rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
         >
           ▼
         </button>
@@ -144,9 +144,11 @@ function ScoreInput({
 // ---------------------------------------------------------------------------
 
 function PointsBadge({ points }: { points: number }) {
-  const [displayed, setDisplayed] = useState(0);
+  const prefersReducedMotion = useReducedMotion();
+  const [displayed, setDisplayed] = useState(prefersReducedMotion ? points : 0);
 
   useEffect(() => {
+    if (prefersReducedMotion) { setDisplayed(points); return; }
     if (points === 0) { setDisplayed(0); return; }
     setDisplayed(0);
     const steps = points;
@@ -158,10 +160,10 @@ function PointsBadge({ points }: { points: number }) {
       if (current >= steps) clearInterval(id);
     }, intervalMs);
     return () => clearInterval(id);
-  }, [points]);
+  }, [points, prefersReducedMotion]);
 
   return (
-    <Badge variant={points > 0 ? 'success' : 'muted'} data-testid="points-badge">
+    <Badge variant={points > 0 ? 'success' : 'muted'} data-testid="points-badge" aria-live="polite">
       {displayed} {displayed === 1 ? 'pt' : 'pts'}
     </Badge>
   );
@@ -206,6 +208,7 @@ function PredictionCard({
   );
 
   const countdown = useCountdown(match.kickoff_utc);
+  const prefersReducedMotion = useReducedMotion();
 
   const editable = canEdit(match.status);
   const isVoided = match.status === 'cancelled' || match.status === 'postponed';
@@ -244,7 +247,7 @@ function PredictionCard({
         isVoided ? 'opacity-50' : ''
       } ${isDeadlineWarning ? 'border-warning/60' : highlighted ? 'border-primary' : 'border-border'}`}
       data-testid={`prediction-card-${match.id}`}
-      animate={highlighted ? { scale: [1, 1.02, 1] } : {}}
+      animate={highlighted && !prefersReducedMotion ? { scale: [1, 1.02, 1] } : {}}
       transition={{ duration: 0.4 }}
     >
       {/* Header row */}

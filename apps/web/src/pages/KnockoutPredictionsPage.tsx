@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -180,6 +180,7 @@ function KnockoutCard({
     'EEE d MMM, HH:mm',
   );
   const countdown = useCountdown(match.kickoff_utc);
+  const prefersReducedMotion = useReducedMotion();
 
   const isCompleted = match.status === 'completed';
   const isLocked = match.status === 'locked';
@@ -224,7 +225,7 @@ function KnockoutCard({
             : 'border-border'
       }`}
       data-testid={`knockout-card-${match.id}`}
-      animate={highlighted ? { scale: [1, 1.02, 1] } : {}}
+      animate={highlighted && !prefersReducedMotion ? { scale: [1, 1.02, 1] } : {}}
       transition={{ duration: 0.4 }}
     >
       {/* Header */}

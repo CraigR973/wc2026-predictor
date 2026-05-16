@@ -130,7 +130,7 @@ export function JoinPage() {
         {inviteState === 'error' && (
           <Card>
             <CardContent className="pt-6">
-              <p className="text-center text-error font-sans text-sm">{inviteError}</p>
+              <p role="alert" className="text-center text-error font-sans text-sm">{inviteError}</p>
               <p className="text-center text-text-muted font-sans text-xs mt-2">
                 Ask the admin for a new invite link.
               </p>
@@ -208,7 +208,7 @@ export function JoinPage() {
                   </select>
                 </div>
 
-                {error && <p className="text-xs text-error font-sans">{error}</p>}
+                {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}
 
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? 'Joining…' : 'Join league'}

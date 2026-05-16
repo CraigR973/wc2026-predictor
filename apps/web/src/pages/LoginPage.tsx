@@ -113,7 +113,7 @@ export function LoginPage() {
                 />
               </div>
 
-              {error && <p className="text-xs text-error font-sans">{error}</p>}
+              {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Signing in…' : 'Sign in'}

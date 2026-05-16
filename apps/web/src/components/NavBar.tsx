@@ -22,7 +22,7 @@ export function NavBar() {
           <span className="font-display text-xl text-primary tracking-wider select-none">
             WC 2026
           </span>
-          <nav className="flex items-center gap-1">
+          <nav aria-label="Main navigation" className="flex items-center gap-1">
             {navItems.map(({ to, label, exact }) => (
               <NavLink
                 key={to}
@@ -30,7 +30,7 @@ export function NavBar() {
                 end={exact}
                 className={({ isActive }) =>
                   cn(
-                    'px-3 py-1.5 rounded-md text-sm font-sans transition-colors',
+                    'px-3 py-1.5 rounded-md text-sm font-sans transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                     isActive
                       ? 'bg-primary/20 text-primary'
                       : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated',
@@ -46,10 +46,10 @@ export function NavBar() {
                   to="/admin/invites"
                   className={({ isActive }) =>
                     cn(
-                      'px-3 py-1.5 rounded-md text-sm font-sans transition-colors',
+                      'px-3 py-1.5 rounded-md text-sm font-sans transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                       isActive
                         ? 'bg-primary/20 text-primary'
-                        : 'text-text-muted hover:text-text-primary hover:bg-surface-elevated',
+                        : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated',
                     )
                   }
                 >
@@ -59,10 +59,10 @@ export function NavBar() {
                   to="/admin/players"
                   className={({ isActive }) =>
                     cn(
-                      'px-3 py-1.5 rounded-md text-sm font-sans transition-colors',
+                      'px-3 py-1.5 rounded-md text-sm font-sans transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                       isActive
                         ? 'bg-primary/20 text-primary'
-                        : 'text-text-muted hover:text-text-primary hover:bg-surface-elevated',
+                        : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated',
                     )
                   }
                 >
@@ -81,7 +81,7 @@ export function NavBar() {
           </span>
           <button
             onClick={logout}
-            className="text-xs text-text-muted hover:text-text-primary font-sans transition-colors"
+            className="text-xs text-text-secondary hover:text-text-primary font-sans transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Sign out
           </button>
