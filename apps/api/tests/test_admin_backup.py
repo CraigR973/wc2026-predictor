@@ -94,9 +94,7 @@ async def test_trigger_backup_pg_dump_failure() -> None:
 
 @pytest.mark.asyncio
 async def test_trigger_backup_requires_admin() -> None:
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/api/v1/admin/backup")
     assert resp.status_code == 401
 
@@ -152,9 +150,7 @@ async def test_list_backups_returns_entries() -> None:
 
 @pytest.mark.asyncio
 async def test_list_backups_requires_admin() -> None:
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/admin/backups")
     assert resp.status_code == 401
 
@@ -177,9 +173,7 @@ async def test_download_backup_not_found() -> None:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.get(
-                    "/api/v1/admin/backups/wc2026_20260610_030000.sql"
-                )
+                resp = await client.get("/api/v1/admin/backups/wc2026_20260610_030000.sql")
         finally:
             app.dependency_overrides.pop(require_admin, None)
 
@@ -200,9 +194,7 @@ async def test_download_backup_invalid_filename() -> None:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.get(
-                    "/api/v1/admin/backups/invalid-backup-file.sql"
-                )
+                resp = await client.get("/api/v1/admin/backups/invalid-backup-file.sql")
         finally:
             app.dependency_overrides.pop(require_admin, None)
 
@@ -211,8 +203,6 @@ async def test_download_backup_invalid_filename() -> None:
 
 @pytest.mark.asyncio
 async def test_download_backup_requires_admin() -> None:
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/admin/backups/wc2026_20260610_030000.sql")
     assert resp.status_code == 401
