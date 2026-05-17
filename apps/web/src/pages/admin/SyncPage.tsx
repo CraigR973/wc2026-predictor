@@ -34,7 +34,7 @@ function actionLabel(action: string | null): string {
     result_auto_fetched: 'Results fetched',
     sync_failed: 'Sync failed',
     kickoff_changed: 'Kickoff updated',
-    sync_triggered: 'Manual trigger',
+    sync_triggered: 'Sync OK',
   };
   return action ? (map[action] ?? action) : '—';
 }
