@@ -1728,7 +1728,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Runs on Chromium + Firefox + WebKit in CI
 - **Acceptance:** All flows pass on CI
 
-**Phase 11.8: Visual Polish & Empty States** 🔴 Opus
+**Phase 11.8: Visual Polish & Empty States** 🔴 Opus ✅ 2026-05-17
 - Empty states for every list
 - Loading skeletons
 - Error boundaries

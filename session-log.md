@@ -857,3 +857,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `getByRole('spinbutton', { name: '…' })` targets `<input type="number">` uniquely; `getByLabel` was ambiguous because ▲/▼ increment buttons share the same label prefix.
 
 **Next:** Batch 12 — Phase 11.8 — Visual Polish & Empty States (🔴 Opus)
+
+---
+
+## Phase 11.8 — Visual Polish & Empty States
+**Commits:** 8382f34 · CI ✅
+
+### Key facts for future sessions
+- All player + admin routes are `React.lazy()`-imported in `App.tsx`; **Layout is also lazy** because it transitively pulls framer-motion (PageTransition) + supabase realtime (OfflineBanner) — keeping these out of the unauth `/login` chunk is what hit mobile Lighthouse Perf 95.
+- `vite.config.ts` `manualChunks` only carves out `react-vendor` + `query` — framer-motion and recharts are intentionally NOT in manualChunks because Vite injects a `<link rel="modulepreload">` for every named manual chunk on the entry, which would eagerly load them on `/login` and tank perf.
+- `Skeleton` (`components/ui/skeleton.tsx`) has `role="status" aria-busy="true" aria-label="Loading"` baked in — page-level skeleton groups should add `aria-label` on the wrapper too so the inner repeats don't all announce "Loading".
+- `ErrorBoundary` in `Layout` is `key={location.pathname}` so a thrown error on one page is automatically reset by navigation to another — without the key, the boundary state persists across routes.
+- Tests asserting empty/loading copy break easily when EmptyState text changes; new pattern (see `PredictionsPage.test.tsx`) uses `container.querySelector('[aria-label="Loading X"]')` instead of brittle text matches.
+- Lighthouse `--preset=desktop` skips the harsh mobile throttling — useful sanity check (100/100/96/100) but mobile is the canonical target for this PWA.
+
+**Next:** All 59 phases shipped — tournament starts 11 June 2026. Remaining work is deployment + real-world testing, not new phases.
