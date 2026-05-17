@@ -207,30 +207,32 @@ Look for `access-control-allow-origin: https://wc2026-staging.vercel.app` in the
 
 ## Step 8 — Bootstrap the first admin
 
-There is no CLI bootstrap; this is intentional (no env-driven privilege escalation). Do it in three sub-steps:
+The join endpoint only creates `player`-role profiles — this is intentional (no env-driven path to admin). Use the operator-only `bootstrap_admin` script.
 
-**8a. Create your join invite directly in the database** (chicken-and-egg: no admin exists yet to call the admin API).
-
-```bash
-psql "${DATABASE_URL/postgresql+asyncpg/postgres}" <<'SQL'
-INSERT INTO invites (token, display_name_hint, is_active, created_at)
-VALUES (gen_random_uuid()::text, 'Admin', true, now())
-RETURNING token;
-SQL
-```
-
-Copy the returned token.
-
-**8b. Join via the frontend**: visit `https://<frontend>/join/<token>`, set your display name + PIN + timezone. You'll be auto-logged-in as a regular `player`.
-
-**8c. Promote yourself to admin** by direct SQL (look up your `id` from the `profiles` table):
+**Option A (recommended) — create a fresh admin profile in one command:**
 
 ```bash
-psql "${DATABASE_URL/postgresql+asyncpg/postgres}" -c \
-  "UPDATE profiles SET role = 'admin' WHERE display_name = 'Admin';"
+cd /Users/craigrobinson/wc_2026_predictor/apps/api
+DATABASE_URL='postgresql+asyncpg://postgres:<password>@<host>:5432/postgres' \
+  PYTHONPATH=. .venv/bin/python -m src.bootstrap_admin \
+  --display-name "Craig" \
+  --timezone "Europe/London"
 ```
 
-Refresh the frontend — the **Admin** nav link should now appear. From `/admin/invites` you can issue invites for the other 14 players without ever touching SQL again.
+You'll be prompted for the PIN interactively (use `--pin` to pass it inline if you must, but it'll show up in shell history). On success the script prints `created admin '<name>' (id=<uuid>)` and exits 0. Log into the frontend with that name + PIN.
+
+**Option B — promote an existing player you joined via invite:**
+
+If you already issued yourself an invite and joined as a regular `player`, flip your role:
+
+```bash
+DATABASE_URL='...' PYTHONPATH=. .venv/bin/python -m src.bootstrap_admin \
+  --promote --display-name "Craig"
+```
+
+The script refuses with a clear error if the name doesn't exist, is already admin, or the league is at the 15-player cap.
+
+Refresh the frontend — the **Admin** nav link should now appear. From `/admin/invites` you can issue invites for the other players without ever touching the script or SQL again.
 
 ---
 
