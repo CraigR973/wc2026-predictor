@@ -311,6 +311,7 @@ async def join(
         deleted_at=None,
     )
     db.add(new_player)
+    await db.flush()
 
     prefs = NotificationPreferences(
         player_id=new_player.id,

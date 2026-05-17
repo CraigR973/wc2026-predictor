@@ -102,6 +102,7 @@ async def create_admin(
         deleted_at=None,
     )
     session.add(profile)
+    await session.flush()  # commit profile row before FK-dependent insert
     session.add(NotificationPreferences(player_id=profile.id))
     await session.flush()
     return profile

@@ -5,15 +5,13 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY apps/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src/ ./src/
+COPY apps/api/src/ ./src/
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app
-
-EXPOSE 8000
 
 CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

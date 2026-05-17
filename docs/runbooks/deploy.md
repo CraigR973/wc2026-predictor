@@ -28,8 +28,10 @@ Run this **twice** — once for a `staging` environment, then again for `product
    - `anon` public key → `SUPABASE_ANON_KEY` and `VITE_SUPABASE_ANON_KEY` (same value)
    - `service_role` key → `SUPABASE_SERVICE_KEY` (backend only, never expose)
 3. Capture from **Project Settings → Database → Connection string**:
-   - URI form, with the password you set at project creation → `DATABASE_URL`
-   - **Important:** rewrite the scheme from `postgresql://` to `postgresql+asyncpg://` for the backend (the app uses asyncpg).
+   - Use the **Session pooler** URI (not the direct connection) — Railway cannot reach the direct Supabase host (`db.<ref>.supabase.co:5432`) due to network restrictions. The Session pooler (`aws-0-<region>.pooler.supabase.com:5432`) is publicly accessible.
+   - **Important:** rewrite the scheme from `postgresql://` to `postgresql+asyncpg://`, and append `?prepared_statement_cache_size=0` (required because asyncpg's prepared statement cache is incompatible with PgBouncer in session mode).
+   - The Session pooler username format is `postgres.<project-ref>`, not just `postgres`.
+   - Example: `postgresql+asyncpg://postgres.lesscrmlfijiokureomm:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?prepared_statement_cache_size=0`
 
 > Staging vs prod: create **two separate Supabase projects**, not branches. Service keys are project-scoped; sharing them between envs leaks prod creds into staging.
 
@@ -46,15 +48,22 @@ python -c "import secrets; print('ACCESS=', secrets.token_urlsafe(48)); print('R
 VAPID keypair (one set per environment — staging and prod must NOT share):
 
 ```bash
-/Users/craigrobinson/wc_2026_predictor/apps/api/.venv/bin/python -m pip install py-vapid
 /Users/craigrobinson/wc_2026_predictor/apps/api/.venv/bin/python - <<'PY'
-from py_vapid import Vapid01
-v = Vapid01()
-v.generate_keys()
-print('VAPID_PUBLIC_KEY=', v.public_key.decode())
-print('VAPID_PRIVATE_KEY=', v.private_key.decode())
+import base64
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+key = ec.generate_private_key(ec.SECP256R1())
+
+pub_bytes = key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+print("VAPID_PUBLIC_KEY=" + base64.urlsafe_b64encode(pub_bytes).rstrip(b"=").decode())
+
+priv_bytes = key.private_numbers().private_value.to_bytes(32, "big")
+print("VAPID_PRIVATE_KEY=" + base64.urlsafe_b64encode(priv_bytes).rstrip(b"=").decode())
 PY
 ```
+
+> **Private key format:** store as a **base64url string** (single line, no PEM headers). Railway strips or corrupts newlines in multi-line env vars, which causes pywebpush to fail with `ASN.1 parsing error: invalid length`. The base64url raw-scalar format avoids this entirely — pywebpush accepts it directly.
 
 Record these in a password manager. You'll paste them into Railway + Vercel in the next steps.
 
@@ -81,6 +90,8 @@ psql "${DATABASE_URL/postgresql+asyncpg/postgres}" -c "\dt"
 ```
 
 You should see the full schema (profiles, matches, predictions, leaderboard_snapshots, etc.).
+
+> **RLS advisory:** Supabase will flag that 10 tables have Row Level Security disabled. This is intentional — the frontend never queries Postgres directly; all data access goes through the FastAPI backend using the `service_role` key over a direct asyncpg connection. The anon key is unused by the app. RLS is not required here.
 
 ---
 
@@ -109,7 +120,9 @@ railway init           # pick "Empty Project", name it wc2026-api-{staging,prod}
 railway link
 ```
 
-In the Railway dashboard, set the service root directory to `apps/api` and the start command to:
+In the Railway dashboard, set the **Root Directory** to `apps/api` (Settings → Source → Root Directory). Without this, Railway traverses to the git root, finds `pnpm-workspace.yaml`, and misidentifies the project as Node.
+
+Confirm the start command is set to:
 
 ```
 python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT
@@ -136,8 +149,11 @@ Verify `pg_dump` is in the Railway image PATH (it should be on the default Pytho
 Deploy:
 
 ```bash
-railway up
+cd /Users/craigrobinson/wc_2026_predictor/apps/api
+railway up --service wc2026-api
 ```
+
+> **Important:** Run `railway up` from `apps/api`, not the repo root. Railway auto-detects the project type from the uploaded directory tree — uploading the monorepo root causes Railpack to see `./apps/` and fail to identify the Python project.
 
 Once deployed, capture the Railway-generated domain (e.g. `wc2026-api-staging.up.railway.app`). Smoke test:
 
@@ -278,7 +294,8 @@ Once prod is green, share invite links with the real players.
 | Symptom | Likely cause |
 |---|---|
 | Frontend loads but every API call returns CORS error | `FRONTEND_ORIGIN` on Railway doesn't match the Vercel domain exactly (must include scheme, no trailing slash) |
-| `/health/ready` returns `db: unreachable` | `DATABASE_URL` is missing the `+asyncpg` scheme suffix, or the Supabase password contains characters that need URL-encoding |
+| `/health/ready` returns `db: unreachable` with `[Errno 101] Network is unreachable` | Using the Supabase **direct** connection host (`db.<ref>.supabase.co`) — Railway cannot reach it. Switch to the **Session pooler** URL (`aws-0-<region>.pooler.supabase.com:5432`) with `?prepared_statement_cache_size=0` appended. |
+| `/health/ready` returns `db: unreachable` with auth error | `DATABASE_URL` is missing the `+asyncpg` scheme suffix, wrong password, or special chars in the password need URL-encoding (`%2C` for `,`, `%21` for `!`, `%26` for `&`). |
 | Push subscription returns `InvalidAccessError` | `VITE_VAPID_PUBLIC_KEY` doesn't match the `VAPID_PUBLIC_KEY` Railway is signing with, or one of them is from a different env |
 | Service worker never registers | The site is not served over HTTPS — Vercel does this automatically, but a custom domain in pending-verification state can serve HTTP briefly |
 | Daily backup at 03:00 UTC fails | `pg_dump` is not in the Railway image PATH — add a Nixpacks step or switch to a Postgres-bundled base image |

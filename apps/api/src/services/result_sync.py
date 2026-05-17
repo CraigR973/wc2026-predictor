@@ -146,6 +146,20 @@ async def sync_results(
 
     _consecutive_failures = 0
     log.info("auto sync complete", updated=updates, total=len(fd_matches))
+
+    async with session_factory() as session:
+        session.add(
+            AuditLog(
+                actor_id=None,
+                actor_type=ActorType.system,
+                action_type=ActionType.sync_triggered,
+                target_table="matches",
+                target_id=None,
+                changes={"updated": updates, "total": len(fd_matches)},
+            )
+        )
+        await session.commit()
+
     return updates
 
 
