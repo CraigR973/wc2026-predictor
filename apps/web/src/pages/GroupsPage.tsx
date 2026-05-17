@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { GroupResponse } from '../lib/types';
 import { supabase } from '../lib/supabase';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 
 function StandingsTable({ group }: { group: GroupResponse }) {
   return (
@@ -101,17 +103,33 @@ export function GroupsPage() {
       <h1 className="font-display text-3xl text-primary tracking-wider mb-6">Groups</h1>
 
       {isLoading && (
-        <p className="text-text-muted font-sans text-sm">Loading standings…</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Loading group standings">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[260px] w-full" />
+          ))}
+        </div>
       )}
       {error && (
-        <p className="text-error font-sans text-sm">Failed to load groups.</p>
+        <EmptyState
+          title="Couldn't load groups"
+          description="There was a problem reaching the server. Try again in a moment."
+        />
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {(data ?? []).map((group) => (
-          <StandingsTable key={group.id} group={group} />
-        ))}
-      </div>
+      {!isLoading && !error && (data ?? []).length === 0 && (
+        <EmptyState
+          title="No groups configured"
+          description="Group standings will appear once the draw is finalised."
+        />
+      )}
+
+      {!isLoading && (data ?? []).length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {(data ?? []).map((group) => (
+            <StandingsTable key={group.id} group={group} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

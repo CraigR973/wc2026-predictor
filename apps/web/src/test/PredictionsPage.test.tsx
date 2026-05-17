@@ -271,8 +271,8 @@ describe('PredictionsPage', () => {
 
   it('shows loading state initially', () => {
     vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    expect(screen.getByText('Loading…')).toBeTruthy();
+    const { container } = renderPage();
+    expect(container.querySelector('[aria-label="Loading predictions"]')).toBeTruthy();
   });
 
   it('shows lock indicator on locked match', async () => {

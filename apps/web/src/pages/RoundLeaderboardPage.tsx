@@ -2,6 +2,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { RoundEntry } from '../lib/types';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 
 const STAGES = [
   { value: 'group', label: 'Group Stage' },
@@ -55,15 +57,28 @@ export function RoundLeaderboardPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-text-muted text-sm font-sans text-center py-12">Loading…</div>
+        <div
+          className="rounded-lg border border-border bg-surface overflow-hidden divide-y divide-border/50"
+          aria-label="Loading round leaderboard"
+        >
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              <Skeleton className="h-4 w-6" />
+              <Skeleton className="h-4 flex-1 max-w-[160px]" />
+              <Skeleton className="h-4 w-10" />
+            </div>
+          ))}
+        </div>
       ) : error ? (
-        <div className="text-red-400 text-sm font-sans text-center py-12">
-          Failed to load round leaderboard.
-        </div>
+        <EmptyState
+          title="Couldn't load round leaderboard"
+          description="Refresh the page or check your connection."
+        />
       ) : data.length === 0 || data.every((e) => e.points === 0) ? (
-        <div className="rounded-lg border border-border bg-surface px-6 py-10 text-center text-text-muted text-sm font-sans">
-          No points scored in this round yet.
-        </div>
+        <EmptyState
+          title="No points scored in this round yet"
+          description="Once results are entered for this round, the per-round standings will appear here."
+        />
       ) : (
         <div className="rounded-lg border border-border bg-surface overflow-hidden">
           <table className="w-full text-sm font-sans">

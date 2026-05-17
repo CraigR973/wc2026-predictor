@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
+import { Skeleton } from '../components/ui/skeleton';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -215,7 +216,13 @@ function PreferencesSection() {
   );
 
   if (isLoading || !prefs) {
-    return <p className="text-sm text-text-muted font-sans">Loading…</p>;
+    return (
+      <div className="space-y-3" aria-label="Loading preferences">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-10 w-full" />
+        ))}
+      </div>
+    );
   }
 
   const muted = prefs.global_mute;

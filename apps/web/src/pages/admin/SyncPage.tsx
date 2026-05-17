@@ -6,6 +6,8 @@ import { apiFetch } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/EmptyState';
 
 interface AuditEntry {
   id: string;
@@ -66,7 +68,7 @@ export function SyncStatusWidget() {
 
   const countdown = useCountdown(data?.next_run_at ?? null);
 
-  if (isLoading) return <p className="text-text-muted text-sm">Loading sync status…</p>;
+  if (isLoading) return <Skeleton className="h-[140px]" aria-label="Loading sync status" />;
 
   const hasErrors = (data?.recent_errors.length ?? 0) > 0;
 
@@ -138,11 +140,17 @@ export function AdminSyncPage() {
       </div>
 
       {error && (
-        <p className="text-error text-sm font-sans mb-4">Failed to load sync status.</p>
+        <EmptyState
+          title="Couldn't load sync status"
+          description="The sync API isn't responding. Try refreshing in a moment."
+        />
       )}
 
       {isLoading && !data && (
-        <p className="text-text-muted text-sm font-sans">Loading…</p>
+        <div className="space-y-4 max-w-xl" aria-label="Loading sync status">
+          <Skeleton className="h-[180px]" />
+          <Skeleton className="h-[80px]" />
+        </div>
       )}
 
       {data && (
@@ -198,7 +206,10 @@ export function AdminSyncPage() {
               RECENT ERRORS
             </h2>
             {data.recent_errors.length === 0 ? (
-              <p className="text-text-muted text-sm font-sans">No recent errors.</p>
+              <EmptyState
+                title="No recent errors"
+                description="The auto-sync has been running cleanly."
+              />
             ) : (
               <div className="space-y-2">
                 {data.recent_errors.map((e) => (

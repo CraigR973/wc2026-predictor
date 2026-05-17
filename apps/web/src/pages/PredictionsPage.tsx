@@ -10,6 +10,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { MatchResponse, GroupResponse, PredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 import { useCountdown } from '../hooks/useCountdown';
 
 // ---------------------------------------------------------------------------
@@ -639,11 +641,21 @@ export function PredictionsPage() {
       <h1 className="font-display text-3xl text-primary tracking-wider mb-4">My Predictions</h1>
 
       {isLoading && (
-        <p className="text-text-muted font-sans text-sm">Loading…</p>
+        <div className="space-y-4" aria-label="Loading predictions">
+          <div className="flex flex-wrap gap-1 pb-3 border-b border-border">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-20 rounded-md" />
+            ))}
+          </div>
+          <Skeleton className="h-[260px] w-full" />
+        </div>
       )}
 
       {!isLoading && sortedGroups.length === 0 && (
-        <p className="text-text-muted font-sans text-sm">No groups available yet.</p>
+        <EmptyState
+          title="No groups available yet"
+          description="Predictions open once the group draw is finalised and matches are scheduled."
+        />
       )}
 
       {!isLoading && sortedGroups.length > 0 && (

@@ -4,6 +4,8 @@ import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/EmptyState';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -122,8 +124,16 @@ export function AdminInvitesPage() {
           <Button onClick={() => setShowCreate(true)}>New invite</Button>
         </div>
 
-        {isLoading && <p className="text-text-secondary font-sans text-sm">Loading…</p>}
-        {error && <p className="text-error font-sans text-sm">{error}</p>}
+        {isLoading && (
+          <div className="space-y-3" aria-label="Loading invites">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-[100px]" />
+            ))}
+          </div>
+        )}
+        {error && (
+          <EmptyState title="Couldn't load invites" description={error} />
+        )}
 
         <div className="space-y-3">
           {invites.map((invite) => (
@@ -175,7 +185,10 @@ export function AdminInvitesPage() {
             </Card>
           ))}
           {!isLoading && invites.length === 0 && (
-            <p className="text-text-muted font-sans text-sm">No invites yet.</p>
+            <EmptyState
+              title="No invites yet"
+              description="Create an invite to let a new player join."
+            />
           )}
         </div>
       </div>

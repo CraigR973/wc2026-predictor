@@ -13,6 +13,8 @@ import {
 } from 'recharts';
 import { apiFetch } from '../lib/api';
 import type { HistoryEntry } from '../lib/types';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 
 // Distinct palette for up to 15 players
 const PALETTE = [
@@ -67,17 +69,24 @@ export function LeaderboardHistoryPage() {
 
   if (isLoading) {
     return (
-      <div className="text-text-muted text-sm font-sans text-center py-16">
-        Loading history…
+      <div>
+        <Skeleton className="h-8 w-48 mb-6" />
+        <div className="flex flex-wrap gap-2 mb-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-7 w-20 rounded-full" />
+          ))}
+        </div>
+        <Skeleton className="h-[380px] w-full" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-red-400 text-sm font-sans text-center py-16">
-        Failed to load history.
-      </div>
+      <EmptyState
+        title="Couldn't load rank history"
+        description="There was a problem reaching the server. Refresh to try again."
+      />
     );
   }
 
@@ -94,9 +103,10 @@ export function LeaderboardHistoryPage() {
       </div>
 
       {data.length === 0 ? (
-        <div className="rounded-lg border border-border bg-surface px-6 py-10 text-center text-text-muted text-sm font-sans">
-          No results yet — history will appear after the first match result is entered.
-        </div>
+        <EmptyState
+          title="No rank history yet"
+          description="History will appear once the first match result is entered."
+        />
       ) : (
         <>
           {/* Player toggle chips */}

@@ -10,6 +10,8 @@ import type {
   MatchPredictionsResponse,
 } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 import { useCountdown } from '../hooks/useCountdown';
 
 // ---------------------------------------------------------------------------
@@ -328,10 +330,21 @@ export function MatchDetailPage() {
   });
 
   if (matchQuery.isLoading) {
-    return <p className="text-text-muted font-sans text-sm">Loading match…</p>;
+    return (
+      <div>
+        <Skeleton className="h-3 w-12 mb-4" />
+        <Skeleton className="h-[200px] w-full mb-6" />
+        <Skeleton className="h-[140px] w-full" />
+      </div>
+    );
   }
   if (matchQuery.error || !matchQuery.data) {
-    return <p className="text-error font-sans text-sm">Match not found.</p>;
+    return (
+      <EmptyState
+        title="Match not found"
+        description="This match either doesn't exist or couldn't be loaded."
+      />
+    );
   }
 
   const match = matchQuery.data;
@@ -362,7 +375,7 @@ export function MatchDetailPage() {
       {!isPreLock && match.status !== 'cancelled' && (
         <>
           {matchPredsQuery.isLoading && (
-            <p className="text-text-muted font-sans text-sm">Loading predictions…</p>
+            <Skeleton className="h-[200px] w-full" aria-label="Loading predictions" />
           )}
           {matchPredsQuery.data && (
             <ComparisonTable

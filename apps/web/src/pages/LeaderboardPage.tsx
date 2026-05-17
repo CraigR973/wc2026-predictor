@@ -6,6 +6,8 @@ import type { LeaderboardEntry } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useLongPress } from '../hooks/useLongPress';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
@@ -135,17 +137,32 @@ export function LeaderboardPage() {
 
   if (isLoading) {
     return (
-      <div className="text-text-muted text-sm font-sans text-center py-16">
-        Loading leaderboard…
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="font-display text-3xl text-primary tracking-wider">Leaderboard</h1>
+        </div>
+        <div
+          className="rounded-lg border border-border bg-surface overflow-hidden divide-y divide-border/50"
+          aria-label="Loading leaderboard"
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              <Skeleton className="h-4 w-6" />
+              <Skeleton className="h-4 flex-1 max-w-[160px]" />
+              <Skeleton className="h-4 w-10" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-red-400 text-sm font-sans text-center py-16">
-        Failed to load leaderboard.
-      </div>
+      <EmptyState
+        title="Couldn't load the leaderboard"
+        description="Refresh the page or check your connection."
+      />
     );
   }
 
@@ -176,9 +193,10 @@ export function LeaderboardPage() {
       </div>
 
       {data.length === 0 ? (
-        <div className="rounded-lg border border-border bg-surface px-6 py-10 text-center text-text-muted text-sm font-sans">
-          No results entered yet — check back after the first match!
-        </div>
+        <EmptyState
+          title="No results entered yet"
+          description="The leaderboard fills in as match results are confirmed. Check back after the first kickoff!"
+        />
       ) : (
         <div className="rounded-lg border border-border bg-surface overflow-hidden">
           <table className="w-full text-sm font-sans">

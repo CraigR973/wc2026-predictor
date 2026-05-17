@@ -6,6 +6,8 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { MatchResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 import { useCountdown } from '../hooks/useCountdown';
 
 // ---------------------------------------------------------------------------
@@ -237,14 +239,35 @@ export function SchedulePage() {
       </div>
 
       {isLoading && (
-        <p className="text-text-muted font-sans text-sm">Loading matches…</p>
+        <div className="flex flex-col gap-6" aria-label="Loading matches">
+          {[0, 1].map((s) => (
+            <section key={s}>
+              <Skeleton className="h-3 w-32 mb-3" />
+              <div className="flex flex-col gap-2">
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} className="h-14 w-full rounded-lg" />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       )}
       {error && (
-        <p className="text-error font-sans text-sm">Failed to load matches.</p>
+        <EmptyState
+          title="Couldn't load the schedule"
+          description="There was a problem reaching the server. Check your connection and try again."
+        />
       )}
 
       {!isLoading && !error && byDate.size === 0 && (
-        <p className="text-text-muted font-sans text-sm">No matches found.</p>
+        <EmptyState
+          title="No matches found"
+          description={
+            stageFilter
+              ? 'Nothing matches this stage filter — try "All stages".'
+              : 'The fixture list is empty.'
+          }
+        />
       )}
 
       <div className="flex flex-col gap-6">

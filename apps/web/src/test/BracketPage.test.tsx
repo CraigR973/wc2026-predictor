@@ -205,7 +205,7 @@ describe('BracketPage', () => {
     vi.stubGlobal('fetch', makeFetch({ matches: [GROUP_MATCH] }));
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText(/Knockout matches haven't been created yet/i)).toBeTruthy(),
+      expect(screen.getByText(/Bracket isn't ready yet/i)).toBeTruthy(),
     );
   });
 

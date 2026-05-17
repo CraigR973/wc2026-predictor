@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { GroupResponse } from '../lib/types';
 import { supabase } from '../lib/supabase';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 
 export function GroupDetailPage() {
   const { name } = useParams<{ name: string }>();
@@ -35,16 +37,24 @@ export function GroupDetailPage() {
   }, [name, queryClient]);
 
   if (isLoading) {
-    return <p className="text-text-muted font-sans text-sm">Loading…</p>;
+    return (
+      <div>
+        <Skeleton className="h-8 w-48 mb-6" />
+        <Skeleton className="h-[280px] w-full" />
+      </div>
+    );
   }
   if (error || !data) {
     return (
-      <div>
-        <p className="text-error font-sans text-sm">Group not found.</p>
-        <Link to="/groups" className="text-primary text-sm hover:underline">
-          ← Back to groups
-        </Link>
-      </div>
+      <EmptyState
+        title="Group not found"
+        description="This group either doesn't exist or couldn't be loaded."
+        action={
+          <Link to="/groups" className="text-primary text-sm font-sans hover:underline">
+            ← Back to groups
+          </Link>
+        }
+      />
     );
   }
 

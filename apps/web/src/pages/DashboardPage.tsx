@@ -4,6 +4,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCountdown } from '../hooks/useCountdown';
+import { Skeleton } from '../components/ui/skeleton';
 import type { LeaderboardEntry, MatchResponse, RecentPrediction } from '../lib/types';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -178,19 +179,19 @@ export function DashboardPage() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
 
-  const { data: leaderboard = [] } = useQuery<LeaderboardEntry[]>({
+  const { data: leaderboard = [], isLoading: leaderboardLoading } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard'],
     queryFn: () => apiFetch<LeaderboardEntry[]>('/api/v1/leaderboard'),
     staleTime: 30_000,
   });
 
-  const { data: upcoming = [] } = useQuery<MatchResponse[]>({
+  const { data: upcoming = [], isLoading: upcomingLoading } = useQuery<MatchResponse[]>({
     queryKey: ['matches', 'upcoming', 1],
     queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches/upcoming?n=1'),
     staleTime: 60_000,
   });
 
-  const { data: recentPreds = [] } = useQuery<RecentPrediction[]>({
+  const { data: recentPreds = [], isLoading: recentLoading } = useQuery<RecentPrediction[]>({
     queryKey: ['predictions', 'recent', player?.id],
     queryFn: () => apiFetch<RecentPrediction[]>(
       `/api/v1/players/${player!.id}/predictions/recent?limit=1`,
@@ -215,13 +216,24 @@ export function DashboardPage() {
 
       {/* Rank + Points */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Your Rank" value={myEntry ? `#${myEntry.rank}` : '—'} />
-        <StatCard label="Total Points" value={myEntry?.total_points ?? '—'} />
+        {leaderboardLoading ? (
+          <>
+            <Skeleton className="h-[88px]" />
+            <Skeleton className="h-[88px]" />
+          </>
+        ) : (
+          <>
+            <StatCard label="Your Rank" value={myEntry ? `#${myEntry.rank}` : '—'} />
+            <StatCard label="Total Points" value={myEntry?.total_points ?? '—'} />
+          </>
+        )}
       </div>
 
       {/* Next match countdown + Latest result */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {nextMatch ? (
+        {upcomingLoading ? (
+          <Skeleton className="h-[120px]" />
+        ) : nextMatch ? (
           <NextMatchCard match={nextMatch} timezone={timezone} />
         ) : (
           <div className="rounded-lg border border-border bg-surface p-4">
@@ -229,7 +241,9 @@ export function DashboardPage() {
             <p className="text-text-muted font-sans text-sm">No upcoming matches</p>
           </div>
         )}
-        {latestPred ? (
+        {recentLoading ? (
+          <Skeleton className="h-[120px]" />
+        ) : latestPred ? (
           <LatestResultCard prediction={latestPred} timezone={timezone} />
         ) : (
           <div className="rounded-lg border border-border bg-surface p-4">
@@ -240,9 +254,20 @@ export function DashboardPage() {
       </div>
 
       {/* Mini leaderboard */}
-      {leaderboard.length > 0 && player?.id && (
+      {leaderboardLoading ? (
+        <div className="rounded-lg border border-border bg-surface p-4 space-y-3" aria-label="Loading standings">
+          <Skeleton className="h-3 w-24" />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-3 w-4" />
+              <Skeleton className="h-3 flex-1 max-w-[120px]" />
+              <Skeleton className="h-3 w-8" />
+            </div>
+          ))}
+        </div>
+      ) : leaderboard.length > 0 && player?.id ? (
         <MiniLeaderboard entries={leaderboard} currentPlayerId={player.id} />
-      )}
+      ) : null}
 
       {/* Quick links */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

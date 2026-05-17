@@ -4,6 +4,8 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/EmptyState';
 
 interface AdminMatchResult {
   match_id: string;
@@ -54,15 +56,22 @@ export function AdminResultsPage() {
       </div>
 
       {error && (
-        <p className="text-error text-sm font-sans mb-4">Failed to load results.</p>
+        <EmptyState title="Couldn't load results" description="Try refreshing the page." />
       )}
 
       {isLoading && (
-        <p className="text-text-muted text-sm font-sans">Loading…</p>
+        <div className="space-y-2" aria-label="Loading results">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-[64px]" />
+          ))}
+        </div>
       )}
 
       {data && data.length === 0 && (
-        <p className="text-text-muted text-sm font-sans">No completed matches yet.</p>
+        <EmptyState
+          title="No completed matches yet"
+          description="Results show up once matches finish and are confirmed."
+        />
       )}
 
       {data && data.length > 0 && (

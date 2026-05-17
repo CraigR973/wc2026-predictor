@@ -2,6 +2,8 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 import type { PlayerStats, RecentPrediction } from '../lib/types';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -54,18 +56,36 @@ export function PlayerProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="text-text-muted text-sm font-sans text-center py-16">Loading profile…</div>
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+        <div>
+          <Skeleton className="h-5 w-16 mb-3" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-[88px]" />
+            ))}
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (error || !stats) {
     return (
-      <div className="text-red-400 text-sm font-sans text-center py-16">
-        Player not found.{' '}
-        <Link to="/leaderboard" className="underline hover:text-primary">
-          Back to leaderboard
-        </Link>
-      </div>
+      <EmptyState
+        title="Player not found"
+        description="This profile either doesn't exist or couldn't be loaded."
+        action={
+          <Link to="/leaderboard" className="text-primary text-sm font-sans hover:underline">
+            ← Back to leaderboard
+          </Link>
+        }
+      />
     );
   }
 
@@ -242,9 +262,10 @@ export function PlayerProfilePage() {
       )}
 
       {recentPreds.length === 0 && stats.total_predictions_settled === 0 && (
-        <div className="rounded-lg border border-border bg-surface px-6 py-8 text-center text-text-muted text-sm font-sans">
-          No settled predictions yet — check back after the first match!
-        </div>
+        <EmptyState
+          title="No settled predictions yet"
+          description="Predictions show up here after each match is settled."
+        />
       )}
     </div>
   );

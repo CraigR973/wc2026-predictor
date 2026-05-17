@@ -186,7 +186,7 @@ describe('ComparePage', () => {
       expect(screen.getAllByText('Alice').length).toBeGreaterThanOrEqual(1);
     });
     expect(
-      screen.getByText(/Pick two different players to see the comparison/i),
+      screen.getByText(/Select two players/i),
     ).toBeInTheDocument();
   });
 
@@ -249,7 +249,7 @@ describe('ComparePage', () => {
     renderPage(`/compare?a=${MY_ID}&b=${ID_CAR}`, H2H_EMPTY);
     await waitFor(() => {
       expect(
-        screen.getByText(/check back after results land/i),
+        screen.getByText(/No settled matches in common yet/i),
       ).toBeInTheDocument();
     });
   });

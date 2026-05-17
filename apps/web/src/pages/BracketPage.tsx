@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 import type { MatchResponse, KnockoutPredictionResponse } from '../lib/types';
 
 // ---------------------------------------------------------------------------
@@ -375,9 +377,9 @@ export function BracketPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-8 bg-surface-elevated rounded w-48" />
-        <div className="h-96 bg-surface rounded" />
+      <div className="space-y-4" aria-label="Loading bracket">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }
@@ -386,9 +388,10 @@ export function BracketPage() {
     return (
       <div>
         <h1 className="font-display text-3xl text-primary tracking-wider mb-6">BRACKET</h1>
-        <p className="text-text-muted font-sans text-sm">
-          Knockout matches haven't been created yet. Check back after the group stage completes.
-        </p>
+        <EmptyState
+          title="Bracket isn't ready yet"
+          description="Knockout matches appear here once the group stage completes."
+        />
       </div>
     );
   }

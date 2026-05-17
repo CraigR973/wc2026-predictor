@@ -4,6 +4,8 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/EmptyState';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -261,13 +263,27 @@ export function AdminDashboardPage() {
       <h1 className="font-display text-3xl text-primary tracking-wider mb-6">Admin</h1>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg border border-error/50 bg-surface text-error text-sm font-sans">
-          Failed to load dashboard data.
+        <div className="mb-4">
+          <EmptyState
+            title="Couldn't load admin dashboard"
+            description="Try refreshing the page."
+          />
         </div>
       )}
 
       {isLoading && !data && (
-        <p className="text-text-muted text-sm font-sans">Loading…</p>
+        <div className="space-y-4 mb-6" aria-label="Loading admin dashboard">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-[88px]" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[140px]" />
+            ))}
+          </div>
+        </div>
       )}
 
       {data && (

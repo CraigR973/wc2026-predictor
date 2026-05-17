@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 import type { H2HMatchEntry, H2HResponse, PlayerListItem } from '../lib/types';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -74,8 +76,6 @@ function SummaryBar({
   winsB: number;
   draws: number;
 }) {
-  const total = winsA + winsB + draws;
-  const empty = total === 0;
   return (
     <div className="rounded-lg border border-border bg-surface overflow-hidden">
       <div className="grid grid-cols-3 text-center">
@@ -99,11 +99,6 @@ function SummaryBar({
           <p className="text-[10px] text-text-muted font-sans uppercase">wins</p>
         </div>
       </div>
-      {empty && (
-        <div className="border-t border-border px-4 py-3 text-center text-text-muted text-xs font-sans">
-          No settled matches in common yet.
-        </div>
-      )}
     </div>
   );
 }
@@ -273,27 +268,28 @@ export function ComparePage() {
       </div>
 
       {playersLoading && (
-        <div className="text-text-muted text-sm font-sans text-center py-8">
-          Loading players…
-        </div>
+        <Skeleton className="h-10 w-full" aria-label="Loading players" />
       )}
 
       {!bothSelected && !playersLoading && (
-        <div className="rounded-lg border border-dashed border-border bg-surface px-6 py-10 text-center text-text-muted text-sm font-sans">
-          Pick two different players to see the comparison.
-        </div>
+        <EmptyState
+          title="Select two players"
+          description="Choose players above, or long-press a row on the leaderboard to set the comparison against yourself."
+        />
       )}
 
       {bothSelected && h2hLoading && (
-        <div className="text-text-muted text-sm font-sans text-center py-8">
-          Loading comparison…
+        <div className="space-y-4" aria-label="Loading comparison">
+          <Skeleton className="h-[120px] w-full" />
+          <Skeleton className="h-[160px] w-full" />
         </div>
       )}
 
       {bothSelected && h2hError && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-red-400 text-sm font-sans text-center">
-          Failed to load comparison.
-        </div>
+        <EmptyState
+          title="Couldn't load comparison"
+          description="Refresh the page or try a different pair of players."
+        />
       )}
 
       {bothSelected && h2h && (
@@ -325,9 +321,10 @@ export function ComparePage() {
               </table>
             </div>
           ) : (
-            <div className="rounded-lg border border-border bg-surface px-6 py-8 text-center text-text-muted text-sm font-sans">
-              No settled matches in common yet — check back after results land.
-            </div>
+            <EmptyState
+              title="No settled matches in common yet"
+              description="The match-by-match table fills in as both players' predictions are settled."
+            />
           )}
         </>
       )}

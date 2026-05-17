@@ -9,6 +9,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { MatchResponse, KnockoutPredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { Skeleton } from '../components/ui/skeleton';
+import { EmptyState } from '../components/EmptyState';
 import { useCountdown } from '../hooks/useCountdown';
 
 // ---------------------------------------------------------------------------
@@ -557,9 +559,14 @@ export function KnockoutPredictionsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-8 bg-surface-elevated rounded w-48" />
-        <div className="h-48 bg-surface rounded" />
+      <div className="space-y-4" aria-label="Loading knockout picks">
+        <Skeleton className="h-8 w-48" />
+        <div className="flex gap-1 flex-wrap pb-1 border-b border-border">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-20" />
+          ))}
+        </div>
+        <Skeleton className="h-[300px] w-full" />
       </div>
     );
   }
@@ -570,10 +577,10 @@ export function KnockoutPredictionsPage() {
         <h1 className="font-display text-3xl text-primary tracking-wider mb-6">
           KNOCKOUT PICKS
         </h1>
-        <p className="text-text-muted font-sans text-sm">
-          Knockout matches haven't been created yet. Check back after the group stage
-          completes.
-        </p>
+        <EmptyState
+          title="No knockout matches yet"
+          description="Knockout picks open once the group stage finalises the bracket."
+        />
       </div>
     );
   }

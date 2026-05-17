@@ -5,6 +5,8 @@ import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Dialog,
   DialogContent,
@@ -119,8 +121,16 @@ export function AdminPlayersPage() {
           </label>
         </div>
 
-        {isLoading && <p className="text-text-secondary font-sans text-sm">Loading…</p>}
-        {error && <p className="text-error font-sans text-sm">{error}</p>}
+        {isLoading && (
+          <div className="space-y-3" aria-label="Loading players">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[80px]" />
+            ))}
+          </div>
+        )}
+        {error && (
+          <EmptyState title="Couldn't load players" description={error} />
+        )}
 
         <div className="space-y-3">
           {players.map((p) => (
@@ -162,7 +172,10 @@ export function AdminPlayersPage() {
             </Card>
           ))}
           {!isLoading && players.length === 0 && (
-            <p className="text-text-muted font-sans text-sm">No players.</p>
+            <EmptyState
+              title="No players"
+              description={showDeleted ? 'No players match this filter.' : 'No active players yet — share an invite to add the first one.'}
+            />
           )}
         </div>
       </div>
