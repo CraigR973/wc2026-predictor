@@ -872,3 +872,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Lighthouse `--preset=desktop` skips the harsh mobile throttling — useful sanity check (100/100/96/100) but mobile is the canonical target for this PWA.
 
 **Next:** All 59 phases shipped — tournament starts 11 June 2026. Remaining work is deployment + real-world testing, not new phases.
+
+---
+
+## Batch D2 — Provision Staging
+**Commits:** 28f61b7 · no CI (infra/docs — no test suite changes)
+
+### Key facts for future sessions
+- Railway cannot reach Supabase direct host (`db.<ref>.supabase.co:5432`) — must use Session pooler (`aws-0-<region>.pooler.supabase.com:5432`) with username `postgres.<project-ref>` and `?prepared_statement_cache_size=0` appended.
+- VAPID private key must be stored as a base64url raw scalar (no PEM headers, single line) — Railway corrupts newlines in multi-line env vars, breaking pywebpush with ASN.1 parse error. Use the `cryptography` library directly; `py_vapid` API is broken on newer installs.
+- Root `Dockerfile` required so Railway's Docker builder runs instead of railpack, which misidentifies the monorepo as Node (sees `pnpm-workspace.yaml`). Run `railway up` from `apps/api` (not repo root).
+- `leaderboard_snapshots.created_at` was missing from migration 003 despite `TimestampMixin` — fixed in migration 008; required Railway redeploy to clear asyncpg prepared statement cache.
+- FK ordering fix needed in both `bootstrap_admin.py` and `auth.py` join endpoint: flush profile row before inserting `notification_preferences`.
+- `last_sync_at` was never updating because no audit log row was written on sync runs — fixed in `result_sync.py`; `sync_triggered` action type now written after every successful sync.
+
+**Next:** Batch D3 — Staging soak (exercise all features; invite 1–2 friends; verify iOS PWA push, offline resync, first 03:00 UTC backup)

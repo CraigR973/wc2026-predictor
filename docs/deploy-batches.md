@@ -18,7 +18,7 @@ All 59 implementation phases shipped 2026-05-17. Tournament starts 11 June 2026 
 | # | Owner | Scope | Status |
 |---|---|---|---|
 | ~~D1~~ | ~~me~~ | ~~Pre-deploy polish~~ | ✅ Shipped 2026-05-17 |
-| D2 | you+me | Provision staging | Pending |
+| ~~D2~~ | ~~you+me~~ | ~~Provision staging~~ | ✅ Shipped 2026-05-17 |
 | D3 | both | Staging soak | Pending |
 | D4 | you+me | Provision production | Pending |
 | D5 | both | Production soak + open invites | Pending |
