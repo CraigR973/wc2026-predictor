@@ -32,7 +32,6 @@ import asyncio
 import getpass
 import sys
 import uuid
-from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,7 +55,7 @@ async def _find_profile_by_name(session: AsyncSession, display_name: str) -> Pro
             Profile.deleted_at.is_(None),
         )
     )
-    return cast(Profile | None, result.scalar_one_or_none())
+    return result.scalar_one_or_none()
 
 
 async def _active_profile_count(session: AsyncSession) -> int:
