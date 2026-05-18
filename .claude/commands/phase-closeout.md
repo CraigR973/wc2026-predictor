@@ -1,20 +1,23 @@
 ---
-description: Run the full phase close-out workflow — push, poll CI, merge to main, tick the architecture doc, append a lean session-log entry, strike the batch row.
+description: Run the full phase close-out workflow — push, poll CI, merge to main, tick the architecture doc (phase mode only), append a lean session-log entry, strike the batch row. Supports both architecture phases (X.Y) and pre-launch review batches (RN).
 ---
 
-You are running phase close-out. The user invokes this as:
+You are running close-out. The user invokes this as one of:
 
 ```
-/phase-closeout 7.1
+/phase-closeout 7.1                  # single architecture phase
+/phase-closeout 6.1,6.2,6.3,6.4      # multi-phase batch
+/phase-closeout R1                   # pre-launch review batch
 ```
 
-or, for a multi-phase batch:
+## Argument parsing & mode
 
-```
-/phase-closeout 6.1,6.2,6.3,6.4
-```
+`$ARGUMENTS` may be:
 
-`$ARGUMENTS` is a comma-separated list of phase IDs that have JUST shipped. Trim whitespace, split on commas, validate each ID matches `^\d+\.\d+$` (e.g. `7.1`). Reject if any ID is malformed.
+- **Phase mode** — comma-separated list of IDs matching `^\d+\.\d+$` (e.g. `7.1` or `6.1,6.2,6.3,6.4`). Trim whitespace, split on commas, validate each. Reject if any ID is malformed or if the list is empty.
+- **Review mode** — a single token matching `^R\d+$` (e.g. `R1`). Reject if combined with phase IDs (mixed modes are not allowed in one close-out).
+
+Set `$MODE` to `phase` or `review` based on the input shape. Many steps below behave differently per mode — read the per-step notes.
 
 ## Pre-conditions
 
@@ -57,6 +60,8 @@ If the merge is not fast-forwardable (main moved ahead with unrelated commits si
 
 ### Step 3 — Tick the architecture doc for every phase ID
 
+**Phase mode only.** Skip this step entirely in review mode (review items do not live in `wc2026-architecture.md`).
+
 For each phase ID in `$ARGUMENTS`:
 
 1. Grep for the heading: `grep -n "Phase X.Y:" /Users/craigrobinson/wc_2026_predictor/wc2026-architecture.md`.
@@ -67,9 +72,9 @@ Do NOT read the whole architecture doc — grep first, then use Edit with the pr
 
 ### Step 4 — Append a lean session-log entry
 
-Append a NEW section to the bottom of `/Users/craigrobinson/wc_2026_predictor/session-log.md` using the lean template defined in CLAUDE.md. For a multi-phase batch, write ONE section with all phase IDs in the title and all commit hashes on the Commits line. Pull commit hashes from `git log main --oneline -<N>` where N covers the work just shipped (typically the last 1–3 commits before the docs commit you're about to make).
+Append a NEW section to the bottom of `/Users/craigrobinson/wc_2026_predictor/session-log.md` using the lean template defined in CLAUDE.md. Pull commit hashes from `git log main --oneline -<N>` where N covers the work just shipped (typically the last 1–3 commits before the docs commit you're about to make).
 
-Format:
+**Phase mode** — multi-phase batches get ONE section with all phase IDs in the title and all commit hashes on the Commits line:
 
 ```
 ---
@@ -84,9 +89,26 @@ Format:
 **Next:** Phase X.Z — Title (model tag)   ← use /next-batch-prompt logic to find this
 ```
 
+**Review mode** — title is the batch ID plus the batch name (read it from the `docs/review-batches.md` row's "Rationale" column or its `## R<N>` section heading):
+
+```
+---
+
+## Review batch R<N> — <Title from review-batches.md row>
+**Commits:** <hash>[, <hash>] · CI ✅
+
+### Key facts for future sessions
+- <only non-obvious gotchas a future session can't discover by reading code or git log>
+- <max ~6 bullets>
+
+**Next:** Review batch R<N+1> — <Title> (model tag)   ← use /next-batch-prompt review to find this
+```
+
 Keep the entry under ~15 lines. Do NOT include "Files modified" or "What shipped" — they're recoverable from `git show --stat`.
 
 ### Step 5 — Commit the docs changes
+
+**Phase mode:**
 
 ```bash
 git -C /Users/craigrobinson/wc_2026_predictor add wc2026-architecture.md session-log.md
@@ -96,22 +118,43 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 git -C /Users/craigrobinson/wc_2026_predictor push origin main
 ```
 
+**Review mode** (no arch doc to tick — session-log only):
+
+```bash
+git -C /Users/craigrobinson/wc_2026_predictor add session-log.md
+git -C /Users/craigrobinson/wc_2026_predictor commit -m "docs: close out review batch $ARGUMENTS — session log
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+git -C /Users/craigrobinson/wc_2026_predictor push origin main
+```
+
 ### Step 6 — Strike the batch row
 
-Grep `docs/phase-batches.md` for the batch that contains the phase IDs you just shipped (its row will list these IDs in the 3rd column). Identify the batch number, then invoke the strike-batch flow: read the file, replace the row with its struck-through form (`~~N~~ | ~~model~~ | ~~ids~~ | ✅ Shipped YYYY-MM-DD`), commit and push.
+**Phase mode:** invoke `/strike-batch N` where N is the batch number that contains these phase IDs in `docs/phase-batches.md` (grep the file for a row whose 3rd column lists them).
 
-You can either invoke this via the `/strike-batch N` command shape internally, or do the edit inline — either is fine. The result is one more docs commit on main.
+**Review mode:** invoke `/strike-batch $ARGUMENTS` directly — `$ARGUMENTS` is already the R-batch identifier (e.g. `R1`). The skill handles the file routing.
+
+The result is one more docs commit on `main`.
 
 ### Step 7 — Report
 
 Output a short summary to the user:
 
+**Phase mode:**
 - Phase(s) closed: X.Y[, X.Z]
 - Feature commit(s): <hashes>
 - Docs commits: <2 hashes>
 - Batch row struck: Batch N
 - CI: ✅
 - Next batch hint: run `/next-batch-prompt` to get the prompt for the next session
+
+**Review mode:**
+- Review batch closed: R<N>
+- Feature commit(s): <hashes>
+- Docs commits: <1–2 hashes>
+- Batch row struck: R<N>
+- CI: ✅
+- Next batch hint: run `/next-batch-prompt review` to get the prompt for the next session
 
 That's it.
 
