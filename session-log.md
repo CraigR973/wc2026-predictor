@@ -887,3 +887,19 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `last_sync_at` was never updating because no audit log row was written on sync runs — fixed in `result_sync.py`; `sync_triggered` action type now written after every successful sync.
 
 **Next:** Batch D3 — Staging soak (exercise all features; invite 1–2 friends; verify iOS PWA push, offline resync, first 03:00 UTC backup)
+
+---
+
+## Batch D4 — Provision Production
+**Commits:** 46b4a1a · no CI (infra — no test suite changes)
+
+### Key facts for future sessions
+- Prod Supabase project is the original one created at project start (ref: `kznxjyaanotrejcevngy`) — DB was already at migration 005 + seeded; upgraded to head (008) in-session.
+- Prod Railway project: `wc2026-api-prod` / service `wc2026-api` — domain `wc2026-api-production-a0f4.up.railway.app`.
+- Prod Vercel project: `wc2026-prod` — domain `wc2026-prod.vercel.app`.
+- `startCommand` in `railway.toml` must NOT be set — Railway runs it without shell expansion, so `$PORT` is passed literally and uvicorn fails. Dockerfile CMD handles port correctly with `sh -c`. Fixed in 46b4a1a.
+- `railway up` requires `CI=true --path-as-root --detach --json` to run non-interactively from a non-TTY shell.
+- Vercel env vars must be set via REST API (`/v10/projects/{id}/env`) when `vercel env add` fails non-interactively.
+- Admin PIN for prod Craig reset to 2102 during this session.
+
+**Next:** Batch D3 → D5 — Production soak + open invites (exercise prod, invite players once stable)
