@@ -903,3 +903,15 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Admin PIN for prod Craig reset to 2102 during this session.
 
 **Next:** Batch D3 → D5 — Production soak + open invites (exercise prod, invite players once stable)
+
+---
+
+## Review batch R1 — Backend hardening
+**Commits:** 0417772, 1393c38, 87b1f28 · CI ✅
+
+### Key facts for future sessions
+- `jwt_access_secret`/`jwt_refresh_secret` are now required fields (no default); env vars must be set. CI test-api job sets `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` explicitly. `settings = Settings()` carries `# type: ignore[call-arg]` since mypy can't see pydantic-settings env-var injection.
+- `SecurityHeadersMiddleware` reads `settings.environment` at request time (not startup), so monkeypatching `src.middleware.settings.environment` works in tests.
+- Three `test_result_sync` noop assertions were pre-existing failures on main (not introduced by R1) — fixed by filtering `sync_triggered` from the AuditLog assertion; `sync_results` always writes one for observability even when count=0.
+
+**Next:** Review batch R2 — Scoring integrity (🔴 Opus, extended thinking)
