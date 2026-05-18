@@ -8,7 +8,7 @@ Mark batches complete by striking through the row.
 
 | Batch | Model | Effort | Items | Rationale |
 |---|---|---|---|---|
-| R1 | 🟢 Sonnet | ~2 h | R1.1–R1.5 | Backend hardening — config, pool, headers, Pydantic validators. All schema-level / middleware-level edits, no architectural decisions. |
+| ~~R1~~ | ~~🟢 Sonnet~~ | ~~~2 h~~ | ~~R1.1–R1.5~~ | ✅ Shipped 2026-05-18 |
 | R2 | 🔴 Opus (extended thinking) | ~3 h | R2.1–R2.5 | Scoring integrity — drop trigger WHEN clause, extract leaderboard-snapshot helper, wire into specials award + cancel. Touches deployed migration + end-of-tournament correctness; one wrong call corrupts scoring. |
 | R3 | 🟢 Sonnet | ~2.5 h | R3.1–R3.4 | Auth & rate limits — unify Limiter, apply spec §8.3 decorators across every endpoint, login enumeration fix, is_active enforcement. Mechanical, well-known patterns. |
 | R4 | 🔴 Opus (extended thinking) | ~2 h | R4.1–R4.3 | Scheduler race + scoring-preview parity — kickoff re-check in PUT, drop poll to 15 s, frontend scoring takes `stage`. Race-window reasoning + TS/SQL math parity. |
