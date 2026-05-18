@@ -69,6 +69,8 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/wc2026_test
+      JWT_ACCESS_SECRET: ci-test-access-secret-not-used-in-prod
+      JWT_REFRESH_SECRET: ci-test-refresh-secret-not-used-in-prod
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

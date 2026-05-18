@@ -26,7 +26,7 @@ def _make_player(*, role: PlayerRole = PlayerRole.player) -> MagicMock:
     p.display_name = "TestPlayer"
     p.role = role
     p.timezone = "Europe/London"
-    p.pin_hash = hash_pin("correctpin")
+    p.pin_hash = hash_pin("1234")
     p.deleted_at = None
     p.created_at = _now()
     return p
@@ -125,7 +125,7 @@ async def test_change_pin_success(client: AsyncClient) -> None:
     try:
         resp = await client.put(
             "/api/v1/auth/me/pin",
-            json={"current_pin": "correctpin", "new_pin": "newpin99"},
+            json={"current_pin": "1234", "new_pin": "5678"},
         )
     finally:
         app.dependency_overrides.pop(get_db, None)
@@ -150,7 +150,7 @@ async def test_change_pin_wrong_current(client: AsyncClient) -> None:
     try:
         resp = await client.put(
             "/api/v1/auth/me/pin",
-            json={"current_pin": "wrongpin", "new_pin": "newpin99"},
+            json={"current_pin": "9999", "new_pin": "5678"},
         )
     finally:
         app.dependency_overrides.pop(get_db, None)

@@ -6,7 +6,7 @@ from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import func, select
@@ -47,8 +47,8 @@ def _now() -> datetime:
 
 
 class LoginRequest(BaseModel):
-    display_name: str
-    pin: str
+    display_name: str = Field(min_length=2, max_length=30, pattern=r"^[\w\s'\-]+$")
+    pin: str = Field(pattern=r"^\d{4,8}$")
 
 
 class TokenResponse(BaseModel):
@@ -79,14 +79,14 @@ class LogoutRequest(BaseModel):
 
 class JoinRequest(BaseModel):
     token: str
-    display_name: str
-    pin: str
+    display_name: str = Field(min_length=2, max_length=30, pattern=r"^[\w\s'\-]+$")
+    pin: str = Field(pattern=r"^\d{4,8}$")
     timezone: str = "UTC"
 
 
 class ChangePinRequest(BaseModel):
-    current_pin: str
-    new_pin: str
+    current_pin: str = Field(pattern=r"^\d{4,8}$")
+    new_pin: str = Field(pattern=r"^\d{4,8}$")
 
 
 MAX_PLAYERS = 15

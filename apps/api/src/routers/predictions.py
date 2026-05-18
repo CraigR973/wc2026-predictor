@@ -6,7 +6,7 @@ from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,8 +31,8 @@ def _now() -> datetime:
 
 
 class PredictionRequest(BaseModel):
-    predicted_home: int
-    predicted_away: int
+    predicted_home: int = Field(ge=0, le=20)
+    predicted_away: int = Field(ge=0, le=20)
 
 
 class PredictionResponse(BaseModel):

@@ -54,7 +54,7 @@ def _now() -> datetime:
 
 class CreateInviteRequest(BaseModel):
     display_name_hint: str | None = None
-    expires_in_days: int | None = 7
+    expires_in_days: int | None = Field(default=7, ge=1, le=30)
 
 
 class InviteResponse(BaseModel):
