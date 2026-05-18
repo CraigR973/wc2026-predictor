@@ -195,9 +195,9 @@ async def test_finished_match_with_existing_result_is_noop() -> None:
     assert match.result_source == ResultSource.manual
     # No match-level audit row (sync_triggered system row is expected even for noops).
     assert not [
-        c for c in session.add.call_args_list
-        if isinstance(c.args[0], AuditLog)
-        and c.args[0].action_type != ActionType.sync_triggered
+        c
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].action_type != ActionType.sync_triggered
     ]
 
 
@@ -316,9 +316,9 @@ async def test_kickoff_unchanged_is_noop() -> None:
     assert count == 0
     assert match.kickoff_utc == kickoff
     assert not [
-        c for c in session.add.call_args_list
-        if isinstance(c.args[0], AuditLog)
-        and c.args[0].action_type != ActionType.sync_triggered
+        c
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].action_type != ActionType.sync_triggered
     ]
 
 
@@ -396,9 +396,9 @@ async def test_unknown_fd_match_id_is_skipped() -> None:
     assert count == 0
     # No match-level audit rows for unknown matches (sync_triggered system row is expected).
     assert not [
-        c for c in session.add.call_args_list
-        if isinstance(c.args[0], AuditLog)
-        and c.args[0].action_type != ActionType.sync_triggered
+        c
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].action_type != ActionType.sync_triggered
     ]
 
 
