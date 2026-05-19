@@ -915,3 +915,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Three `test_result_sync` noop assertions were pre-existing failures on main (not introduced by R1) — fixed by filtering `sync_triggered` from the AuditLog assertion; `sync_results` always writes one for observability even when count=0.
 
 **Next:** Review batch R2 — Scoring integrity (🔴 Opus, extended thinking)
+
+---
+
+## Review batch R2 — Scoring integrity
+**Commits:** 5bf2412, cce2606 · CI ✅
+
+### Key facts for future sessions
+- Migration 009 drops the AFTER trigger's `WHEN (OLD NULL → NEW not-NULL)` clause; any update to `actual_*_score` now re-fires `matches_score_results`. The BEFORE trigger keeps its WHEN so `result_entered_at` still means "first entry time".
+- `apps/api/src/services/leaderboard.py::recompute_leaderboard_snapshot` is the single non-trigger entry point — it calls `session.flush()` first so callers can rely on it picking up in-memory ORM mutations (e.g. `award_specials` mutating `points_awarded` before the helper runs).
+- `cancel_match` zeroes `predictions.points_awarded` and `knockout_predictions.points_awarded` for the cancelled match (single UPDATE each), then calls the helper — without this the cancelled match keeps awarding points (spec §6.13).
+- Tests using `db_conn`: every trigger fire inside one test shares `now()` (transaction start time), so don't `ORDER BY snapshot_at DESC LIMIT 1` — assert against the *set* of `total_points` values instead. See `test_override_result_twice_latest_snapshot_reflects_latest_scores`.
+- `test_specials.py`'s autouse fixture now patches out `recompute_leaderboard_snapshot` so the existing mock-based award tests don't blow the `side_effect` budget; the wiring test re-patches it locally to assert it's called.
+
+**Next:** Review batch R3 — Auth & rate limits (🟢 Sonnet)
