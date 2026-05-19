@@ -122,6 +122,12 @@ async def upsert_knockout_prediction(
                 detail="predicted_winner_id must be the home or away team",
             )
 
+    now = _now()
+
+    # Per-match safety net: kickoff has passed regardless of stale status
+    if match.kickoff_utc <= now:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="PREDICTION_LOCKED")
+
     # Round-level lock: any match in this stage not scheduled → locked for all
     if await _is_round_locked(match.stage, db):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="PREDICTION_LOCKED")
@@ -134,7 +140,6 @@ async def upsert_knockout_prediction(
     )
     pred = result.scalar_one_or_none()
 
-    now = _now()
     if pred is None:
         pred = KnockoutPrediction(
             id=uuid.uuid4(),

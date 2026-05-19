@@ -131,13 +131,13 @@ async def test_lock_due_matches_uses_provided_clock() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_create_scheduler_registers_one_minute_lock_job() -> None:
+def test_create_scheduler_registers_fifteen_second_lock_job() -> None:
     scheduler = create_scheduler()
     try:
         job = scheduler.get_job("lock_due_matches")
         assert job is not None
         # Interval trigger fields expose `interval` as a timedelta.
-        assert job.trigger.interval == timedelta(minutes=1)
+        assert job.trigger.interval == timedelta(seconds=15)
         assert job.coalesce is True
         assert job.max_instances == 1
     finally:

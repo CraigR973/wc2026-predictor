@@ -107,7 +107,7 @@ def create_scheduler() -> AsyncIOScheduler:
     scheduler.add_job(
         lock_due_matches,
         trigger="interval",
-        minutes=1,
+        seconds=15,
         id="lock_due_matches",
         replace_existing=True,
         coalesce=True,

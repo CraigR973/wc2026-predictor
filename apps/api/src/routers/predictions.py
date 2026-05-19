@@ -104,7 +104,9 @@ async def upsert_prediction(
 ) -> PredictionResponse:
     match = await _get_match_or_404(match_id, db)
 
-    if match.status != MatchStatus.scheduled:
+    now = _now()
+
+    if match.status != MatchStatus.scheduled or match.kickoff_utc <= now:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="PREDICTION_LOCKED",
@@ -119,7 +121,6 @@ async def upsert_prediction(
     )
     pred = result.scalar_one_or_none()
 
-    now = _now()
     if pred is None:
         pred = Prediction(
             id=uuid.uuid4(),

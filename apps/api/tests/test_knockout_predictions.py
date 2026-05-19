@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -45,6 +45,7 @@ def _make_match(
     stage: TournamentStage = TournamentStage.r32,
     home_team_id: uuid.UUID | None = None,
     away_team_id: uuid.UUID | None = None,
+    kickoff_utc: datetime | None = None,
 ) -> Match:
     m = MagicMock(spec=Match)
     m.id = uuid.uuid4()
@@ -55,7 +56,7 @@ def _make_match(
     m.away_team_id = away_team_id
     m.home_team_placeholder = "1A"
     m.away_team_placeholder = "T1"
-    m.kickoff_utc = _now()
+    m.kickoff_utc = kickoff_utc if kickoff_utc is not None else _now() + timedelta(hours=1)
     m.status = status
     m.actual_home_score = None
     m.actual_away_score = None
@@ -203,6 +204,34 @@ async def test_upsert_knockout_prediction_round_locked() -> None:
 
     assert resp.status_code == 409
     assert resp.json()["detail"] == "PREDICTION_LOCKED"
+
+
+@pytest.mark.asyncio
+async def test_upsert_knockout_prediction_race_window_returns_409() -> None:
+    """Race window: status still 'scheduled', kickoff already passed → 409.
+
+    The kickoff_utc safety net runs before the round-lock check, so the
+    handler refuses even if the scheduler hasn't yet flipped status.
+    """
+    player = _make_player()
+    match = _make_match(
+        status=MatchStatus.scheduled,
+        kickoff_utc=_now() - timedelta(seconds=1),
+    )
+    # Only the initial match lookup runs; kickoff check short-circuits.
+    db = _stub_db([_scalar_one(match)])
+
+    async with _override(db, player):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.put(
+                f"/api/v1/knockout-predictions/{match.id}",
+                json={"predicted_winner_id": str(HOME_TEAM_ID)},
+                headers={"Authorization": "Bearer x"},
+            )
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "PREDICTION_LOCKED"
+    db.add.assert_not_called()
 
 
 @pytest.mark.asyncio
