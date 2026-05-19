@@ -179,4 +179,70 @@ describe('useOfflineQueue', () => {
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
   });
+
+  it('schedules a retry when items remain after a flush (item added during flush)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      // m1 is in queue when flush starts; m2 is added mid-flush and stays
+      enqueuePrediction({ matchId: 'm1', home: 1, away: 0 });
+
+      let resolveM1!: () => void;
+      mockApiFetch.mockReturnValueOnce(
+        new Promise<void>((r) => {
+          resolveM1 = r;
+        }),
+      );
+
+      renderHook(() => useOfflineQueue(), { wrapper });
+
+      // Add m2 while m1's PUT is still in-flight
+      enqueuePrediction({ matchId: 'm2', home: 0, away: 1 });
+
+      // Complete m1's PUT — first flush finishes, m2 remains
+      await act(async () => {
+        resolveM1();
+      });
+      expect(getQueueCount()).toBe(1);
+
+      // Set up m2 to succeed on the retry flush
+      mockApiFetch.mockResolvedValueOnce(undefined);
+
+      // Advance 30 s — retry timer should fire and flush m2
+      await act(async () => {
+        vi.advanceTimersByTime(30_000);
+      });
+
+      await waitFor(() => expect(getQueueCount()).toBe(0));
+      expect(mockApiFetch).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels the retry timer on unmount', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      enqueuePrediction({ matchId: 'm1', home: 1, away: 0 });
+      // First call fails so m1 stays in queue → retry will be scheduled
+      mockApiFetch.mockRejectedValueOnce(new Error('offline'));
+
+      const { unmount } = renderHook(() => useOfflineQueue(), { wrapper });
+
+      await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+      expect(getQueueCount()).toBe(1);
+
+      // Unmount before the 30 s retry fires
+      unmount();
+      mockApiFetch.mockResolvedValue(undefined);
+
+      // Advance well past the retry delay — no second flush should happen
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+
+      expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

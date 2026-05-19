@@ -7,6 +7,9 @@ import {
   getStoredPlayer,
 } from './tokens';
 
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  throw new Error('VITE_API_URL is required in production builds');
+}
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 let refreshPromise: Promise<void> | null = null;
@@ -14,7 +17,7 @@ let refreshPromise: Promise<void> | null = null;
 async function silentRefresh(): Promise<void> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
-    clearTokens();
+    await clearTokens();
     throw new Error('No refresh token');
   }
   const resp = await fetch(`${BASE}/api/v1/auth/refresh`, {
@@ -66,7 +69,7 @@ export async function apiFetch<T>(
       if (!retry.ok) throw new Error(`${retry.status}`);
       return retry.json() as Promise<T>;
     } catch {
-      clearTokens();
+      await clearTokens();
       window.location.href = '/login';
       throw new Error('Session expired');
     }

@@ -1,6 +1,9 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { clearTokens, getStoredPlayer, storeTokens, StoredPlayer } from '../lib/tokens';
 
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  throw new Error('VITE_API_URL is required in production builds');
+}
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 interface AuthState {
@@ -58,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ refresh_token: refreshToken }),
       }).catch(() => {});
     }
-    clearTokens();
+    await clearTokens();
     setState({ player: null, isLoading: false });
   }, []);
 
