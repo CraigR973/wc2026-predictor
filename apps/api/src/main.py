@@ -110,3 +110,8 @@ app.include_router(specials.admin_router)
 app.include_router(stats.router)
 app.include_router(compare.router)
 app.include_router(notifications.router)
+
+if settings.environment != "production":
+    from src.routers import test_helpers  # noqa: PLC0415
+
+    app.include_router(test_helpers.router)

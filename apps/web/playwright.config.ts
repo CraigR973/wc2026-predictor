@@ -12,9 +12,12 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    // Mocked tests (no backend required) — exclude smoke.spec.ts
+    { name: 'chromium', testIgnore: ['**/smoke.spec.ts'], use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', testIgnore: ['**/smoke.spec.ts'], use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', testIgnore: ['**/smoke.spec.ts'], use: { ...devices['Desktop Safari'] } },
+    // Full-stack smoke test — requires FastAPI + Postgres running locally
+    { name: 'smoke', testMatch: ['**/smoke.spec.ts'], use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
     command: 'pnpm dev',

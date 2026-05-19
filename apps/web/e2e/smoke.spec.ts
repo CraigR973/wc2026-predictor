@@ -1,0 +1,122 @@
+/**
+ * Full-stack smoke test: join → predict → lock → result → leaderboard.
+ *
+ * Requires a running FastAPI backend at http://localhost:8000 and a seeded
+ * Postgres database. Run locally with: pnpm e2e:smoke
+ * In CI this runs in the dedicated "smoke" job (see .github/workflows/ci.yml).
+ *
+ * Scoring expectation: predicted 1-0, actual 1-0, group stage → 7 pts
+ *   (3 pts correct result + 4 pts exact score bonus).
+ */
+import { type APIRequestContext, expect, test } from '@playwright/test';
+
+const API_URL = 'http://localhost:8000';
+const PLAYER_NAME = 'SmokePlayer';
+const PLAYER_PIN = '22222222';
+
+// Run all tests in this file in declaration order — each step feeds the next.
+test.describe.configure({ mode: 'serial' });
+
+test.describe('Smoke: join → predict → lock → score → leaderboard', () => {
+  let api: APIRequestContext;
+  let adminJwt: string;
+  let matchId: string;
+  let inviteToken: string;
+  let playerJwt: string;
+
+  test.beforeAll(async ({ playwright }) => {
+    api = await playwright.request.newContext({ baseURL: API_URL });
+
+    // Wipe any leftover state from a previous interrupted run.
+    await api.delete('/api/v1/test/cleanup');
+
+    // Seed admin profile + group + teams + match.
+    const seedResp = await api.post('/api/v1/test/seed');
+    expect(seedResp.ok(), `seed failed: ${await seedResp.text()}`).toBeTruthy();
+    const seed = await seedResp.json();
+    matchId = seed.match_id;
+
+    // Authenticate as the seeded admin.
+    const loginResp = await api.post('/api/v1/auth/login', {
+      data: { display_name: seed.admin_display_name, pin: seed.admin_pin },
+    });
+    expect(loginResp.ok(), `admin login failed: ${await loginResp.text()}`).toBeTruthy();
+    adminJwt = (await loginResp.json()).access_token;
+
+    // Create a single-use invite for the smoke player.
+    const inviteResp = await api.post('/api/v1/admin/invites', {
+      headers: { Authorization: `Bearer ${adminJwt}` },
+      data: { display_name_hint: PLAYER_NAME },
+    });
+    expect(inviteResp.status()).toBe(201);
+    inviteToken = (await inviteResp.json()).token;
+  });
+
+  test.afterAll(async () => {
+    await api.delete('/api/v1/test/cleanup');
+    await api.dispose();
+  });
+
+  test('player joins via invite link', async ({ page }) => {
+    await page.goto(`/join/${inviteToken}`);
+    await expect(page.getByRole('heading', { name: /join/i })).toBeVisible();
+
+    // The hint pre-fills the name field; overwrite to ensure our known value.
+    await page.getByLabel(/display name/i).fill(PLAYER_NAME);
+    await page.getByLabel(/choose a pin/i).fill(PLAYER_PIN);
+    await page.getByLabel(/confirm pin/i).fill(PLAYER_PIN);
+    await page.getByRole('button', { name: /join/i }).click();
+
+    await expect(page).toHaveURL('/', { timeout: 10_000 });
+
+    playerJwt = await page.evaluate<string>(
+      () => localStorage.getItem('wc2026_access') ?? '',
+    );
+    expect(playerJwt).not.toBe('');
+  });
+
+  test('player predicts the seeded match', async () => {
+    // Call the API directly using the JWT obtained from the browser session above.
+    const resp = await api.put(`/api/v1/predictions/${matchId}`, {
+      headers: { Authorization: `Bearer ${playerJwt}` },
+      data: { predicted_home: 1, predicted_away: 0 },
+    });
+    expect(resp.ok(), `prediction failed: ${await resp.text()}`).toBeTruthy();
+  });
+
+  test('match is locked and admin enters the result', async () => {
+    // Advance kickoff to the past and flip status=locked — bypasses the scheduler.
+    const lockResp = await api.post(`/api/v1/test/lock-now/${matchId}`);
+    expect(lockResp.status()).toBe(204);
+
+    // Enter result: home 1-0 away (matches prediction → 7 pts).
+    const resultResp = await api.post(`/api/v1/admin/results/${matchId}`, {
+      headers: { Authorization: `Bearer ${adminJwt}` },
+      data: {
+        actual_home_score: 1,
+        actual_away_score: 0,
+        extra_time: false,
+        penalties: false,
+      },
+    });
+    expect(resultResp.ok(), `result entry failed: ${await resultResp.text()}`).toBeTruthy();
+  });
+
+  test('player appears on leaderboard with correct points', async ({ page }) => {
+    // Restore the player's JWT before navigating so the page can authenticate.
+    await page.addInitScript((jwt: string) => {
+      localStorage.setItem('wc2026_access', jwt);
+    }, playerJwt);
+
+    await page.goto('/leaderboard');
+
+    // Wait for a row containing the smoke player's name.
+    const playerRow = page
+      .locator('[data-testid^="leaderboard-row"]')
+      .filter({ hasText: PLAYER_NAME });
+    await expect(playerRow).toBeVisible({ timeout: 15_000 });
+
+    // Predicted 1-0, actual 1-0, group stage: 3 (correct result) + 4 (exact score) = 7 pts.
+    await expect(playerRow).toContainText('7');
+  });
+});
