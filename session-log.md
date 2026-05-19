@@ -942,3 +942,16 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - CI runs `ruff 0.15.13`; local venv was `0.15.12`. Format differences surfaced in `conftest.py` and `test_r3_rate_limits.py` — commit `4ece8c8` fixed them. Always run `ruff format` before pushing.
 
 **Next:** Review batch R4 — Scheduler race + scoring-preview parity (🔴 Opus extended thinking)
+
+---
+
+## Review batch R4 — Scheduler race + scoring-preview parity
+**Commits:** 8bef4c2 · CI ✅
+
+### Key facts for future sessions
+- The PUT-handler kickoff re-check is the actual safety net; the 15 s scheduler tick is just an optimisation. Both prediction PUT and knockout-prediction PUT now refuse with 409 `PREDICTION_LOCKED` when `match.kickoff_utc <= _now()` regardless of stale `match.status`. Order matters in knockout: kickoff check runs **before** `_is_round_locked` so the per-match safety net always fires first.
+- `specials._is_locked` already calls `_now()` per invocation (not session start) — verified, no change needed.
+- `packages/shared/src/scoring.ts` now takes `Stage` and mirrors lines 99–103 of `migrations/versions/004_scoring_function.py`: `correctResult` is zero when knockout AND (predicted draw OR actual draw). No callers exist in `apps/web` yet — function is currently library-only.
+- Test fixtures `_make_match` in both prediction test files now default `kickoff_utc` to `_now() + 1h` (was `_now()`) so existing happy-path tests still pass under the new check; race-window tests pass `kickoff_utc=_now() - 1s` explicitly.
+
+**Next:** Review batch R5 — Frontend resilience (🟢 Sonnet)
