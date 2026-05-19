@@ -353,6 +353,13 @@ async def _scalar_raw(conn: Any, sql: str, **params: Any) -> Any:
     return result.scalar_one()
 
 
+async def _fetchall_raw(conn: Any, sql: str, **params: Any) -> list[Any]:
+    from sqlalchemy import text
+
+    result = await conn.execute(text(sql), params)
+    return list(result.mappings().all())
+
+
 async def _insert_group(conn: Any, name: str) -> uuid.UUID:
     return await _scalar_raw(
         conn,
@@ -610,26 +617,19 @@ async def test_override_result_twice_latest_snapshot_reflects_latest_scores(
     assert pts_final == 10
 
     # The trigger fired three times (initial + two overrides), so there are
-    # three snapshots for this match. The most recent must match the final scores.
-    snap_count = await _scalar_raw(
-        conn,
-        """
-        SELECT COUNT(*) FROM leaderboard_snapshots
-        WHERE triggered_by_match_id = :m AND player_id = :p
-        """,
-        m=match_id,
-        p=alice,
-    )
-    assert snap_count == 3
-
-    latest_total = await _scalar_raw(
+    # three snapshots for this match. We assert the *set* of total_points
+    # values because all three snapshots share the same ``snapshot_at`` —
+    # they run inside the test's outer transaction, where ``now()`` returns
+    # the transaction-start time. In production each override is its own
+    # transaction so timestamps differ; here we test the semantic guarantee
+    # that the trigger captured each rescoring (3pts → 0pts → 10pts).
+    totals = await _fetchall_raw(
         conn,
         """
         SELECT total_points FROM leaderboard_snapshots
         WHERE triggered_by_match_id = :m AND player_id = :p
-        ORDER BY snapshot_at DESC LIMIT 1
         """,
         m=match_id,
         p=alice,
     )
-    assert latest_total == 10
+    assert sorted(r["total_points"] for r in totals) == [0, 3, 10]
