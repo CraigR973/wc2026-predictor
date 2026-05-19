@@ -187,7 +187,7 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/wc2026_smoke
       JWT_ACCESS_SECRET: ci-smoke-access-secret-not-used-in-prod
       JWT_REFRESH_SECRET: ci-smoke-refresh-secret-not-used-in-prod
-      ENVIRONMENT: test
+      ENVIRONMENT: development
       SCHEDULER_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
