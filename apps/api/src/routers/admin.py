@@ -22,6 +22,7 @@ from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
+from src.rate_limit import limiter, per_player_key
 from src.services.backup import BackupInfo, create_backup, list_backups, resolve_backup_path
 from src.services.football_data import FDMatch, FootballDataClient, FootballDataError
 from src.services.knockout_advancement import (
@@ -862,6 +863,7 @@ async def get_sync_status(
 
 
 @router.post("/sync/trigger", response_model=SyncStatusResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("10/hour", key_func=per_player_key)
 async def trigger_sync(
     admin: AdminPlayer,
     request: Request,
@@ -1029,7 +1031,8 @@ def _to_backup_response(info: BackupInfo) -> BackupResponse:
     response_model=BackupResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def trigger_backup(admin: AdminPlayer) -> BackupResponse:
+@limiter.limit("5/day", key_func=per_player_key)
+async def trigger_backup(request: Request, admin: AdminPlayer) -> BackupResponse:
     """Create a new pg_dump backup of the database."""
     log.info("manual backup triggered", admin_id=str(admin.id))
     try:

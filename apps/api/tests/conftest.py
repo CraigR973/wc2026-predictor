@@ -15,6 +15,14 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits() -> None:
+    """Reset in-memory rate-limit storage before every test for hermetic runs."""
+    from src.rate_limit import limiter
+
+    limiter._storage.reset()
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 

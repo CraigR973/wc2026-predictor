@@ -3,7 +3,7 @@
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,7 @@ from src.models.match import Match
 from src.models.prediction import LeaderboardSnapshot, Prediction
 from src.models.profile import Profile
 from src.models.team import TournamentStage
+from src.rate_limit import limiter, per_player_key
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -61,7 +62,9 @@ class RoundEntryOut(BaseModel):
 
 
 @router.get("", response_model=list[LeaderboardEntryOut])
+@limiter.limit("120/minute", key_func=per_player_key)
 async def get_leaderboard(
+    request: Request,
     _player: CurrentPlayer,
     db: Annotated[AsyncSession, Depends(get_db)],
     include_inactive: bool = Query(default=False),

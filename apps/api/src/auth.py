@@ -115,7 +115,11 @@ async def get_current_player(
     player_id = uuid.UUID(payload["sub"])
 
     result = await db.execute(
-        select(Profile).where(Profile.id == player_id, Profile.deleted_at.is_(None))
+        select(Profile).where(
+            Profile.id == player_id,
+            Profile.deleted_at.is_(None),
+            Profile.is_active.is_(True),
+        )
     )
     player = result.scalar_one_or_none()
     if player is None:

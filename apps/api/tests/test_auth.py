@@ -188,7 +188,9 @@ async def test_login_locked_account(client: AsyncClient) -> None:
             json={"display_name": "Test Player", "pin": "1234"},
         )
 
-    assert resp.status_code == 429
+    # R3.3: locked accounts return generic 401, not 429, to avoid leaking lock state
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid credentials"
 
 
 async def test_login_lockout_triggered_after_5_failures(client: AsyncClient) -> None:

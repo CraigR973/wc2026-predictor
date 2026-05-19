@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from src.config import settings
 from src.database import get_db
 from src.models.notification import NotificationType
 from src.models.prediction import NotificationPreferences, PushSubscription
+from src.rate_limit import limiter, per_player_key
 from src.services.push_notification_service import send_notification
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -146,7 +147,8 @@ async def unsubscribe_push(
 
 
 @router.post("/push/test", status_code=status.HTTP_200_OK)
-async def test_push(player: CurrentPlayer, db: Db) -> dict[str, Any]:
+@limiter.limit("5/hour", key_func=per_player_key)
+async def test_push(request: Request, player: CurrentPlayer, db: Db) -> dict[str, Any]:
     """Send a test push notification to the authenticated player."""
     sent = await send_notification(
         session=db,

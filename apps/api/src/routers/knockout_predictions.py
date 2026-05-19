@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from src.database import get_db
 from src.models.match import Match, MatchStatus
 from src.models.prediction import KnockoutPrediction
 from src.models.profile import Profile
+from src.rate_limit import limiter, per_player_key
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -103,7 +104,9 @@ async def _is_round_locked(stage: str, db: AsyncSession) -> bool:
 
 
 @router.put("/{match_id}", response_model=KnockoutPredictionResponse)
+@limiter.limit("60/hour", key_func=per_player_key)
 async def upsert_knockout_prediction(
+    request: Request,
     match_id: uuid.UUID,
     body: KnockoutPredictionRequest,
     player: CurrentPlayer,

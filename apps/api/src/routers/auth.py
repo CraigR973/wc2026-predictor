@@ -4,11 +4,10 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
+import bcrypt as _bcrypt
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,12 +28,15 @@ from src.models.invite import Invite
 from src.models.prediction import NotificationPreferences
 from src.models.profile import PlayerRole, Profile
 from src.models.refresh_token import RefreshToken
+from src.rate_limit import limiter, login_key, per_player_key, refresh_token_key
 from src.services.notification_triggers import notify_invite_accepted
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
-limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+# Pre-computed dummy hash for constant-time login response when player not found.
+_DUMMY_HASH: str = _bcrypt.hashpw(b"dummy-timing-guard", _bcrypt.gensalt()).decode()
 
 
 def _now() -> datetime:
@@ -132,7 +134,7 @@ async def _issue_token_pair(
 
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("10/minute")
+@limiter.limit("5/15 minutes", key_func=login_key)
 async def login(
     request: Request,
     body: LoginRequest,
@@ -147,16 +149,21 @@ async def login(
     player = result.scalar_one_or_none()
 
     if player is None:
-        # Constant-time response to avoid enumeration
+        # Constant-time dummy bcrypt check prevents user-enumeration via timing.
+        verify_pin(body.pin, _DUMMY_HASH)
         log.info("login failed — player not found", display_name=body.display_name)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    # Lockout check
+    # Lockout check — return same generic 401 to avoid leaking lock state.
     if player.locked_until and player.locked_until > _now():
-        log.warning("login blocked — account locked", player_id=str(player.id))
+        log.warning(
+            "login blocked — account locked",
+            player_id=str(player.id),
+            reason="account_locked_attempt",
+        )
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Account temporarily locked — try again later",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
         )
 
     if not verify_pin(body.pin, player.pin_hash):
@@ -194,7 +201,9 @@ async def login(
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)
+@limiter.limit("60/hour", key_func=refresh_token_key)
 async def refresh(
+    request: Request,
     body: RefreshRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AccessTokenResponse:
@@ -263,7 +272,9 @@ async def logout(
 
 
 @router.post("/join", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/hour")
 async def join(
+    request: Request,
     body: JoinRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
@@ -384,7 +395,9 @@ async def me(player: CurrentPlayer) -> PlayerInfo:
 
 
 @router.put("/me/pin", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("3/hour", key_func=per_player_key)
 async def change_pin(
+    request: Request,
     body: ChangePinRequest,
     player: CurrentPlayer,
     db: Annotated[AsyncSession, Depends(get_db)],
