@@ -155,7 +155,11 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
       .filter({ hasText: PLAYER_NAME });
     await expect(playerRow).toBeVisible({ timeout: 15_000 });
 
-    // Predicted 1-0, actual 1-0, group stage: 3 (correct result) + 4 (exact score) = 7 pts.
-    await expect(playerRow).toContainText('7');
+    // Predicted 1-0, actual 1-0, group stage:
+    //   2 pts (correct total goals: 1+0 = 1+0)
+    //   3 pts (correct result: home win)
+    //   5 pts (exact scoreline)
+    //   = 10 pts total
+    await expect(playerRow).toContainText('10');
   });
 });
