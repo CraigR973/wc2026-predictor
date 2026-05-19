@@ -968,3 +968,16 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Vitest fake-timer gotcha: use `vi.useFakeTimers({ shouldAdvanceTime: true })` so `waitFor` (real `setTimeout`) still works alongside `vi.advanceTimersByTime`.
 
 **Next:** Review batch R6 — Observability (🟢 Sonnet)
+
+---
+
+## Review batch R6 — Observability
+**Commits:** 558694a · CI ✅
+
+### Key facts for future sessions
+- `notify_backup_failed` in `notification_triggers.py` reuses `NotificationType.auto_sync_failed` (no new DB enum value needed); `ActionType.backup_failed` + `backup_downloaded` are the new audit_log enum values (migration 010).
+- `download_backup` now takes a `db: Annotated[AsyncSession, Depends(get_db)]` param — existing tests for the 404/400 paths needed a `get_db` override added.
+- All `await notify_*` calls in `scheduler.py` and `result_sync.py` are wrapped in `try/except Exception: log.exception(...)` — a push-provider failure logs with `exc_info=True` and does not propagate.
+- Sentry `traces_sample_rate` is `0.0` in all non-production environments, `0.05` in production.
+
+**Next:** Review batch R7 — Playwright smoke test (🟢 Sonnet)
