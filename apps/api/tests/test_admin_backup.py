@@ -10,9 +10,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import require_admin
+from src.database import get_db
 from src.main import app
+from src.models.notification import ActionType, AuditLog
 from src.models.profile import PlayerRole, Profile
 from src.services.backup import BackupInfo
 
@@ -32,6 +35,15 @@ def _mock_db() -> AsyncGenerator[AsyncMock, None]:
         yield AsyncMock()
 
     return _gen()
+
+
+def _db_override(mock: AsyncMock | None = None) -> AsyncGenerator[AsyncMock, None]:
+    db = mock or AsyncMock(spec=AsyncSession)
+
+    async def _gen() -> AsyncGenerator[AsyncMock, None]:
+        yield db
+
+    return _gen
 
 
 _SAMPLE_INFO = BackupInfo(
@@ -164,6 +176,7 @@ async def test_list_backups_requires_admin() -> None:
 async def test_download_backup_not_found() -> None:
     admin = _make_admin()
     app.dependency_overrides[require_admin] = lambda: admin
+    app.dependency_overrides[get_db] = _db_override()
 
     with patch(
         "src.routers.admin.resolve_backup_path",
@@ -176,6 +189,7 @@ async def test_download_backup_not_found() -> None:
                 resp = await client.get("/api/v1/admin/backups/wc2026_20260610_030000.sql")
         finally:
             app.dependency_overrides.pop(require_admin, None)
+            app.dependency_overrides.pop(get_db, None)
 
     assert resp.status_code == 404
 
@@ -184,6 +198,7 @@ async def test_download_backup_not_found() -> None:
 async def test_download_backup_invalid_filename() -> None:
     admin = _make_admin()
     app.dependency_overrides[require_admin] = lambda: admin
+    app.dependency_overrides[get_db] = _db_override()
 
     # filename reaches the endpoint but fails our regex validation
     with patch(
@@ -197,6 +212,7 @@ async def test_download_backup_invalid_filename() -> None:
                 resp = await client.get("/api/v1/admin/backups/invalid-backup-file.sql")
         finally:
             app.dependency_overrides.pop(require_admin, None)
+            app.dependency_overrides.pop(get_db, None)
 
     assert resp.status_code == 400
 
@@ -206,3 +222,37 @@ async def test_download_backup_requires_admin() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/admin/backups/wc2026_20260610_030000.sql")
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_download_backup_writes_audit_log() -> None:
+    """Successful download writes an audit log row with backup_downloaded action."""
+    admin = _make_admin()
+    mock_db = AsyncMock(spec=AsyncSession)
+    app.dependency_overrides[require_admin] = lambda: admin
+    app.dependency_overrides[get_db] = _db_override(mock_db)
+
+    fake_path = MagicMock(spec=Path)
+    fake_path.exists.return_value = True
+
+    with (
+        patch("src.routers.admin.resolve_backup_path", return_value=fake_path),
+        patch("src.routers.admin.FileResponse", return_value=MagicMock()),
+    ):
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                await client.get("/api/v1/admin/backups/wc2026_20260610_030000.sql")
+        finally:
+            app.dependency_overrides.pop(require_admin, None)
+            app.dependency_overrides.pop(get_db, None)
+
+    added = [call.args[0] for call in mock_db.add.call_args_list]
+    audit_rows = [a for a in added if isinstance(a, AuditLog)]
+    assert len(audit_rows) == 1
+    row = audit_rows[0]
+    assert row.action_type == ActionType.backup_downloaded
+    assert row.actor_id == admin.id
+    assert row.changes["filename"] == "wc2026_20260610_030000.sql"
+    mock_db.commit.assert_awaited_once()

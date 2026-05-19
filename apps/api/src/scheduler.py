@@ -23,6 +23,7 @@ from src.services.backup import create_backup
 from src.services.notification_triggers import (
     MatchUpdate,
     check_deadline_warnings,
+    notify_backup_failed,
     notify_match_locked,
 )
 from src.services.result_sync import sync_results
@@ -87,7 +88,10 @@ async def lock_due_matches(
             await session.commit()
             log.info("matches locked", count=locked_count)
             for upd in locked_updates:
-                await notify_match_locked(session, upd)
+                try:
+                    await notify_match_locked(session, upd)
+                except Exception:
+                    log.exception("notify_match_locked failed", match_id=str(upd.match_id))
             await session.commit()
 
     return locked_count
@@ -98,8 +102,25 @@ async def run_scheduled_backup() -> None:
     try:
         info = await create_backup(settings.backup_dir, settings.database_url)
         log.info("scheduled backup complete", filename=info.filename, size_bytes=info.size_bytes)
-    except Exception:
+    except Exception as exc:
+        reason = str(exc)
         log.exception("scheduled backup failed")
+        async with AsyncSessionLocal() as session:
+            session.add(
+                AuditLog(
+                    actor_id=None,
+                    actor_type=ActorType.system,
+                    action_type=ActionType.backup_failed,
+                    target_table=None,
+                    target_id=None,
+                    changes={"error": reason},
+                )
+            )
+            try:
+                await notify_backup_failed(session, reason)
+            except Exception:
+                log.exception("notify_backup_failed failed")
+            await session.commit()
 
 
 def create_scheduler() -> AsyncIOScheduler:

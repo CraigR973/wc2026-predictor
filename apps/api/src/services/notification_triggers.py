@@ -277,6 +277,19 @@ async def notify_auto_sync_failed(session: AsyncSession, reason: str) -> None:
         )
 
 
+async def notify_backup_failed(session: AsyncSession, reason: str) -> None:
+    """Push alert to admins when the scheduled backup job fails."""
+    admins = await _admin_players(session)
+    for admin in admins:
+        await send_notification(
+            session,
+            admin.id,
+            NotificationType.auto_sync_failed,
+            "Scheduled backup failed",
+            f"Error: {reason[:200]}",
+        )
+
+
 # ── Deadline warning scheduler job ───────────────────────────────────────────
 
 # Module-level set of match IDs that have already had a warning sent this

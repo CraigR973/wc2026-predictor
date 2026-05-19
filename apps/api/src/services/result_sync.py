@@ -135,12 +135,19 @@ async def sync_results(
         # Dispatch push notifications after commit so leaderboard snapshots
         # (written by the DB scoring trigger) are visible to the session.
         for upd in match_updates:
-            if upd.event_type == "finished":
-                await notify_result_detected(session, upd)
-            elif upd.event_type == "postponed":
-                await notify_match_postponed(session, upd)
-            elif upd.event_type == "kickoff_changed":
-                await notify_kickoff_changed(session, upd)
+            try:
+                if upd.event_type == "finished":
+                    await notify_result_detected(session, upd)
+                elif upd.event_type == "postponed":
+                    await notify_match_postponed(session, upd)
+                elif upd.event_type == "kickoff_changed":
+                    await notify_kickoff_changed(session, upd)
+            except Exception:
+                log.exception(
+                    "notify failed",
+                    event_type=upd.event_type,
+                    match_id=str(upd.match_id),
+                )
         if match_updates:
             await session.commit()
 
@@ -386,7 +393,10 @@ async def _record_failure(session_factory: SessionFactory, reason: str) -> None:
         )
 
         if _consecutive_failures == _FAILURE_ALERT_THRESHOLD:
-            await notify_auto_sync_failed(session, reason)
+            try:
+                await notify_auto_sync_failed(session, reason)
+            except Exception:
+                log.exception("notify_auto_sync_failed failed")
 
         await session.commit()
 

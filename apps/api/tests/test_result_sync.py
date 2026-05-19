@@ -403,6 +403,48 @@ async def test_unknown_fd_match_id_is_skipped() -> None:
 
 
 # ---------------------------------------------------------------------------
+# R6.6 — push failure does not block match commit
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_push_failure_does_not_block_match_commit(caplog: pytest.LogCaptureFixture) -> None:
+    """A raising notify provider must not prevent the match result from being committed."""
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=2, away_score=0)
+    factory, session = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    with (
+        patch(
+            "src.services.result_sync.notify_result_detected",
+            new_callable=AsyncMock,
+            side_effect=Exception("push provider down"),
+        ),
+        patch("src.services.result_sync.notify_kickoff_changed", new_callable=AsyncMock),
+        patch("src.services.result_sync.notify_match_postponed", new_callable=AsyncMock),
+    ):
+        import logging
+
+        with caplog.at_level(logging.ERROR, logger="src.services.result_sync"):
+            count = await result_sync.sync_results(
+                session_factory=factory, client_factory=client_factory
+            )
+
+    # Match result was still applied and committed
+    assert count == 1
+    assert match.actual_home_score == 2
+    assert match.actual_away_score == 0
+    assert match.status == MatchStatus.completed
+    session.commit.assert_awaited()
+
+    # Exception trace was logged (structlog formats exc_info into the record)
+    error_records = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert error_records, "expected at least one ERROR log record"
+    assert any(r.exc_info is not None for r in error_records)
+
+
+# ---------------------------------------------------------------------------
 # Scheduler registration
 # ---------------------------------------------------------------------------
 

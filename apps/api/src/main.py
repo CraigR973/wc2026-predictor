@@ -54,7 +54,7 @@ if settings.sentry_dsn_backend:
         integrations=[FastApiIntegration(), SqlalchemyIntegration()],
         send_default_pii=False,
         before_send=_scrub_pii,
-        traces_sample_rate=0.1,
+        traces_sample_rate=0.0 if settings.environment != "production" else 0.05,
     )
 
 

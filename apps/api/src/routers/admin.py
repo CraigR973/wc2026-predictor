@@ -1052,7 +1052,11 @@ async def get_backups(_admin: AdminPlayer) -> list[BackupResponse]:
 
 
 @router.get("/backups/{filename}")
-async def download_backup(_admin: AdminPlayer, filename: str) -> FileResponse:
+async def download_backup(
+    admin: AdminPlayer,
+    filename: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> FileResponse:
     """Download a backup file."""
     try:
         path = resolve_backup_path(settings.backup_dir, filename)
@@ -1060,6 +1064,17 @@ async def download_backup(_admin: AdminPlayer, filename: str) -> FileResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if not path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Backup not found")
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.player,
+            action_type=ActionType.backup_downloaded,
+            target_table=None,
+            target_id=None,
+            changes={"filename": filename},
+        )
+    )
+    await db.commit()
     return FileResponse(
         path=str(path),
         media_type="application/octet-stream",

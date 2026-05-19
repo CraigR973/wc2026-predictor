@@ -54,6 +54,8 @@ class ActionType(StrEnum):
     sync_triggered = "sync_triggered"
     sync_failed = "sync_failed"
     tiebreaker_overridden = "tiebreaker_overridden"
+    backup_failed = "backup_failed"
+    backup_downloaded = "backup_downloaded"
 
 
 class NotificationLog(Base, UUIDPrimaryKeyMixin):

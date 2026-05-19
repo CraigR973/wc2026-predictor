@@ -480,6 +480,8 @@ def test_action_type_values() -> None:
         "sync_triggered",
         "sync_failed",
         "tiebreaker_overridden",
+        "backup_failed",
+        "backup_downloaded",
     }
 
 

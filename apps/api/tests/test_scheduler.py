@@ -10,7 +10,7 @@ import pytest
 
 from src.models.match import Match, MatchStatus
 from src.models.notification import ActionType, ActorType, AuditLog
-from src.scheduler import create_scheduler, lock_due_matches
+from src.scheduler import create_scheduler, lock_due_matches, run_scheduled_backup
 
 
 @pytest.fixture(autouse=True)
@@ -129,6 +129,80 @@ async def test_lock_due_matches_uses_provided_clock() -> None:
 # ---------------------------------------------------------------------------
 # create_scheduler
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# run_scheduled_backup
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_scheduled_backup_failure_writes_audit_and_notifies() -> None:
+    """When create_backup raises, an audit row is written and notify_backup_failed is called."""
+    session = AsyncMock()
+    session.add = MagicMock()
+    session.commit = AsyncMock()
+
+    class _Ctx:
+        async def __aenter__(self) -> AsyncMock:
+            return session
+
+        async def __aexit__(self, *a: object) -> None:
+            return None
+
+    with (
+        patch(
+            "src.scheduler.create_backup",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("pg_dump not found"),
+        ),
+        patch("src.scheduler.AsyncSessionLocal", return_value=_Ctx()),
+        patch("src.scheduler.notify_backup_failed", new_callable=AsyncMock) as mock_notify,
+    ):
+        await run_scheduled_backup()
+
+    added = [call.args[0] for call in session.add.call_args_list]
+    audit_rows = [a for a in added if isinstance(a, AuditLog)]
+    assert len(audit_rows) == 1
+    row = audit_rows[0]
+    assert row.action_type == ActionType.backup_failed
+    assert row.actor_type == ActorType.system
+    assert "pg_dump not found" in row.changes["error"]
+    mock_notify.assert_awaited_once()
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_scheduled_backup_notify_failure_does_not_raise() -> None:
+    """If notify_backup_failed itself raises, the audit row is still committed."""
+    session = AsyncMock()
+    session.add = MagicMock()
+    session.commit = AsyncMock()
+
+    class _Ctx:
+        async def __aenter__(self) -> AsyncMock:
+            return session
+
+        async def __aexit__(self, *a: object) -> None:
+            return None
+
+    with (
+        patch(
+            "src.scheduler.create_backup",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("disk full"),
+        ),
+        patch("src.scheduler.AsyncSessionLocal", return_value=_Ctx()),
+        patch(
+            "src.scheduler.notify_backup_failed",
+            new_callable=AsyncMock,
+            side_effect=Exception("push failed"),
+        ),
+    ):
+        # Must not propagate any exception
+        await run_scheduled_backup()
+
+    session.commit.assert_awaited_once()
 
 
 def test_create_scheduler_registers_fifteen_second_lock_job() -> None:
