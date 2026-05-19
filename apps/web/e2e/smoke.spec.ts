@@ -24,6 +24,8 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
   let matchId: string;
   let inviteToken: string;
   let playerJwt: string;
+  let playerStoredJson: string;  // raw JSON string from localStorage('wc2026_player')
+  let playerRefresh: string;
 
   test.beforeAll(async ({ playwright }) => {
     api = await playwright.request.newContext({ baseURL: API_URL });
@@ -91,9 +93,15 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
 
     await expect(page).toHaveURL('/', { timeout: 10_000 });
 
-    playerJwt = await page.evaluate<string>(
-      () => localStorage.getItem('wc2026_access') ?? '',
-    );
+    // Capture all 3 auth keys so the leaderboard test can restore a full session.
+    const stored = await page.evaluate(() => ({
+      access: localStorage.getItem('wc2026_access') ?? '',
+      refresh: localStorage.getItem('wc2026_refresh') ?? '',
+      player: localStorage.getItem('wc2026_player') ?? '',
+    }));
+    playerJwt = stored.access;
+    playerRefresh = stored.refresh;
+    playerStoredJson = stored.player;
     expect(playerJwt, 'access token was not stored after join').not.toBe('');
   });
 
@@ -127,10 +135,17 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
   test('player appears on leaderboard with correct points', async ({ page }) => {
     await blockSupabase(page);
 
-    // Restore the player's JWT before navigating so the page can authenticate.
-    await page.addInitScript((jwt: string) => {
-      localStorage.setItem('wc2026_access', jwt);
-    }, playerJwt);
+    // Restore all three auth keys so ProtectedRoute sees an authenticated session.
+    // AuthContext reads wc2026_player synchronously on mount — setting only
+    // wc2026_access would leave player=null and trigger a redirect to /login.
+    await page.addInitScript(
+      ({ access, refresh, player }: { access: string; refresh: string; player: string }) => {
+        localStorage.setItem('wc2026_access', access);
+        localStorage.setItem('wc2026_refresh', refresh);
+        localStorage.setItem('wc2026_player', player);
+      },
+      { access: playerJwt, refresh: playerRefresh, player: playerStoredJson },
+    );
 
     await page.goto('/leaderboard');
 
