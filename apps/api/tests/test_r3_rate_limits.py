@@ -316,9 +316,7 @@ async def test_rate_limit_notifications_test(client: AsyncClient) -> None:
     player_id = uuid.uuid4()
     player = _make_player(player_id)
     async with _override_auth(player), _override_db(_make_db()):
-        with patch(
-            "src.routers.notifications.send_notification", new=AsyncMock(return_value=True)
-        ):
+        with patch("src.routers.notifications.send_notification", new=AsyncMock(return_value=True)):
             status = await _exhaust_then_check(
                 client,
                 "POST",
