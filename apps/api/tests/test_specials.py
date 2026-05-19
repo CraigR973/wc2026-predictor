@@ -4,11 +4,13 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from src.auth import get_current_player, require_admin
 from src.database import get_db
@@ -18,8 +20,19 @@ from src.models.profile import PlayerRole, Profile
 
 
 @pytest.fixture(autouse=True)
-def _no_notify_specials() -> None:
-    with patch("src.routers.specials.notify_special_results_awarded", new_callable=AsyncMock):
+def _patch_external_collaborators() -> None:
+    """Patch out the notify hook and the leaderboard helper.
+
+    The helper is bypassed because the mock-based ``award_specials`` tests
+    use ``_stub_db`` which has a finite ``side_effect`` list — the helper's
+    extra ``execute(text(...))`` call would otherwise exhaust it. The
+    ``test_award_specials_calls_recompute_leaderboard_snapshot`` test
+    re-patches the helper itself to assert it's invoked.
+    """
+    with (
+        patch("src.routers.specials.notify_special_results_awarded", new_callable=AsyncMock),
+        patch("src.routers.specials.recompute_leaderboard_snapshot", new_callable=AsyncMock),
+    ):
         yield
 
 
@@ -482,3 +495,214 @@ def _patch_special(obj: object, template: SpecialPrediction) -> None:
         "updated_at",
     ):
         setattr(obj, attr, getattr(template, attr))
+
+
+# ---------------------------------------------------------------------------
+# R2.4 — award_specials triggers a leaderboard snapshot recompute
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_award_specials_calls_recompute_leaderboard_snapshot() -> None:
+    """The award route must invoke recompute_leaderboard_snapshot before commit.
+
+    Without this, the final standings stay stuck on the last match-result
+    snapshot and special points never propagate to the leaderboard.
+    """
+    admin = _make_admin()
+    team_id = uuid.uuid4()
+    pred = _make_special(uuid.uuid4(), SpecialPredictionType.tournament_winner, team_id=team_id)
+    pred.points_awarded = None
+    db = _stub_db([_scalars([pred])])
+
+    with patch(
+        "src.routers.specials.recompute_leaderboard_snapshot", new_callable=AsyncMock
+    ) as mock_helper:
+        async with _override(db, admin):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post(
+                    "/api/v1/admin/specials/award",
+                    json={
+                        "prediction_type": "tournament_winner",
+                        "winner_team_id": str(team_id),
+                    },
+                    headers={"Authorization": "Bearer x"},
+                )
+
+    assert resp.status_code == 200
+    mock_helper.assert_awaited_once()
+    args, kwargs = mock_helper.await_args
+    # First positional is the session; triggered_by_match_id is None for specials.
+    assert kwargs.get("triggered_by_match_id") is None
+
+
+# ---------------------------------------------------------------------------
+# R2.5 — integration: snapshot reflects awarded special points
+# ---------------------------------------------------------------------------
+
+
+async def _exec_raw(conn: AsyncConnection, sql: str, **params: Any) -> Any:
+    return await conn.execute(text(sql), params)
+
+
+async def _scalar_raw(conn: AsyncConnection, sql: str, **params: Any) -> Any:
+    result = await conn.execute(text(sql), params)
+    return result.scalar_one()
+
+
+async def _fetchall_raw(conn: AsyncConnection, sql: str, **params: Any) -> list[Any]:
+    result = await conn.execute(text(sql), params)
+    return list(result.mappings().all())
+
+
+async def _insert_group_raw(conn: AsyncConnection, name: str) -> uuid.UUID:
+    return await _scalar_raw(
+        conn,
+        "INSERT INTO groups (id, name) VALUES (gen_random_uuid(), :n) RETURNING id",
+        n=name,
+    )
+
+
+async def _insert_team_raw(
+    conn: AsyncConnection, group_id: uuid.UUID, name: str, code: str
+) -> uuid.UUID:
+    return await _scalar_raw(
+        conn,
+        """
+        INSERT INTO teams (id, name, code, flag_emoji, group_id, is_host)
+        VALUES (gen_random_uuid(), :n, :c, '🏳', :g, FALSE) RETURNING id
+        """,
+        n=name,
+        c=code,
+        g=group_id,
+    )
+
+
+async def _insert_profile_raw(conn: AsyncConnection, display_name: str) -> uuid.UUID:
+    return await _scalar_raw(
+        conn,
+        """
+        INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at)
+        VALUES (
+            gen_random_uuid(), :n,
+            '$2b$12$0000000000000000000000000000000000000000000000000000',
+            'player', NULL
+        ) RETURNING id
+        """,
+        n=display_name,
+    )
+
+
+async def test_award_specials_snapshot_has_correct_points(db_conn: AsyncConnection) -> None:
+    """After recompute, snapshot per player has correct special_points and total_points.
+
+    Mirrors the runtime flow: a completed match awarded match points, then
+    award_specials writes special_predictions.points_awarded, then the helper
+    recomputes the snapshot. The snapshot must reflect both.
+    """
+    from src.services.leaderboard import recompute_leaderboard_snapshot
+
+    g = await _insert_group_raw(db_conn, "Z")
+    home = await _insert_team_raw(db_conn, g, "Zalpha", "ZAA")
+    away = await _insert_team_raw(db_conn, g, "Zbeta", "ZAB")
+    winner_team = await _insert_team_raw(db_conn, g, "Zgamma", "ZAG")
+    alice = await _insert_profile_raw(db_conn, "alice_specials_snap")
+    bob = await _insert_profile_raw(db_conn, "bob_specials_snap")
+
+    # A completed match: alice predicts 2-1 exact (10 pts), bob predicts 0-0 (0 pts).
+    match_id = await _scalar_raw(
+        db_conn,
+        """
+        INSERT INTO matches (id, stage, group_id, match_number, home_team_id,
+            away_team_id, kickoff_utc, status)
+        VALUES (gen_random_uuid(), 'group', :g, 950, :h, :a, '2026-06-12 18:00:00', 'locked')
+        RETURNING id
+        """,
+        g=g,
+        h=home,
+        a=away,
+    )
+    await _exec_raw(
+        db_conn,
+        """
+        INSERT INTO predictions (id, player_id, match_id, predicted_home, predicted_away)
+        VALUES (gen_random_uuid(), :p, :m, 2, 1)
+        """,
+        p=alice,
+        m=match_id,
+    )
+    await _exec_raw(
+        db_conn,
+        """
+        INSERT INTO predictions (id, player_id, match_id, predicted_home, predicted_away)
+        VALUES (gen_random_uuid(), :p, :m, 0, 0)
+        """,
+        p=bob,
+        m=match_id,
+    )
+    # Enter result — the trigger fires and writes initial snapshot rows.
+    await _exec_raw(
+        db_conn,
+        """
+        UPDATE matches SET actual_home_score = 2, actual_away_score = 1,
+            status = 'completed', result_source = 'manual'
+        WHERE id = :m
+        """,
+        m=match_id,
+    )
+
+    # Now mimic award_specials: write 20 pts to alice's tournament_winner pred.
+    await _exec_raw(
+        db_conn,
+        """
+        INSERT INTO special_predictions (
+            id, player_id, prediction_type, predicted_team_id, points_awarded
+        )
+        VALUES (gen_random_uuid(), :p, 'tournament_winner', :t, 20)
+        """,
+        p=alice,
+        t=winner_team,
+    )
+    await _exec_raw(
+        db_conn,
+        """
+        INSERT INTO special_predictions (
+            id, player_id, prediction_type, predicted_team_id, points_awarded
+        )
+        VALUES (gen_random_uuid(), :p, 'tournament_winner', :t, 0)
+        """,
+        p=bob,
+        t=winner_team,
+    )
+
+    # Run the helper via an AsyncSession bound to the same connection.
+    session = AsyncSession(bind=db_conn, expire_on_commit=False)
+    try:
+        await recompute_leaderboard_snapshot(session, triggered_by_match_id=None)
+    finally:
+        await session.close()
+
+    rows = await _fetchall_raw(
+        db_conn,
+        """
+        SELECT DISTINCT ON (s.player_id)
+            p.display_name, s.match_points, s.special_points,
+            s.total_points, s.triggered_by_match_id
+        FROM leaderboard_snapshots s JOIN profiles p ON p.id = s.player_id
+        WHERE s.player_id IN (:a, :b)
+        ORDER BY s.player_id, s.snapshot_at DESC
+        """,
+        a=alice,
+        b=bob,
+    )
+    by_name = {r["display_name"]: r for r in rows}
+    # alice: 10 match + 20 special = 30
+    assert by_name["alice_specials_snap"]["match_points"] == 10
+    assert by_name["alice_specials_snap"]["special_points"] == 20
+    assert by_name["alice_specials_snap"]["total_points"] == 30
+    assert by_name["alice_specials_snap"]["triggered_by_match_id"] is None
+    # bob: 0 match + 0 special = 0
+    assert by_name["bob_specials_snap"]["match_points"] == 0
+    assert by_name["bob_specials_snap"]["special_points"] == 0
+    assert by_name["bob_specials_snap"]["total_points"] == 0

@@ -335,24 +335,6 @@ async def test_override_result_adds_audit_log() -> None:
     assert added.action_type == ActionType.result_overridden
 
 
-@pytest.mark.asyncio
-async def test_override_flushes_before_setting_new_scores() -> None:
-    """Confirm flush() is called (needed to reset trigger WHEN condition)."""
-    admin = _make_admin()
-    match = _make_match(
-        status=MatchStatus.completed,
-        result_source=ResultSource.auto,
-        home_score=1,
-        away_score=0,
-    )
-    mock_db = _stub_db([_scalar(match)])
-
-    async with _with_admin_and_db(mock_db, admin) as client:
-        await client.put(f"/api/v1/admin/results/{match.id}", json=_RESULT_BODY)
-
-    mock_db.flush.assert_called_once()
-
-
 # ---------------------------------------------------------------------------
 # Integration: override recalculates points (requires live Postgres)
 # ---------------------------------------------------------------------------
@@ -484,12 +466,9 @@ async def test_override_recalculates_points(db_conn: Any) -> None:
     )
     assert pts_after_first == 3  # result pts only
 
-    # Override to 2-1 (alice predicted exactly → 10 pts)
-    await _exec(
-        conn,
-        "UPDATE matches SET actual_home_score = NULL, actual_away_score = NULL WHERE id = :m",
-        m=match_id,
-    )
+    # Override to 2-1 (alice predicted exactly → 10 pts). Single-shot UPDATE:
+    # the AFTER trigger has no WHEN clause (migration 009) so any score change
+    # re-fires scoring — no null-then-set hack required.
     await _exec(
         conn,
         """
@@ -544,12 +523,7 @@ async def test_result_source_manual_set_correctly(db_conn: Any) -> None:
     src1 = await _scalar_raw(conn, "SELECT result_source FROM matches WHERE id = :m", m=match_id)
     assert src1 == "manual"
 
-    # Override result
-    await _exec(
-        conn,
-        "UPDATE matches SET actual_home_score = NULL, actual_away_score = NULL WHERE id = :m",
-        m=match_id,
-    )
+    # Override result — single-shot UPDATE (migration 009 dropped the WHEN clause).
     await _exec(
         conn,
         """
@@ -561,3 +535,101 @@ async def test_result_source_manual_set_correctly(db_conn: Any) -> None:
     )
     src2 = await _scalar_raw(conn, "SELECT result_source FROM matches WHERE id = :m", m=match_id)
     assert src2 == "override"
+
+
+async def test_override_result_twice_latest_snapshot_reflects_latest_scores(
+    db_conn: Any,
+) -> None:
+    """Two consecutive overrides — the latest leaderboard snapshot uses the last scores.
+
+    Regression guard for migration 009: with the AFTER trigger's WHEN clause
+    dropped, every score change now re-fires scoring. So overriding twice
+    should produce a fresh snapshot per override, with the latest one
+    matching the final scores.
+    """
+    from sqlalchemy.ext.asyncio import AsyncConnection
+
+    conn: AsyncConnection = db_conn
+    g = await _insert_group(conn, "T")
+    home = await _insert_team(conn, g, "Twice A", "TWA")
+    away = await _insert_team(conn, g, "Twice B", "TWB")
+    alice = await _insert_profile(conn, "alice_twice")
+
+    match_id = await _insert_match_and_predict(
+        conn,
+        home_id=home,
+        away_id=away,
+        group_id=g,
+        player_id=alice,
+        pred_home=2,
+        pred_away=1,
+    )
+
+    # First entry: 1-0 → result pts only = 3.
+    await _exec(
+        conn,
+        """
+        UPDATE matches SET actual_home_score = 1, actual_away_score = 0,
+            status = 'completed', result_source = 'manual', result_entered_by = :p
+        WHERE id = :m
+        """,
+        p=alice,
+        m=match_id,
+    )
+
+    # First override: 0-1 (away win — alice predicted home win, sign mismatch, no result pts).
+    await _exec(
+        conn,
+        """
+        UPDATE matches SET actual_home_score = 0, actual_away_score = 1,
+            status = 'completed', result_source = 'override', result_entered_by = :p
+        WHERE id = :m
+        """,
+        p=alice,
+        m=match_id,
+    )
+
+    # Second override: 2-1 (alice predicted exactly → full 10 pts).
+    await _exec(
+        conn,
+        """
+        UPDATE matches SET actual_home_score = 2, actual_away_score = 1,
+            status = 'completed', result_source = 'override', result_entered_by = :p
+        WHERE id = :m
+        """,
+        p=alice,
+        m=match_id,
+    )
+
+    pts_final = await _scalar_raw(
+        conn,
+        "SELECT points_awarded FROM predictions WHERE match_id = :m AND player_id = :p",
+        m=match_id,
+        p=alice,
+    )
+    assert pts_final == 10
+
+    # The trigger fired three times (initial + two overrides), so there are
+    # three snapshots for this match. The most recent must match the final scores.
+    snap_count = await _scalar_raw(
+        conn,
+        """
+        SELECT COUNT(*) FROM leaderboard_snapshots
+        WHERE triggered_by_match_id = :m AND player_id = :p
+        """,
+        m=match_id,
+        p=alice,
+    )
+    assert snap_count == 3
+
+    latest_total = await _scalar_raw(
+        conn,
+        """
+        SELECT total_points FROM leaderboard_snapshots
+        WHERE triggered_by_match_id = :m AND player_id = :p
+        ORDER BY snapshot_at DESC LIMIT 1
+        """,
+        m=match_id,
+        p=alice,
+    )
+    assert latest_total == 10

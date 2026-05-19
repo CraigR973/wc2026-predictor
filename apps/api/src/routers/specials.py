@@ -17,6 +17,7 @@ from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import SpecialPrediction, SpecialPredictionType
 from src.models.profile import Profile
 from src.models.team import TournamentStage
+from src.services.leaderboard import recompute_leaderboard_snapshot
 from src.services.notification_triggers import notify_special_results_awarded
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -319,6 +320,11 @@ async def award_specials(
             },
         )
     )
+
+    # The match-result trigger doesn't fire here (no match score changed), so
+    # we recompute the leaderboard snapshot in-Python before committing.
+    # Without this, the final standings stay stuck on the last match snapshot.
+    await recompute_leaderboard_snapshot(db, triggered_by_match_id=None)
 
     await db.commit()
     await notify_special_results_awarded(db, ptype.value)

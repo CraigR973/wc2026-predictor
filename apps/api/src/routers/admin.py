@@ -10,7 +10,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import AdminPlayer, generate_opaque_token, hash_pin
@@ -20,6 +20,7 @@ from src.models.group import Group
 from src.models.invite import Invite
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
+from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
 from src.services.backup import BackupInfo, create_backup, list_backups, resolve_backup_path
 from src.services.football_data import FDMatch, FootballDataClient, FootballDataError
@@ -29,6 +30,7 @@ from src.services.knockout_advancement import (
     MissingKickoffsError,
     advance_to_r32,
 )
+from src.services.leaderboard import recompute_leaderboard_snapshot
 from src.services.notification_triggers import (
     MatchUpdate,
     notify_kickoff_changed,
@@ -502,6 +504,19 @@ async def cancel_match(
     match = await _load_match(db, match_id)
     match.status = MatchStatus.cancelled
 
+    # Zero any points already awarded for this match (spec §6.13). The
+    # match-result trigger doesn't fire here (we're not touching
+    # actual_*_score), so we recompute the leaderboard snapshot ourselves.
+    await db.execute(
+        update(Prediction).where(Prediction.match_id == match.id).values(points_awarded=0)
+    )
+    await db.execute(
+        update(KnockoutPrediction)
+        .where(KnockoutPrediction.match_id == match.id)
+        .values(points_awarded=0)
+    )
+    await recompute_leaderboard_snapshot(db, triggered_by_match_id=match.id)
+
     db.add(
         AuditLog(
             actor_id=admin.id,
@@ -632,12 +647,6 @@ async def override_result(
 
     penalty_winner_id = uuid.UUID(body.penalty_winner_id) if body.penalty_winner_id else None
 
-    # Step 1: null out scores so the trigger's WHEN condition (NULL → not-NULL) fires in step 2.
-    match.actual_home_score = None
-    match.actual_away_score = None
-    await db.flush()
-
-    # Step 2: set new scores — BEFORE trigger stamps result_entered_at, AFTER trigger rescores.
     match.actual_home_score = body.actual_home_score
     match.actual_away_score = body.actual_away_score
     match.extra_time = body.extra_time
