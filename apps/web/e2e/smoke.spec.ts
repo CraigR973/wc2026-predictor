@@ -9,6 +9,7 @@
  *   (3 pts correct result + 4 pts exact score bonus).
  */
 import { type APIRequestContext, expect, test } from '@playwright/test';
+import { blockSupabase } from './helpers';
 
 const API_URL = 'http://localhost:8000';
 const PLAYER_NAME = 'SmokePlayer';
@@ -27,7 +28,7 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
   test.beforeAll(async ({ playwright }) => {
     api = await playwright.request.newContext({ baseURL: API_URL });
 
-    // Wipe any leftover state from a previous interrupted run.
+    // Wipe any leftover state from a previous interrupted run or Playwright retry.
     await api.delete('/api/v1/test/cleanup');
 
     // Seed admin profile + group + teams + match.
@@ -58,21 +59,42 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
   });
 
   test('player joins via invite link', async ({ page }) => {
+    // Block Supabase realtime — placeholder URLs would cause connection errors
+    // that can interfere with page navigation in the smoke environment.
+    await blockSupabase(page);
+
+    // Capture browser console errors for diagnostics if the test fails.
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
     await page.goto(`/join/${inviteToken}`);
-    await expect(page.getByRole('heading', { name: /join/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /join the league/i })).toBeVisible();
 
     // The hint pre-fills the name field; overwrite to ensure our known value.
     await page.getByLabel(/display name/i).fill(PLAYER_NAME);
     await page.getByLabel(/choose a pin/i).fill(PLAYER_PIN);
     await page.getByLabel(/confirm pin/i).fill(PLAYER_PIN);
-    await page.getByRole('button', { name: /join/i }).click();
+    await page.getByRole('button', { name: /join league/i }).click();
+
+    // If the join POST fails the page shows a [role="alert"] and stays put.
+    // Surface that message immediately rather than timing out with no signal.
+    const alert = page.locator('[role="alert"]');
+    const didAlert = await alert.isVisible({ timeout: 3_000 }).catch(() => false);
+    if (didAlert) {
+      const alertText = await alert.textContent().catch(() => '(unreadable)');
+      throw new Error(
+        `Join form returned an error: "${alertText}". Console errors: ${JSON.stringify(consoleErrors)}`,
+      );
+    }
 
     await expect(page).toHaveURL('/', { timeout: 10_000 });
 
     playerJwt = await page.evaluate<string>(
       () => localStorage.getItem('wc2026_access') ?? '',
     );
-    expect(playerJwt).not.toBe('');
+    expect(playerJwt, 'access token was not stored after join').not.toBe('');
   });
 
   test('player predicts the seeded match', async () => {
@@ -103,6 +125,8 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
   });
 
   test('player appears on leaderboard with correct points', async ({ page }) => {
+    await blockSupabase(page);
+
     // Restore the player's JWT before navigating so the page can authenticate.
     await page.addInitScript((jwt: string) => {
       localStorage.setItem('wc2026_access', jwt);

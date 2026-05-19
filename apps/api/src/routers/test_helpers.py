@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api/v1/test", tags=["test-helpers"])
 # Fixed identifiers — chosen to avoid collisions with any real tournament data.
 _ADMIN_NAME = "__smoke_admin__"
 _ADMIN_PIN = "11111111"
-_PLAYER_NAME = "__smoke_player__"
+_PLAYER_NAME = "SmokePlayer"
 _MATCH_NUMBER = 9901
 _HOME_CODE = "SMK"
 _AWAY_CODE = "TST"
