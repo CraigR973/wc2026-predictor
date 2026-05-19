@@ -929,3 +929,16 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `test_specials.py`'s autouse fixture now patches out `recompute_leaderboard_snapshot` so the existing mock-based award tests don't blow the `side_effect` budget; the wiring test re-patches it locally to assert it's called.
 
 **Next:** Review batch R3 — Auth & rate limits (🟢 Sonnet)
+
+---
+
+## Review batch R3 — Auth & rate limits
+**Commits:** 91a2fc8, 4ece8c8 · CI ✅
+
+### Key facts for future sessions
+- `rate_limit.py` exports one shared `limiter` + three key helpers. `login_key`/`refresh_token_key` are **sync** (not async) — the installed slowapi version does not await coroutine key functions. They read `request._body` which FastAPI has already cached before the route wrapper fires.
+- Locked accounts now return `401 "Invalid credentials"` (not 429) to avoid leaking lock state. The pre-existing `test_login_locked_account` was updated to assert 401.
+- `conftest.py` gains an `autouse` `reset_rate_limits()` fixture that calls `limiter._storage.reset()` before every test — required for test isolation once any endpoint has a rate-limit decorator.
+- CI runs `ruff 0.15.13`; local venv was `0.15.12`. Format differences surfaced in `conftest.py` and `test_r3_rate_limits.py` — commit `4ece8c8` fixed them. Always run `ruff format` before pushing.
+
+**Next:** Review batch R4 — Scheduler race + scoring-preview parity (🔴 Opus extended thinking)
