@@ -955,3 +955,16 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Test fixtures `_make_match` in both prediction test files now default `kickoff_utc` to `_now() + 1h` (was `_now()`) so existing happy-path tests still pass under the new check; race-window tests pass `kickoff_utc=_now() - 1s` explicitly.
 
 **Next:** Review batch R5 — Frontend resilience (🟢 Sonnet)
+
+---
+
+## Review batch R5 — Frontend resilience
+**Commits:** 89d6677 · CI ✅
+
+### Key facts for future sessions
+- `clearTokens()` is now `async` — any call site that was fire-and-forget (e.g. `api.ts` silentRefresh, 401 handler) must `await` it or the cache delete races with page navigation.
+- The production VITE_API_URL assertion lives at **module load** in both `api.ts` and `AuthContext.tsx` — it is guarded by `import.meta.env.PROD` so the CI build (which does not set `VITE_API_URL`) does not blow up. Workbox cache names (`api-user-data`, `api-matches`) were confirmed in `src/sw.ts` before wiring.
+- `useOfflineQueue` backoff delays live in `RETRY_DELAYS = [30_000, 60_000, 120_000]`; the timer is module-scoped via `retryTimer` ref inside the `useEffect` closure and is cancelled both on unmount and when the queue empties. Concurrent flush coalescing (module-scoped `inFlight` in `offlineQueue.ts`) is preserved.
+- Vitest fake-timer gotcha: use `vi.useFakeTimers({ shouldAdvanceTime: true })` so `waitFor` (real `setTimeout`) still works alongside `vi.advanceTimersByTime`.
+
+**Next:** Review batch R6 — Observability (🟢 Sonnet)
