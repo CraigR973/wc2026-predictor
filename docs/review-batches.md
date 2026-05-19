@@ -12,7 +12,7 @@ Mark batches complete by striking through the row.
 | ~~R2~~ | ~~🔴 Opus (extended thinking)~~ | ~~~3 h~~ | ~~R2.1–R2.5~~ | ✅ Shipped 2026-05-19 |
 | ~~R3~~ | ~~🟢 Sonnet~~ | ~~~2.5 h~~ | ~~R3.1–R3.4~~ | ✅ Shipped 2026-05-19 |
 | ~~R4~~ | ~~🔴 Opus (extended thinking)~~ | ~~~2 h~~ | ~~R4.1–R4.3~~ | ✅ Shipped 2026-05-19 |
-| R5 | 🟢 Sonnet | ~2 h | R5.1–R5.3 | Frontend resilience — VITE_API_URL hard-assert, SW cache clear on logout, offline-queue auto-retry. All frontend, same area. |
+| ~~R5~~ | ~~🟢 Sonnet~~ | ~~~2 h~~ | ~~R5.1–R5.3~~ | ✅ Shipped 2026-05-19 |
 | R6 | 🟢 Sonnet | ~2.5 h | R6.1–R6.4 | Observability — backup-failure alerting, backup-download audit log, env-aware Sentry rate, notification dispatch error wrapping. CRUD-shaped. |
 | R7 | 🟢 Sonnet | ~2.5 h | R7.1 | One Playwright smoke test in CI: join → predict → lock → score → leaderboard. Mostly scaffolding. |
 
