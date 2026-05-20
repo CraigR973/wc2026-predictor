@@ -981,3 +981,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Sentry `traces_sample_rate` is `0.0` in all non-production environments, `0.05` in production.
 
 **Next:** Review batch R7 — Playwright smoke test (🟢 Sonnet)
+
+---
+
+## Review batch R7 — Playwright smoke test
+**Commits:** 3d8cae0, 53556f8, 0dd5371, 0e403a5, 4db564e · CI ✅
+
+### Key facts for future sessions
+- `ENVIRONMENT: development` (not `test`) is required in the smoke CI job — R1.1 secret guard only skips when environment is exactly `"development"`.
+- `blockSupabase(page)` must be called before `page.goto()` in any browser test running against a real backend — placeholder Supabase URLs cause WebSocket connection attempts that interfere with navigation.
+- `AuthContext` reads `wc2026_player` from localStorage **synchronously on mount**; `ProtectedRoute` redirects to `/login` if it is absent. Any `addInitScript` auth setup must set all three keys: `wc2026_access`, `wc2026_refresh`, `wc2026_player`.
+- Scoring for exact group-stage prediction: 2 pts (goals total) + 3 pts (correct result) + 5 pts (exact scoreline) = **10 pts**. Previous session notes incorrectly said 7.
+- Smoke cleanup (`DELETE /api/v1/test/cleanup`) deletes the player profile by name — must match the constant `PLAYER_NAME = 'SmokePlayer'` in `smoke.spec.ts` exactly.
+- Smoke fixtures registered in `main.py` only when `settings.environment != "production"`.
+
+**Next:** all pre-launch review batches shipped — run `/next-batch-prompt review` to confirm.
