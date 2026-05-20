@@ -5,6 +5,7 @@ Revises:
 Create Date: 2026-05-06
 
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -73,7 +74,9 @@ def upgrade() -> None:
             server_default="player",
         ),
         sa.Column("timezone", sa.String(100), nullable=False, server_default="UTC"),
-        sa.Column("failed_login_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column(
+            "failed_login_count", sa.Integer(), nullable=False, server_default="0"
+        ),
         sa.Column("locked_until", sa.DateTime(), nullable=True),
         sa.Column("deleted_at", sa.DateTime(), nullable=True),
         sa.Column(
@@ -103,7 +106,9 @@ def upgrade() -> None:
         sa.Column("name", sa.String(100), nullable=False),
         sa.Column("code", sa.String(3), nullable=False),
         sa.Column("flag_emoji", sa.String(10), nullable=False),
-        sa.Column("group_id", UUID(as_uuid=True), sa.ForeignKey("groups.id"), nullable=True),
+        sa.Column(
+            "group_id", UUID(as_uuid=True), sa.ForeignKey("groups.id"), nullable=True
+        ),
         sa.Column(
             "eliminated_at_stage",
             PgENUM(name="tournament_stage", create_type=False),
@@ -129,7 +134,10 @@ def upgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column(
-            "player_id", UUID(as_uuid=True), sa.ForeignKey("profiles.id"), nullable=False
+            "player_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("profiles.id"),
+            nullable=False,
         ),
         sa.Column("token_hash", sa.String(64), nullable=False),
         sa.Column("device_hint", sa.String(100), nullable=True),
@@ -155,10 +163,16 @@ def upgrade() -> None:
         sa.Column("token", sa.String(64), nullable=False),
         sa.Column("display_name_hint", sa.String(100), nullable=True),
         sa.Column(
-            "created_by", UUID(as_uuid=True), sa.ForeignKey("profiles.id"), nullable=False
+            "created_by",
+            UUID(as_uuid=True),
+            sa.ForeignKey("profiles.id"),
+            nullable=False,
         ),
         sa.Column(
-            "claimed_by", UUID(as_uuid=True), sa.ForeignKey("profiles.id"), nullable=True
+            "claimed_by",
+            UUID(as_uuid=True),
+            sa.ForeignKey("profiles.id"),
+            nullable=True,
         ),
         sa.Column("claimed_at", sa.DateTime(), nullable=True),
         sa.Column("expires_at", sa.DateTime(), nullable=True),

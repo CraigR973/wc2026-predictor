@@ -122,4 +122,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DROP FUNCTION IF EXISTS calculate_match_points(INT, INT, INT, INT, tournament_stage)")
+    op.execute(
+        "DROP FUNCTION IF EXISTS calculate_match_points(INT, INT, INT, INT, tournament_stage)"
+    )
