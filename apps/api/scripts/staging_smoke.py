@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E501
 """Staging smoke test for the World Cup 2026 prediction league.
 
 Exercises the high-risk paths from the R1–R7 pre-launch review end-to-end
@@ -175,7 +176,7 @@ class State:
         STATE_FILE.write_text(json.dumps(asdict(self), indent=2))
 
     @classmethod
-    def load(cls) -> "State":
+    def load(cls) -> State:
         if not STATE_FILE.exists():
             fail(f"no state file at {STATE_FILE} — run `setup` first")
         return cls(**json.loads(STATE_FILE.read_text()))
@@ -511,7 +512,7 @@ def _get_leaderboard(client: httpx.Client, state: State) -> dict[str, dict[str, 
 
 def cmd_setup(args: argparse.Namespace) -> None:
     admin_pin = os.environ.get("ADMIN_PIN") or fail("ADMIN_PIN env var required")
-    print(f"\033[1m=== WC2026 staging smoke — SETUP ===\033[0m")
+    print("\033[1m=== WC2026 staging smoke — SETUP ===\033[0m")
     print(f"  base       : {BASE}")
     print(f"  run suffix : {RUN_SUFFIX}")
     print(f"  players    : {', '.join(PLAYER_NAMES)}")
@@ -532,7 +533,7 @@ def cmd_setup(args: argparse.Namespace) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    print(f"\033[1m=== WC2026 staging smoke — RUN ===\033[0m")
+    print("\033[1m=== WC2026 staging smoke — RUN ===\033[0m")
     state = State.load()
     # Re-login as admin since the access token in state may be near-expiry (~24 h
     # TTL but no harm in refreshing for a multi-phase script).
@@ -561,7 +562,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 
 def cmd_teardown(args: argparse.Namespace) -> None:
-    print(f"\033[1m=== WC2026 staging smoke — TEARDOWN ===\033[0m")
+    print("\033[1m=== WC2026 staging smoke — TEARDOWN ===\033[0m")
     state = State.load()
     admin_pin = os.environ.get("ADMIN_PIN") or fail("ADMIN_PIN env var required")
     with httpx.Client(base_url=BASE, timeout=TIMEOUT) as client:
