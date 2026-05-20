@@ -289,9 +289,10 @@ export function DashboardPage() {
         <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-text-muted mb-2">
           The Steele Spreadsheet System
         </p>
-        <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight leading-tight">
-          Welcome back,{' '}
-          <span className="text-steele-h">{player?.displayName}</span>
+        <h1 className="text-3xl sm:text-4xl font-semibold text-text-primary tracking-tight leading-[1.1]">
+          Welcome back,
+          <br className="sm:hidden" />
+          <span className="text-steele-h"> {player?.displayName}</span>
         </h1>
       </div>
 

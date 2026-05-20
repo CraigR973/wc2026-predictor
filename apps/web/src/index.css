@@ -24,20 +24,20 @@
     --text-inverse: #0B0E13;
 
     /* Brand */
-    --primary: #14B8A6;
-    --primary-dark: #0E9488;
-    --primary-glow: rgba(20, 184, 166, 0.35);
-    --accent: #D4A24A;
-    --accent-dark: #B8862E;
-    --accent-glow: rgba(212, 162, 74, 0.35);
-    --steele: #DCE2EE;
-    --steele-mid: #98A6BD;
-    --steele-dark: #6B7A99;
-    --steele-gradient: linear-gradient(180deg, #DCE2EE 0%, #98A6BD 60%, #6B7A99 100%);
-    --steele-gradient-h: linear-gradient(90deg, #DCE2EE 0%, #98A6BD 100%);
+    --primary: #10B981;
+    --primary-dark: #059669;
+    --primary-glow: rgba(16, 185, 129, 0.35);
+    --accent: #C8943C;
+    --accent-dark: #A77C2A;
+    --accent-glow: rgba(200, 148, 60, 0.35);
+    --steele: #E8EBF0;
+    --steele-mid: #B0B8C4;
+    --steele-dark: #7A828F;
+    --steele-gradient: linear-gradient(180deg, #E8EBF0 0%, #B0B8C4 60%, #7A828F 100%);
+    --steele-gradient-h: linear-gradient(90deg, #E8EBF0 0%, #B0B8C4 100%);
 
     /* Semantic */
-    --success: #14B8A6;
+    --success: #10B981;
     --warning: #F59E0B;
     --error: #EF4444;
     --live: #EF4444;
@@ -61,8 +61,8 @@
     --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.6);
     --shadow-sheet: 0 -8px 32px -4px rgba(0, 0, 0, 0.6);
-    --shadow-glow: 0 0 0 3px rgba(20, 184, 166, 0.25);
-    --shadow-glow-accent: 0 0 0 3px rgba(212, 162, 74, 0.25);
+    --shadow-glow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+    --shadow-glow-accent: 0 0 0 3px rgba(200, 148, 60, 0.25);
 
     /* Native safe-area helpers */
     --safe-top: env(safe-area-inset-top, 0px);
@@ -110,13 +110,14 @@
 }
 
 @layer utilities {
-  /* Wordmark utility — Instrument Serif italic with tight tracking.
+  /* Wordmark utility — Instrument Serif (roman) with tight tracking,
+     metallic Steele fill applied via .text-steele.
      Used by the <Brand /> component; not for general headings. */
   .font-wordmark {
     font-family: 'Instrument Serif', Georgia, serif;
     font-weight: 400;
-    font-style: italic;
-    letter-spacing: -0.02em;
+    font-style: normal;
+    letter-spacing: -0.03em;
   }
 
   .font-mono-custom {

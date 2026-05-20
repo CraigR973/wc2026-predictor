@@ -20,21 +20,21 @@ export const colors = {
   textMuted: '#5A6478',
   textInverse: '#0B0E13',
 
-  // Brand — teal "go", warm gold accent, metallic Steele for the wordmark
-  primary: '#14B8A6',
-  primaryDark: '#0E9488',
-  primaryGlow: 'rgba(20, 184, 166, 0.35)',
+  // Brand — refined emerald "go", deeper brass accent, neutral silver Steele
+  primary: '#10B981',
+  primaryDark: '#059669',
+  primaryGlow: 'rgba(16, 185, 129, 0.35)',
 
-  accent: '#D4A24A',
-  accentDark: '#B8862E',
-  accentGlow: 'rgba(212, 162, 74, 0.35)',
+  accent: '#C8943C',
+  accentDark: '#A77C2A',
+  accentGlow: 'rgba(200, 148, 60, 0.35)',
 
-  steele: '#DCE2EE',
-  steeleMid: '#98A6BD',
-  steeleDark: '#6B7A99',
+  steele: '#E8EBF0',
+  steeleMid: '#B0B8C4',
+  steeleDark: '#7A828F',
 
   // Semantic
-  success: '#14B8A6',
+  success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
   live: '#EF4444',
@@ -47,8 +47,8 @@ export const colors = {
 } as const;
 
 export const gradients = {
-  steele: 'linear-gradient(180deg, #DCE2EE 0%, #98A6BD 60%, #6B7A99 100%)',
-  steeleHorizontal: 'linear-gradient(90deg, #DCE2EE 0%, #98A6BD 100%)',
+  steele: 'linear-gradient(180deg, #E8EBF0 0%, #B0B8C4 60%, #7A828F 100%)',
+  steeleHorizontal: 'linear-gradient(90deg, #E8EBF0 0%, #B0B8C4 100%)',
   surface: 'linear-gradient(180deg, #131720 0%, #0B0E13 100%)',
 } as const;
 
