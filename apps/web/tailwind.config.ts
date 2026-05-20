@@ -6,37 +6,97 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: 'var(--background)',
+        // Surface tiers
+        background: 'var(--bg)',
+        bg: 'var(--bg)',
         surface: 'var(--surface)',
         'surface-elevated': 'var(--surface-elevated)',
+        'surface-overlay': 'var(--surface-overlay)',
         border: 'var(--border)',
+        'border-strong': 'var(--border-strong)',
+
+        // Text
         'text-primary': 'var(--text-primary)',
         'text-secondary': 'var(--text-secondary)',
         'text-muted': 'var(--text-muted)',
+        'text-inverse': 'var(--text-inverse)',
+
+        // Brand
         primary: {
           DEFAULT: 'var(--primary)',
           dark: 'var(--primary-dark)',
         },
-        accent: 'var(--accent)',
-        gold: 'var(--gold)',
-        silver: 'var(--silver)',
-        bronze: 'var(--bronze)',
+        accent: {
+          DEFAULT: 'var(--accent)',
+          dark: 'var(--accent-dark)',
+        },
+        steele: {
+          DEFAULT: 'var(--steele)',
+          mid: 'var(--steele-mid)',
+          dark: 'var(--steele-dark)',
+        },
+
+        // Semantic
         success: 'var(--success)',
         warning: 'var(--warning)',
         error: 'var(--error)',
         locked: 'var(--locked)',
         live: 'var(--live)',
+
+        // Rank medals
+        gold: 'var(--gold)',
+        silver: 'var(--silver)',
+        bronze: 'var(--bronze)',
       },
       fontFamily: {
-        sans: ['Outfit', 'sans-serif'],
-        display: ['Bebas Neue', 'cursive'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['Outfit', 'system-ui', 'sans-serif'],
+        // `font-display` resolves to Outfit (semibold-friendly) so legacy
+        // numeric/heading usages stay readable. Use `font-serif` explicitly
+        // (Instrument Serif italic) for the Brand wordmark.
+        display: ['Outfit', 'system-ui', 'sans-serif'],
+        serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+      },
+      borderRadius: {
+        xs: 'var(--radius-xs)',
+        sm: 'var(--radius-sm)',
+        DEFAULT: 'var(--radius-md)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
+      },
+      boxShadow: {
+        sm: 'var(--shadow-sm)',
+        DEFAULT: 'var(--shadow-md)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        sheet: 'var(--shadow-sheet)',
+        glow: 'var(--shadow-glow)',
+        'glow-accent': 'var(--shadow-glow-accent)',
       },
       borderColor: {
         DEFAULT: 'var(--border)',
       },
       backgroundColor: {
-        DEFAULT: 'var(--background)',
+        DEFAULT: 'var(--bg)',
+      },
+      transitionTimingFunction: {
+        'out-quart': 'cubic-bezier(0.2, 0, 0, 1)',
+      },
+      transitionDuration: {
+        fast: '150ms',
+        base: '220ms',
+        page: '280ms',
+        sheet: '320ms',
+      },
+      zIndex: {
+        tabbar: '40',
+        header: '50',
+        banner: '55',
+        sheet: '60',
+        modal: '70',
+        toast: '80',
       },
     },
   },

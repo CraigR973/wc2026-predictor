@@ -4,26 +4,30 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50',
+  [
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap',
+    'rounded-md text-sm font-medium font-sans tracking-tight',
+    'transition-all duration-fast ease-out-quart',
+    'focus-visible:outline-none focus-visible:shadow-glow',
+    'disabled:pointer-events-none disabled:opacity-50',
+    'press-down select-none',
+  ].join(' '),
   {
     variants: {
       variant: {
-        default:
-          'bg-primary text-background hover:bg-primary-dark font-semibold',
-        outline:
-          'border border-border bg-transparent text-text-primary hover:bg-surface-elevated',
-        ghost:
-          'bg-transparent text-text-secondary hover:bg-surface hover:text-text-primary',
-        accent:
-          'bg-accent text-white hover:bg-accent/90 font-semibold',
-        destructive:
-          'bg-error text-white hover:bg-error/90 font-semibold',
+        default: 'bg-primary text-text-inverse hover:bg-primary-dark font-semibold',
+        accent: 'bg-accent text-text-inverse hover:bg-accent-dark font-semibold focus-visible:shadow-glow-accent',
+        outline: 'border border-border-strong bg-transparent text-text-primary hover:bg-surface-elevated',
+        ghost: 'bg-transparent text-text-secondary hover:bg-surface-elevated hover:text-text-primary',
+        subtle: 'bg-surface-elevated text-text-primary hover:bg-surface-overlay',
+        destructive: 'bg-error text-white hover:bg-error/90 font-semibold',
+        link: 'text-primary underline-offset-4 hover:underline px-0 h-auto',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-12 rounded-md px-8 text-base',
-        icon: 'h-10 w-10',
+        default: 'h-11 px-5 py-2',
+        sm: 'h-9 rounded-sm px-3 text-xs',
+        lg: 'h-12 rounded-lg px-7 text-base',
+        icon: 'h-11 w-11',
       },
     },
     defaultVariants: {

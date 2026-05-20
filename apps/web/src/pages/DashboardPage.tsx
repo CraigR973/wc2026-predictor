@@ -207,11 +207,12 @@ export function DashboardPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-4xl text-primary tracking-wider mb-1">WC 2026</h1>
-        <p className="text-text-secondary font-sans">
-          Welcome back,{' '}
-          <span className="text-text-primary font-medium">{player?.displayName}</span>!
+        <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-text-muted mb-1">
+          The Steele Spreadsheet System
         </p>
+        <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight">
+          Welcome back, <span className="text-steele-h">{player?.displayName}</span>
+        </h1>
       </div>
 
       {/* Rank + Points */}

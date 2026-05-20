@@ -2,26 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens — mirrors apps/web/src/theme/tokens.ts.
+ * Edit tokens.ts first, then sync the values here. Tailwind utilities and
+ * inline `var(--*)` references resolve against these.
+ */
 @layer base {
   :root {
-    --background: #0A0F1E;
-    --surface: #131929;
-    --surface-elevated: #1C2540;
-    --border: #263354;
+    /* Surface tiers */
+    --bg: #0B0E13;
+    --surface: #131720;
+    --surface-elevated: #1B2030;
+    --surface-overlay: #242938;
+    --border: #2A3142;
+    --border-strong: #3A4258;
+
+    /* Text */
     --text-primary: #F0F4FF;
-    --text-secondary: #8A9CC7;
-    --text-muted: #4A5A80;
-    --primary: #00E676;
-    --primary-dark: #00B854;
-    --accent: #3D7FFF;
-    --gold: #FFD700;
-    --silver: #C0C0C0;
-    --bronze: #CD7F32;
-    --success: #00E676;
-    --warning: #FF9800;
-    --error: #FF4757;
-    --locked: #4A5A80;
-    --live: #FF4757;
+    --text-secondary: #94A3B8;
+    --text-muted: #5A6478;
+    --text-inverse: #0B0E13;
+
+    /* Brand */
+    --primary: #14B8A6;
+    --primary-dark: #0E9488;
+    --primary-glow: rgba(20, 184, 166, 0.35);
+    --accent: #D4A24A;
+    --accent-dark: #B8862E;
+    --accent-glow: rgba(212, 162, 74, 0.35);
+    --steele: #DCE2EE;
+    --steele-mid: #98A6BD;
+    --steele-dark: #6B7A99;
+    --steele-gradient: linear-gradient(180deg, #DCE2EE 0%, #98A6BD 60%, #6B7A99 100%);
+    --steele-gradient-h: linear-gradient(90deg, #DCE2EE 0%, #98A6BD 100%);
+
+    /* Semantic */
+    --success: #14B8A6;
+    --warning: #F59E0B;
+    --error: #EF4444;
+    --live: #EF4444;
+    --locked: #5A6478;
+
+    /* Rank medals */
+    --gold: #E5C46B;
+    --silver: #B8C0CC;
+    --bronze: #C28B5C;
+
+    /* Radius scale */
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+    --radius-xl: 22px;
+    --radius-2xl: 28px;
+
+    /* Elevation */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.6);
+    --shadow-sheet: 0 -8px 32px -4px rgba(0, 0, 0, 0.6);
+    --shadow-glow: 0 0 0 3px rgba(20, 184, 166, 0.25);
+    --shadow-glow-accent: 0 0 0 3px rgba(212, 162, 74, 0.25);
+
+    /* Native safe-area helpers */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+
+    /* App chrome heights */
+    --header-height: 56px;
+    --tabbar-height: 60px;
   }
 
   * {
@@ -30,39 +81,111 @@
 
   html {
     color-scheme: dark;
+    background-color: var(--bg);
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    background-color: var(--background);
+    background-color: var(--bg);
     color: var(--text-primary);
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Outfit', system-ui, sans-serif;
     font-weight: 600;
     color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  /* Native-app feel: disable user-select on chrome, allow on content */
+  header, nav, button, [role='tab'], [role='button'] {
+    user-select: none;
+    -webkit-user-select: none;
   }
 }
 
 @layer utilities {
-  .font-display {
-    font-family: 'Bebas Neue', cursive;
+  /* Wordmark utility — Instrument Serif italic with tight tracking.
+     Used by the <Brand /> component; not for general headings. */
+  .font-wordmark {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.02em;
   }
 
   .font-mono-custom {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
   }
 
+  .text-steele {
+    background: var(--steele-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .text-steele-h {
+    background: var(--steele-gradient-h);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Touch-target floor — 44 px Apple HIG */
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe-area padding helpers */
+  .pt-safe { padding-top: var(--safe-top); }
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .pl-safe { padding-left: var(--safe-left); }
+  .pr-safe { padding-right: var(--safe-right); }
+
+  .h-tabbar-safe { height: calc(var(--tabbar-height) + var(--safe-bottom)); }
+  .pb-tabbar-safe { padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom)); }
+  .pt-header-safe { padding-top: calc(var(--header-height) + var(--safe-top)); }
+
+  /* Animations */
   @keyframes pulse-live {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
   }
-
   .animate-pulse-live {
     animation: pulse-live 1.2s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .animate-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  /* Press-down feedback for native feel */
+  .press-down {
+    transition: transform 80ms ease-out, opacity 80ms ease-out;
+  }
+  .press-down:active {
+    transform: scale(0.97);
+    opacity: 0.85;
   }
 }
 
