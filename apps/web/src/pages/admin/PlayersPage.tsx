@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
 import {
   Dialog,
   DialogContent,
@@ -101,25 +102,30 @@ export function AdminPlayersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="font-display text-4xl text-primary tracking-wider">Players</h1>
-            <Link to="/admin/invites" className="text-xs text-text-muted hover:text-primary font-sans mt-1 inline-block">
-              → Invites
+    <div className="max-w-4xl">
+      <PageHeader
+        title="Players"
+        eyebrow="Admin"
+        action={
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs font-sans text-text-secondary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+                className="accent-primary"
+              />
+              Show removed
+            </label>
+            <Link
+              to="/admin/invites"
+              className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+            >
+              Invites →
             </Link>
           </div>
-          <label className="flex items-center gap-2 text-sm text-text-secondary font-sans cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showDeleted}
-              onChange={(e) => setShowDeleted(e.target.checked)}
-              className="accent-primary"
-            />
-            Show removed
-          </label>
-        </div>
+        }
+      />
 
         {isLoading && (
           <div className="space-y-3" aria-label="Loading players">
@@ -178,7 +184,6 @@ export function AdminPlayersPage() {
             />
           )}
         </div>
-      </div>
 
       {/* Reset PIN dialog */}
       <Dialog open={!!resetTarget} onOpenChange={(open) => !open && closeResetDialog()}>

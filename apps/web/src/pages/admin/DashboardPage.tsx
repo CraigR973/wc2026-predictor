@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,9 +101,9 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="text-xs font-display tracking-wider text-text-secondary mb-1">{label}</div>
-        <div className="font-display text-3xl text-primary tracking-wider">{value}</div>
-        {sub && <div className="text-xs font-sans text-text-muted mt-1">{sub}</div>}
+        <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted mb-2">{label}</div>
+        <div className="font-mono text-3xl font-semibold text-primary tabular-nums leading-none">{value}</div>
+        {sub && <div className="text-xs font-sans text-text-muted mt-2">{sub}</div>}
       </CardContent>
     </Card>
   );
@@ -114,7 +115,7 @@ function SyncWidget({ sync }: { sync: SyncStatus }) {
     <Card className={hasErrors ? 'border-error/50' : ''}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-display tracking-wider text-text-secondary">AUTO SYNC</span>
+          <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted">Auto sync</span>
           <Badge variant={syncBadgeVariant(sync.last_sync_action)}>
             {syncActionLabel(sync.last_sync_action)}
           </Badge>
@@ -154,8 +155,8 @@ function UpcomingLocksWidget({ locks }: { locks: UpcomingLock[] }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="text-xs font-display tracking-wider text-text-secondary mb-3">
-          UPCOMING LOCKS (24H)
+        <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted mb-3">
+          Upcoming locks (24h)
         </div>
         {locks.length === 0 ? (
           <p className="text-text-muted text-xs font-sans">No matches locking in the next 24 hours.</p>
@@ -185,8 +186,8 @@ function PendingResultsWidget({ matches }: { matches: PendingMatch[] }) {
     <Card className={matches.length > 0 ? 'border-warning/40' : ''}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-display tracking-wider text-text-secondary">
-            PENDING RESULTS
+          <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted">
+            Pending results
           </span>
           {matches.length > 0 && (
             <Badge variant="warning">{matches.length}</Badge>
@@ -222,8 +223,8 @@ function RecentAuditWidget({ entries }: { entries: AuditEntry[] }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="text-xs font-display tracking-wider text-text-secondary mb-3">
-          RECENT ACTIVITY
+        <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted mb-3">
+          Recent activity
         </div>
         {entries.length === 0 ? (
           <p className="text-text-muted text-xs font-sans">No audit entries yet.</p>
@@ -260,7 +261,7 @@ export function AdminDashboardPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl text-primary tracking-wider mb-6">Admin</h1>
+      <PageHeader title="Admin" eyebrow="Dashboard" />
 
       {error && (
         <div className="mb-4">
@@ -317,7 +318,7 @@ export function AdminDashboardPage() {
       )}
 
       {/* Admin nav links */}
-      <h2 className="font-display text-sm text-text-secondary tracking-wider mb-3">MANAGE</h2>
+      <h2 className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted mb-3">Manage</h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { to: '/admin/sync', label: 'Sync' },
@@ -328,9 +329,9 @@ export function AdminDashboardPage() {
           <Link
             key={to}
             to={to}
-            className="block p-3 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors text-center"
+            className="block p-3 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors text-center press-down focus-visible:outline-none focus-visible:shadow-glow"
           >
-            <p className="font-display text-base text-primary tracking-wider">{label}</p>
+            <p className="font-sans text-sm font-semibold text-text-primary tracking-tight">{label}</p>
           </Link>
         ))}
       </div>
