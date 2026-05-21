@@ -15,6 +15,7 @@ import { apiFetch } from '../lib/api';
 import type { HistoryEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 
 // Distinct palette for up to 15 players
 const PALETTE = [
@@ -92,15 +93,18 @@ export function LeaderboardHistoryPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-3xl text-primary tracking-wider">Rank History</h1>
-        <Link
-          to="/leaderboard"
-          className="text-sm text-text-muted hover:text-primary font-sans transition-colors"
-        >
-          ← Leaderboard
-        </Link>
-      </div>
+      <PageHeader
+        title="Rank History"
+        eyebrow="Standings"
+        action={
+          <Link
+            to="/leaderboard"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            ← Leaderboard
+          </Link>
+        }
+      />
 
       {data.length === 0 ? (
         <EmptyState

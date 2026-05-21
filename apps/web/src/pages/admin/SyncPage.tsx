@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
 
 interface AuditEntry {
   id: string;
@@ -76,7 +77,7 @@ export function SyncStatusWidget() {
     <Card className={hasErrors ? 'border-error/50' : ''}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between gap-2 mb-2">
-          <span className="font-display text-sm tracking-wider text-text-secondary">AUTO SYNC</span>
+          <span className="font-mono text-xs uppercase tracking-[0.25em] text-text-secondary">Auto sync</span>
           <Badge variant={actionBadgeVariant(data?.last_sync_action ?? null)}>
             {actionLabel(data?.last_sync_action ?? null)}
           </Badge>
@@ -132,12 +133,18 @@ export function AdminSyncPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
-        <Link to="/admin" className="text-text-muted hover:text-text-primary text-sm font-sans">
-          ← Admin
-        </Link>
-        <h1 className="font-display text-3xl text-primary tracking-wider">Sync Status</h1>
-      </div>
+      <PageHeader
+        title="Sync Status"
+        eyebrow="Admin"
+        action={
+          <Link
+            to="/admin"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            ← Admin
+          </Link>
+        }
+      />
 
       {error && (
         <EmptyState
@@ -159,7 +166,7 @@ export function AdminSyncPage() {
           <Card>
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-display tracking-wider text-text-secondary text-sm">STATUS</span>
+                <span className="font-mono uppercase tracking-[0.25em] text-text-secondary text-xs">Status</span>
                 <Badge variant={actionBadgeVariant(data.last_sync_action)}>
                   {actionLabel(data.last_sync_action)}
                 </Badge>
@@ -202,7 +209,7 @@ export function AdminSyncPage() {
 
           {/* Error log */}
           <div>
-            <h2 className="font-display text-lg text-text-secondary tracking-wider mb-3">
+            <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">
               RECENT ERRORS
             </h2>
             {data.recent_errors.length === 0 ? (

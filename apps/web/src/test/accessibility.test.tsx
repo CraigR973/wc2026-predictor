@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { axe } from 'jest-axe';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LoginPage } from '@/pages/LoginPage';
-import { NavBar } from '@/components/NavBar';
+import { TopBar } from '@/components/TopBar';
 import { SettingsPage } from '@/pages/SettingsPage';
 
 // Disable color-contrast: jsdom cannot evaluate CSS custom properties.
@@ -117,7 +117,7 @@ describe('Accessibility — LoginPage', () => {
 // NavBar
 // ---------------------------------------------------------------------------
 
-describe('Accessibility — NavBar', () => {
+describe('Accessibility — TopBar', () => {
   it('has no axe violations', async () => {
     stubAuth();
     vi.stubGlobal('fetch', () => Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({}) }));
@@ -125,7 +125,7 @@ describe('Accessibility — NavBar', () => {
       <QueryClientProvider client={makeQueryClient()}>
         <MemoryRouter>
           <AuthProvider>
-            <NavBar />
+            <TopBar />
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>,
@@ -141,7 +141,7 @@ describe('Accessibility — NavBar', () => {
       <QueryClientProvider client={makeQueryClient()}>
         <MemoryRouter>
           <AuthProvider>
-            <NavBar />
+            <TopBar />
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>,

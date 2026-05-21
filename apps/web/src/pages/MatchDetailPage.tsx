@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
+import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type {
@@ -187,7 +188,7 @@ function PredictionForm({ matchId, existing }: PredictionFormProps) {
 
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
-      <h2 className="font-display text-lg text-primary tracking-wider mb-4">Your Prediction</h2>
+      <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-4">Your Prediction</h2>
 
       {existing?.submitted_at && (
         <p className="text-xs text-text-muted font-sans mb-3">
@@ -249,7 +250,7 @@ function ComparisonTable({ response, currentPlayerId }: ComparisonTableProps) {
 
   return (
     <div className="rounded-lg border border-border bg-surface overflow-hidden">
-      <h2 className="font-display text-lg text-primary tracking-wider p-4 border-b border-border">
+      <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight p-4 border-b border-border">
         All Predictions
       </h2>
       <div className="overflow-x-auto">
@@ -354,9 +355,11 @@ export function MatchDetailPage() {
     <div>
       <button
         onClick={() => navigate(-1)}
-        className="text-xs text-text-muted font-sans mb-4 hover:text-text-secondary transition-colors"
+        aria-label="Back"
+        className="tap-target -ml-2 mb-3 inline-flex items-center gap-1 text-xs font-mono uppercase tracking-[0.2em] text-text-muted hover:text-text-primary press-down rounded-md focus-visible:outline-none focus-visible:shadow-glow"
       >
-        ← Back
+        <ChevronLeft className="h-4 w-4" aria-hidden />
+        Back
       </button>
 
       <MatchHeader match={match} timezone={timezone} />

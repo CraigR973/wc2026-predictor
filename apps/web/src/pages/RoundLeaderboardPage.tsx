@@ -4,6 +4,8 @@ import { apiFetch } from '../lib/api';
 import type { RoundEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
+import { cn } from '../lib/utils';
 
 const STAGES = [
   { value: 'group', label: 'Group Stage' },
@@ -29,32 +31,41 @@ export function RoundLeaderboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-3xl text-primary tracking-wider">Round Leaderboard</h1>
-        <Link
-          to="/leaderboard"
-          className="text-sm text-text-muted hover:text-primary font-sans transition-colors"
-        >
-          ← Overall
-        </Link>
-      </div>
-
-      {/* Stage selector */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {STAGES.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => navigate(`/leaderboard/round/${s.value}`)}
-            className={`px-3 py-1.5 rounded-full text-xs font-sans font-medium border transition-colors ${
-              stage === s.value
-                ? 'border-primary bg-primary/20 text-primary'
-                : 'border-border text-text-muted hover:text-text-primary hover:border-border/80'
-            }`}
+      <PageHeader
+        title="Round Leaderboard"
+        eyebrow="Standings"
+        action={
+          <Link
+            to="/leaderboard"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
           >
-            {s.label}
-          </button>
-        ))}
-      </div>
+            ← Overall
+          </Link>
+        }
+      />
+
+      {/* Stage pill scroller */}
+      <nav className="-mx-4 sm:-mx-0 mb-5 overflow-x-auto" aria-label="Tournament stage">
+        <div className="flex gap-1.5 px-4 sm:px-0 min-w-max">
+          {STAGES.map((s) => {
+            const active = stage === s.value;
+            return (
+              <button
+                key={s.value}
+                onClick={() => navigate(`/leaderboard/round/${s.value}`)}
+                className={cn(
+                  'inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium font-sans whitespace-nowrap transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow',
+                  active
+                    ? 'bg-primary/15 text-primary border border-primary/30'
+                    : 'bg-surface text-text-secondary hover:bg-surface-elevated border border-border',
+                )}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       {isLoading ? (
         <div

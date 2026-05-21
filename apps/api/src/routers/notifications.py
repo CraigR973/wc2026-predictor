@@ -154,7 +154,7 @@ async def test_push(request: Request, player: CurrentPlayer, db: Db) -> dict[str
         session=db,
         player_id=player.id,
         notification_type=NotificationType.result_detected,
-        title="WC 2026 — test notification",
+        title="The Steele Spreadsheet System — test",
         body="Push notifications are working!",
         data={"url": "/"},
     )

@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 import type { H2HMatchEntry, H2HResponse, PlayerListItem } from '../lib/types';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -226,15 +227,18 @@ export function ComparePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl text-primary tracking-wider">Head-to-Head</h1>
-        <Link
-          to="/leaderboard"
-          className="text-sm text-text-muted hover:text-primary font-sans transition-colors"
-        >
-          ← Leaderboard
-        </Link>
-      </div>
+      <PageHeader
+        title="Head-to-Head"
+        eyebrow="Compare"
+        action={
+          <Link
+            to="/leaderboard"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            ← Leaderboard
+          </Link>
+        }
+      />
 
       <p className="text-text-muted text-sm font-sans">
         Pick two players to compare match-by-match. Long-press a row on the leaderboard to

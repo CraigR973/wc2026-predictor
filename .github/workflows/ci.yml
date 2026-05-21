@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - staging
       - 'claude/**'
       - 'feat/**'
       - 'fix/**'
@@ -233,3 +234,48 @@ jobs:
           name: smoke-report
           path: apps/web/playwright-report/
           retention-days: 7
+
+  # ─── Deploy ─────────────────────────────────────────────────────────────────
+  # Only runs on the staging branch, after every other job has succeeded.
+  # Builds + deploys to wc2026-staging.vercel.app as a PRODUCTION-target
+  # deployment (so it lands on the canonical URL the staging API CORS allows).
+  # Requires repo secret VERCEL_TOKEN.
+  deploy-staging:
+    name: Deploy → wc2026-staging.vercel.app
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    needs: [lint-api, typecheck-api, test-api, migration-check, build-web, e2e, smoke]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: true
+    env:
+      VERCEL_ORG_ID: team_MVQMOaFtYHlwO5QVzSOZQ0Ud
+      VERCEL_PROJECT_ID: prj_hVMpuWm33XjuNrVUWrCti27ZfIX7
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      # Deploy via Vercel's REMOTE builder (not --prebuilt) so that
+      # env vars marked "Sensitive" on the project — which `vercel pull`
+      # can't return locally — are available during the build. Earlier
+      # attempts with --prebuilt produced a bundle without VITE_API_URL,
+      # causing the R5 hard-assert to throw at module load → blank page.
+      - name: Deploy
+        id: deploy
+        run: |
+          URL=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed to: $URL"
+      - name: Summary
+        run: |
+          echo "### Staging deploy ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **URL**: https://wc2026-staging.vercel.app" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Direct**: ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SHA**: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"

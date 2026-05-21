@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
 
 interface AdminMatchResult {
   match_id: string;
@@ -48,12 +49,18 @@ export function AdminResultsPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
-        <Link to="/admin" className="text-text-muted hover:text-text-primary text-sm font-sans">
-          ← Admin
-        </Link>
-        <h1 className="font-display text-3xl text-primary tracking-wider">Results</h1>
-      </div>
+      <PageHeader
+        title="Results"
+        eyebrow="Admin"
+        action={
+          <Link
+            to="/admin"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            ← Admin
+          </Link>
+        }
+      />
 
       {error && (
         <EmptyState title="Couldn't load results" description="Try refreshing the page." />
@@ -93,7 +100,7 @@ export function AdminResultsPage() {
                       <span className="text-sm font-sans text-text-primary truncate">
                         {homeLabel}
                       </span>
-                      <span className="font-display text-primary shrink-0">
+                      <span className="font-mono text-base font-semibold text-primary tabular-nums shrink-0">
                         {m.actual_home_score ?? '?'} – {m.actual_away_score ?? '?'}
                       </span>
                       <span className="text-sm font-sans text-text-primary truncate">

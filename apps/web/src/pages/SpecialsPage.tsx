@@ -16,6 +16,7 @@ import type {
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -173,10 +174,10 @@ function SpecialCard({
   const selectedTeam = teams.find((t) => t.id === teamId);
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <div className="flex items-center gap-2 mb-1 text-primary">
+    <div className="rounded-lg border border-border bg-surface p-5">
+      <div className="flex items-center gap-2.5 mb-1 text-primary">
         {meta.icon}
-        <h3 className="font-display text-lg tracking-wider">{meta.label}</h3>
+        <h3 className="font-sans font-semibold text-base tracking-tight text-text-primary">{meta.label}</h3>
         <span className="ml-auto">
           <Badge variant="muted">{SPECIAL_POINTS[ptype]} pts</Badge>
         </span>
@@ -291,7 +292,7 @@ function ComparisonView({
 
   return (
     <div className="mt-8">
-      <h2 className="font-display text-xl text-primary tracking-wider mb-4">All Picks</h2>
+      <h2 className="font-sans font-semibold text-lg text-text-primary tracking-tight mb-4">All Picks</h2>
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full font-sans text-sm">
           <thead>
@@ -439,11 +440,16 @@ export function SpecialsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="font-display text-2xl text-primary tracking-wider">Tournament Specials</h1>
-        <span className="text-text-muted text-sm font-sans">{submittedCount}/3 submitted</span>
-      </div>
-      <p className="text-text-secondary font-sans text-sm mb-4">
+      <PageHeader
+        title="Tournament Specials"
+        eyebrow="Pre-tournament bonus"
+        action={
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-elevated border border-border font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary tabular-nums">
+            {submittedCount}/3
+          </span>
+        }
+      />
+      <p className="text-text-secondary font-sans text-sm mb-5 -mt-2">
         Pre-tournament bonus predictions. Worth up to 45 extra points.
       </p>
 

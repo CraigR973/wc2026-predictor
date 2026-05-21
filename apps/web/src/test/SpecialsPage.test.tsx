@@ -161,8 +161,10 @@ describe('SpecialsPage — pre-lock', () => {
 
   it('shows submitted count', async () => {
     renderPage(makeFetch({ specials: SUBMITTED_SPECIALS }));
+    // The header chip shows just `3/3` (the word "submitted" is implied by the
+    // "Pre-tournament bonus" eyebrow + the sub-copy underneath the header).
     await waitFor(() => {
-      expect(screen.getByText('3/3 submitted')).toBeInTheDocument();
+      expect(screen.getByText('3/3')).toBeInTheDocument();
     });
   });
 

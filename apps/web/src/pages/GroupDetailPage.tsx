@@ -6,6 +6,7 @@ import type { GroupResponse } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 
 export function GroupDetailPage() {
   const { name } = useParams<{ name: string }>();
@@ -60,14 +61,18 @@ export function GroupDetailPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
-        <Link to="/groups" className="text-text-muted hover:text-primary text-sm font-sans transition-colors">
-          ← Groups
-        </Link>
-        <h1 className="font-display text-3xl text-primary tracking-wider">
-          Group {data.name}
-        </h1>
-      </div>
+      <PageHeader
+        title={`Group ${data.name}`}
+        eyebrow="Standings"
+        action={
+          <Link
+            to="/groups"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            ← Groups
+          </Link>
+        }
+      />
 
       <div className="rounded-lg border border-border bg-surface overflow-hidden">
         <table className="w-full text-sm font-sans">

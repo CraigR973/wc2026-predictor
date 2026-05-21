@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -112,18 +113,22 @@ export function AdminInvitesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="font-display text-4xl text-primary tracking-wider">Invites</h1>
-            <Link to="/admin/players" className="text-xs text-text-muted hover:text-primary font-sans mt-1 inline-block">
-              → Players
+    <div className="max-w-4xl">
+      <PageHeader
+        title="Invites"
+        eyebrow="Admin"
+        action={
+          <div className="flex items-center gap-2">
+            <Link
+              to="/admin/players"
+              className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+            >
+              Players →
             </Link>
+            <Button size="sm" onClick={() => setShowCreate(true)}>New invite</Button>
           </div>
-          <Button onClick={() => setShowCreate(true)}>New invite</Button>
-        </div>
-
+        }
+      />
         {isLoading && (
           <div className="space-y-3" aria-label="Loading invites">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -191,7 +196,6 @@ export function AdminInvitesPage() {
             />
           )}
         </div>
-      </div>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-sm">

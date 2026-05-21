@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Lock } from 'lucide-react';
+import { Lock, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { enqueuePrediction } from '../lib/offlineQueue';
@@ -10,9 +10,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { MatchResponse, GroupResponse, PredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 import { useCountdown } from '../hooks/useCountdown';
+import { cn } from '../lib/utils';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -99,21 +102,22 @@ function ScoreInput({
   }
 
   return (
-    <div className="flex flex-col items-center gap-0.5">
+    <div className="flex flex-col items-center gap-1">
       {!disabled && (
         <button
           type="button"
           onClick={() => step(1)}
           aria-label={`Increment ${ariaLabel}`}
-          className="w-8 h-5 text-text-muted hover:text-primary leading-none text-xs select-none rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+          className="h-6 w-12 inline-flex items-center justify-center rounded-sm text-text-muted hover:text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
         >
-          ▲
+          <ChevronUp className="h-4 w-4" aria-hidden />
         </button>
       )}
       <input
         type="number"
         min={0}
         max={99}
+        inputMode="numeric"
         value={value}
         onChange={(e) => {
           const raw = e.target.value;
@@ -121,20 +125,23 @@ function ScoreInput({
         }}
         disabled={disabled}
         aria-label={ariaLabel}
-        className={`w-12 h-12 text-center font-display text-3xl rounded-md border bg-surface focus:outline-none focus:ring-1 focus:ring-primary tabular-nums
-          ${disabled
+        className={cn(
+          'w-12 h-14 text-center font-mono text-3xl font-semibold rounded-md border bg-surface tabular-nums leading-none',
+          'transition-shadow duration-fast',
+          'focus:outline-none focus-visible:border-primary focus-visible:shadow-glow',
+          disabled
             ? 'text-text-muted border-border cursor-not-allowed opacity-50'
-            : 'text-text-primary border-border hover:border-primary/50'
-          }`}
+            : 'text-text-primary border-border hover:border-primary/50',
+        )}
       />
       {!disabled && (
         <button
           type="button"
           onClick={() => step(-1)}
           aria-label={`Decrement ${ariaLabel}`}
-          className="w-8 h-5 text-text-muted hover:text-primary leading-none text-xs select-none rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+          className="h-6 w-12 inline-flex items-center justify-center rounded-sm text-text-muted hover:text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
         >
-          ▼
+          <ChevronDown className="h-4 w-4" aria-hidden />
         </button>
       )}
     </div>
@@ -245,54 +252,54 @@ function PredictionCard({
 
   return (
     <motion.div
-      className={`rounded-lg border bg-surface p-3 transition-all ${
-        isVoided ? 'opacity-50' : ''
-      } ${isDeadlineWarning ? 'border-warning/60' : highlighted ? 'border-primary' : 'border-border'}`}
+      className={cn(
+        'rounded-lg border bg-surface p-4 transition-all',
+        isVoided && 'opacity-50',
+        isDeadlineWarning
+          ? 'border-warning/60'
+          : highlighted
+            ? 'border-primary shadow-glow'
+            : 'border-border',
+      )}
       data-testid={`prediction-card-${match.id}`}
       animate={highlighted && !prefersReducedMotion ? { scale: [1, 1.02, 1] } : {}}
       transition={{ duration: 0.4 }}
     >
-      {/* Header row */}
+      {/* Eyebrow row: caps-mono kickoff time + status pills */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <span
-          className={`text-xs font-mono ${
-            isDeadlineWarning ? 'text-warning font-semibold' : 'text-text-muted'
-          }`}
+          className={cn(
+            'font-mono text-[10px] uppercase tracking-[0.25em]',
+            isDeadlineWarning ? 'text-warning font-semibold' : 'text-text-muted',
+          )}
         >
           {kickoffLocal}
           {isDeadlineWarning && (
-            <span className="ml-1.5" data-testid="deadline-warning">
+            <span className="ml-2 normal-case tracking-normal" data-testid="deadline-warning">
               · {formatCountdown(countdown)} left
             </span>
           )}
         </span>
-        <div className="flex items-center gap-2">
-            {isCompleted && points !== null && !noSubmission && (
-            <PointsBadge points={points} />
-          )}
-          {isCompleted && noSubmission && (
-            <Badge variant="muted">No entry</Badge>
-          )}
+        <div className="flex items-center gap-2 shrink-0">
+          {isCompleted && points !== null && !noSubmission && <PointsBadge points={points} />}
+          {isCompleted && noSubmission && <Badge variant="muted">No entry</Badge>}
           <Badge variant={statusVariant(match.status)}>{statusLabel(match.status)}</Badge>
         </div>
       </div>
 
-      {/* Teams + inputs */}
-      <div className="flex items-center gap-2">
-        {/* Home team */}
+      {/* Teams + score inputs */}
+      <div className="flex items-center gap-3">
         <div className="flex-1 text-sm font-sans text-text-primary truncate text-right">
           {homeLabel}
         </div>
-
-        {/* Score inputs */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <ScoreInput
             value={homeVal}
             onChange={(v) => onHomeChange(match.id, v)}
             disabled={!editable}
             aria-label={`Home score for match ${match.match_number}`}
           />
-          <span className="text-text-muted font-mono text-sm">–</span>
+          <span className="text-text-muted font-mono text-base self-center pt-1">–</span>
           <ScoreInput
             value={awayVal}
             onChange={(v) => onAwayChange(match.id, v)}
@@ -300,40 +307,39 @@ function PredictionCard({
             aria-label={`Away score for match ${match.match_number}`}
           />
         </div>
-
-        {/* Away team */}
-        <div className="flex-1 text-sm font-sans text-text-primary truncate">
-          {awayLabel}
-        </div>
+        <div className="flex-1 text-sm font-sans text-text-primary truncate">{awayLabel}</div>
       </div>
 
-      {/* Lock indicator */}
+      {/* Footer states */}
       {isLocked && (
-        <div className="mt-2 flex items-center justify-center gap-1.5 text-xs font-sans text-warning" data-testid="lock-indicator">
+        <div
+          className="mt-3 flex items-center justify-center gap-1.5 text-xs font-sans text-warning"
+          data-testid="lock-indicator"
+        >
           <Lock size={12} aria-hidden="true" />
           <span>Kicks off in {formatCountdown(countdown)}</span>
         </div>
       )}
 
-      {/* Not-predicted warning */}
       {notPredicted && (
-        <div className="mt-2 text-center text-xs font-sans text-warning" data-testid="not-predicted-warning">
+        <div
+          className="mt-3 text-center text-xs font-mono uppercase tracking-[0.2em] text-warning"
+          data-testid="not-predicted-warning"
+        >
           Not predicted yet
         </div>
       )}
 
-      {/* Actual result (when completed) */}
       {isCompleted && match.actual_home_score !== null && match.actual_away_score !== null && (
-        <div className="mt-2 text-center text-xs font-mono text-text-muted">
+        <div className="mt-3 text-center text-xs font-mono text-text-muted tabular-nums">
           Result: {match.actual_home_score} – {match.actual_away_score}
           {match.penalties && ' (pens)'}
           {match.extra_time && !match.penalties && ' (aet)'}
         </div>
       )}
 
-      {/* Postponed reason */}
       {match.status === 'postponed' && match.postponed_reason && (
-        <p className="mt-2 text-xs font-sans text-text-muted text-center">
+        <p className="mt-3 text-xs font-sans text-text-muted text-center">
           {match.postponed_reason}
         </p>
       )}
@@ -394,20 +400,19 @@ function GroupPanel({
       </div>
 
       {editableMatches.length > 0 && (
-        <div className="mt-4 flex items-center justify-end gap-3">
+        <div className="mt-5 flex items-center justify-end gap-3">
           {dirtyCount > 0 && (
-            <span className="text-xs text-text-muted font-sans">
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
               {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'}
             </span>
           )}
-          <button
+          <Button
+            size="sm"
             onClick={() => onSaveAll(editableMatches)}
             disabled={savingAny || dirtyCount === 0}
-            className="px-4 py-1.5 rounded-md text-sm font-sans bg-primary text-surface font-medium
-              hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {savingAny ? 'Saving…' : 'Save Group ' + group.name}
-          </button>
+            {savingAny ? 'Saving…' : `Save Group ${group.name}`}
+          </Button>
         </div>
       )}
     </div>
@@ -638,16 +643,16 @@ export function PredictionsPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl text-primary tracking-wider mb-4">My Predictions</h1>
+      <PageHeader title="My Predictions" eyebrow="Group stage" />
 
       {isLoading && (
         <div className="space-y-4" aria-label="Loading predictions">
-          <div className="flex flex-wrap gap-1 pb-3 border-b border-border">
+          <div className="flex flex-wrap gap-1.5 pb-3">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-8 w-20 rounded-md" />
+              <Skeleton key={i} className="h-8 w-20 rounded-full" />
             ))}
           </div>
-          <Skeleton className="h-[260px] w-full" />
+          <Skeleton className="h-[260px] w-full rounded-lg" />
         </div>
       )}
 
@@ -660,30 +665,36 @@ export function PredictionsPage() {
 
       {!isLoading && sortedGroups.length > 0 && (
         <>
-          {/* Group tabs */}
-          <div
-            className="flex flex-wrap gap-1 mb-6 border-b border-border pb-3"
+          {/* Horizontal pill scroller for groups A–L */}
+          <nav
+            className="-mx-4 sm:-mx-0 mb-5 overflow-x-auto"
             role="tablist"
             aria-label="Tournament groups"
           >
-            {sortedGroups.map((g, i) => (
-              <button
-                key={g.id}
-                role="tab"
-                aria-selected={activeGroup === i}
-                onClick={() => setActiveGroup(i)}
-                className={`px-3 py-1.5 rounded-md text-sm font-mono transition-colors ${
-                  activeGroup === i
-                    ? 'bg-primary text-surface font-semibold'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
-                }`}
-              >
-                Group {g.name}
-              </button>
-            ))}
-          </div>
+            <div className="flex gap-1.5 px-4 sm:px-0 min-w-max">
+              {sortedGroups.map((g, i) => {
+                const active = activeGroup === i;
+                return (
+                  <button
+                    key={g.id}
+                    role="tab"
+                    aria-selected={active}
+                    aria-label={`Group ${g.name}`}
+                    onClick={() => setActiveGroup(i)}
+                    className={cn(
+                      'inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium font-mono uppercase tracking-[0.15em] whitespace-nowrap transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow',
+                      active
+                        ? 'bg-primary/15 text-primary border border-primary/30'
+                        : 'bg-surface text-text-secondary hover:bg-surface-elevated border border-border',
+                    )}
+                  >
+                    {g.name}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
 
-          {/* Active group panel */}
           {sortedGroups[activeGroup] && (
             <GroupPanel
               group={sortedGroups[activeGroup]}

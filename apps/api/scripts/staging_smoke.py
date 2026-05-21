@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E501
 """Staging smoke test for the World Cup 2026 prediction league.
 
 Exercises the high-risk paths from the R1–R7 pre-launch review end-to-end
@@ -50,9 +51,7 @@ import httpx
 STATE_FILE = Path("/tmp/wc2026_staging_smoke_state.json")
 
 
-BASE = os.environ.get(
-    "STAGING_BASE", "https://wc2026-api-production-333a.up.railway.app/api/v1"
-)
+BASE = os.environ.get("STAGING_BASE", "https://wc2026-api-production-333a.up.railway.app/api/v1")
 ADMIN_NAME = "Craig"
 RUN_SUFFIX = os.environ.get("SMOKE_SUFFIX", secrets.token_hex(2))
 PLAYER_NAMES = [f"smoke_{n}_{RUN_SUFFIX}" for n in ("alice", "bob", "charlie")]
@@ -175,7 +174,7 @@ class State:
         STATE_FILE.write_text(json.dumps(asdict(self), indent=2))
 
     @classmethod
-    def load(cls) -> "State":
+    def load(cls) -> State:
         if not STATE_FILE.exists():
             fail(f"no state file at {STATE_FILE} — run `setup` first")
         return cls(**json.loads(STATE_FILE.read_text()))
@@ -201,9 +200,7 @@ def phase_pick_matches(client: httpx.Client, state: State) -> None:
     if isinstance(matches, dict):
         matches = matches.get("data") or matches.get("matches") or []
     # Sort by match_number, take the first 6 scheduled group matches.
-    scheduled = [
-        m for m in matches if m.get("stage") == "group" and m.get("status") == "scheduled"
-    ]
+    scheduled = [m for m in matches if m.get("stage") == "group" and m.get("status") == "scheduled"]
     scheduled.sort(key=lambda m: m["match_number"])
     if len(scheduled) < 6:
         fail(f"need 6 scheduled group matches; found {len(scheduled)}")
@@ -381,8 +378,8 @@ def phase_override_match(client: httpx.Client, state: State) -> None:
     #   charlie 0-2: result mismatch (loss vs win) → 0; total 2 != 3 → 0; exact no → 0; subtotal 0 (was 0)
     expected = {
         state.player_names[0]: 20 - 10 + 5,  # 15
-        state.player_names[1]: 8,             # unchanged
-        state.player_names[2]: 3,             # unchanged
+        state.player_names[1]: 8,  # unchanged
+        state.player_names[2]: 3,  # unchanged
     }
     for name, exp in expected.items():
         actual = lb[name]["total_points"]
@@ -408,9 +405,9 @@ def phase_cancel_match(client: httpx.Client, state: State) -> None:
 
     lb = _get_leaderboard(client, state)
     expected = {
-        state.player_names[0]: 15,        # unchanged
-        state.player_names[1]: 8 - 2,     # 6
-        state.player_names[2]: 3 - 3,     # 0
+        state.player_names[0]: 15,  # unchanged
+        state.player_names[1]: 8 - 2,  # 6
+        state.player_names[2]: 3 - 3,  # 0
     }
     for name, exp in expected.items():
         actual = lb[name]["total_points"]
@@ -434,8 +431,8 @@ def phase_award_specials(client: httpx.Client, state: State) -> None:
     # Tournament winner = 20 pts.
     expected = {
         state.player_names[0]: 15 + 20,  # 35
-        state.player_names[1]: 6 + 20,   # 26
-        state.player_names[2]: 0 + 20,   # 20
+        state.player_names[1]: 6 + 20,  # 26
+        state.player_names[2]: 0 + 20,  # 20
     }
     for name, exp in expected.items():
         entry = lb[name]
@@ -511,7 +508,7 @@ def _get_leaderboard(client: httpx.Client, state: State) -> dict[str, dict[str, 
 
 def cmd_setup(args: argparse.Namespace) -> None:
     admin_pin = os.environ.get("ADMIN_PIN") or fail("ADMIN_PIN env var required")
-    print(f"\033[1m=== WC2026 staging smoke — SETUP ===\033[0m")
+    print("\033[1m=== WC2026 staging smoke — SETUP ===\033[0m")
     print(f"  base       : {BASE}")
     print(f"  run suffix : {RUN_SUFFIX}")
     print(f"  players    : {', '.join(PLAYER_NAMES)}")
@@ -525,14 +522,11 @@ def cmd_setup(args: argparse.Namespace) -> None:
     state.save()
     ok(f"State persisted to {STATE_FILE}")
     phase_print_sql_lock_matches(state)
-    print(
-        "\nNext: run the printed SQL via the Supabase MCP, then invoke "
-        f"`{sys.argv[0]} run`."
-    )
+    print(f"\nNext: run the printed SQL via the Supabase MCP, then invoke `{sys.argv[0]} run`.")
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    print(f"\033[1m=== WC2026 staging smoke — RUN ===\033[0m")
+    print("\033[1m=== WC2026 staging smoke — RUN ===\033[0m")
     state = State.load()
     # Re-login as admin since the access token in state may be near-expiry (~24 h
     # TTL but no harm in refreshing for a multi-phase script).
@@ -561,7 +555,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 
 def cmd_teardown(args: argparse.Namespace) -> None:
-    print(f"\033[1m=== WC2026 staging smoke — TEARDOWN ===\033[0m")
+    print("\033[1m=== WC2026 staging smoke — TEARDOWN ===\033[0m")
     state = State.load()
     admin_pin = os.environ.get("ADMIN_PIN") or fail("ADMIN_PIN env var required")
     with httpx.Client(base_url=BASE, timeout=TIMEOUT) as client:

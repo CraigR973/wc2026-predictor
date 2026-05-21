@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Brand } from '@/components/Brand';
+import { brand } from '@/theme/tokens';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -116,11 +118,13 @@ export function JoinPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4 pt-safe pb-safe">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="font-display text-5xl text-primary tracking-wider">WC 2026</h1>
-          <p className="text-text-secondary mt-1 font-sans text-sm">Prediction League</p>
+        <div className="mb-10">
+          <Brand variant="splash" />
+          <p className="text-center text-text-secondary mt-6 font-sans text-sm">
+            {brand.tagline}
+          </p>
         </div>
 
         {inviteState === 'loading' && (

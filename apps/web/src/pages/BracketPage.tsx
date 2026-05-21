@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 import type { MatchResponse, KnockoutPredictionResponse } from '../lib/types';
 
 // ---------------------------------------------------------------------------
@@ -377,9 +378,11 @@ export function BracketPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4" aria-label="Loading bracket">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-96 w-full" />
+      <div>
+        <PageHeader title="Bracket" eyebrow="Knockouts" />
+        <div className="space-y-4" aria-label="Loading bracket">
+          <Skeleton className="h-96 w-full rounded-lg" />
+        </div>
       </div>
     );
   }
@@ -387,7 +390,7 @@ export function BracketPage() {
   if (!hasAnyKnockoutMatches) {
     return (
       <div>
-        <h1 className="font-display text-3xl text-primary tracking-wider mb-6">BRACKET</h1>
+        <PageHeader title="Bracket" eyebrow="Knockouts" />
         <EmptyState
           title="Bracket isn't ready yet"
           description="Knockout matches appear here once the group stage completes."
@@ -398,26 +401,24 @@ export function BracketPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <h1 className="font-display text-3xl text-primary tracking-wider">BRACKET</h1>
-        <div className="flex items-center gap-3 text-xs font-sans text-text-muted">
-          <span className="flex items-center gap-1.5">
-            <span
-              className="inline-block w-3 h-3 rounded-sm"
-              style={{ backgroundColor: `${myColor}40`, border: `1px solid ${myColor}` }}
-              aria-hidden="true"
-            />
-            Your pick
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span
-              className="inline-block w-3 h-3 rounded-sm"
-              style={{ backgroundColor: 'rgba(34,197,94,0.25)', border: '1px solid #22c55e' }}
-              aria-hidden="true"
-            />
-            Correct
-          </span>
-        </div>
+      <PageHeader title="Bracket" eyebrow="Knockouts" />
+      <div className="flex items-center gap-3 mb-5 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block w-3 h-3 rounded-sm"
+            style={{ backgroundColor: `${myColor}40`, border: `1px solid ${myColor}` }}
+            aria-hidden="true"
+          />
+          Your pick
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block w-3 h-3 rounded-sm"
+            style={{ backgroundColor: 'rgba(16,185,129,0.25)', border: '1px solid #10b981' }}
+            aria-hidden="true"
+          />
+          Correct
+        </span>
       </div>
 
       <div
