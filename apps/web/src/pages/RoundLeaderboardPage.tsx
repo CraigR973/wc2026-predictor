@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { RoundEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
+import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { cn } from '../lib/utils';
@@ -23,7 +24,7 @@ export function RoundLeaderboardPage() {
   const { stage = 'group' } = useParams<{ stage: string }>();
   const navigate = useNavigate();
 
-  const { data = [], isLoading, error } = useQuery<RoundEntry[]>({
+  const { data = [], isLoading, error, refetch, isRefetching } = useQuery<RoundEntry[]>({
     queryKey: ['leaderboard-round', stage],
     queryFn: () => apiFetch<RoundEntry[]>(`/api/v1/leaderboard/round/${stage}`),
     staleTime: 30_000,
@@ -84,6 +85,11 @@ export function RoundLeaderboardPage() {
         <EmptyState
           title="Couldn't load round leaderboard"
           description="Refresh the page or check your connection."
+          action={
+            <Button variant="outline" size="sm" disabled={isRefetching} onClick={() => refetch()}>
+              {isRefetching ? 'Retrying…' : 'Try again'}
+            </Button>
+          }
         />
       ) : data.length === 0 || data.every((e) => e.points === 0) ? (
         <EmptyState

@@ -14,6 +14,7 @@ import {
 import { apiFetch } from '../lib/api';
 import type { HistoryEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
+import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 
@@ -48,7 +49,7 @@ function buildChartData(players: HistoryEntry[]): ChartPoint[] {
 }
 
 export function LeaderboardHistoryPage() {
-  const { data = [], isLoading, error } = useQuery<HistoryEntry[]>({
+  const { data = [], isLoading, error, refetch, isRefetching } = useQuery<HistoryEntry[]>({
     queryKey: ['leaderboard-history'],
     queryFn: () => apiFetch<HistoryEntry[]>('/api/v1/leaderboard/history'),
     staleTime: 60_000,
@@ -87,6 +88,11 @@ export function LeaderboardHistoryPage() {
       <EmptyState
         title="Couldn't load rank history"
         description="There was a problem reaching the server. Refresh to try again."
+        action={
+          <Button variant="outline" size="sm" disabled={isRefetching} onClick={() => refetch()}>
+            {isRefetching ? 'Retrying…' : 'Try again'}
+          </Button>
+        }
       />
     );
   }
