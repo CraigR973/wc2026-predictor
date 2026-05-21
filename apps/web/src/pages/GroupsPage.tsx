@@ -5,6 +5,7 @@ import { apiFetch } from '../lib/api';
 import type { GroupResponse } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { Skeleton } from '../components/ui/skeleton';
+import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 
@@ -75,7 +76,7 @@ function StandingsTable({ group }: { group: GroupResponse }) {
 export function GroupsPage() {
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery<GroupResponse[]>({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery<GroupResponse[]>({
     queryKey: ['groups'],
     queryFn: () => apiFetch<GroupResponse[]>('/api/v1/groups'),
     staleTime: 30_000,
@@ -114,6 +115,11 @@ export function GroupsPage() {
         <EmptyState
           title="Couldn't load groups"
           description="There was a problem reaching the server. Try again in a moment."
+          action={
+            <Button variant="outline" size="sm" disabled={isRefetching} onClick={() => refetch()}>
+              {isRefetching ? 'Retrying…' : 'Try again'}
+            </Button>
+          }
         />
       )}
 

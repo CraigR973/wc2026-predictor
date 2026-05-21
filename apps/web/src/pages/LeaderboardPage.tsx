@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useLongPress } from '../hooks/useLongPress';
 import { Skeleton } from '../components/ui/skeleton';
+import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { cn } from '../lib/utils';
@@ -86,18 +87,20 @@ function LeaderboardRow({
       )}
       {...handlers}
     >
-      <td className="py-3.5 pl-4 sm:pl-5 w-10">
+      <td className="py-3.5 pl-4 sm:pl-5 w-8">
         <span className="text-text-muted font-mono text-sm tabular-nums">
           {MEDAL[entry.rank] ?? entry.rank}
         </span>
       </td>
-      <td className="py-3.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <ArrowGlyph rank={rd} />
+      <td className="py-3.5 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="shrink-0">
+            <ArrowGlyph rank={rd} />
+          </span>
           <Link
             to={`/players/${entry.player_id}`}
             className={cn(
-              'font-medium hover:text-primary transition-colors truncate',
+              'font-medium hover:text-primary transition-colors truncate min-w-0',
               isMe ? 'text-primary' : 'text-text-primary',
             )}
             onPointerDown={(e) => e.stopPropagation()}
@@ -112,7 +115,7 @@ function LeaderboardRow({
           )}
         </div>
       </td>
-      <td className="py-3.5 text-right pr-2 font-mono text-base font-semibold text-primary tabular-nums">
+      <td className="py-3.5 text-right pr-2 font-mono text-base font-semibold text-primary tabular-nums w-14">
         {entry.total_points}
       </td>
       <td className="py-3.5 pr-4 sm:pr-5 text-right w-8">
@@ -169,7 +172,7 @@ export function LeaderboardPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const reduceMotion = useReducedMotion() ?? false;
 
-  const { data = [], isLoading, error } = useQuery<LeaderboardEntry[]>({
+  const { data = [], isLoading, error, refetch, isRefetching } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard'],
     queryFn: () => apiFetch<LeaderboardEntry[]>('/api/v1/leaderboard'),
     staleTime: 15_000,
@@ -250,6 +253,11 @@ export function LeaderboardPage() {
         <EmptyState
           title="Couldn't load the leaderboard"
           description="Refresh the page or check your connection."
+          action={
+            <Button variant="outline" size="sm" disabled={isRefetching} onClick={() => refetch()}>
+              {isRefetching ? 'Retrying…' : 'Try again'}
+            </Button>
+          }
         />
       </div>
     );

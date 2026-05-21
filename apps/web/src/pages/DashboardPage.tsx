@@ -5,9 +5,6 @@ import {
   Pencil,
   Swords,
   Sparkles,
-  CalendarDays,
-  Users,
-  GitCompare,
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
@@ -246,9 +243,6 @@ const NAV_CARDS: ReadonlyArray<NavCard> = [
   { to: '/predictions', title: 'Predictions', desc: 'Submit your match scores', Icon: Pencil },
   { to: '/predictions/knockout', title: 'Knockout Picks', desc: 'Pick winners for each round', Icon: Swords },
   { to: '/predictions/specials', title: 'Specials', desc: 'Tournament winner, Golden Boot, top scorer', Icon: Sparkles },
-  { to: '/schedule', title: 'Schedule', desc: 'Browse all 104 matches', Icon: CalendarDays },
-  { to: '/groups', title: 'Groups', desc: 'Live group standings', Icon: Users },
-  { to: '/compare', title: 'Compare', desc: 'Head-to-head between any two players', Icon: GitCompare },
 ];
 
 function NavCardLink({ card }: { card: NavCard }) {
@@ -336,33 +330,59 @@ export function DashboardPage() {
         )}
       </div>
 
-      {/* Next match countdown + Latest result */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {upcomingLoading ? (
-          <Skeleton className="h-[140px] rounded-lg" />
-        ) : nextMatch ? (
-          <NextMatchCard match={nextMatch} timezone={timezone} />
-        ) : (
-          <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-            <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-              Next Match
-            </p>
-            <p className="text-text-muted font-sans text-sm">No upcoming matches</p>
+      {/* Next match countdown + Latest result.
+          Special-case: when BOTH are empty (and neither is loading) we collapse
+          the two big empty cards into a single slim hint to free up scroll. */}
+      {(() => {
+        const bothLoading = upcomingLoading && recentLoading;
+        const bothEmpty = !upcomingLoading && !recentLoading && !nextMatch && !latestPred;
+        if (bothLoading) {
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Skeleton className="h-[140px] rounded-lg" />
+              <Skeleton className="h-[140px] rounded-lg" />
+            </div>
+          );
+        }
+        if (bothEmpty) {
+          return (
+            <div className="rounded-lg border border-dashed border-border bg-surface/40 px-4 py-3 text-center">
+              <p className="text-sm font-sans text-text-secondary">
+                Tournament hasn&apos;t started yet — upcoming matches and your
+                latest result will appear here.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {upcomingLoading ? (
+              <Skeleton className="h-[140px] rounded-lg" />
+            ) : nextMatch ? (
+              <NextMatchCard match={nextMatch} timezone={timezone} />
+            ) : (
+              <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+                <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
+                  Next Match
+                </p>
+                <p className="text-text-muted font-sans text-sm">No upcoming matches</p>
+              </div>
+            )}
+            {recentLoading ? (
+              <Skeleton className="h-[140px] rounded-lg" />
+            ) : latestPred ? (
+              <LatestResultCard prediction={latestPred} timezone={timezone} />
+            ) : (
+              <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+                <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
+                  Latest Result
+                </p>
+                <p className="text-text-muted font-sans text-sm">No results yet</p>
+              </div>
+            )}
           </div>
-        )}
-        {recentLoading ? (
-          <Skeleton className="h-[140px] rounded-lg" />
-        ) : latestPred ? (
-          <LatestResultCard prediction={latestPred} timezone={timezone} />
-        ) : (
-          <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-            <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-              Latest Result
-            </p>
-            <p className="text-text-muted font-sans text-sm">No results yet</p>
-          </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* Mini leaderboard */}
       {leaderboardLoading ? (

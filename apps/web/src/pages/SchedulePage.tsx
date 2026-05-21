@@ -6,6 +6,7 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { MatchResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
@@ -210,7 +211,7 @@ export function SchedulePage() {
 
   const [stageFilter, setStageFilter] = useState('');
 
-  const { data, isLoading, error } = useQuery<MatchResponse[]>({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery<MatchResponse[]>({
     queryKey: ['matches', stageFilter],
     queryFn: () =>
       apiFetch<MatchResponse[]>(`/api/v1/matches${stageFilter ? `?stage=${stageFilter}` : ''}`),
@@ -250,6 +251,11 @@ export function SchedulePage() {
         <EmptyState
           title="Couldn't load the schedule"
           description="There was a problem reaching the server. Check your connection and try again."
+          action={
+            <Button variant="outline" size="sm" disabled={isRefetching} onClick={() => refetch()}>
+              {isRefetching ? 'Retrying…' : 'Try again'}
+            </Button>
+          }
         />
       )}
 

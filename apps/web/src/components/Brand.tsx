@@ -43,13 +43,13 @@ export function Brand({ variant = 'splash', className }: BrandProps) {
 
   return (
     <div
-      className={cn('flex flex-col items-center text-center select-none gap-1.5', className)}
+      className={cn('flex flex-col items-center text-center select-none gap-2', className)}
       aria-label={brand.full}
     >
-      <p className="font-mono font-semibold uppercase tracking-[0.22em] text-lg sm:text-xl leading-none text-wordmark">
+      <p className="font-mono font-semibold uppercase tracking-[0.18em] text-3xl sm:text-4xl leading-none text-wordmark">
         THE&nbsp;STEELE
       </p>
-      <p className="font-mono font-semibold uppercase tracking-[0.22em] text-lg sm:text-xl leading-none text-wordmark">
+      <p className="font-mono font-medium uppercase tracking-[0.3em] text-[11px] sm:text-xs leading-none text-wordmark opacity-90">
         SPREADSHEET&nbsp;SYSTEM
       </p>
     </div>

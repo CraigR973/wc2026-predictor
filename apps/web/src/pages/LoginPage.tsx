@@ -61,7 +61,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-10">
           <Brand variant="splash" />
-          <p className="text-center text-text-secondary mt-6 font-sans text-sm">
+          <p className="text-center text-text-primary mt-8 font-sans text-base sm:text-lg italic">
             {brand.tagline}
           </p>
         </div>
