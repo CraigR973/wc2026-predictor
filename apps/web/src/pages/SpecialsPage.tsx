@@ -17,6 +17,7 @@ import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { PredictionsSubNav } from '../components/PredictionsSubNav';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -449,7 +450,8 @@ export function SpecialsPage() {
           </span>
         }
       />
-      <p className="text-text-secondary font-sans text-sm mb-5 -mt-2">
+      <PredictionsSubNav />
+      <p className="text-text-secondary font-sans text-sm mb-5">
         Pre-tournament bonus predictions. Worth up to 45 extra points.
       </p>
 

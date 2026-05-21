@@ -19,17 +19,35 @@ import type { LeaderboardEntry, MatchResponse, RecentPrediction } from '../lib/t
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+function StatCard({
+  label,
+  value,
+  to,
+}: {
+  label: string;
+  value: string | number;
+  to?: string;
+}) {
+  const inner = (
+    <>
       <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
         {label}
       </p>
       <p className="font-mono text-3xl sm:text-4xl text-primary tabular-nums font-medium leading-none">
         {value}
       </p>
-    </div>
+    </>
   );
+  const cls =
+    'block rounded-lg border border-border bg-surface p-4 sm:p-5 transition-colors focus-visible:outline-none focus-visible:shadow-glow';
+  if (to) {
+    return (
+      <Link to={to} className={`${cls} hover:bg-surface-elevated press-down`}>
+        {inner}
+      </Link>
+    );
+  }
+  return <div className={cls}>{inner}</div>;
 }
 
 function formatCountdown(cd: {
@@ -57,7 +75,10 @@ function NextMatchCard({ match, timezone }: { match: MatchResponse; timezone: st
   const isUrgent = !cd.expired && cd.days === 0 && cd.hours === 0;
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+    <Link
+      to={`/matches/${match.id}`}
+      className="block rounded-lg border border-border bg-surface p-4 sm:p-5 hover:bg-surface-elevated press-down transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+    >
       <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
         Next Match
       </p>
@@ -72,7 +93,7 @@ function NextMatchCard({ match, timezone }: { match: MatchResponse; timezone: st
       >
         {formatCountdown(cd)}
       </p>
-    </div>
+    </Link>
   );
 }
 
@@ -90,7 +111,10 @@ function LatestResultCard({
   const hasPoints = pts !== null && pts > 0;
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+    <Link
+      to={`/matches/${prediction.match_id}`}
+      className="block rounded-lg border border-border bg-surface p-4 sm:p-5 hover:bg-surface-elevated press-down transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+    >
       <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
         Latest Result
       </p>
@@ -120,7 +144,7 @@ function LatestResultCard({
         <span className="tabular-nums">{pts !== null ? pts : '—'}</span>
         <span className="opacity-70">{pts !== null ? `pt${pts !== 1 ? 's' : ''}` : 'no entry'}</span>
       </span>
-    </div>
+    </Link>
   );
 }
 
@@ -284,17 +308,10 @@ export function DashboardPage() {
   const latestPred = recentPreds[0] ?? null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-text-muted mb-2">
-          The Steele Spreadsheet System
-        </p>
-        <h1 className="text-3xl sm:text-4xl font-semibold text-text-primary tracking-tight leading-[1.1]">
-          Welcome back,
-          <br className="sm:hidden" />
-          <span className="text-wordmark-h"> {player?.displayName}</span>
-        </h1>
-      </div>
+    <div className="space-y-5">
+      <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight leading-tight">
+        Welcome back, <span className="text-wordmark-h">{player?.displayName}</span>
+      </h1>
 
       {/* Rank + Points */}
       <div className="grid grid-cols-2 gap-3">
@@ -305,8 +322,16 @@ export function DashboardPage() {
           </>
         ) : (
           <>
-            <StatCard label="Your Rank" value={myEntry ? `#${myEntry.rank}` : '—'} />
-            <StatCard label="Total Points" value={myEntry?.total_points ?? '—'} />
+            <StatCard
+              label="Your Rank"
+              value={myEntry ? `#${myEntry.rank}` : '—'}
+              to="/leaderboard"
+            />
+            <StatCard
+              label="Total Points"
+              value={myEntry?.total_points ?? '—'}
+              to={player?.id ? `/players/${player.id}` : '/leaderboard'}
+            />
           </>
         )}
       </div>

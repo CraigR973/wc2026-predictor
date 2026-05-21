@@ -14,6 +14,7 @@ import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { PredictionsSubNav } from '../components/PredictionsSubNav';
 import { useCountdown } from '../hooks/useCountdown';
 import { cn } from '../lib/utils';
 
@@ -102,15 +103,15 @@ function ScoreInput({
   }
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-0.5">
       {!disabled && (
         <button
           type="button"
           onClick={() => step(1)}
           aria-label={`Increment ${ariaLabel}`}
-          className="h-6 w-12 inline-flex items-center justify-center rounded-sm text-text-muted hover:text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
+          className="h-9 w-12 inline-flex items-center justify-center rounded-sm text-text-muted hover:text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
         >
-          <ChevronUp className="h-4 w-4" aria-hidden />
+          <ChevronUp className="h-5 w-5" aria-hidden />
         </button>
       )}
       <input
@@ -139,9 +140,9 @@ function ScoreInput({
           type="button"
           onClick={() => step(-1)}
           aria-label={`Decrement ${ariaLabel}`}
-          className="h-6 w-12 inline-flex items-center justify-center rounded-sm text-text-muted hover:text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
+          className="h-9 w-12 inline-flex items-center justify-center rounded-sm text-text-muted hover:text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
         >
-          <ChevronDown className="h-4 w-4" aria-hidden />
+          <ChevronDown className="h-5 w-5" aria-hidden />
         </button>
       )}
     </div>
@@ -644,6 +645,7 @@ export function PredictionsPage() {
   return (
     <div>
       <PageHeader title="My Predictions" eyebrow="Group stage" />
+      <PredictionsSubNav />
 
       {isLoading && (
         <div className="space-y-4" aria-label="Loading predictions">
@@ -682,13 +684,13 @@ export function PredictionsPage() {
                     aria-label={`Group ${g.name}`}
                     onClick={() => setActiveGroup(i)}
                     className={cn(
-                      'inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium font-mono uppercase tracking-[0.15em] whitespace-nowrap transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow',
+                      'inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium font-sans whitespace-nowrap transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow',
                       active
                         ? 'bg-primary/15 text-primary border border-primary/30'
                         : 'bg-surface text-text-secondary hover:bg-surface-elevated border border-border',
                     )}
                   >
-                    {g.name}
+                    Group {g.name}
                   </button>
                 );
               })}

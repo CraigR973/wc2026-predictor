@@ -12,6 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { PredictionsSubNav } from '../components/PredictionsSubNav';
 import { useCountdown } from '../hooks/useCountdown';
 import { cn } from '../lib/utils';
 
@@ -563,6 +564,7 @@ export function KnockoutPredictionsPage() {
     return (
       <div>
         <PageHeader title="Knockout Picks" eyebrow="Bracket" />
+        <PredictionsSubNav />
         <div className="space-y-4" aria-label="Loading knockout picks">
           <div className="flex gap-1.5 flex-wrap">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -579,6 +581,7 @@ export function KnockoutPredictionsPage() {
     return (
       <div>
         <PageHeader title="Knockout Picks" eyebrow="Bracket" />
+        <PredictionsSubNav />
         <EmptyState
           title="No knockout matches yet"
           description="Knockout picks open once the group stage finalises the bracket."
@@ -595,6 +598,7 @@ export function KnockoutPredictionsPage() {
   return (
     <div>
       <PageHeader title="Knockout Picks" eyebrow="Bracket" />
+      <PredictionsSubNav />
 
       {/* Round pill scroller */}
       <nav
