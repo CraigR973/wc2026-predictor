@@ -261,17 +261,15 @@ jobs:
           cache: pnpm
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
-      # Run vercel CLI from the REPO ROOT, not apps/web. The project's
-      # rootDirectory=apps/web setting tells Vercel where the source is —
-      # running from apps/web would make it resolve to apps/web/apps/web.
-      - name: Pull Vercel build env (production)
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-      - name: Build
-        run: vercel build --prod --token="$VERCEL_TOKEN"
+      # Deploy via Vercel's REMOTE builder (not --prebuilt) so that
+      # env vars marked "Sensitive" on the project — which `vercel pull`
+      # can't return locally — are available during the build. Earlier
+      # attempts with --prebuilt produced a bundle without VITE_API_URL,
+      # causing the R5 hard-assert to throw at module load → blank page.
       - name: Deploy
         id: deploy
         run: |
-          URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          URL=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN")
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployed to: $URL"
       - name: Summary
