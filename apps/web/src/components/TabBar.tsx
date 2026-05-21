@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -58,6 +58,12 @@ export function TabBar() {
   const navigate = useNavigate();
   const [moreOpen, setMoreOpen] = useState(false);
   const layoutId = useId();
+
+  // Guarantee the More sheet closes whenever the route changes, regardless of
+  // how the navigation happened (sheet button, swipe-back, deep link).
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   const isMoreActive = [...SECONDARY, ...(player?.role === 'admin' ? ADMIN : [])].some((t) =>
     isActive(pathname, t),

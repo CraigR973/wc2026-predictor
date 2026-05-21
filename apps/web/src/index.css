@@ -4,11 +4,18 @@
 
 /*
  * Design tokens — mirrors apps/web/src/theme/tokens.ts.
- * Edit tokens.ts first, then sync the values here. Tailwind utilities and
- * inline `var(--*)` references resolve against these.
+ *
+ * Two palettes:
+ *   :root, html.dark   → dark (default)
+ *   html.light         → light
+ *
+ * The pre-mount script in index.html sets the right class before React
+ * renders, so there's no FOUC on cold load. The ThemeProvider keeps the
+ * class in sync at runtime.
  */
 @layer base {
-  :root {
+  :root,
+  html.dark {
     /* Surface tiers */
     --bg: #0B0E13;
     --surface: #131720;
@@ -48,21 +55,81 @@
     --silver: #B8C0CC;
     --bronze: #C28B5C;
 
-    /* Radius scale */
-    --radius-xs: 6px;
-    --radius-sm: 10px;
-    --radius-md: 14px;
-    --radius-lg: 18px;
-    --radius-xl: 22px;
-    --radius-2xl: 28px;
-
-    /* Elevation */
+    /* Elevation — heavy shadows on dark bg */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.6);
     --shadow-sheet: 0 -8px 32px -4px rgba(0, 0, 0, 0.6);
     --shadow-glow: 0 0 0 3px rgba(16, 185, 129, 0.25);
     --shadow-glow-accent: 0 0 0 3px rgba(200, 148, 60, 0.25);
+
+    /* Shimmer keyframe colour tuned for dark bg */
+    --shimmer-stripe: rgba(255, 255, 255, 0.04);
+  }
+
+  html.light {
+    /* Surface tiers — off-white base, true white surfaces */
+    --bg: #F7F8FA;
+    --surface: #FFFFFF;
+    --surface-elevated: #F1F3F5;
+    --surface-overlay: #FFFFFF;
+    --border: #E5E8EB;
+    --border-strong: #D1D5DB;
+
+    /* Text */
+    --text-primary: #14181F;
+    --text-secondary: #4B5563;
+    --text-muted: #8A93A1;
+    --text-inverse: #FFFFFF;
+
+    /* Brand — slightly darker variants for AA contrast on white */
+    --primary: #059669;
+    --primary-dark: #047857;
+    --primary-glow: rgba(5, 150, 105, 0.20);
+    --accent: #A77C2A;
+    --accent-dark: #8B6320;
+    --accent-glow: rgba(167, 124, 42, 0.22);
+
+    /* Steele in light mode is a dark slate gradient — keeps the
+       metallic-character of the wordmark legible against white. */
+    --steele: #4B5563;
+    --steele-mid: #6B7280;
+    --steele-dark: #9CA3AF;
+    --steele-gradient: linear-gradient(180deg, #374151 0%, #6B7280 60%, #9CA3AF 100%);
+    --steele-gradient-h: linear-gradient(90deg, #374151 0%, #6B7280 100%);
+
+    /* Semantic */
+    --success: #059669;
+    --warning: #D97706;
+    --error: #DC2626;
+    --live: #DC2626;
+    --locked: #9CA3AF;
+
+    /* Rank medals — slightly darker for contrast on light bg */
+    --gold: #B8862E;
+    --silver: #8A93A1;
+    --bronze: #A65E2A;
+
+    /* Elevation — much softer on light bg */
+    --shadow-sm: 0 1px 2px 0 rgba(20, 24, 31, 0.06);
+    --shadow-md: 0 4px 16px -4px rgba(20, 24, 31, 0.10);
+    --shadow-lg: 0 12px 40px -8px rgba(20, 24, 31, 0.16);
+    --shadow-sheet: 0 -8px 32px -4px rgba(20, 24, 31, 0.16);
+    --shadow-glow: 0 0 0 3px rgba(5, 150, 105, 0.20);
+    --shadow-glow-accent: 0 0 0 3px rgba(167, 124, 42, 0.22);
+
+    /* Shimmer keyframe colour tuned for light bg */
+    --shimmer-stripe: rgba(20, 24, 31, 0.05);
+  }
+
+  :root {
+    /* Radius scale — palette-agnostic */
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+    --radius-xl: 22px;
+    --radius-2xl: 28px;
 
     /* Native safe-area helpers */
     --safe-top: env(safe-area-inset-top, 0px);
@@ -80,10 +147,11 @@
   }
 
   html {
-    color-scheme: dark;
     background-color: var(--bg);
     -webkit-tap-highlight-color: transparent;
   }
+  html.dark { color-scheme: dark; }
+  html.light { color-scheme: light; }
 
   body {
     background-color: var(--bg);
@@ -110,18 +178,26 @@
 }
 
 @layer utilities {
-  /* Wordmark utility — Instrument Serif (roman) with tight tracking,
-     metallic Steele fill applied via .text-steele.
-     Used by the <Brand /> component; not for general headings. */
-  .font-wordmark {
-    font-family: 'Instrument Serif', Georgia, serif;
-    font-weight: 400;
-    font-style: normal;
-    letter-spacing: -0.03em;
-  }
-
   .font-mono-custom {
     font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  /* Hide scrollbars on the main window for a native-app feel. */
+  html, body {
+    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;  /* IE 10+ */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 
   .text-steele {
@@ -173,7 +249,7 @@
     background-image: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.04) 50%,
+      var(--shimmer-stripe) 50%,
       transparent 100%
     );
     background-size: 200% 100%;

@@ -106,5 +106,5 @@ export const brand = {
   short: 'SSS',
   wordmarkTop: 'The Steele',
   wordmarkBottom: 'Spreadsheet System',
-  tagline: 'The World Cup, by the numbers.',
+  tagline: 'Still Email?',
 } as const;

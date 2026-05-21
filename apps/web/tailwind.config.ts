@@ -50,11 +50,9 @@ export default {
       },
       fontFamily: {
         sans: ['Outfit', 'system-ui', 'sans-serif'],
-        // `font-display` resolves to Outfit (semibold-friendly) so legacy
-        // numeric/heading usages stay readable. Use `font-serif` explicitly
-        // (Instrument Serif italic) for the Brand wordmark.
+        // `font-display` aliases to Outfit so legacy heading/numeric usages
+        // remain readable. The Brand wordmark uses `font-mono` directly.
         display: ['Outfit', 'system-ui', 'sans-serif'],
-        serif: ['"Instrument Serif"', 'Georgia', 'serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {

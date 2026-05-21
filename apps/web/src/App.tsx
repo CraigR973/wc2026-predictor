@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Skeleton } from './components/ui/skeleton';
@@ -57,9 +58,10 @@ function RouteFallback() {
 
 export function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
           <Toaster position="bottom-right" richColors closeButton />
           <ErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
@@ -104,8 +106,9 @@ export function App() {
               </Routes>
             </Suspense>
           </ErrorBoundary>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

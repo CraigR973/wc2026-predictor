@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, Download, Send, Check } from 'lucide-react';
+import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import { Skeleton } from '../components/ui/skeleton';
+import { useTheme } from '../contexts/ThemeContext';
+import { cn } from '../lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -285,12 +287,61 @@ function PreferencesSection() {
   );
 }
 
+// ── Theme switch ──────────────────────────────────────────────────────────────
+
+function AppearanceSection() {
+  const { mode, setMode } = useTheme();
+  const options = [
+    { value: 'light' as const, label: 'Light', Icon: Sun },
+    { value: 'dark' as const, label: 'Dark', Icon: Moon },
+    { value: 'system' as const, label: 'System', Icon: Monitor },
+  ];
+  return (
+    <div>
+      <p className="text-sm text-text-secondary font-sans mb-3">
+        Choose how the app looks. System follows your device&apos;s dark-mode setting.
+      </p>
+      <div
+        role="radiogroup"
+        aria-label="Theme"
+        className="inline-flex w-full max-w-sm gap-1 p-1 rounded-md bg-surface-elevated border border-border"
+      >
+        {options.map(({ value, label, Icon }) => {
+          const active = mode === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => setMode(value)}
+              className={cn(
+                'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-sm text-sm font-medium font-sans transition-colors tap-target press-down focus-visible:outline-none focus-visible:shadow-glow',
+                active
+                  ? 'bg-surface text-text-primary shadow-sm'
+                  : 'text-text-secondary hover:text-text-primary',
+              )}
+            >
+              <Icon className="h-4 w-4" aria-hidden />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
   return (
     <div className="max-w-xl space-y-6">
       <h1 className="font-display text-3xl text-primary tracking-wider">Settings</h1>
+
+      <SectionCard title="Appearance">
+        <AppearanceSection />
+      </SectionCard>
 
       <SectionCard title="Push Notifications">
         <PushSection />
