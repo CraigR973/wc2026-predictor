@@ -261,15 +261,15 @@ jobs:
           cache: pnpm
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
+      # Run vercel CLI from the REPO ROOT, not apps/web. The project's
+      # rootDirectory=apps/web setting tells Vercel where the source is —
+      # running from apps/web would make it resolve to apps/web/apps/web.
       - name: Pull Vercel build env (production)
-        working-directory: apps/web
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
       - name: Build
-        working-directory: apps/web
         run: vercel build --prod --token="$VERCEL_TOKEN"
       - name: Deploy
         id: deploy
-        working-directory: apps/web
         run: |
           URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
           echo "url=$URL" >> "$GITHUB_OUTPUT"
