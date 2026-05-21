@@ -11,7 +11,9 @@ import type { MatchResponse, KnockoutPredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 import { useCountdown } from '../hooks/useCountdown';
+import { cn } from '../lib/utils';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -559,14 +561,16 @@ export function KnockoutPredictionsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4" aria-label="Loading knockout picks">
-        <Skeleton className="h-8 w-48" />
-        <div className="flex gap-1 flex-wrap pb-1 border-b border-border">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-8 w-20" />
-          ))}
+      <div>
+        <PageHeader title="Knockout Picks" eyebrow="Bracket" />
+        <div className="space-y-4" aria-label="Loading knockout picks">
+          <div className="flex gap-1.5 flex-wrap">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-20 rounded-full" />
+            ))}
+          </div>
+          <Skeleton className="h-[300px] w-full rounded-lg" />
         </div>
-        <Skeleton className="h-[300px] w-full" />
       </div>
     );
   }
@@ -574,9 +578,7 @@ export function KnockoutPredictionsPage() {
   if (stagesWithMatches.length === 0) {
     return (
       <div>
-        <h1 className="font-display text-3xl text-primary tracking-wider mb-6">
-          KNOCKOUT PICKS
-        </h1>
+        <PageHeader title="Knockout Picks" eyebrow="Bracket" />
         <EmptyState
           title="No knockout matches yet"
           description="Knockout picks open once the group stage finalises the bracket."
@@ -592,27 +594,37 @@ export function KnockoutPredictionsPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl text-primary tracking-wider mb-6">
-        KNOCKOUT PICKS
-      </h1>
+      <PageHeader title="Knockout Picks" eyebrow="Bracket" />
 
-      {/* Round tabs */}
-      <div className="flex gap-1 flex-wrap mb-6 border-b border-border pb-1">
-        {stagesWithMatches.map((stage, idx) => (
-          <button
-            key={stage.key}
-            type="button"
-            onClick={() => setActiveStage(idx)}
-            className={`px-3 py-1.5 text-sm font-sans rounded-t transition-colors ${
-              idx === clampedStage
-                ? 'bg-primary text-surface font-medium'
-                : 'text-text-muted hover:text-text-primary'
-            }`}
-          >
-            {stage.label}
-          </button>
-        ))}
-      </div>
+      {/* Round pill scroller */}
+      <nav
+        className="-mx-4 sm:-mx-0 mb-5 overflow-x-auto"
+        role="tablist"
+        aria-label="Knockout rounds"
+      >
+        <div className="flex gap-1.5 px-4 sm:px-0 min-w-max">
+          {stagesWithMatches.map((stage, idx) => {
+            const active = idx === clampedStage;
+            return (
+              <button
+                key={stage.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveStage(idx)}
+                className={cn(
+                  'inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium font-sans whitespace-nowrap transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow',
+                  active
+                    ? 'bg-primary/15 text-primary border border-primary/30'
+                    : 'bg-surface text-text-secondary hover:bg-surface-elevated border border-border',
+                )}
+              >
+                {stage.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       {/* Active round content */}
       <RoundPanel
