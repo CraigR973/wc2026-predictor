@@ -292,7 +292,7 @@ export function DashboardPage() {
         <h1 className="text-3xl sm:text-4xl font-semibold text-text-primary tracking-tight leading-[1.1]">
           Welcome back,
           <br className="sm:hidden" />
-          <span className="text-steele-h"> {player?.displayName}</span>
+          <span className="text-wordmark-h"> {player?.displayName}</span>
         </h1>
       </div>
 

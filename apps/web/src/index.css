@@ -43,6 +43,12 @@
     --steele-gradient: linear-gradient(180deg, #E8EBF0 0%, #B0B8C4 60%, #7A828F 100%);
     --steele-gradient-h: linear-gradient(90deg, #E8EBF0 0%, #B0B8C4 100%);
 
+    /* Wordmark — premium brass gold gradient applied to the
+       "THE STEELE / SPREADSHEET SYSTEM" mark. Separate from Steele so
+       Avatar tints + other Steele uses stay metallic-silver. */
+    --wordmark-gradient: linear-gradient(180deg, #F0DDA6 0%, #D4A24A 55%, #A77C2A 100%);
+    --wordmark-gradient-h: linear-gradient(90deg, #F0DDA6 0%, #D4A24A 50%, #A77C2A 100%);
+
     /* Semantic */
     --success: #10B981;
     --warning: #F59E0B;
@@ -97,6 +103,10 @@
     --steele-dark: #9CA3AF;
     --steele-gradient: linear-gradient(180deg, #374151 0%, #6B7280 60%, #9CA3AF 100%);
     --steele-gradient-h: linear-gradient(90deg, #374151 0%, #6B7280 100%);
+
+    /* Wordmark — deeper brass for AA contrast on white. */
+    --wordmark-gradient: linear-gradient(180deg, #D9A968 0%, #A77C2A 55%, #6E4F18 100%);
+    --wordmark-gradient-h: linear-gradient(90deg, #D9A968 0%, #A77C2A 50%, #6E4F18 100%);
 
     /* Semantic */
     --success: #059669;
@@ -210,6 +220,24 @@
 
   .text-steele-h {
     background: var(--steele-gradient-h);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Premium brass gold for the brand wordmark. */
+  .text-wordmark {
+    background: var(--wordmark-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+  }
+
+  .text-wordmark-h {
+    background: var(--wordmark-gradient-h);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;

@@ -1,5 +1,5 @@
-import { type ReactNode, useEffect } from 'react';
-import { AnimatePresence, motion, type PanInfo, useReducedMotion } from 'framer-motion';
+import { type ReactNode } from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -9,118 +9,73 @@ interface SheetProps {
   title?: string;
   children: ReactNode;
   className?: string;
-  /**
-   * If true, hides the drag handle + close button row. Caller owns dismissal
-   * (e.g. tapping an item navigates and the route-change effect closes it).
-   */
-  hideHeader?: boolean;
 }
 
 /**
- * Bottom sheet — slides up from the bottom, dim+blur overlay, drag-down to
- * dismiss. Body scroll locks while open. ESC key closes.
+ * Bottom sheet built on Radix Dialog with CSS-driven slide animations.
  *
- * Implementation notes (after a real bug where the overlay sometimes stayed
- * mounted after `open` flipped to false):
- *   - The overlay and the sheet are SIBLING direct children of
- *     <AnimatePresence>, not wrapped in a fragment. Fragments confuse
- *     AnimatePresence's child reconciliation and can stall exit animations.
- *   - Drag is confined to the drag-handle stripe at the top of the sheet, not
- *     the whole sheet area, so taps on items inside the sheet body never get
- *     swallowed by a phantom drag gesture.
+ * Why no framer-motion: two prior attempts with framer animation orchestration
+ * still left the overlay/panel "stuck open" after item taps on iOS Safari.
+ * Radix handles mount/unmount, focus trap, body scroll lock, ESC, and
+ * overlay-click dismissal natively, and `data-[state=open|closed]` with
+ * tailwindcss-animate utilities gives a clean slide-up/down without manual
+ * AnimatePresence orchestration.
+ *
+ * Drag-to-dismiss is intentionally dropped — the X button + overlay tap +
+ * route-change auto-close in TabBar all do the job reliably.
  */
-export function Sheet({ open, onClose, title, children, className, hideHeader }: SheetProps) {
-  const prefersReducedMotion = useReducedMotion();
-
-  // Lock body scroll while the sheet is open.
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  // ESC closes the sheet.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  function handleDragEnd(_: unknown, info: PanInfo) {
-    if (info.offset.y > 80 || info.velocity.y > 500) onClose();
-  }
-
+export function Sheet({ open, onClose, title, children, className }: SheetProps) {
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          key="sheet-overlay"
-          className="fixed inset-0 z-sheet bg-black/60 backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-          onClick={onClose}
-          aria-hidden
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className={cn(
+            'fixed inset-0 z-sheet bg-black/60 backdrop-blur-sm',
+            'data-[state=open]:animate-in data-[state=closed]:animate-out',
+            'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
+            'duration-200',
+          )}
         />
-      )}
-      {open && (
-        <motion.div
-          key="sheet-panel"
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
           className={cn(
             'fixed bottom-0 left-0 right-0 z-sheet',
             'bg-surface-elevated border-t border-border rounded-t-2xl shadow-sheet',
             'pb-safe',
+            'data-[state=open]:animate-in data-[state=closed]:animate-out',
+            'data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
+            'duration-300',
             className,
           )}
-          role="dialog"
-          aria-modal="true"
-          aria-label={title}
-          initial={prefersReducedMotion ? { y: 0, opacity: 0 } : { y: '100%' }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
-          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
         >
-          {/* Header row: drag handle (only this strip is draggable) + title + close. */}
-          {!hideHeader && (
-            <motion.div
-              className="pt-3 pb-1 cursor-grab active:cursor-grabbing"
-              drag={prefersReducedMotion ? false : 'y'}
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={{ top: 0, bottom: 0.4 }}
-              dragSnapToOrigin
-              dragMomentum={false}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="flex justify-center">
-                <div className="h-1 w-10 rounded-full bg-border-strong" aria-hidden />
-              </div>
-            </motion.div>
-          )}
+          {/* Static drag handle (decorative — Radix close paths handle dismissal) */}
+          <div className="pt-3 pb-1" aria-hidden>
+            <div className="mx-auto h-1 w-10 rounded-full bg-border-strong" />
+          </div>
           {title && (
             <div className="flex items-center justify-between px-5 pb-2 pt-1">
-              <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight">
+              <DialogPrimitive.Title className="text-base font-semibold text-text-primary font-sans tracking-tight">
                 {title}
-              </h2>
-              <button
-                type="button"
-                onClick={onClose}
-                className="tap-target inline-flex items-center justify-center rounded-sm text-text-muted hover:text-text-primary focus-visible:outline-none focus-visible:shadow-glow press-down"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              </DialogPrimitive.Title>
+              <DialogPrimitive.Close asChild>
+                <button
+                  type="button"
+                  className="tap-target inline-flex items-center justify-center rounded-sm text-text-muted hover:text-text-primary focus-visible:outline-none focus-visible:shadow-glow press-down"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </DialogPrimitive.Close>
             </div>
           )}
           <div className="px-5 pb-5 max-h-[80vh] overflow-y-auto">{children}</div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

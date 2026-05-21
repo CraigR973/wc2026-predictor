@@ -9,16 +9,15 @@ interface BrandProps {
 /**
  * "The Steele Spreadsheet System" wordmark.
  *
- * Unified JetBrains Mono uppercase treatment. Single font + single size per
- * variant — leans into the "Spreadsheet System" gag and matches the mono caps
- * eyebrow language used throughout the app.
+ * JetBrains Mono uppercase, brass-gold gradient fill via `.text-wordmark`.
+ * Three sizes; same font + same gradient.
  */
 export function Brand({ variant = 'splash', className }: BrandProps) {
   if (variant === 'mono') {
     return (
       <span
         className={cn(
-          'font-mono font-semibold tracking-[0.3em] text-steele text-sm uppercase',
+          'font-mono font-semibold tracking-[0.3em] text-wordmark text-sm uppercase',
           className,
         )}
         aria-label={brand.full}
@@ -32,7 +31,7 @@ export function Brand({ variant = 'splash', className }: BrandProps) {
     return (
       <span
         className={cn(
-          'inline-block font-mono font-semibold uppercase tracking-[0.2em] text-[11px] leading-none text-steele-h whitespace-nowrap select-none',
+          'inline-block font-mono font-semibold uppercase tracking-[0.2em] text-[11px] leading-none text-wordmark-h whitespace-nowrap select-none',
           className,
         )}
         aria-label={brand.full}
@@ -47,10 +46,10 @@ export function Brand({ variant = 'splash', className }: BrandProps) {
       className={cn('flex flex-col items-center text-center select-none gap-1.5', className)}
       aria-label={brand.full}
     >
-      <p className="font-mono font-semibold uppercase tracking-[0.22em] text-lg sm:text-xl leading-none text-steele">
+      <p className="font-mono font-semibold uppercase tracking-[0.22em] text-lg sm:text-xl leading-none text-wordmark">
         THE&nbsp;STEELE
       </p>
-      <p className="font-mono font-semibold uppercase tracking-[0.22em] text-lg sm:text-xl leading-none text-steele">
+      <p className="font-mono font-semibold uppercase tracking-[0.22em] text-lg sm:text-xl leading-none text-wordmark">
         SPREADSHEET&nbsp;SYSTEM
       </p>
     </div>
