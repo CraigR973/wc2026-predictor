@@ -6,12 +6,13 @@ import type { GroupResponse } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 
 function StandingsTable({ group }: { group: GroupResponse }) {
   return (
     <div className="rounded-lg border border-border bg-surface overflow-hidden">
       <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-        <h2 className="font-display text-lg text-primary tracking-wider">
+        <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight">
           Group {group.name}
         </h2>
         <Link
@@ -100,7 +101,7 @@ export function GroupsPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl text-primary tracking-wider mb-6">Groups</h1>
+      <PageHeader title="Groups" eyebrow="Standings" />
 
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Loading group standings">

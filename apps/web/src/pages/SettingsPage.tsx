@@ -8,6 +8,7 @@ import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import { Skeleton } from '../components/ui/skeleton';
 import { useTheme } from '../contexts/ThemeContext';
 import { cn } from '../lib/utils';
+import { PageHeader } from '../components/PageHeader';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ const CATEGORY_LABELS: Array<{ key: keyof NotificationPreferences; label: string
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-5">
-      <h2 className="font-display text-lg text-primary tracking-wider mb-4">{title}</h2>
+      <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-4">{title}</h2>
       {children}
     </div>
   );
@@ -337,7 +338,7 @@ function AppearanceSection() {
 export function SettingsPage() {
   return (
     <div className="max-w-xl space-y-6">
-      <h1 className="font-display text-3xl text-primary tracking-wider">Settings</h1>
+      <PageHeader title="Settings" eyebrow="Account & device" />
 
       <SectionCard title="Appearance">
         <AppearanceSection />

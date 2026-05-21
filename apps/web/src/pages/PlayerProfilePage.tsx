@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { PageHeader } from '../components/PageHeader';
 import type { PlayerStats, RecentPrediction } from '../lib/types';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -18,9 +19,13 @@ const STAGE_LABEL: Record<string, string> = {
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 flex flex-col gap-1">
-      <span className="text-xs text-text-muted font-sans uppercase tracking-wide">{label}</span>
-      <span className="text-2xl font-bold text-primary font-display">{value}</span>
+    <div className="rounded-lg border border-border bg-surface p-4 flex flex-col gap-2">
+      <span className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em]">
+        {label}
+      </span>
+      <span className="font-mono text-2xl font-semibold text-primary tabular-nums leading-none">
+        {value}
+      </span>
     </div>
   );
 }
@@ -92,28 +97,23 @@ export function PlayerProfilePage() {
   const h2hTarget = isSelf ? null : myStats ?? null;
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl text-primary tracking-wider">
-            {stats.player_name}
-          </h1>
-          <p className="text-text-muted text-sm font-sans mt-1">
-            {stats.total_predictions_settled} predictions settled
-          </p>
-        </div>
-        <Link
-          to="/leaderboard"
-          className="text-sm text-text-muted hover:text-primary font-sans transition-colors"
-        >
-          ← Leaderboard
-        </Link>
-      </div>
+    <div className="space-y-7">
+      <PageHeader
+        title={stats.player_name}
+        eyebrow={`${stats.total_predictions_settled} predictions settled`}
+        action={
+          <Link
+            to="/leaderboard"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            ← Leaderboard
+          </Link>
+        }
+      />
 
       {/* Stat cards */}
       <div>
-        <h2 className="font-display text-lg text-text-secondary tracking-wider mb-3">Stats</h2>
+        <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">Stats</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <StatCard label="Total Points" value={stats.total_points} />
           <StatCard label="Accuracy" value={`${stats.accuracy_pct}%`} />
@@ -134,7 +134,7 @@ export function PlayerProfilePage() {
       {/* Best / worst round */}
       {(stats.best_round || stats.worst_round) && (
         <div>
-          <h2 className="font-display text-lg text-text-secondary tracking-wider mb-3">
+          <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">
             Best &amp; Worst Round
           </h2>
           <div className="grid grid-cols-2 gap-3">
@@ -167,7 +167,7 @@ export function PlayerProfilePage() {
       {/* Head-to-head mini table (only shown when viewing another player) */}
       {h2hTarget && (
         <div>
-          <h2 className="font-display text-lg text-text-secondary tracking-wider mb-3">
+          <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">
             You vs {stats.player_name}
           </h2>
           <div className="rounded-lg border border-border bg-surface overflow-hidden">
@@ -216,7 +216,7 @@ export function PlayerProfilePage() {
       {/* Recent predictions */}
       {recentPreds.length > 0 && (
         <div>
-          <h2 className="font-display text-lg text-text-secondary tracking-wider mb-3">
+          <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">
             Recent Predictions
           </h2>
           <div className="rounded-lg border border-border bg-surface overflow-hidden">
