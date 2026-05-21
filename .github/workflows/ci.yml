@@ -234,3 +234,45 @@ jobs:
           name: smoke-report
           path: apps/web/playwright-report/
           retention-days: 7
+
+  # ─── Deploy ─────────────────────────────────────────────────────────────────
+  # Only runs on the staging branch, after every other job has succeeded.
+  # Builds + deploys to wc2026-staging.vercel.app as a PRODUCTION-target
+  # deployment (so it lands on the canonical URL the staging API CORS allows).
+  # Requires repo secret VERCEL_TOKEN.
+  deploy-staging:
+    name: Deploy → wc2026-staging.vercel.app
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    needs: [lint-api, typecheck-api, test-api, migration-check, build-web, e2e, smoke]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: true
+    env:
+      VERCEL_ORG_ID: team_MVQMOaFtYHlwO5QVzSOZQ0Ud
+      VERCEL_PROJECT_ID: prj_hVMpuWm33XjuNrVUWrCti27ZfIX7
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Pull Vercel build env (production)
+        working-directory: apps/web
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - name: Build
+        working-directory: apps/web
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Deploy
+        id: deploy
+        working-directory: apps/web
+        run: |
+          URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed to: $URL"
+      - name: Summary
+        run: |
+          echo "### Staging deploy ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **URL**: https://wc2026-staging.vercel.app" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Direct**: ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SHA**: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
