@@ -153,40 +153,29 @@ function PushSection() {
 // ── PWA install section ───────────────────────────────────────────────────────
 
 function InstallSection() {
-  const { canInstall, isInstalled, isIosSafari, showIosOverlay, dismissIosOverlay, prompt } = useInstallPrompt();
+  const { canInstall, isInstalled, isIosSafari, prompt } = useInstallPrompt();
 
   if (isInstalled) {
     return (
       <div className="flex items-center gap-2 text-sm text-text-secondary font-sans">
         <Check size={16} className="text-primary" />
-        App is already installed
+        App is installed
       </div>
     );
   }
 
   if (isIosSafari) {
     return (
-      <div className="space-y-2">
-        <p className="text-sm text-text-secondary font-sans">
-          Tap the <strong>Share</strong> button in Safari, then choose{' '}
-          <strong>Add to Home Screen</strong>.
-        </p>
-        {!showIosOverlay && (
-          <button
-            onClick={dismissIosOverlay}
-            className="text-xs text-text-muted hover:text-text-primary font-sans underline"
-          >
-            Show step-by-step guide
-          </button>
-        )}
-      </div>
+      <p className="text-sm text-text-secondary font-sans">
+        Tap <strong>⋯</strong> → <strong>Share</strong> → <strong>Add to Home Screen</strong>.
+      </p>
     );
   }
 
   if (!canInstall) {
     return (
       <p className="text-sm text-text-muted font-sans">
-        Install prompt not available. Use your browser's install option if supported.
+        Use your browser's install option if supported.
       </p>
     );
   }

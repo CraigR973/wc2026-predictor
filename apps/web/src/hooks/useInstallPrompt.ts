@@ -5,35 +5,21 @@ interface BeforeInstallPromptEvent extends Event {
   readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-interface InstallPromptState {
-  /** Android/desktop: native install prompt is available. */
-  canInstall: boolean;
-  /** Running in standalone PWA mode — never show install UI. */
+export interface InstallPromptState {
+  /** Running in standalone PWA mode — gate should not show. */
   isInstalled: boolean;
-  /** iOS Safari — show the manual overlay instead of a native prompt. */
+  /** iOS device (any browser). */
+  isIos: boolean;
+  /** iOS Safari specifically — the only iOS browser that can install PWAs natively. */
   isIosSafari: boolean;
-  /** iOS: should show the tutorial overlay (first visit, not yet dismissed). */
-  showIosOverlay: boolean;
-  /** iOS: user dismissed the overlay — persist via localStorage. */
-  dismissIosOverlay: () => void;
-  /** Android/desktop: show the install banner (with 7-day cooldown respected). */
-  showAndroidBanner: boolean;
-  /** Android: user dismissed banner — persist 7-day cooldown. */
-  dismissAndroidBanner: () => void;
-  /** Call `.prompt()` on the deferred event (Android/desktop only). */
+  /** Android device. */
+  isAndroid: boolean;
+  /** Mobile platform we want to gate (iOS or Android). */
+  isMobile: boolean;
+  /** A deferred native install prompt is ready (Android/Chrome/Edge/Samsung). */
+  canInstall: boolean;
+  /** Trigger the native Android install prompt. Must be called from a user gesture. */
   prompt: () => Promise<void>;
-}
-
-const IOS_DISMISSED_KEY = 'sss_ios_install_dismissed';
-const ANDROID_SNOOZED_KEY = 'sss_android_install_snoozed_until';
-const ANDROID_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-export function detectIosSafari(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  const isIos = /iphone|ipad|ipod/i.test(ua);
-  const isSafari = /safari/i.test(ua) && !/criOS|fxiOS/i.test(ua);
-  return isIos && isSafari;
 }
 
 export function detectStandalone(): boolean {
@@ -44,31 +30,15 @@ export function detectStandalone(): boolean {
   );
 }
 
-function iosDismissed(): boolean {
-  try {
-    return localStorage.getItem(IOS_DISMISSED_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function androidSnoozed(): boolean {
-  try {
-    const until = localStorage.getItem(ANDROID_SNOOZED_KEY);
-    if (!until) return false;
-    return Date.now() < parseInt(until, 10);
-  } catch {
-    return false;
-  }
-}
-
 export function useInstallPrompt(): InstallPromptState {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(detectStandalone);
-  const [iosOverlayDismissed, setIosOverlayDismissed] = useState(iosDismissed);
-  const [androidSnoozedState, setAndroidSnoozedState] = useState(androidSnoozed);
 
-  const isIosSafari = detectIosSafari();
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const isIos = /iphone|ipad|ipod/i.test(ua);
+  const isIosSafari = isIos && /safari/i.test(ua) && !/criOS|fxiOS/i.test(ua);
+  const isAndroid = /android/i.test(ua);
+  const isMobile = isIos || isAndroid;
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -92,39 +62,19 @@ export function useInstallPrompt(): InstallPromptState {
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     setDeferredPrompt(null);
-    if (outcome === 'dismissed') {
-      // Snooze banner after explicit dismissal from the native prompt
-      try {
-        localStorage.setItem(ANDROID_SNOOZED_KEY, String(Date.now() + ANDROID_COOLDOWN_MS));
-      } catch { /* ignore */ }
-      setAndroidSnoozedState(true);
-    }
+    // If accepted, the 'appinstalled' event will fire and set isInstalled.
+    // If dismissed, the gate persists — they can try again once the browser
+    // re-arms the event.
+    if (outcome === 'accepted') setIsInstalled(true);
   }, [deferredPrompt]);
 
-  const dismissIosOverlay = useCallback(() => {
-    try {
-      localStorage.setItem(IOS_DISMISSED_KEY, '1');
-    } catch { /* ignore */ }
-    setIosOverlayDismissed(true);
-  }, []);
-
-  const dismissAndroidBanner = useCallback(() => {
-    try {
-      localStorage.setItem(ANDROID_SNOOZED_KEY, String(Date.now() + ANDROID_COOLDOWN_MS));
-    } catch { /* ignore */ }
-    setAndroidSnoozedState(true);
-  }, []);
-
-  const canInstall = !isInstalled && deferredPrompt !== null;
-
   return {
-    canInstall,
     isInstalled,
+    isIos,
     isIosSafari,
-    showIosOverlay: isIosSafari && !isInstalled && !iosOverlayDismissed,
-    dismissIosOverlay,
-    showAndroidBanner: canInstall && !androidSnoozedState,
-    dismissAndroidBanner,
+    isAndroid,
+    isMobile,
+    canInstall: !isInstalled && deferredPrompt !== null,
     prompt,
   };
 }
