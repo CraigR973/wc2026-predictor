@@ -70,7 +70,7 @@ describe('LoginPage', () => {
     await waitFor(() => screen.getByDisplayValue('Alice'));
 
     const { fireEvent } = await import('@testing-library/react');
-    fireEvent.change(screen.getByLabelText(/pin/i), { target: { value: '1234' } });
+    fireEvent.change(screen.getByLabelText('PIN digit 1'), { target: { value: '1' } });
     fireEvent.click(getByRole('button', { name: /sign in/i }));
 
     await findByText(/account locked/i);

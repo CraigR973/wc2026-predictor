@@ -1,10 +1,11 @@
 import { useEffect, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { Skeleton } from '../components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import type { H2HMatchEntry, H2HResponse, PlayerListItem } from '../lib/types';
@@ -43,24 +44,24 @@ function PlayerPicker({
   excludeId?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 flex-1 min-w-0">
+    <div className="flex flex-col gap-1 flex-1 min-w-0">
       <span className="text-xs text-text-muted font-sans uppercase tracking-wide">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="bg-surface border border-border rounded-md px-3 py-2 text-text-primary font-sans text-sm focus:outline-none focus:border-primary"
-      >
-        <option value="">Select player…</option>
-        {players
-          .filter((p) => p.id !== excludeId)
-          .map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.display_name}
-              {p.is_deleted ? ' (inactive)' : ''}
-            </option>
-          ))}
-      </select>
-    </label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger aria-label={label}>
+          <SelectValue placeholder="Select player…" />
+        </SelectTrigger>
+        <SelectContent>
+          {players
+            .filter((p) => p.id !== excludeId)
+            .map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.display_name}
+                {p.is_deleted ? ' (inactive)' : ''}
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -230,14 +231,7 @@ export function ComparePage() {
       <PageHeader
         title="Head-to-Head"
         eyebrow="Compare"
-        action={
-          <Link
-            to="/leaderboard"
-            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
-          >
-            ← Leaderboard
-          </Link>
-        }
+        back={{ to: '/leaderboard', label: 'Leaderboard' }}
       />
 
       <p className="text-text-muted text-sm font-sans">

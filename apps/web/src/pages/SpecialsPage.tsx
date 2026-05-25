@@ -15,6 +15,7 @@ import type {
 } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { PredictionsSubNav } from '../components/PredictionsSubNav';
@@ -145,6 +146,7 @@ function SpecialCard({
   const [teamId, setTeamId] = useState<string>(prediction?.predicted_team_id ?? '');
   const [playerName, setPlayerName] = useState<string>(prediction?.predicted_player_name ?? '');
   const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
 
   const isDirty = isTeamPick
     ? teamId !== (prediction?.predicted_team_id ?? '')
@@ -165,6 +167,8 @@ function SpecialCard({
     try {
       await onSave(ptype, isTeamPick ? teamId : null, isTeamPick ? null : playerName.trim());
       toast.success(`${meta.label} saved!`);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1200);
     } catch {
       toast.error('Failed to save. Try again.');
     } finally {
@@ -218,27 +222,25 @@ function SpecialCard({
       ) : isTeamPick ? (
         <div className="flex gap-2 items-end flex-wrap">
           <div className="flex-1 min-w-0">
-            <select
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              disabled={saving}
-              className="w-full rounded-md border border-border bg-background text-text-primary font-sans text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              aria-label={`Select team for ${meta.label}`}
-            >
-              <option value="">— Select a team —</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.flag_emoji} {t.name}
-                </option>
-              ))}
-            </select>
+            <Select value={teamId} onValueChange={setTeamId} disabled={saving}>
+              <SelectTrigger aria-label={`Select team for ${meta.label}`}>
+                <SelectValue placeholder="— Select a team —" />
+              </SelectTrigger>
+              <SelectContent>
+                {teams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.flag_emoji} {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <button
             onClick={handleSave}
             disabled={saving || !isDirty}
             className="px-4 py-2 rounded-md bg-primary text-background font-sans text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors whitespace-nowrap"
           >
-            {saving ? 'Saving…' : isSubmitted ? 'Update' : 'Save'}
+            {saving ? 'Saving…' : savedFlash ? 'Saved ✓' : isSubmitted ? 'Update' : 'Save'}
           </button>
         </div>
       ) : (
@@ -258,7 +260,7 @@ function SpecialCard({
             disabled={saving || !isDirty}
             className="px-4 py-2 rounded-md bg-primary text-background font-sans text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors whitespace-nowrap"
           >
-            {saving ? 'Saving…' : isSubmitted ? 'Update' : 'Save'}
+            {saving ? 'Saving…' : savedFlash ? 'Saved ✓' : isSubmitted ? 'Update' : 'Save'}
           </button>
         </div>
       )}

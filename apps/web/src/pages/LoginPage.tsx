@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PinInput } from '@/components/PinInput';
 import { Brand } from '@/components/Brand';
 import { brand } from '@/theme/tokens';
 
@@ -75,19 +77,18 @@ export function LoginPage() {
               <div className="space-y-1">
                 <Label htmlFor="displayName">Name</Label>
                 {players.length > 0 ? (
-                  <select
-                    id="displayName"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary font-sans focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  >
-                    {players.map((p) => (
-                      <option key={p.id} value={p.display_name}>
-                        {p.display_name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={displayName} onValueChange={setDisplayName} required>
+                    <SelectTrigger id="displayName">
+                      <SelectValue placeholder="Select your name" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {players.map((p) => (
+                        <SelectItem key={p.id} value={p.display_name}>
+                          {p.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <Input
                     id="displayName"
@@ -102,19 +103,8 @@ export function LoginPage() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="pin">PIN</Label>
-                <Input
-                  id="pin"
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="current-password"
-                  required
-                  maxLength={8}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="••••"
-                  className="tracking-widest"
-                />
+                <Label>PIN</Label>
+                <PinInput value={pin} onChange={setPin} />
               </div>
 
               {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}
@@ -122,6 +112,10 @@ export function LoginPage() {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Signing in…' : 'Sign in'}
               </Button>
+
+              <p className="text-xs text-text-muted font-sans text-center">
+                Forgot your PIN? Ask your league admin for a reset.
+              </p>
             </form>
           </CardContent>
         </Card>

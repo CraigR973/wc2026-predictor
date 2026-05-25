@@ -101,14 +101,7 @@ export function PlayerProfilePage() {
       <PageHeader
         title={stats.player_name}
         eyebrow={`${stats.total_predictions_settled} predictions settled`}
-        action={
-          <Link
-            to="/leaderboard"
-            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
-          >
-            ← Leaderboard
-          </Link>
-        }
+        back={{ to: '/leaderboard', label: 'Leaderboard' }}
       />
 
       {/* Stat cards */}

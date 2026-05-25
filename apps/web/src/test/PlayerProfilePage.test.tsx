@@ -200,7 +200,7 @@ describe('PlayerProfilePage', () => {
   it('includes link back to leaderboard', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('← Leaderboard')).toBeInTheDocument();
+      expect(screen.getByText('Leaderboard')).toBeInTheDocument();
     });
   });
 });
