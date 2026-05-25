@@ -11,6 +11,7 @@ import {
   Users,
   GitCompare,
   Settings as SettingsIcon,
+  Info,
   Shield,
   LogOut,
   type LucideIcon,
@@ -38,6 +39,7 @@ const SECONDARY: ReadonlyArray<TabDef> = [
   { to: '/groups', label: 'Groups', Icon: Users, matchPrefix: ['/groups'] },
   { to: '/compare', label: 'Compare', Icon: GitCompare },
   { to: '/settings', label: 'Settings', Icon: SettingsIcon },
+  { to: '/about', label: 'About', Icon: Info },
 ];
 
 const ADMIN: ReadonlyArray<TabDef> = [

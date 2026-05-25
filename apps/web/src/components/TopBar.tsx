@@ -13,6 +13,7 @@ const DESKTOP_NAV = [
   { to: '/leaderboard', label: 'Standings', exact: false },
   { to: '/compare', label: 'Compare', exact: false },
   { to: '/settings', label: 'Settings', exact: false },
+  { to: '/about', label: 'About', exact: false },
 ];
 
 export function TopBar() {
