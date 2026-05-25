@@ -11,12 +11,17 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null } | string>;
 };
 
-// Activate the new SW immediately on install + take control of clients without
-// waiting for tabs/PWA windows to close. Without these, `registerType:
-// 'autoUpdate'` only swaps the SW after the user fully closes the app, which
-// strands them on a stale bundle indefinitely.
-self.skipWaiting();
+// Claim clients immediately so this SW controls all open tabs on activation.
+// skipWaiting is intentionally NOT called here — we use registerType: 'prompt'
+// so the UpdateBanner can ask the user before swapping the bundle. The banner
+// posts SKIP_WAITING when the user taps "Refresh".
 clientsClaim();
+
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data as { type?: string }).type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);

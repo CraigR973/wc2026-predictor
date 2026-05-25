@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor } from 'lucide-react';
+import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { usePushSubscription } from '../hooks/usePushSubscription';
@@ -152,7 +153,7 @@ function PushSection() {
 // ── PWA install section ───────────────────────────────────────────────────────
 
 function InstallSection() {
-  const { canInstall, isInstalled, isIosSafari, prompt } = useInstallPrompt();
+  const { canInstall, isInstalled, isIosSafari, showIosOverlay, dismissIosOverlay, prompt } = useInstallPrompt();
 
   if (isInstalled) {
     return (
@@ -165,10 +166,20 @@ function InstallSection() {
 
   if (isIosSafari) {
     return (
-      <p className="text-sm text-text-secondary font-sans">
-        Tap the <strong>Share</strong> button in Safari, then choose{' '}
-        <strong>Add to Home Screen</strong>.
-      </p>
+      <div className="space-y-2">
+        <p className="text-sm text-text-secondary font-sans">
+          Tap the <strong>Share</strong> button in Safari, then choose{' '}
+          <strong>Add to Home Screen</strong>.
+        </p>
+        {!showIosOverlay && (
+          <button
+            onClick={dismissIosOverlay}
+            className="text-xs text-text-muted hover:text-text-primary font-sans underline"
+          >
+            Show step-by-step guide
+          </button>
+        )}
+      </div>
     );
   }
 
@@ -182,7 +193,7 @@ function InstallSection() {
 
   return (
     <button
-      onClick={prompt}
+      onClick={() => void prompt()}
       className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-sans border border-border hover:bg-surface-elevated transition-colors"
     >
       <Download size={14} />
@@ -355,6 +366,14 @@ export function SettingsPage() {
       <SectionCard title="Install App">
         <InstallSection />
       </SectionCard>
+
+      <Link
+        to="/about"
+        className="flex items-center gap-2 text-sm font-sans text-text-muted hover:text-text-primary transition-colors group"
+      >
+        <Info size={14} className="group-hover:text-primary transition-colors" aria-hidden />
+        About &amp; scoring rules
+      </Link>
     </div>
   );
 }

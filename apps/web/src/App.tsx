@@ -6,6 +6,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { UpdateBanner } from './components/UpdateBanner';
+import { InstallPromptController } from './components/InstallPromptController';
 import { Skeleton } from './components/ui/skeleton';
 import { LoginPage } from './pages/LoginPage';
 import { JoinPage } from './pages/JoinPage';
@@ -32,6 +34,7 @@ const PlayerProfilePage = lazy(() => import('./pages/PlayerProfilePage').then((m
 const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ default: m.ComparePage })));
 const OfflinePage = lazy(() => import('./pages/OfflinePage').then((m) => ({ default: m.OfflinePage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
 const AdminInvitesPage = lazy(() => import('./pages/admin/InvitesPage').then((m) => ({ default: m.AdminInvitesPage })));
 const AdminPlayersPage = lazy(() => import('./pages/admin/PlayersPage').then((m) => ({ default: m.AdminPlayersPage })));
 const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage').then((m) => ({ default: m.AdminDashboardPage })));
@@ -62,6 +65,8 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
+          <UpdateBanner />
+          <InstallPromptController />
           <Toaster position="bottom-right" richColors closeButton />
           <ErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
@@ -87,6 +92,7 @@ export function App() {
                     <Route path="/players/:id" element={<PlayerProfilePage />} />
                     <Route path="/compare" element={<ComparePage />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/about" element={<AboutPage />} />
                     <Route path="/offline" element={<OfflinePage />} />
                   </Route>
                 </Route>
