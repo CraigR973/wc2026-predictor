@@ -12,13 +12,13 @@ Mark batches complete by striking through the row.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U1 | 🟢 Sonnet | ~3 h | U1.1–U1.4 | Pending |
+| U1 | 🟢 Sonnet | ~3.5 h | U1.1–U1.5 | Pending |
 | U2 | 🟢 Sonnet | ~3 h | U2.1–U2.6 | Pending |
-| U3 | 🟢 Sonnet | ~4 h | U3.1–U3.10 | Pending |
+| U3 | 🟢 Sonnet | ~4.5 h | U3.1–U3.11 | Pending |
 | U4 | 🟢 Sonnet | ~3 h | U4.1–U4.6 | Pending |
 | U5 | 🔴 Opus (extended thinking) | ~3 h | U5.1–U5.5 | Pending |
 
-**Total ≈ 16 h** across 5 focused sessions.
+**Total ≈ 17 h** across 5 focused sessions.
 
 Each batch ships as one PR off `feat/premium-polish`. Do not merge to
 `main` until all five are done and the user has finished a real-phone
@@ -84,6 +84,15 @@ recurring brand element that lifts every page.
   Apply manually only if `PageHeader` doesn't already wrap every page top — grep to verify (~5 min check, ~25 min apply incl. visual sweep)
   (~30 min)
 
+- **U1.5** Self-host the splash fonts (surfaced by Lighthouse baseline — see `docs/lighthouse-baseline-2026-05-25.md`):
+  - Download the woff2 files for the two weights actually used on `/login` (JetBrains Mono 600 + 700; Outfit 400 + 600 if needed) into `apps/web/public/fonts/`
+  - Update `apps/web/src/index.css` `@font-face` rules to point at `/fonts/…` rather than `https://fonts.gstatic.com`
+  - Add `<link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/jetbrains-mono-600.woff2">` to `apps/web/index.html` for the splash-critical weight
+  - Remove the Google Fonts CSS `<link>` from `index.html`
+  - Update the service worker's `googleFontsCache` route in `apps/web/src/sw.ts` to drop the (now-unused) `fonts.gstatic.com` cache tier
+  - Verify the wordmark gradient still renders correctly (it depends on JetBrains Mono being loaded before paint)
+  (~30 min)
+
 **Acceptance:**
 - `apps/web/public/icon-{192,512}.png` and friends present and reference the new mark
 - `manifest.webmanifest` includes the new icons including maskable entry
@@ -94,6 +103,7 @@ recurring brand element that lifts every page.
 - Existing `Brand variant="compact"` / `variant="splash"` callers are unbroken
 - All existing Vitest + Playwright tests still pass
 - New bundle delta < +20 KB gzipped (PNG icons are precached but not loaded eagerly)
+- Self-hosted fonts: no requests to `fonts.gstatic.com` on cold load of `/login`; LCP element (the wordmark) paints at or before the existing 2.5 s baseline
 
 ---
 
@@ -203,6 +213,13 @@ nits that surfaced in the audit.
   - Cover with a Vitest test: input with 9 dup rows for 3 players all `total_points: 0`, all `rank: 4` → output is 3 rows, all `rank: 1`
   (~50 min)
 
+- **U3.11** Colour-contrast token fixes (surfaced by Lighthouse baseline — see `docs/lighthouse-baseline-2026-05-25.md`):
+  - `apps/web/src/theme/tokens.ts` + `apps/web/src/index.css` — lift the dark-mode `--color-text-muted` from `#5A6478` to a value that clears WCAG AA 4.5:1 against `bg-surface` `#131720` (target ~`#7B859B` — verify with a contrast checker). Same lift for the light-mode value if it doesn't already pass.
+  - Affects every page eyebrow (`FIXTURES`, `STANDINGS`, `ACCOUNT & DEVICE`, etc.) across the app — single token edit, dozens of consumers improve at once.
+  - **Primary button text fix:** in `apps/web/src/components/ui/button.tsx`, the `default` variant currently lets `text-text-inverse` resolve to white on emerald — Lighthouse measured 2.53 contrast (white on `#10B981`). Force the on-primary text colour to `text-text-inverse` (`#0B0E13`) explicitly so it clears 12:1. Verify the same fix for the `accent` variant on brass.
+  - Cover with a Vitest snapshot or accessibility test: re-run the existing `accessibility.test.tsx` and confirm no new violations.
+  (~30 min)
+
 **Acceptance:**
 - Welcome name no longer renders with the brass gradient
 - Dashboard scroll order: welcome → next match (hero) → stat cards → quick links → mini leaders
@@ -216,6 +233,7 @@ nits that surfaced in the audit.
 - Leaderboard hint visible at top, dismissible, dismissal persists across reloads
 - Leaderboard + Dashboard mini-table show 3 rows (not 9) even against the buggy backend, with ranks 1/1/1 not 4/4/4
 - New `format.ts` and `leaderboard.ts` lib modules covered by Vitest tests
+- `--color-text-muted` and primary-button on-colour text all clear WCAG AA 4.5:1 (verify via a Lighthouse re-run during U3 close-out)
 - All existing tests pass; no regressions in Playwright smoke
 
 ---
