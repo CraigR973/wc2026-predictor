@@ -173,6 +173,37 @@ function MaximumBreakdown() {
   );
 }
 
+// ── Tournament flow section ────────────────────────────────────────────────────
+
+function SubHead({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-xs font-mono font-semibold tracking-[0.2em] uppercase text-text-muted mb-2 mt-5 first:mt-0">
+      {children}
+    </h3>
+  );
+}
+
+function BulletList({ items }: { items: React.ReactNode[] }) {
+  return (
+    <ul className="space-y-2">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-start gap-2.5">
+          <span className="mt-[5px] shrink-0 w-1.5 h-1.5 rounded-full bg-primary/60" aria-hidden />
+          <span className="text-sm font-sans text-text-secondary leading-relaxed">{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function WhyCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-elevated px-4 py-4 space-y-2">
+      {children}
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export function AboutPage() {
@@ -247,6 +278,58 @@ export function AboutPage() {
             </div>
           </div>
 
+        </div>
+      </Section>
+
+      {/* How it works through the tournament */}
+      <Section title="How it works through the tournament">
+        <div>
+          <SubHead>Joining</SubHead>
+          <BulletList items={[
+            'You\'ll get a unique invite link from the admin (over WhatsApp).',
+            'Click the link, choose your display name, set your own 4–8 digit PIN.',
+            <>Nobody — not even the admin — sees your PIN.</>,
+            'Forgot it? Reset via the app.',
+          ]} />
+
+          <SubHead>Group stage — 11–28 June</SubHead>
+          <BulletList items={[
+            'Predict each match\'s score any time before kickoff.',
+            'Predictions lock automatically when the match kicks off.',
+            <>Results auto-fetch every 5 minutes from <span className="text-text-primary font-medium">football-data.org</span>.</>,
+            'The leaderboard updates the moment a result lands.',
+            'Compare your predictions head-to-head against any other player after a match locks.',
+          ]} />
+
+          <SubHead>Knockout transitions</SubHead>
+          <BulletList items={[
+            <>After the group stage, the admin reviews standings (including the 8 best third-placed teams per FIFA rules) and triggers the advance to Round of 32.</>,
+            'The 16 R32 matches appear in the app with kickoff times pulled from football-data.',
+            <>Predict the <strong className="text-text-primary font-semibold">winner</strong> of each knockout match (not the score) before the first R32 match kicks off. Points increase as the stakes do: <Pill>R32 = 5</Pill> <Pill>R16 = 10</Pill> <Pill>QF = 15</Pill> <Pill>SF = 20</Pill> <Pill>3rd = 10</Pill> <Pill>Final = 25</Pill>.</>,
+            'Knockout score predictions (separate from winner picks) also continue — same group-stage points system applied to the 90-min score.',
+            'Same flow repeats for R16, QF, SF, and the Final.',
+          ]} />
+
+          <SubHead>Special predictions — locked at the opening match</SubHead>
+          <BulletList items={[
+            <>Three special predictions submitted <strong className="text-text-primary font-semibold">before the tournament starts</strong>: Tournament Winner <Pill>20 pts</Pill>, Golden Boot <Pill>15 pts</Pill>, Top Scoring Team <Pill>10 pts</Pill>.</>,
+            'These lock at the kickoff of the opening match (11 June).',
+            'Awarded by the admin at the end of the tournament once the final whistle goes — your predictions are safe until then.',
+          ]} />
+
+          <SubHead>Why per-round predictions, not a pre-tournament bracket?</SubHead>
+          <p className="text-sm font-sans text-text-secondary leading-relaxed mb-3">
+            Some leagues ask you to fill your entire bracket before the tournament starts,
+            March-Madness-style. This league does it round by round. Here's why it's better:
+          </p>
+          <WhyCard>
+            <BulletList items={[
+              <><strong className="text-text-primary font-semibold">You're never out.</strong> Even if your favourite gets knocked out in R32, you're still competing in every remaining round.</>,
+              <><strong className="text-text-primary font-semibold">More informed picks.</strong> You've seen the group stage form before you commit to R32 winners.</>,
+              <><strong className="text-text-primary font-semibold">Joining late is fine.</strong> You can still play even if you missed some group matches.</>,
+              <><strong className="text-text-primary font-semibold">More moments.</strong> Every round transition is a fresh set of predictions and fresh trash talk on the group chat.</>,
+            ]} />
+          </WhyCard>
         </div>
       </Section>
 
