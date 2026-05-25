@@ -51,7 +51,6 @@ export function IosSafariOverlay() {
                   Tap{' '}
                   <span className="inline-flex items-center gap-1 font-semibold bg-surface-elevated border border-border rounded px-1.5 py-0.5">
                     <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
-                    <span className="text-xs">⋯</span>
                   </span>{' '}
                   in the bottom-right corner
                 </p>
