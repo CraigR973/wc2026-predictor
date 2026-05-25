@@ -218,7 +218,7 @@ export function AboutPage() {
           compete across the entire tournament — 72 group-stage matches and 32 knockout fixtures,
           from the Round of 32 all the way to the Final. Predictions lock automatically at each
           match&rsquo;s kickoff, results are fetched automatically, and the leaderboard updates in
-          real time. It&rsquo;s a friend-group thing.
+          real time.
         </p>
       </Section>
 
