@@ -64,6 +64,19 @@ export function LoginPage() {
           <p className="text-center text-text-primary mt-8 font-sans text-base sm:text-lg italic">
             {brand.tagline}
           </p>
+
+          {/* Robinson's partnership gag */}
+          <div className="mt-8 flex flex-col items-center gap-2">
+            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted">
+              In partnership with
+            </p>
+            <img
+              src="/robinsons-logo.png"
+              alt="Robinson's"
+              className="h-10 w-auto object-contain opacity-80"
+              draggable={false}
+            />
+          </div>
         </div>
 
         <Card>

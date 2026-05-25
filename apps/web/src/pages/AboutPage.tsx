@@ -336,9 +336,9 @@ export function AboutPage() {
       {/* How it was built */}
       <Section title="How it was built">
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
-          Built by Craig. The frontend is a React 18 PWA hosted on Vercel; the backend is a
-          FastAPI service running on Railway backed by a Supabase Postgres database. Match results
-          are fetched automatically from{' '}
+          Built by Craig Robinson and Lewis Steele. The frontend is a React 18 PWA hosted on
+          Vercel; the backend is a FastAPI service running on Railway backed by a Supabase Postgres
+          database. Match results are fetched automatically from{' '}
           <a
             href="https://www.football-data.org"
             target="_blank"
@@ -361,6 +361,11 @@ export function AboutPage() {
           ))}
         </div>
       </Section>
+
+      {/* Footer credit */}
+      <p className="text-center text-xs font-sans text-text-muted pb-2">
+        A Steele and Robbo Worldwide production.
+      </p>
     </div>
   );
 }
