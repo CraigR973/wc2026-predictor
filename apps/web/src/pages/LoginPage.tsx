@@ -61,10 +61,6 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-10">
           <Brand variant="splash" />
-          <p className="text-center text-text-primary mt-8 font-sans text-base sm:text-lg italic">
-            {brand.tagline}
-          </p>
-
           {/* Robinson's partnership gag */}
           <div className="mt-8 flex flex-col items-center gap-2">
             <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted">
@@ -77,6 +73,10 @@ export function LoginPage() {
               draggable={false}
             />
           </div>
+
+          <p className="text-center text-text-primary mt-6 font-sans text-base sm:text-lg italic">
+            {brand.tagline}
+          </p>
         </div>
 
         <Card>
