@@ -60,7 +60,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4 pt-safe pb-safe">
       <div className="w-full max-w-sm">
         <div className="mb-10">
-          <Brand variant="splash" />
+          <Brand variant="lockup" />
           {/* Robinson's partnership gag */}
           <div className="mt-8 flex flex-col items-center gap-2">
             <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted">
