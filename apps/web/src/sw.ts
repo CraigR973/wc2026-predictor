@@ -2,7 +2,7 @@
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { clientsClaim } from 'workbox-core';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { NetworkFirst, CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
@@ -67,29 +67,8 @@ registerRoute(
   }),
 );
 
-// Google Fonts stylesheets
-registerRoute(
-  ({ url }) => url.origin === 'https://fonts.googleapis.com',
-  new CacheFirst({
-    cacheName: 'google-fonts-cache',
-    plugins: [
-      new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }),
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-    ],
-  }),
-);
-
-// Google Fonts files
-registerRoute(
-  ({ url }) => url.origin === 'https://fonts.gstatic.com',
-  new CacheFirst({
-    cacheName: 'gstatic-fonts-cache',
-    plugins: [
-      new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }),
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-    ],
-  }),
-);
+// Fonts are self-hosted in /fonts/ and included in the precache manifest via
+// vite.config.ts VitePWA.includeAssets — no Google Fonts runtime routes needed.
 
 // ─── Push notifications ───────────────────────────────────────────────────────
 

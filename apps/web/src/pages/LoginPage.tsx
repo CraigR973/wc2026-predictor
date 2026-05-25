@@ -60,7 +60,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4 pt-safe pb-safe">
       <div className="w-full max-w-sm">
         <div className="mb-10">
-          <Brand variant="splash" />
+          <Brand variant="lockup" />
           <p className="text-center text-text-primary mt-8 font-sans text-base sm:text-lg italic">
             {brand.tagline}
           </p>
