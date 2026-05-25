@@ -12,7 +12,7 @@ Mark batches complete by striking through the row.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U1 | 🟢 Sonnet | ~3.5 h | U1.1–U1.5 | Pending |
+| ~~U1~~ | ~~🟢 Sonnet~~ | ~~~3.5 h~~ | ~~U1.1–U1.5~~ | ~~Shipped e12a942~~ |
 | U2 | 🟢 Sonnet | ~3 h | U2.1–U2.6 | Pending |
 | U3 | 🟢 Sonnet | ~4.5 h | U3.1–U3.11 | Pending |
 | U4 | 🟢 Sonnet | ~3 h | U4.1–U4.6 | Pending |
