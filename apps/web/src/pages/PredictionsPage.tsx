@@ -15,6 +15,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { PredictionsSubNav } from '../components/PredictionsSubNav';
+import { ScoringGuide } from '../components/ScoringGuide';
 import { useCountdown } from '../hooks/useCountdown';
 import { cn } from '../lib/utils';
 
@@ -646,6 +647,7 @@ export function PredictionsPage() {
     <div>
       <PageHeader title="My Predictions" eyebrow="Group stage" />
       <PredictionsSubNav />
+      <ScoringGuide />
 
       {isLoading && (
         <div className="space-y-4" aria-label="Loading predictions">

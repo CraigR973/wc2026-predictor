@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { WelcomeCard } from '../components/WelcomeCard';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
 import type { LeaderboardEntry, MatchResponse, RecentPrediction } from '../lib/types';
@@ -306,6 +307,8 @@ export function DashboardPage() {
       <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight leading-tight">
         Welcome back, <span className="text-wordmark-h">{player?.displayName}</span>
       </h1>
+
+      <WelcomeCard />
 
       {/* Rank + Points */}
       <div className="grid grid-cols-2 gap-3">
