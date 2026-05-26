@@ -65,7 +65,8 @@ test.describe('Head-to-head comparison', () => {
 
     await page.goto('/compare');
 
-    const selects = page.locator('select');
-    await expect(selects.first()).toBeVisible();
+    // Player pickers are now Radix Select (role=combobox, no native <select>)
+    const pickers = page.getByRole('combobox');
+    await expect(pickers.first()).toBeVisible();
   });
 });
