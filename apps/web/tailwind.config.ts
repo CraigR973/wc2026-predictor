@@ -20,6 +20,9 @@ export default {
         'text-secondary': 'var(--text-secondary)',
         'text-muted': 'var(--text-muted)',
         'text-inverse': 'var(--text-inverse)',
+        // On-brand text (locked dark across themes — see index.css)
+        'on-primary': 'var(--on-primary)',
+        'on-accent': 'var(--on-accent)',
 
         // Brand
         primary: {
