@@ -136,14 +136,7 @@ export function AdminSyncPage() {
       <PageHeader
         title="Sync Status"
         eyebrow="Admin"
-        action={
-          <Link
-            to="/admin"
-            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium font-sans bg-surface text-text-secondary hover:bg-surface-elevated border border-border transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
-          >
-            ← Admin
-          </Link>
-        }
+        back={{ to: '/admin', label: 'Admin' }}
       />
 
       {error && (

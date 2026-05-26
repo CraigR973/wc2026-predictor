@@ -113,22 +113,32 @@ function PushSection() {
     );
   }
 
+  if (permission === 'denied') {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    const isIos = /iPhone|iPad|iPod/.test(ua);
+    const isChrome = /Chrome/.test(ua) && !/Edg|OPR/.test(ua);
+    const hint = isIos
+      ? 'Go to iOS Settings → Safari → Notifications and allow this site.'
+      : isChrome
+        ? 'Click the lock icon in the address bar, set Notifications to "Allow", then reload.'
+        : 'Open your browser settings and allow notifications for this site.';
+    return (
+      <div className="rounded-md bg-warning/10 border border-warning/30 px-4 py-3 space-y-1">
+        <p className="text-sm font-sans font-medium text-warning">Notifications blocked</p>
+        <p className="text-xs font-sans text-text-secondary">{hint}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-sans text-text-primary">
-            {isSubscribed ? 'Notifications enabled' : 'Notifications disabled'}
-          </p>
-          {permission === 'denied' && (
-            <p className="text-xs text-text-muted mt-0.5">
-              Permission blocked — allow notifications in browser settings
-            </p>
-          )}
-        </div>
+        <p className="text-sm font-sans text-text-primary">
+          {isSubscribed ? 'Notifications enabled' : 'Notifications disabled'}
+        </p>
         <button
           onClick={isSubscribed ? unsubscribe : subscribe}
-          disabled={isLoading || permission === 'denied'}
+          disabled={isLoading}
           className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-sans transition-colors border border-border hover:bg-surface-elevated disabled:opacity-50"
         >
           {isSubscribed ? <BellOff size={14} /> : <Bell size={14} />}
