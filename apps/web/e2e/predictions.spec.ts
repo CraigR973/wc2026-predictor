@@ -221,9 +221,11 @@ test.describe('Login → predict flow', () => {
     );
 
     await page.goto('/login');
-    await page.waitForSelector('select');
+    // Name picker is now a Radix Select (role=combobox)
+    await page.waitForSelector('[role="combobox"]');
 
-    await page.getByLabel(/pin/i).fill('1234');
+    // PIN is now 4 segmented cells — fill the first cell
+    await page.getByLabel('PIN digit 1').fill('1');
     await page.getByRole('button', { name: /sign in/i }).click();
 
     await page.goto('/predictions');
