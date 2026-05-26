@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Lock, ChevronUp, ChevronDown } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { enqueuePrediction } from '../lib/offlineQueue';
@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase';
 import type { MatchResponse, GroupResponse, PredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { ScoreInput } from '../components/ui/score-input';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
@@ -79,75 +80,6 @@ function initLocal(predictions: PredictionResponse[]): LocalPredictions {
     };
   }
   return result;
-}
-
-// ---------------------------------------------------------------------------
-// Score input
-// ---------------------------------------------------------------------------
-
-function ScoreInput({
-  value,
-  onChange,
-  disabled,
-  'aria-label': ariaLabel,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  disabled: boolean;
-  'aria-label': string;
-}) {
-  const num = value === '' ? null : Number(value);
-
-  function step(delta: number) {
-    const next = Math.max(0, Math.min(99, (num ?? 0) + delta));
-    onChange(String(next));
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      {!disabled && (
-        <button
-          type="button"
-          onClick={() => step(1)}
-          aria-label={`Increment ${ariaLabel}`}
-          className="h-9 w-12 inline-flex items-center justify-center rounded-sm text-text-muted hover:text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
-        >
-          <ChevronUp className="h-5 w-5" aria-hidden />
-        </button>
-      )}
-      <input
-        type="number"
-        min={0}
-        max={99}
-        inputMode="numeric"
-        value={value}
-        onChange={(e) => {
-          const raw = e.target.value;
-          if (raw === '' || /^\d{1,2}$/.test(raw)) onChange(raw);
-        }}
-        disabled={disabled}
-        aria-label={ariaLabel}
-        className={cn(
-          'w-12 h-14 text-center font-mono text-3xl font-semibold rounded-md border bg-surface tabular-nums leading-none',
-          'transition-shadow duration-fast',
-          'focus:outline-none focus-visible:border-primary focus-visible:shadow-glow',
-          disabled
-            ? 'text-text-muted border-border cursor-not-allowed opacity-50'
-            : 'text-text-primary border-border hover:border-primary/50',
-        )}
-      />
-      {!disabled && (
-        <button
-          type="button"
-          onClick={() => step(-1)}
-          aria-label={`Decrement ${ariaLabel}`}
-          className="h-9 w-12 inline-flex items-center justify-center rounded-sm text-text-muted hover:text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
-        >
-          <ChevronDown className="h-5 w-5" aria-hidden />
-        </button>
-      )}
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------

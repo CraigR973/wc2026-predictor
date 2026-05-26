@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotionConfig } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, ChevronDown, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import type { LeaderboardEntry } from '../lib/types';
@@ -30,7 +30,15 @@ function rankDelta(prev: number | undefined, curr: number): RankDelta {
     : { direction: 'down', delta: curr - prev };
 }
 
-function ArrowGlyph({ rank }: { rank: RankDelta }) {
+function ArrowGlyph({
+  rank,
+  shouldPulse,
+  reduceMotion,
+}: {
+  rank: RankDelta;
+  shouldPulse: boolean;
+  reduceMotion: boolean;
+}) {
   const cls =
     rank.direction === 'up'
       ? 'text-success'
@@ -45,13 +53,31 @@ function ArrowGlyph({ rank }: { rank: RankDelta }) {
       : rank.direction === 'up'
         ? `Up ${rank.delta}`
         : `Down ${rank.delta}`;
+
+  // U5.3: pulse on rank change. `shouldPulse` is true only when prevRank
+  // existed AND differs from current rank — never on initial mount. Pulse
+  // is suppressed entirely under reduced motion.
+  const pulse = shouldPulse && !reduceMotion;
+
   return (
-    <span className={cn('inline-flex items-center gap-1 shrink-0', cls)} aria-label={label}>
+    <motion.span
+      className={cn('inline-flex items-center gap-1 shrink-0', cls)}
+      aria-label={label}
+      data-testid="rank-arrow"
+      data-pulsing={pulse ? 'true' : 'false'}
+      initial={false}
+      animate={
+        pulse
+          ? { scale: [1, 1.25, 1], filter: ['brightness(1)', 'brightness(1.4)', 'brightness(1)'] }
+          : { scale: 1, filter: 'brightness(1)' }
+      }
+      transition={{ duration: 0.24, ease: 'easeOut' }}
+    >
       <Icon className="h-3.5 w-3.5" aria-hidden />
       {rank.delta > 0 && (
         <span className="font-mono text-[10px] tabular-nums">{rank.delta}</span>
       )}
-    </span>
+    </motion.span>
   );
 }
 
@@ -61,6 +87,7 @@ interface RowProps {
   isOpen: boolean;
   isMe: boolean;
   reduceMotion: boolean;
+  shouldPulse: boolean;
   onToggle: () => void;
   onLongPress: () => void;
 }
@@ -71,6 +98,7 @@ function LeaderboardRow({
   isOpen,
   isMe,
   reduceMotion,
+  shouldPulse,
   onToggle,
   onLongPress,
 }: RowProps) {
@@ -97,7 +125,7 @@ function LeaderboardRow({
       <td className="py-3.5 min-w-0">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="shrink-0">
-            <ArrowGlyph rank={rd} />
+            <ArrowGlyph rank={rd} shouldPulse={shouldPulse} reduceMotion={reduceMotion} />
           </span>
           <Link
             to={`/players/${entry.player_id}`}
@@ -172,10 +200,13 @@ export function LeaderboardPage() {
   const { player: currentUser } = useAuth();
   const prevDataRef = useRef<LeaderboardEntry[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const reduceMotion = useReducedMotion() ?? false;
+  const reduceMotion = useReducedMotionConfig() ?? false;
   const [hintDismissed, setHintDismissed] = useState<boolean>(
     () => localStorage.getItem(HINT_DISMISSED_KEY) === 'true',
   );
+  // U5.3: player IDs whose rank just changed — held for ~260 ms so the
+  // arrow has time to play its pulse. Empty on initial mount.
+  const [pulsingIds, setPulsingIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard'],
@@ -186,9 +217,24 @@ export function LeaderboardPage() {
   const displayData = dedupedLeaderboard(data);
 
   useEffect(() => {
-    if (displayData.length > 0) {
-      prevDataRef.current = displayData;
+    if (displayData.length === 0) return;
+    const prev = prevDataRef.current;
+    prevDataRef.current = displayData;
+
+    // First render with data — never pulse. Just seed the ref.
+    if (prev.length === 0) return;
+
+    const prevByPlayer = Object.fromEntries(prev.map((e) => [e.player_id, e.rank]));
+    const changed = new Set<string>();
+    for (const e of displayData) {
+      const pr = prevByPlayer[e.player_id];
+      if (pr !== undefined && pr !== e.rank) changed.add(e.player_id);
     }
+    if (changed.size === 0) return;
+
+    setPulsingIds(changed);
+    const id = setTimeout(() => setPulsingIds(new Set()), 260);
+    return () => clearTimeout(id);
   }, [displayData]);
 
   useEffect(() => {
@@ -334,6 +380,7 @@ export function LeaderboardPage() {
                       isOpen={isOpen}
                       isMe={isMe}
                       reduceMotion={reduceMotion}
+                      shouldPulse={pulsingIds.has(entry.player_id)}
                       onToggle={() => toggleExpand(entry.player_id)}
                       onLongPress={() => openCompare(entry.player_id)}
                     />
