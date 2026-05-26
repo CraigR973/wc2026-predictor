@@ -17,7 +17,7 @@ export const colors = {
   // Text
   textPrimary: '#F0F4FF',
   textSecondary: '#94A3B8',
-  textMuted: '#5A6478',
+  textMuted: '#7B859B',
   textInverse: '#0B0E13',
 
   // Brand — refined emerald "go", deeper brass accent, neutral silver Steele
@@ -38,7 +38,7 @@ export const colors = {
   warning: '#F59E0B',
   error: '#EF4444',
   live: '#EF4444',
-  locked: '#5A6478',
+  locked: '#7B859B',
 
   // Rank medals
   gold: '#E5C46B',

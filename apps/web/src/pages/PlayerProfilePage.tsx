@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { formatSubmitTime } from '../lib/format';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
@@ -30,10 +31,14 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function outcomeClass(pts: number | null): string {
-  if (pts === null) return 'text-text-muted';
+function outcomeClass(pts: number | null, isUnfinished: boolean): string {
+  if (isUnfinished || pts === null) return 'text-text-muted';
   if (pts === 0) return 'text-red-400';
   return 'text-green-400';
+}
+
+function isMatchUnfinished(p: RecentPrediction): boolean {
+  return p.actual_home === null || p.actual_away === null;
 }
 
 export function PlayerProfilePage() {
@@ -96,6 +101,25 @@ export function PlayerProfilePage() {
 
   const h2hTarget = isSelf ? null : myStats ?? null;
 
+  // U3.5: streak — only show 🔥 when streak >= 2
+  const streakDisplay =
+    stats.current_streak >= 2
+      ? `${stats.current_streak}🔥`
+      : stats.current_streak === 0
+        ? '—'
+        : `${stats.current_streak}`;
+
+  // U3.7: collapse best/worst when zero settled rounds and both are 0
+  const hasRoundVariance =
+    stats.total_predictions_settled > 0 &&
+    (stats.best_round !== null || stats.worst_round !== null);
+  const showBestWorstPlaceholder =
+    !hasRoundVariance &&
+    stats.total_predictions_settled === 0 &&
+    (stats.best_round !== null || stats.worst_round !== null
+      ? false
+      : true);
+
   return (
     <div className="space-y-7">
       <PageHeader
@@ -112,12 +136,12 @@ export function PlayerProfilePage() {
           <StatCard label="Accuracy" value={`${stats.accuracy_pct}%`} />
           <StatCard label="Exact Score" value={`${stats.exact_rate_pct}%`} />
           <StatCard label="Avg Pts / Match" value={stats.avg_pts_per_prediction} />
-          <StatCard label="Current Streak" value={`${stats.current_streak}🔥`} />
+          <StatCard label="Current Streak" value={streakDisplay} />
           <StatCard
             label="Avg Submit Time"
             value={
               stats.avg_prediction_timing_mins !== null
-                ? `${Math.round(stats.avg_prediction_timing_mins / 60)}h before`
+                ? formatSubmitTime(stats.avg_prediction_timing_mins)
                 : '—'
             }
           />
@@ -125,7 +149,7 @@ export function PlayerProfilePage() {
       </div>
 
       {/* Best / worst round */}
-      {(stats.best_round || stats.worst_round) && (
+      {hasRoundVariance ? (
         <div>
           <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">
             Best &amp; Worst Round
@@ -155,7 +179,11 @@ export function PlayerProfilePage() {
             )}
           </div>
         </div>
-      )}
+      ) : showBestWorstPlaceholder ? (
+        <div className="rounded-lg border border-dashed border-border bg-surface/40 px-4 py-3 text-center">
+          <p className="text-sm font-sans text-text-muted">No round results yet</p>
+        </div>
+      ) : null}
 
       {/* Head-to-head mini table (only shown when viewing another player) */}
       {h2hTarget && (
@@ -223,31 +251,34 @@ export function PlayerProfilePage() {
                 </tr>
               </thead>
               <tbody>
-                {recentPreds.map((p) => (
-                  <tr
-                    key={p.match_id}
-                    className="border-b border-border/50 last:border-0"
-                  >
-                    <td className="py-2 pl-4">
-                      <span className="text-text-primary">
-                        {p.home_team_flag} {p.home_team_name ?? '?'} vs{' '}
-                        {p.away_team_flag} {p.away_team_name ?? '?'}
-                      </span>
-                      <span className="block text-xs text-text-muted">
-                        {STAGE_LABEL[p.stage] ?? p.stage}
-                      </span>
-                    </td>
-                    <td className="py-2 text-center text-text-secondary font-mono">
-                      {p.actual_home ?? '?'}–{p.actual_away ?? '?'}
-                    </td>
-                    <td className="py-2 text-center text-text-secondary font-mono">
-                      {p.predicted_home ?? '?'}–{p.predicted_away ?? '?'}
-                    </td>
-                    <td className={`py-2 pr-4 text-center font-bold ${outcomeClass(p.points_awarded)}`}>
-                      {p.points_awarded ?? '—'}
-                    </td>
-                  </tr>
-                ))}
+                {recentPreds.map((p) => {
+                  const unfinished = isMatchUnfinished(p);
+                  return (
+                    <tr
+                      key={p.match_id}
+                      className="border-b border-border/50 last:border-0"
+                    >
+                      <td className="py-2 pl-4">
+                        <span className="text-text-primary">
+                          {p.home_team_flag} {p.home_team_name ?? '?'} vs{' '}
+                          {p.away_team_flag} {p.away_team_name ?? '?'}
+                        </span>
+                        <span className="block text-xs text-text-muted">
+                          {STAGE_LABEL[p.stage] ?? p.stage}
+                        </span>
+                      </td>
+                      <td className="py-2 text-center text-text-secondary font-mono">
+                        {p.actual_home ?? '?'}–{p.actual_away ?? '?'}
+                      </td>
+                      <td className="py-2 text-center text-text-secondary font-mono">
+                        {p.predicted_home ?? '?'}–{p.predicted_away ?? '?'}
+                      </td>
+                      <td className={`py-2 pr-4 text-center font-bold ${outcomeClass(p.points_awarded, unfinished)}`}>
+                        {unfinished ? '—' : (p.points_awarded ?? '—')}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
