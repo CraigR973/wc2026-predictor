@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Skeleton } from '../components/ui/skeleton';
-import { EmptyState } from '../components/EmptyState';
+import { BracketTeaser } from '../components/BracketTeaser';
 import { PageHeader } from '../components/PageHeader';
 import type { MatchResponse, KnockoutPredictionResponse } from '../lib/types';
 
@@ -391,9 +391,10 @@ export function BracketPage() {
     return (
       <div>
         <PageHeader title="Bracket" eyebrow="Knockouts" />
-        <EmptyState
-          title="Bracket isn't ready yet"
-          description="Knockout matches appear here once the group stage completes."
+        <BracketTeaser
+          title="The bracket arrives after group stage"
+          ctaLabel="Make your group-stage picks →"
+          ctaTo="/predictions"
         />
       </div>
     );

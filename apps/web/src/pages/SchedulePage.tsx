@@ -10,7 +10,6 @@ import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
-import { useCountdown } from '../hooks/useCountdown';
 import { cn } from '../lib/utils';
 
 type StatusVariant = 'default' | 'success' | 'error' | 'muted' | 'accent' | 'warning' | 'live';
@@ -32,22 +31,6 @@ const STATUS_VARIANT: Record<MatchResponse['status'], StatusVariant> = {
   postponed: 'warning',
   cancelled: 'error',
 };
-
-function Countdown({ kickoffUtc }: { kickoffUtc: string }) {
-  const { days, hours, minutes, seconds, expired } = useCountdown(kickoffUtc);
-  if (expired) return null;
-  const parts =
-    days > 0
-      ? `${days}d ${hours}h`
-      : hours > 0
-        ? `${hours}h ${minutes}m`
-        : `${minutes}m ${seconds}s`;
-  return (
-    <span className="text-[10px] font-mono text-text-muted tabular-nums tracking-tight">
-      {parts}
-    </span>
-  );
-}
 
 function MatchCard({ match, timezone }: { match: MatchResponse; timezone: string }) {
   const kickoffLocal = formatInTimeZone(new Date(match.kickoff_utc), timezone, 'HH:mm');
@@ -83,7 +66,6 @@ function MatchCard({ match, timezone }: { match: MatchResponse; timezone: string
         <p className="text-sm font-mono text-text-primary font-medium tabular-nums tracking-tight">
           {kickoffLocal}
         </p>
-        {match.status === 'scheduled' && <Countdown kickoffUtc={match.kickoff_utc} />}
         {match.status === 'live' && (
           <span className="text-[10px] font-mono text-live uppercase tracking-[0.2em] animate-pulse-live">
             Live
@@ -176,7 +158,7 @@ const STAGES = [
   { value: 'r16', label: 'R16' },
   { value: 'qf', label: 'QF' },
   { value: 'sf', label: 'SF' },
-  { value: 'third_place', label: '3rd' },
+  { value: 'third_place', label: '3rd place' },
   { value: 'final', label: 'Final' },
 ];
 

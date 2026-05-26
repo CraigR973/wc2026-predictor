@@ -166,11 +166,11 @@ beforeEach(() => {
 });
 
 describe('KnockoutPredictionsPage', () => {
-  it('shows empty state when no knockout matches exist', async () => {
+  it('shows bracket teaser when no knockout matches exist', async () => {
     vi.stubGlobal('fetch', makeFetch({ matches: [GROUP_MATCH] }));
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText(/No knockout matches yet/i)).toBeTruthy(),
+      expect(screen.getByText(/Knockout picks open after group stage/i)).toBeTruthy(),
     );
   });
 

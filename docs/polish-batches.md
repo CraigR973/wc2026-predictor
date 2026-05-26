@@ -13,9 +13,9 @@ Mark batches complete by striking through the row.
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
 | ~~U1~~ | ~~🟢 Sonnet~~ | ~~~3.5 h~~ | ~~U1.1–U1.5~~ | ~~Shipped e12a942~~ |
-| U2 | 🟢 Sonnet | ~3 h | U2.1–U2.6 | Pending |
-| U3 | 🟢 Sonnet | ~4.5 h | U3.1–U3.11 | Pending |
-| U4 | 🟢 Sonnet | ~3 h | U4.1–U4.6 | Pending |
+| ~~U2~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U2.1–U2.6~~ | ~~Shipped dbf1469~~ |
+| ~~U3~~ | ~~🟢 Sonnet~~ | ~~~4.5 h~~ | ~~U3.1–U3.11~~ | ~~Shipped d643644~~ |
+| U4 | 🟢 Sonnet | ~3.5 h | U4.1–U4.7 | Pending |
 | U5 | 🔴 Opus (extended thinking) | ~3 h | U5.1–U5.5 | Pending |
 
 **Total ≈ 17 h** across 5 focused sessions.
@@ -280,6 +280,18 @@ like the team thought about this".
   Also: rename the `3rd` stage-filter pill to `3rd place` (S-1).
   (~15 min)
 
+- **U4.7** PWA "Update available" banner — currently the app uses `registerType: 'autoUpdate'` with `self.skipWaiting()` + `clientsClaim()` in `sw.ts`, which silently swaps the SW with no user-visible signal. Users on the installed PWA have no idea a new version landed.
+  - Switch `vite.config.ts` `VitePWA` `registerType` from `'autoUpdate'` to `'prompt'`
+  - Add a new `apps/web/src/components/UpdateBanner.tsx` component that uses `useRegisterSW` from `virtual:pwa-register/react`:
+    - Shows a slim dismissible banner at the top of the viewport when `needRefresh` is true: `"New version available"` + `"Update"` button + `"×"` dismiss
+    - Calls `updateServiceWorker(true)` on button click, then `window.location.reload()`
+    - Dismiss (× only) hides the banner for the current session without reloading
+    - Uses existing design tokens: `bg-surface-elevated`, `border-accent/40`, `text-text-primary`, `Button` variant `accent` size `sm`
+  - Mount `<UpdateBanner />` in `apps/web/src/App.tsx` (or the root layout) above the router outlet so it overlays every page
+  - Remove `self.skipWaiting()` from `sw.ts` — with `registerType: 'prompt'` the SW stays in the waiting state until the user taps "Update", so we no longer want auto-activation. `clientsClaim()` can stay (it only matters at first install, not on updates)
+  - Cover with a Vitest test: mock `useRegisterSW` returning `{ needRefresh: [true, vi.fn()], updateServiceWorker: mockUpdate }` and assert the banner renders with the correct text and that clicking "Update" calls `mockUpdate(true)`
+  (~30 min)
+
 **Acceptance:**
 - Bracket page empty state shows the greyscale R32 silhouette, countdown, and predict-CTA
 - Knockout picks page empty state mirrors the bracket teaser visually
@@ -289,6 +301,10 @@ like the team thought about this".
 - Rank history chart shows connected lines per player + dot markers on top
 - Schedule match cards no longer carry the per-card countdown; the page is visibly more compact
 - Stage filter label is `3rd place`, not `3rd`
+- When a new SW is waiting, the `UpdateBanner` appears with "New version available" + "Update" button; tapping it reloads to the new version
+- Dismissing the banner (×) hides it without reloading
+- `registerType` is `'prompt'`; `self.skipWaiting()` is removed from `sw.ts`
+- `UpdateBanner` Vitest test passes
 - All existing tests pass; new `BracketTeaser` component has a basic render test
 
 ---

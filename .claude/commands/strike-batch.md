@@ -1,18 +1,19 @@
 ---
-description: Mark a batch as shipped in docs/phase-batches.md (or docs/review-batches.md for R-batches) and push to main.
+description: Mark a batch as shipped in docs/phase-batches.md (or docs/review-batches.md for R-batches, or docs/polish-batches.md for U-batches) and push to main.
 ---
 
 You are striking through a completed batch.
 
 ## Argument & mode
 
-The user invokes this as `/strike-batch N` (architecture phases) **or** `/strike-batch RN` (pre-launch review batches), e.g. `/strike-batch 2` or `/strike-batch R1`.
+The user invokes this as `/strike-batch N` (architecture phases), `/strike-batch RN` (pre-launch review batches), or `/strike-batch UN` (premium polish batches), e.g. `/strike-batch 2`, `/strike-batch R1`, `/strike-batch U3`.
 
 `$ARGUMENTS` contains the batch identifier. Trim whitespace, then:
 
 - If it matches `^\d+$` → **phase mode**. Set `$FILE = /Users/craigrobinson/wc_2026_predictor/docs/phase-batches.md`.
 - If it matches `^R\d+$` (case-sensitive `R`) → **review mode**. Set `$FILE = /Users/craigrobinson/wc_2026_predictor/docs/review-batches.md`.
-- Otherwise reject with `"Invalid batch id '$ARGUMENTS' — expected a positive integer or R<integer>"`.
+- If it matches `^U\d+$` (case-sensitive `U`) → **polish mode**. Set `$FILE = /Users/craigrobinson/wc_2026_predictor/docs/polish-batches.md`.
+- Otherwise reject with `"Invalid batch id '$ARGUMENTS' — expected a positive integer, R<integer>, or U<integer>"`.
 
 Throughout the steps below, use `$FILE` for the file path and `$ARGUMENTS` for the literal row identifier (which is `2` or `R1`).
 
@@ -47,5 +48,5 @@ Throughout the steps below, use `$FILE` for the file path and `$ARGUMENTS` for t
 
 ## Rules
 
-- **Phase mode only:** never strike a batch whose phases are not all marked ✅ in `wc2026-architecture.md`. Before step 3, verify by greping each phase ID in the row — if any phase is missing its `✅ YYYY-MM-DD` suffix, stop and report which one. **Skip this rule entirely in review mode** — review items do not live in the architecture doc; the "shipped" signal is that the feature branch was merged to `main` (which `/phase-closeout RN` verified before invoking this skill).
+- **Phase mode only:** never strike a batch whose phases are not all marked ✅ in `wc2026-architecture.md`. Before step 3, verify by greping each phase ID in the row — if any phase is missing its `✅ YYYY-MM-DD` suffix, stop and report which one. **Skip this rule entirely in review and polish mode** — those items do not live in the architecture doc; the "shipped" signal is that the feature branch was merged to `main`.
 - Never run on a dirty working tree. If `git status` shows untracked or modified files other than `$FILE`, stop and report — let the user resolve first.

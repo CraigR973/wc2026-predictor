@@ -1,5 +1,5 @@
 ---
-description: Generate the next-batch paste-prompt. No-arg or `phase` → docs/phase-batches.md + wc2026-architecture.md. `review` → docs/review-batches.md (acceptance inline). Mechanical, no hallucination.
+description: Generate the next-batch paste-prompt. No-arg or `phase` → docs/phase-batches.md + wc2026-architecture.md. `review` → docs/review-batches.md (acceptance inline). `polish` → docs/polish-batches.md (acceptance inline). Mechanical, no hallucination.
 ---
 
 You are generating the copy-paste prompt for the next batch. Follow these steps **literally** — do not skip, do not infer.
@@ -10,12 +10,29 @@ You are generating the copy-paste prompt for the next batch. Follow these steps 
 
 - empty or `phase` → **phase mode**: `docs/phase-batches.md` + `wc2026-architecture.md` (legacy default)
 - `review` → **review mode**: `docs/review-batches.md` only (acceptance criteria live in the per-batch sub-sections of that same file)
+- `polish` → **polish mode**: `docs/polish-batches.md` only (spec and acceptance live inline per `## U<N>` section)
 
-Reject any other value with `"Unknown mode '$ARGUMENTS' — use empty/phase or 'review'"`.
+Reject any other value with `"Unknown mode '$ARGUMENTS' — use empty/phase, 'review', or 'polish'"`.
 
 Per-step notes call out where the modes diverge.
 
 ## Step 1 — Find the next batch
+
+**Polish mode:**
+
+```bash
+grep -nE "^\| U[0-9~]" /Users/craigrobinson/wc_2026_predictor/docs/polish-batches.md
+```
+
+The first row whose batch id is NOT wrapped in `~~...~~` is the next polish batch. Extract:
+- **Batch id** (e.g. `U4`)
+- **Model tag** and any reasoning hint (e.g. `🟢 Sonnet` or `🔴 Opus (extended thinking)`)
+- **Effort** (e.g. `~3.5 h`)
+- **Items range** (e.g. `U4.1–U4.7`)
+
+If every row is struck through, report "All polish batches shipped — run the full verification checklist in `docs/polish-batches.md` before merging `feat/premium-polish` to main" and stop.
+
+
 
 **Phase mode:**
 
@@ -62,6 +79,13 @@ Copy the bullets verbatim, including the **Acceptance:** line. Do not paraphrase
 - The **Acceptance:** paragraph at the end of the section
 
 Do **not** grep `wc2026-architecture.md` in review mode — review items are not in it. If the section is missing, stop and report.
+
+**Polish mode:** spec and acceptance live INLINE in `docs/polish-batches.md`. Read the `## U<N> — <Title>` section for the batch you identified in Step 1. Capture:
+- The section title (the part after `— `)
+- The one-line summary of each numbered item (the `**U<N>.<M>**` lead clause)
+- The entire **Acceptance:** block at the end of the section
+
+Do **not** grep `wc2026-architecture.md` in polish mode. If the section is missing, stop and report.
 
 ## Step 3 — Anchor with recent commit hashes
 
@@ -160,7 +184,47 @@ PREVIOUS SESSION NOTES:
 ```
 ````
 
-After emitting the prompt, on a new line, remind the user: "Paste into a fresh **<model>** session. After it starts, run `/strike-batch <id>` (or edit the batches doc manually) to mark this batch in-flight." The `<id>` is `N` in phase mode and `R<N>` in review mode.
+**Polish mode:**
+
+````
+```
+You are continuing work on the **World Cup 2026 Prediction League** PWA ("The Steele Spreadsheet System") — a FastAPI + React 18 + Tailwind + shadcn/ui app. The working branch is `feat/premium-polish`. Pull it before starting.
+
+---
+
+## Your task: <batch-id> — <Title> (~<effort>) <model emoji + tag>
+
+All <N> sub-tasks below must be completed and their acceptance criteria verified before close-out. Do NOT close out — I'll run `/phase-closeout <batch-id>` myself once I've reviewed staging.
+
+<--- paste the full ## U<N> section body from docs/polish-batches.md verbatim here --->
+
+---
+
+## Acceptance checklist
+
+<--- paste the Acceptance: bullets from the ## U<N> section verbatim --->
+
+---
+
+## Environment reminders
+
+- Branch: `feat/premium-polish` — pull before starting
+- Frontend test: `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir /Users/craigrobinson/wc_2026_predictor/apps/web test`
+- Typecheck: `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir /Users/craigrobinson/wc_2026_predictor/apps/web typecheck`
+- Lint: `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir /Users/craigrobinson/wc_2026_predictor/apps/web lint`
+- Never `cd` — use absolute paths
+- After all tasks are done and tests are green, push `feat/premium-polish` and let CI run. Do NOT merge to `staging` or `main` — I'll do that after review.
+- Commit with Conventional Commits format
+- Do NOT run `/phase-closeout` — I'll trigger that manually
+
+PREVIOUS SESSION NOTES:
+- <non-obvious gotchas from the most recent polish-batch session-log entry — max ~6 bullets>
+- <include the commit hash(es) of the previous batch so the next session can run `git show <hash>`>
+- <omit this whole block if there are no genuinely non-obvious items>
+```
+````
+
+After emitting the prompt, on a new line, remind the user: "Paste into a fresh **<model>** session. After it starts, run `/strike-batch <id>` (or edit the batches doc manually) to mark this batch in-flight." The `<id>` is `N` in phase mode, `R<N>` in review mode, and `U<N>` in polish mode.
 
 ## Rules
 
