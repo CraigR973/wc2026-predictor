@@ -1010,3 +1010,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `mockImplementationOnce` in `UpdateBanner.test.tsx` requires casting the return value (`as unknown as () => Promise<void>`) — vite-plugin-pwa's `RegisterSWOptions` type doesn't align with locally-defined callback types.
 
 **Next:** Polish batch U5 — Motion moments + elevation depth (🔴 Opus, extended thinking ON)
+
+---
+
+## Polish batch U5 — Motion moments + elevation depth
+**Commits:** 129952b, 9b427c7 · CI ✅
+
+### Key facts for future sessions
+- framer-motion 11's `useReducedMotion` reads matchMedia once via `useState(initial)` — it's not reactive and does NOT respect `<MotionConfig reducedMotion>`. Use the also-exported `useReducedMotionConfig` for new motion code so MotionConfig overrides work in tests (`<MotionConfig reducedMotion="always">`).
+- The Tailwind utility `top-safe-or-0` does NOT exist in this codebase — it was silently dropped, which pinned `<UpdateBanner>` under the iOS status bar (un-tappable in standalone PWA). The convention here is `top-0` + `pt-safe` on the *outer* wrapper (with the colour also on the outer so the notch strip is filled), matching `<TopBar>`.
+- `ScoreInput` paints the digit with an overlaid `<motion.span>` keyed on a pulse counter while the native `<input>` is rendered `text-transparent` — lets the spring replay on every value change (typed / chevron / keyboard) without disturbing input focus or numeric IME behaviour.
+- Per-player palette (`LeaderboardHistoryPage` + `BracketPage`) reserves the entire green band — brand primary is green-only. Slate neutrals (`#94a3b8`, `#cbd5e1`) replaced `#22c55e` and `#14b8a6`. Semantic green elsewhere (bracket "Correct" indicator using `#10b981`) is intentional and NOT from this palette.
+- Local `pnpm --dir apps/web build` fails with `Rollup failed to resolve "workbox-window"` — pre-existing on the branch (reproduced by stashing U5 changes). CI builds clean (different lockfile state); a fix already exists on `feat/frontend-polish` (`27bbcdc`). Out of scope for U5.
+
+**Next:** Verification + real-phone soak per `docs/polish-batches.md` "Verification (run at the end of U5, before merge)". After user sign-off, tag `main` as `v1.0-pre-multi-league`.
