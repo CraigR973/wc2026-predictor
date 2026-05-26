@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from src.auth import CurrentPlayer
 from src.database import get_db
@@ -69,32 +70,36 @@ async def get_leaderboard(
     db: Annotated[AsyncSession, Depends(get_db)],
     include_inactive: bool = Query(default=False),
 ) -> list[LeaderboardEntryOut]:
-    """Current leaderboard from the latest snapshot per player."""
+    """Current leaderboard from the latest snapshot per player.
 
-    # For each player grab their most recent snapshot row
-    latest_snapshot_at = (
-        select(func.max(LeaderboardSnapshot.snapshot_at))
-        .where(LeaderboardSnapshot.player_id == Profile.id)
-        .correlate(Profile)
-        .scalar_subquery()
+    Uses Postgres ``DISTINCT ON`` to pick exactly one snapshot per player.
+    Multiple recomputes inside one transaction (e.g. trigger + specials
+    helper) share ``transaction_timestamp()``, so ``snapshot_at`` ties
+    are real; the secondary ``id DESC`` sort breaks them deterministically.
+    """
+
+    latest_per_player = (
+        select(LeaderboardSnapshot)
+        .distinct(LeaderboardSnapshot.player_id)
+        .order_by(
+            LeaderboardSnapshot.player_id,
+            LeaderboardSnapshot.snapshot_at.desc(),
+            LeaderboardSnapshot.id.desc(),
+        )
+        .subquery()
     )
+    LatestSnap = aliased(LeaderboardSnapshot, latest_per_player)
 
     stmt = (
-        select(Profile, LeaderboardSnapshot)
-        .join(
-            LeaderboardSnapshot,
-            (LeaderboardSnapshot.player_id == Profile.id)
-            & (LeaderboardSnapshot.snapshot_at == latest_snapshot_at),
-        )
-        .where(
-            Profile.deleted_at.is_(None),
-        )
+        select(Profile, LatestSnap)
+        .join(LatestSnap, LatestSnap.player_id == Profile.id)
+        .where(Profile.deleted_at.is_(None))
     )
 
     if not include_inactive:
         stmt = stmt.where(Profile.is_active.is_(True))
 
-    stmt = stmt.order_by(LeaderboardSnapshot.rank.asc(), Profile.display_name.asc())
+    stmt = stmt.order_by(LatestSnap.rank.asc(), Profile.display_name.asc())
 
     result = await db.execute(stmt)
     rows = result.all()
