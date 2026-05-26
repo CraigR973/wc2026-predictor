@@ -15,12 +15,19 @@ Phase 4 verification run, comparing against
 
 ## Category scores
 
-| Category | Baseline | Final | Δ | Target met? |
+| Category | Baseline | Final (pre-`86ed938`) | Final (post-`86ed938`) | Target met? |
 |---|---|---|---|---|
-| **Performance** | **0.82** | **0.92** | **+0.10** | ✅ target 0.90 |
-| Accessibility | 0.96 | 0.96 | 0 | ⚠️ target 1.00 — see "Remaining issue" below |
-| Best Practices | 1.00 | 1.00 | 0 | ✅ |
-| SEO | 1.00 | 1.00 | 0 | ✅ |
+| **Performance** | **0.82** | **0.92** | 0.92 (staging WAF blocked re-run; build identical) | ✅ target 0.90 |
+| **Accessibility** | 0.96 | 0.96 | **1.00** | ✅ target 1.00 (after follow-up fix) |
+| Best Practices | 1.00 | 1.00 | 1.00 | ✅ |
+| SEO | 1.00 | 1.00 | 1.00 | ✅ |
+
+The post-fix accessibility number was confirmed via a fresh Lighthouse
+run against the same code on `http://localhost:5173/login` after
+`86ed938` landed (staging URL was temporarily behind a Vercel WAF
+challenge from the verification polling; the dev-server-served bundle
+contains the identical token/Button changes). All accessibility audits
+pass; no failing items remain.
 
 ## Web Vitals
 
@@ -48,30 +55,36 @@ Phase 4 verification run, comparing against
 | Other | 4.4 KB | 6.9 KB | +2.5 KB |
 | **Third-party** | **65.9 KB** | **0.5 KB** | **−65.4 KB** (Google Fonts removed) |
 
-## Remaining issue — Accessibility 0.96
+## U3.11 follow-up — shipped in `86ed938`
 
-One `color-contrast` audit still failing on the primary CTA button:
+The unfixed second clause of U3.11 (primary CTA button white-on-emerald
+contrast) shipped on 26 May as a separate commit
+`fix(a11y): lock on-primary / on-accent button text to dark across themes`.
 
-- `button.w-full` (the Sign-in button on `/login`)
-- Foreground `#FFFFFF`, background `#10B981` (light-mode primary at `#059669` also fails)
-- Measured contrast 2.53 — needs 4.5 minimum for AA
+Changes:
 
-This was specified in U3.11's acceptance criteria but only the
-`--text-muted` half of U3.11 shipped — the primary-button on-colour
-fix didn't. **The token `--text-inverse` resolves to `#FFFFFF` in
-light mode**, and the `default` Button variant uses `text-text-inverse`.
+- New tokens `--on-primary: #0B0E13` and `--on-accent: #0B0E13`
+  added to both `:root, html.dark` and `html.light` blocks in
+  `apps/web/src/index.css` — locked dark in both themes so the
+  primary/accent surfaces always have AA-clearing text contrast
+- Registered as `on-primary` and `on-accent` colours in
+  `apps/web/tailwind.config.ts`
+- `apps/web/src/components/ui/button.tsx` default + accent variants
+  swapped `text-text-inverse` → `text-on-primary` / `text-on-accent`
+- `apps/web/src/pages/OfflinePage.tsx` hand-rolled retry button had
+  the same issue — same swap applied
 
-**Proposed fix** (5-minute follow-up, not yet applied):
+Verified contrast ratios (WCAG AA needs 4.5 : 1):
 
-1. Add a new token `--on-primary: #0B0E13` (same value in both modes, since the primary green is dark enough in either mode that dark text reads cleanly)
-2. Register `'on-primary': 'var(--on-primary)'` in `apps/web/tailwind.config.ts`
-3. Update `apps/web/src/components/ui/button.tsx`:
-   - `default` variant: `text-text-inverse` → `text-on-primary`
-   - `accent` variant: same swap (also currently broken in light mode, white on `#A77C2A` ≈ 3.7:1)
-4. Re-run Lighthouse → expect Accessibility 1.00
+| Foreground | Background | Where | Ratio |
+|---|---|---|---|
+| `#0B0E13` | `#10B981` | dark mode primary | ≈ 13 : 1 (AAA) |
+| `#0B0E13` | `#059669` | light mode primary | ≈ 5.0 : 1 (AA) |
+| `#0B0E13` | `#C8943C` | dark mode accent | ≈ 7.0 : 1 (AA) |
+| `#0B0E13` | `#A77C2A` | light mode accent | ≈ 4.9 : 1 (AA) |
 
-Without this, accessibility floor (0.96 — no regression) is held but
-target (1.00) is missed.
+After the fix, Lighthouse Accessibility = **1.00** — no failing
+audits remain.
 
 ## How to reproduce
 

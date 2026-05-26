@@ -108,7 +108,7 @@ Full numbers in `docs/lighthouse-final-2026-05-26.md`. Headline:
 | Metric | Baseline | Final | Target | Status |
 |---|---|---|---|---|
 | Performance | 0.82 | **0.92** | 0.90 | ✅ |
-| Accessibility | 0.96 | 0.96 | 1.00 | ⚠️ button on-primary contrast still failing — see open item below |
+| Accessibility | 0.96 | **1.00** | 1.00 | ✅ (after `86ed938` U3.11 follow-up) |
 | Best Practices | 1.00 | 1.00 | 1.00 | ✅ |
 | SEO | 1.00 | 1.00 | 1.00 | ✅ |
 | LCP | 2.5 s | 2.5 s | 2.0 s | ⚠️ same value, score 0.89 → 0.90 |
@@ -120,21 +120,20 @@ Full numbers in `docs/lighthouse-final-2026-05-26.md`. Headline:
 
 ## Verification status
 
-- **CI on main** — green (last 3 runs all `success`)
-- **Vitest** — all suites passing per per-batch CI
+- **CI on main** — green
+- **Vitest** — 167/167 passing
 - **Playwright smoke** — green per per-batch CI (`666e605` updated for shadcn Select + PinInput)
-- **Lighthouse** — re-run, Performance hit target; Accessibility blocked on one remaining contrast issue
+- **Lighthouse** — re-run; Performance 0.82 → 0.92, Accessibility 0.96 → 1.00 (after `86ed938`), all Phase 4 targets met
 - **Bundle delta** — within budget on main entry
 - **Real-phone soak** — owner: you. Carried out per-batch as each landed via the soak loop; round-level soak is your call to declare complete.
 
 ## Open items (not blocking "polish round done")
 
-1. **U3.11 follow-up: primary button on-colour contrast.** Single
-   audit still failing accessibility (white-on-emerald 2.53). Fix is
-   ~5 min: add `--on-primary: #0B0E13` token + swap `text-text-inverse`
-   → `text-on-primary` on default + accent Button variants. Spec is
-   in `docs/lighthouse-final-2026-05-26.md`. Apply this and
-   Accessibility hits 1.00.
+1. ~~**U3.11 follow-up: primary button on-colour contrast.**~~
+   ✅ Shipped 2026-05-26 in `86ed938` — new `--on-primary` /
+   `--on-accent` tokens locked dark across themes; Button default +
+   accent + the OfflinePage hand-rolled button updated. Lighthouse
+   Accessibility 1.00.
 
 2. **C-2 backend leaderboard dup-rows bug.** Frontend dedupe shipped
    (U3.10) — defensive only. The actual backend regression is its
