@@ -52,7 +52,7 @@ describe('UpdateBanner', () => {
   it('renders nothing when onNeedRefresh is never triggered', async () => {
     const { registerSW } = await import('virtual:pwa-register');
     vi.mocked(registerSW).mockImplementationOnce(
-      (_cb: RegisterSWCallbacks) => mockUpdateSW,
+      (_cb) => mockUpdateSW as unknown as () => Promise<void>,
     );
 
     render(<UpdateBanner />);
