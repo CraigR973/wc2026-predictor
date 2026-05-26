@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trophy, Star, Zap, Lock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import type {
   GroupResponse,
 } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { SaveButton, type SaveButtonState } from '../components/ui/save-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { EmptyState } from '../components/EmptyState';
@@ -145,14 +146,21 @@ function SpecialCard({
 
   const [teamId, setTeamId] = useState<string>(prediction?.predicted_team_id ?? '');
   const [playerName, setPlayerName] = useState<string>(prediction?.predicted_player_name ?? '');
-  const [saving, setSaving] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
+  const [saveState, setSaveState] = useState<SaveButtonState>('idle');
 
   const isDirty = isTeamPick
     ? teamId !== (prediction?.predicted_team_id ?? '')
     : playerName !== (prediction?.predicted_player_name ?? '');
 
   const isSubmitted = prediction?.submitted_at != null;
+
+  // Auto-reset `saved` → `idle` after the 1.2 s hold so the button returns
+  // to its resting state.
+  useEffect(() => {
+    if (saveState !== 'saved') return;
+    const id = setTimeout(() => setSaveState('idle'), 1200);
+    return () => clearTimeout(id);
+  }, [saveState]);
 
   async function handleSave() {
     if (isTeamPick && !teamId) {
@@ -163,16 +171,14 @@ function SpecialCard({
       toast.error('Please enter a player name.');
       return;
     }
-    setSaving(true);
+    setSaveState('saving');
     try {
       await onSave(ptype, isTeamPick ? teamId : null, isTeamPick ? null : playerName.trim());
       toast.success(`${meta.label} saved!`);
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1200);
+      setSaveState('saved');
     } catch {
       toast.error('Failed to save. Try again.');
-    } finally {
-      setSaving(false);
+      setSaveState('idle');
     }
   }
 
@@ -222,7 +228,7 @@ function SpecialCard({
       ) : isTeamPick ? (
         <div className="flex gap-2 items-end flex-wrap">
           <div className="flex-1 min-w-0">
-            <Select value={teamId} onValueChange={setTeamId} disabled={saving}>
+            <Select value={teamId} onValueChange={setTeamId} disabled={saveState === 'saving'}>
               <SelectTrigger aria-label={`Select team for ${meta.label}`}>
                 <SelectValue placeholder="— Select a team —" />
               </SelectTrigger>
@@ -235,13 +241,15 @@ function SpecialCard({
               </SelectContent>
             </Select>
           </div>
-          <button
+          <SaveButton
+            type="button"
             onClick={handleSave}
-            disabled={saving || !isDirty}
-            className="px-4 py-2 rounded-md bg-primary text-background font-sans text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors whitespace-nowrap"
-          >
-            {saving ? 'Saving…' : savedFlash ? 'Saved ✓' : isSubmitted ? 'Update' : 'Save'}
-          </button>
+            state={saveState}
+            idleLabel={isSubmitted ? 'Update' : 'Save'}
+            savedLabel="Saved"
+            disabled={!isDirty}
+            className="whitespace-nowrap"
+          />
         </div>
       ) : (
         <div className="flex gap-2 items-end flex-wrap">
@@ -250,18 +258,20 @@ function SpecialCard({
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             placeholder="e.g. Kylian Mbappé"
-            disabled={saving}
+            disabled={saveState === 'saving'}
             maxLength={100}
             className="flex-1 min-w-0 rounded-md border border-border bg-background text-text-primary font-sans text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
             aria-label="Golden Boot player name"
           />
-          <button
+          <SaveButton
+            type="button"
             onClick={handleSave}
-            disabled={saving || !isDirty}
-            className="px-4 py-2 rounded-md bg-primary text-background font-sans text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors whitespace-nowrap"
-          >
-            {saving ? 'Saving…' : savedFlash ? 'Saved ✓' : isSubmitted ? 'Update' : 'Save'}
-          </button>
+            state={saveState}
+            idleLabel={isSubmitted ? 'Update' : 'Save'}
+            savedLabel="Saved"
+            disabled={!isDirty}
+            className="whitespace-nowrap"
+          />
         </div>
       )}
     </div>

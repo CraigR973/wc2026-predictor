@@ -83,7 +83,7 @@ function NextMatchCard({
   const isUrgent = !cd.expired && cd.days === 0 && cd.hours === 0;
 
   return (
-    <div className="block rounded-lg border border-border bg-surface p-4 sm:p-5 transition-colors">
+    <div className="block rounded-lg border border-border bg-surface-elevated p-4 sm:p-5 transition-colors">
       <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
         Next Match
       </p>
