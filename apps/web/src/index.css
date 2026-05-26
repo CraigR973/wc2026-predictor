@@ -86,6 +86,13 @@
     --text-muted: #7B859B;
     --text-inverse: #0B0E13;
 
+    /* On-brand text — locked dark in both modes so primary/accent
+       buttons always clear WCAG AA 4.5:1 regardless of theme.
+       Verified: dark text on primary (#10B981 / #059669) and accent
+       (#C8943C / #A77C2A) all ≥ 4.9:1. */
+    --on-primary: #0B0E13;
+    --on-accent: #0B0E13;
+
     /* Brand */
     --primary: #10B981;
     --primary-dark: #059669;
@@ -143,6 +150,11 @@
     --text-secondary: #4B5563;
     --text-muted: #8A93A1;
     --text-inverse: #FFFFFF;
+
+    /* On-brand text — same dark value as dark mode; light primary/accent
+       greens and brasses are still dark enough that dark text clears AA. */
+    --on-primary: #0B0E13;
+    --on-accent: #0B0E13;
 
     /* Brand — slightly darker variants for AA contrast on white */
     --primary: #059669;

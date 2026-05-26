@@ -15,8 +15,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-text-inverse hover:bg-primary-dark font-semibold',
-        accent: 'bg-accent text-text-inverse hover:bg-accent-dark font-semibold focus-visible:shadow-glow-accent',
+        default: 'bg-primary text-on-primary hover:bg-primary-dark font-semibold',
+        accent: 'bg-accent text-on-accent hover:bg-accent-dark font-semibold focus-visible:shadow-glow-accent',
         outline: 'border border-border-strong bg-transparent text-text-primary hover:bg-surface-elevated',
         ghost: 'bg-transparent text-text-secondary hover:bg-surface-elevated hover:text-text-primary',
         subtle: 'bg-surface-elevated text-text-primary hover:bg-surface-overlay',
