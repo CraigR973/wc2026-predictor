@@ -999,6 +999,50 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 
 ---
 
+## Polish batch U1 — Logo + brand voice + self-hosted fonts
+**Commits:** e12a942, c978262 · CI ✅
+
+### Key facts for future sessions
+- `apps/web/generate-icons.mjs` uses `@resvg/resvg-js` to render the SVG mark to PNG at every required size (192/384/512/maskable-512/180-touch/32-favicon). Run on demand, not in the build pipeline — regenerate after editing the source SVG.
+- Concept 3 (bold S letterform) was the original direction in `e12a942`; swapped to Concept 4 (pitch-as-spreadsheet) in `c978262`. Concept 4 ships with a companion `docs/logo-concepts/concept-4-pitch-favicon.svg` — simplified centre-circle + ball, used as the 32 px favicon (the full pitch mark is too dense at that size).
+- LoginPage kept as `variant="splash"` (wordmark only). The new `variant="lockup"` (mark left + wordmark right) exists in `Brand.tsx` but is not used on the splash — the mark felt out of place there. The mark only ships via favicon/install/manifest/SW precache.
+- Self-hosted fonts are in `apps/web/public/fonts/` — JBM 600+700 + Outfit 400+600, ~70 KB total. `<link rel="preload">` for JBM 600 (the LCP element). Google Fonts `<link>` + preconnect hints removed from `index.html`; `fonts.gstatic.com` route removed from `sw.ts`.
+- `PageHeader` brass divider (`border-t border-accent/30`) fires only when an `eyebrow` is present — ~20 consumers automatically inherit it. No per-page wiring needed.
+
+**Next:** Polish batch U2 — Form unification + navigation consistency (🟢 Sonnet)
+
+---
+
+## Polish batch U2 — Form unification + navigation consistency
+**Commits:** dbf1469, 666e605 · CI ✅
+
+### Key facts for future sessions
+- `apps/web/src/components/PinInput.tsx` — 4 segmented cells, auto-advance on input, backspace returns focus, paste of 4 digits fills all cells. Single controlled API: `value: string` + `onChange: (v: string) => void`. Length is hardcoded at 4.
+- shadcn `Select` (Radix) replaces native `<select>` on LoginPage, SpecialsPage (team pickers), ComparePage (Player A/B). `<input type="time">` and `<input type="date">` left native (platform pickers are genuinely better).
+- `PageHeader` gained an optional `back` prop (`{ to?: string; label?: string }`) rendering a top-left chip above the eyebrow. Seven pages migrated off the right-slot back pattern: GroupDetail, LeaderboardHistory, RoundLeaderboard, Compare, PlayerProfile, admin/Results, admin/Sync. Right slot is now action-only.
+- `SpecialCard` save button cycles `Save → Update → "Saved ✓"` (1.2 s flash) — implemented as a single component state machine; resting label depends on whether the player has a committed value.
+- Push notification denied state → platform-aware "How to enable" inline message instead of a non-functional Subscribe button. Chrome / iOS / generic copy variants.
+- Playwright e2e fixes (`666e605`): shadcn Select needs `getByRole('combobox')` → click → `getByRole('option')`; PinInput needs 4 sequential `.fill('1')` calls on the four cell inputs (not a single `fill('1234')`).
+
+**Next:** Polish batch U3 — Dashboard rebalance + copy polish + a11y contrast (🟢 Sonnet)
+
+---
+
+## Polish batch U3 — Dashboard rebalance + copy polish + a11y contrast
+**Commits:** d643644 · CI ✅
+
+### Key facts for future sessions
+- `apps/web/src/lib/leaderboard.ts dedupedLeaderboard()` — dedupes the leaderboard endpoint response by `player_id` (keeps first occurrence) and recomputes competition ranks locally (`1, 1, 1` when all tied; `1, 1, 3` when two tied at top). Applied on both `LeaderboardPage` and `DashboardPage` `MiniLeaderboard`. Vitest: 9 dup rows × 3 players all rank 4 → 3 rows all rank 1. Defensive against the C-2 backend bug (still open, separate ticket).
+- React Query `keepPreviousData` on leaderboard / upcoming / recent queries on Dashboard — kills the "—" flicker during refetch even after data has already loaded once. Vitest test asserts stale data stays visible during stalled refetch.
+- `apps/web/src/lib/format.ts` — humanises hour deltas as `Xd Yh / Xh Ym / Xm before`. Used for `AVG SUBMIT TIME` on PlayerProfile; reusable.
+- `--text-muted` lifted in dark mode from `#5A6478` → `#7B859B` to clear WCAG AA 4.5:1 on `bg-surface` (`#131720`). Single CSS-var edit; all ~30 page eyebrows passed.
+- **U3.11 second clause did NOT ship** — primary button on-colour contrast (white text on emerald `#10B981` in light mode = 2.53) is still failing accessibility. Lighthouse Final still flags it. See `docs/lighthouse-final-2026-05-26.md` "Remaining issue" for the 5-min follow-up fix (new `--on-primary` token + Button variant update).
+- Flaky `PredictionsPage` test fix: `waitFor` timeout raised to 3 s — the count-up animation takes up to 600 ms; the 1 s default times out under full-suite load.
+
+**Next:** Polish batch U4 — Premium empty states + bracket teaser (🟢 Sonnet)
+
+---
+
 ## Polish batch U4 — Premium empty states + bracket teaser
 **Commits:** cde36da, 7959334 · CI ✅
 
