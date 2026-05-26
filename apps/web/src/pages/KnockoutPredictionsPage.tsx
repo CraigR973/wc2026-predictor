@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import type { MatchResponse, KnockoutPredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
-import { EmptyState } from '../components/EmptyState';
+import { BracketTeaser } from '../components/BracketTeaser';
 import { PageHeader } from '../components/PageHeader';
 import { PredictionsSubNav } from '../components/PredictionsSubNav';
 import { useCountdown } from '../hooks/useCountdown';
@@ -582,9 +582,10 @@ export function KnockoutPredictionsPage() {
       <div>
         <PageHeader title="Knockout Picks" eyebrow="Bracket" />
         <PredictionsSubNav />
-        <EmptyState
-          title="No knockout matches yet"
-          description="Knockout picks open once the group stage finalises the bracket."
+        <BracketTeaser
+          title="Knockout picks open after group stage"
+          ctaLabel="Make your specials picks →"
+          ctaTo="/predictions/specials"
         />
       </div>
     );

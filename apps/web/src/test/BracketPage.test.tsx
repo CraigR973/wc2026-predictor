@@ -201,11 +201,11 @@ beforeEach(() => {
 });
 
 describe('BracketPage', () => {
-  it('shows empty state when no knockout matches exist', async () => {
+  it('shows bracket teaser when no knockout matches exist', async () => {
     vi.stubGlobal('fetch', makeFetch({ matches: [GROUP_MATCH] }));
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText(/Bracket isn't ready yet/i)).toBeTruthy(),
+      expect(screen.getByText(/The bracket arrives after group stage/i)).toBeTruthy(),
     );
   });
 
