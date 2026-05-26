@@ -17,10 +17,12 @@ import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 
-// Distinct palette for up to 15 players
+// Distinct palette for up to 15 players. Primary green (#10B981/#22C55E)
+// is reserved for brand surfaces, so player chips avoid the green band
+// entirely — swapped in two slate neutrals instead.
 const PALETTE = [
-  '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7',
+  '#94a3b8', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#06b6d4', '#ec4899', '#f97316', '#cbd5e1', '#a855f7',
   '#84cc16', '#0ea5e9', '#fb923c', '#d946ef', '#64748b',
 ];
 

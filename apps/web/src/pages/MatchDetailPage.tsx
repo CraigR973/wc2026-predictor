@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -11,6 +11,8 @@ import type {
   MatchPredictionsResponse,
 } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { SaveButton, type SaveButtonState } from '../components/ui/save-button';
+import { ScoreInput } from '../components/ui/score-input';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { useCountdown } from '../hooks/useCountdown';
@@ -161,7 +163,7 @@ function PredictionForm({ matchId, existing }: PredictionFormProps) {
       ? String(existing.predicted_away)
       : '',
   );
-  const [saved, setSaved] = useState(false);
+  const [saveState, setSaveState] = useState<SaveButtonState>('idle');
 
   const mutation = useMutation({
     mutationFn: (body: { predicted_home: number; predicted_away: number }) =>
@@ -169,12 +171,24 @@ function PredictionForm({ matchId, existing }: PredictionFormProps) {
         method: 'PUT',
         body: JSON.stringify(body),
       }),
+    onMutate: () => {
+      setSaveState('saving');
+    },
     onSuccess: () => {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setSaveState('saved');
       queryClient.invalidateQueries({ queryKey: ['predictions', 'me'] });
     },
+    onError: () => {
+      setSaveState('idle');
+    },
   });
+
+  // Auto-reset from `saved` → `idle` after the 1.2 s hold.
+  useEffect(() => {
+    if (saveState !== 'saved') return;
+    const id = setTimeout(() => setSaveState('idle'), 1200);
+    return () => clearTimeout(id);
+  }, [saveState]);
 
   const homeVal = parseInt(home, 10);
   const awayVal = parseInt(away, 10);
@@ -187,7 +201,7 @@ function PredictionForm({ matchId, existing }: PredictionFormProps) {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface-elevated p-4">
       <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-4">Your Prediction</h2>
 
       {existing?.submitted_at && (
@@ -197,30 +211,25 @@ function PredictionForm({ matchId, existing }: PredictionFormProps) {
       )}
 
       <form onSubmit={handleSubmit} className="flex items-center gap-3">
-        <input
-          type="number"
-          min={0}
+        <ScoreInput
           value={home}
-          onChange={(e) => setHome(e.target.value)}
-          placeholder="0"
-          className="w-16 text-center bg-background border border-border rounded-md px-2 py-2 font-mono text-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          onChange={setHome}
+          aria-label="Home score"
         />
-        <span className="font-mono text-text-muted">–</span>
-        <input
-          type="number"
-          min={0}
+        <span className="font-mono text-text-muted self-center pt-1">–</span>
+        <ScoreInput
           value={away}
-          onChange={(e) => setAway(e.target.value)}
-          placeholder="0"
-          className="w-16 text-center bg-background border border-border rounded-md px-2 py-2 font-mono text-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          onChange={setAway}
+          aria-label="Away score"
         />
-        <button
-          type="submit"
-          disabled={!isValid || mutation.isPending}
-          className="ml-2 px-4 py-2 rounded-md bg-primary text-background font-sans text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
-        >
-          {mutation.isPending ? 'Saving…' : saved ? 'Saved!' : 'Save'}
-        </button>
+        <SaveButton
+          state={saveState}
+          idleLabel="Save"
+          savedLabel="Saved"
+          size="sm"
+          className="ml-2"
+          disabled={!isValid}
+        />
       </form>
 
       {mutation.isError && (

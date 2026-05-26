@@ -11,10 +11,12 @@ import type { MatchResponse, KnockoutPredictionResponse } from '../lib/types';
 // Constants
 // ---------------------------------------------------------------------------
 
-// Same palette as LeaderboardHistoryPage — stable per-player colour assignment.
+// Same palette as LeaderboardHistoryPage — stable per-player colour
+// assignment. Greens are reserved for brand/"correct" semantics, so the
+// player chips skip them in favour of two slate neutrals.
 const PALETTE = [
-  '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7',
+  '#94a3b8', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#06b6d4', '#ec4899', '#f97316', '#cbd5e1', '#a855f7',
   '#84cc16', '#0ea5e9', '#fb923c', '#d946ef', '#64748b',
 ];
 

@@ -137,7 +137,7 @@ function DateSection({
 }) {
   return (
     <section>
-      <div className="sticky top-14 z-10 -mx-4 sm:-mx-0 px-4 sm:px-0 py-2 bg-bg/95 backdrop-blur-sm mb-2 first:pt-0">
+      <div className="sticky top-14 z-10 -mx-4 sm:-mx-0 px-4 sm:px-0 py-2 bg-surface-elevated/95 backdrop-blur-sm mb-2 first:pt-0">
         <h2 className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em]">
           {dateLabel}
         </h2>
