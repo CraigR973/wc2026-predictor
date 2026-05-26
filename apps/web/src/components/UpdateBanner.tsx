@@ -1,40 +1,61 @@
-import { useState } from 'react';
-import { useRegisterSW } from 'virtual:pwa-register/react';
-import { Button } from './ui/button';
+import { useEffect, useState } from 'react';
+import { registerSW } from 'virtual:pwa-register';
+import { RefreshCw, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function UpdateBanner() {
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [updateSW, setUpdateSW] = useState<((reloadPage?: boolean) => Promise<void>) | null>(null);
 
-  const {
-    needRefresh: [needRefresh],
-    updateServiceWorker,
-  } = useRegisterSW();
+  useEffect(() => {
+    const sw = registerSW({
+      onNeedRefresh() {
+        setNeedsRefresh(true);
+      },
+      onOfflineReady() {
+        // SW cached — no UI needed
+      },
+    });
+    setUpdateSW(() => sw);
+  }, []);
 
-  if (!needRefresh || dismissed) return null;
+  if (!needsRefresh || dismissed) return null;
 
-  function handleUpdate() {
-    void updateServiceWorker(true);
-    window.location.reload();
-  }
+  const handleRefresh = async () => {
+    if (updateSW) await updateSW(true);
+  };
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className="fixed top-0 inset-x-0 z-50 flex items-center justify-between gap-3 px-4 py-2 bg-surface-elevated border-b border-accent/40 text-text-primary text-sm font-sans"
+      className={cn(
+        'fixed top-safe-or-0 left-0 right-0 z-[60]',
+        'flex items-center justify-between gap-3 px-4 py-2.5',
+        'bg-primary text-white',
+        'shadow-md',
+      )}
     >
-      <span>New version available</span>
-      <div className="flex items-center gap-2 shrink-0">
-        <Button variant="accent" size="sm" onClick={handleUpdate}>
-          Update
-        </Button>
+      <div className="flex items-center gap-2 min-w-0">
+        <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="text-sm font-sans font-medium truncate">
+          A new version is available
+        </span>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
         <button
-          type="button"
-          aria-label="Dismiss update banner"
-          onClick={() => setDismissed(true)}
-          className="text-text-muted hover:text-text-primary transition-colors text-base leading-none"
+          onClick={() => void handleRefresh()}
+          className="px-3 py-1 rounded-sm text-sm font-sans font-semibold bg-white/20 hover:bg-white/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
         >
-          ×
+          Refresh
+        </button>
+        <button
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss update banner"
+          className="p-1 rounded-sm hover:bg-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+        >
+          <X className="h-4 w-4" aria-hidden />
         </button>
       </div>
     </div>

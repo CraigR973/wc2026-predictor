@@ -1,15 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { UpdateBanner } from '@/components/UpdateBanner';
 
-// Mock the virtual PWA module — Vitest cannot resolve virtual: imports without this.
-const mockUpdateServiceWorker = vi.fn();
+// Staging's UpdateBanner uses registerSW from virtual:pwa-register (not the
+// React-specific useRegisterSW). The mock triggers onNeedRefresh immediately
+// so the banner shows on mount.
+const mockUpdateSW = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('virtual:pwa-register/react', () => ({
-  useRegisterSW: vi.fn(() => ({
-    needRefresh: [true, vi.fn()],
-    updateServiceWorker: mockUpdateServiceWorker,
-  })),
+type RegisterSWCallbacks = {
+  onNeedRefresh?: () => void;
+  onOfflineReady?: () => void;
+};
+
+vi.mock('virtual:pwa-register', () => ({
+  registerSW: vi.fn((callbacks: RegisterSWCallbacks) => {
+    callbacks.onNeedRefresh?.();
+    return mockUpdateSW;
+  }),
 }));
 
 beforeEach(() => {
@@ -17,51 +24,38 @@ beforeEach(() => {
 });
 
 describe('UpdateBanner', () => {
-  it('renders when needRefresh is true', () => {
+  it('renders when onNeedRefresh fires', async () => {
     render(<UpdateBanner />);
-    expect(screen.getByText('New version available')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByText('A new version is available')).toBeTruthy(),
+    );
+    expect(screen.getByRole('button', { name: /refresh/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /dismiss/i })).toBeTruthy();
   });
 
-  it('calls updateServiceWorker(true) and reloads on Update click', () => {
-    const reloadSpy = vi.fn();
-    Object.defineProperty(window, 'location', {
-      value: { reload: reloadSpy },
-      writable: true,
-    });
-
+  it('calls updateSW(true) on Refresh click', async () => {
     render(<UpdateBanner />);
-    fireEvent.click(screen.getByRole('button', { name: 'Update' }));
-
-    expect(mockUpdateServiceWorker).toHaveBeenCalledWith(true);
-    expect(reloadSpy).toHaveBeenCalledOnce();
+    await waitFor(() => screen.getByText('A new version is available'));
+    fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
+    await waitFor(() => expect(mockUpdateSW).toHaveBeenCalledWith(true));
   });
 
-  it('hides the banner when × is clicked without reloading', () => {
-    const reloadSpy = vi.fn();
-    Object.defineProperty(window, 'location', {
-      value: { reload: reloadSpy },
-      writable: true,
-    });
-
+  it('hides the banner when dismiss is clicked without calling updateSW', async () => {
     render(<UpdateBanner />);
+    await waitFor(() => screen.getByText('A new version is available'));
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
 
-    expect(screen.queryByText('New version available')).toBeNull();
-    expect(reloadSpy).not.toHaveBeenCalled();
-    expect(mockUpdateServiceWorker).not.toHaveBeenCalled();
+    expect(screen.queryByText('A new version is available')).toBeNull();
+    expect(mockUpdateSW).not.toHaveBeenCalled();
   });
 
-  it('renders nothing when needRefresh is false', async () => {
-    const { useRegisterSW } = await import('virtual:pwa-register/react');
-    vi.mocked(useRegisterSW).mockReturnValueOnce({
-      needRefresh: [false, vi.fn()],
-      updateServiceWorker: mockUpdateServiceWorker,
-      offlineReady: [false, vi.fn()],
-    });
+  it('renders nothing when onNeedRefresh is never triggered', async () => {
+    const { registerSW } = await import('virtual:pwa-register');
+    vi.mocked(registerSW).mockImplementationOnce(
+      (_cb) => mockUpdateSW as unknown as () => Promise<void>,
+    );
 
     render(<UpdateBanner />);
-    expect(screen.queryByText('New version available')).toBeNull();
+    expect(screen.queryByText('A new version is available')).toBeNull();
   });
 });
