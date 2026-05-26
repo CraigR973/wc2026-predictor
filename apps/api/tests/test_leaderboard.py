@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from src.auth import get_current_player
 from src.database import get_db
@@ -302,3 +305,94 @@ async def test_round_leaderboard_invalid_stage_returns_422() -> None:
         app.dependency_overrides.pop(get_current_player, None)
 
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Snapshot timestamp ties — real-DB regression for C-2
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_leaderboard_dedupes_tied_snapshot_timestamps(
+    db_conn: AsyncConnection,
+) -> None:
+    """Two snapshots per player with identical ``snapshot_at`` collapse to one row.
+
+    Postgres ``now()`` returns ``transaction_timestamp()`` which is constant
+    within a transaction, so multiple recompute paths in the same txn (e.g.
+    the trigger plus the specials helper) produce snapshot rows with tied
+    timestamps. The endpoint must dedupe with ``DISTINCT ON (player_id)``.
+    """
+
+    alice_id = (
+        await db_conn.execute(
+            text("""
+                INSERT INTO profiles (id, display_name, pin_hash, role)
+                VALUES (
+                    gen_random_uuid(), 'snap_tie_alice',
+                    '$2b$12$0000000000000000000000000000000000000000000000000000',
+                    CAST('player' AS player_role)
+                )
+                RETURNING id
+            """)
+        )
+    ).scalar_one()
+    bob_id = (
+        await db_conn.execute(
+            text("""
+                INSERT INTO profiles (id, display_name, pin_hash, role)
+                VALUES (
+                    gen_random_uuid(), 'snap_tie_bob',
+                    '$2b$12$0000000000000000000000000000000000000000000000000000',
+                    CAST('player' AS player_role)
+                )
+                RETURNING id
+            """)
+        )
+    ).scalar_one()
+
+    tied_at = datetime(2026, 6, 14, 18, 0, 0)
+    await db_conn.execute(
+        text("""
+            INSERT INTO leaderboard_snapshots (
+                id, player_id, total_points, match_points,
+                knockout_winner_points, special_points, rank,
+                snapshot_at, triggered_by_match_id
+            )
+            VALUES
+                (gen_random_uuid(), :a, 5, 5, 0, 0, 1, :t, NULL),
+                (gen_random_uuid(), :a, 10, 10, 0, 0, 1, :t, NULL),
+                (gen_random_uuid(), :b, 3, 3, 0, 0, 2, :t, NULL),
+                (gen_random_uuid(), :b, 7, 7, 0, 0, 2, :t, NULL)
+        """),
+        {"a": alice_id, "b": bob_id, "t": tied_at},
+    )
+
+    session = AsyncSession(bind=db_conn, expire_on_commit=False)
+
+    async def _override_get_db() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_current_player] = lambda: _make_requester()
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/v1/leaderboard")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_player, None)
+        await session.close()
+
+    assert resp.status_code == 200
+    data = resp.json()
+
+    seeded = [e for e in data if e["player_name"] in ("snap_tie_alice", "snap_tie_bob")]
+    assert len(seeded) == 2, f"expected one row per seeded player, got {data}"
+    assert {e["player_name"] for e in seeded} == {"snap_tie_alice", "snap_tie_bob"}
+    # Tie-break is deterministic on (snapshot_at DESC, id DESC) but UUIDv4
+    # id ordering across rows is not chronological — assert the value lands
+    # in the seeded set rather than predicting which row wins the id-sort.
+    by_name = {e["player_name"]: e for e in seeded}
+    assert by_name["snap_tie_alice"]["total_points"] in (5, 10)
+    assert by_name["snap_tie_bob"]["total_points"] in (3, 7)
