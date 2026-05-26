@@ -996,3 +996,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Smoke fixtures registered in `main.py` only when `settings.environment != "production"`.
 
 **Next:** all pre-launch review batches shipped — run `/next-batch-prompt review` to confirm.
+
+---
+
+## Polish batch U4 — Premium empty states + bracket teaser
+**Commits:** cde36da, 7959334 · CI ✅
+
+### Key facts for future sessions
+- `BracketTeaser` fetches `/api/v1/matches?stage=r32&limit=1` via React Query (key `['matches', 'r32-first']`) — shows "—" when no kickoff available; countdown via existing `useCountdown` hook.
+- `GroupsPage` requires a second query (`['matches', 'group']`) to find the first scheduled match per group for the pre-tournament preview row — `GroupResponse` only carries standings, not match data.
+- `UpdateBanner` uses `registerSW` from `virtual:pwa-register` (not `useRegisterSW` from `/react`) — the SKIP_WAITING message listener in `sw.ts` handles the actual SW activation.
+- The `feat/frontend-polish` branch was merged directly to staging (About page, install gate, WelcomeCard, InstallPromptController) without going through `feat/premium-polish` — caused repeated merge conflicts. Fixed by merging `origin/staging` → `feat/premium-polish` at close-out. Both branches are now identical.
+- `mockImplementationOnce` in `UpdateBanner.test.tsx` requires casting the return value (`as unknown as () => Promise<void>`) — vite-plugin-pwa's `RegisterSWOptions` type doesn't align with locally-defined callback types.
+
+**Next:** Polish batch U5 — Motion moments + elevation depth (🔴 Opus, extended thinking ON)
