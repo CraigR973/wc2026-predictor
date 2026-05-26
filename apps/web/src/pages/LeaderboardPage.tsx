@@ -2,12 +2,13 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ChevronDown, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import type { LeaderboardEntry } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useLongPress } from '../hooks/useLongPress';
+import { dedupedLeaderboard } from '../lib/leaderboard';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
@@ -15,6 +16,7 @@ import { PageHeader } from '../components/PageHeader';
 import { cn } from '../lib/utils';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+const HINT_DISMISSED_KEY = 'sss_leaderboard_hint_dismissed';
 
 interface RankDelta {
   direction: 'up' | 'down' | 'flat';
@@ -171,6 +173,9 @@ export function LeaderboardPage() {
   const prevDataRef = useRef<LeaderboardEntry[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const reduceMotion = useReducedMotion() ?? false;
+  const [hintDismissed, setHintDismissed] = useState<boolean>(
+    () => localStorage.getItem(HINT_DISMISSED_KEY) === 'true',
+  );
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard'],
@@ -178,11 +183,13 @@ export function LeaderboardPage() {
     staleTime: 15_000,
   });
 
+  const displayData = dedupedLeaderboard(data);
+
   useEffect(() => {
-    if (data.length > 0) {
-      prevDataRef.current = data;
+    if (displayData.length > 0) {
+      prevDataRef.current = displayData;
     }
-  }, [data]);
+  }, [displayData]);
 
   useEffect(() => {
     const channel = supabase
@@ -221,6 +228,11 @@ export function LeaderboardPage() {
     navigate(`/compare?a=${currentUser.id}&b=${playerId}`);
   }
 
+  function dismissHint() {
+    localStorage.setItem(HINT_DISMISSED_KEY, 'true');
+    setHintDismissed(true);
+  }
+
   const prevByPlayer = Object.fromEntries(
     prevDataRef.current.map((e) => [e.player_id, e.rank]),
   );
@@ -229,6 +241,18 @@ export function LeaderboardPage() {
     return (
       <div>
         <PageHeader title="Leaderboard" eyebrow="Standings" />
+        {!hintDismissed && (
+          <div className="mb-4 flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-mono text-text-muted">
+            <span>Tap a row for breakdown · long-press to compare</span>
+            <button
+              onClick={dismissHint}
+              className="shrink-0 text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Dismiss hint"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+        )}
         <SubNav />
         <div
           className="rounded-lg border border-border bg-surface overflow-hidden divide-y divide-border/50"
@@ -266,9 +290,23 @@ export function LeaderboardPage() {
   return (
     <div>
       <PageHeader title="Leaderboard" eyebrow="Standings" />
+
+      {!hintDismissed && (
+        <div className="mb-4 flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-mono text-text-muted">
+          <span>Tap a row for breakdown · long-press to compare</span>
+          <button
+            onClick={dismissHint}
+            className="shrink-0 text-text-muted hover:text-text-primary transition-colors"
+            aria-label="Dismiss hint"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </div>
+      )}
+
       <SubNav />
 
-      {data.length === 0 ? (
+      {displayData.length === 0 ? (
         <EmptyState
           title="No results entered yet"
           description="The leaderboard fills in as match results are confirmed. Check back after the first kickoff!"
@@ -285,7 +323,7 @@ export function LeaderboardPage() {
               </tr>
             </thead>
             <tbody>
-              {data.map((entry) => {
+              {displayData.map((entry) => {
                 const isOpen = expanded.has(entry.player_id);
                 const isMe = entry.player_id === currentUser?.id;
                 return (
@@ -341,10 +379,6 @@ export function LeaderboardPage() {
           </table>
         </div>
       )}
-
-      <p className="mt-4 text-xs font-mono text-text-muted text-center">
-        Tap a row for breakdown · long-press to compare
-      </p>
     </div>
   );
 }

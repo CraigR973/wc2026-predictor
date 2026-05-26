@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
   Pencil,
@@ -13,7 +13,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { WelcomeCard } from '../components/WelcomeCard';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
-import type { LeaderboardEntry, MatchResponse, RecentPrediction } from '../lib/types';
+import { Button } from '../components/ui/button';
+import { dedupedLeaderboard } from '../lib/leaderboard';
+import type { LeaderboardEntry, MatchResponse, PredictionResponse, RecentPrediction } from '../lib/types';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
@@ -61,7 +63,15 @@ function formatCountdown(cd: {
   return `${cd.minutes}m ${cd.seconds}s`;
 }
 
-function NextMatchCard({ match, timezone }: { match: MatchResponse; timezone: string }) {
+function NextMatchCard({
+  match,
+  timezone,
+  hasPrediction,
+}: {
+  match: MatchResponse;
+  timezone: string;
+  hasPrediction: boolean;
+}) {
   const cd = useCountdown(match.kickoff_utc);
   const kickoffLocal = formatInTimeZone(new Date(match.kickoff_utc), timezone, 'EEE d MMM, HH:mm');
   const homeLabel = match.home_team
@@ -73,25 +83,35 @@ function NextMatchCard({ match, timezone }: { match: MatchResponse; timezone: st
   const isUrgent = !cd.expired && cd.days === 0 && cd.hours === 0;
 
   return (
-    <Link
-      to={`/matches/${match.id}`}
-      className="block rounded-lg border border-border bg-surface p-4 sm:p-5 hover:bg-surface-elevated press-down transition-colors focus-visible:outline-none focus-visible:shadow-glow"
-    >
+    <div className="block rounded-lg border border-border bg-surface p-4 sm:p-5 transition-colors">
       <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
         Next Match
       </p>
       <p className="font-sans text-xs text-text-muted mb-1">{kickoffLocal}</p>
-      <p className="font-sans text-sm text-text-primary mb-3 truncate">
-        {homeLabel} <span className="text-text-muted">vs</span> {awayLabel}
+      <p className="font-sans text-base text-text-primary mb-3 truncate font-medium">
+        {homeLabel} <span className="text-text-muted font-normal">vs</span> {awayLabel}
       </p>
       <p
-        className={`font-mono text-2xl tabular-nums font-medium leading-none ${
+        className={`font-mono text-4xl tabular-nums font-medium leading-none mb-4 ${
           isUrgent ? 'text-warning' : 'text-primary'
         }`}
       >
         {formatCountdown(cd)}
       </p>
-    </Link>
+      <div className="flex items-center gap-2">
+        <Link
+          to={`/matches/${match.id}`}
+          className="text-xs font-sans text-text-muted hover:text-primary transition-colors"
+        >
+          Match details →
+        </Link>
+        {!hasPrediction && !cd.expired && (
+          <Button asChild size="sm" variant="default" className="ml-auto">
+            <Link to={`/predictions`}>Predict now</Link>
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -153,8 +173,9 @@ function MiniLeaderboard({
   entries: LeaderboardEntry[];
   currentPlayerId: string;
 }) {
-  const top5 = entries.slice(0, 5);
-  const myEntry = entries.find((e) => e.player_id === currentPlayerId);
+  const deduped = dedupedLeaderboard(entries);
+  const top5 = deduped.slice(0, 5);
+  const myEntry = deduped.find((e) => e.player_id === currentPlayerId);
   const myRankInTop5 = top5.some((e) => e.player_id === currentPlayerId);
   const showMyRow = myEntry && !myRankInTop5;
 
@@ -162,7 +183,7 @@ function MiniLeaderboard({
     <div className="rounded-lg border border-border bg-surface overflow-hidden">
       <div className="px-4 sm:px-5 pt-4 pb-2 flex items-center justify-between">
         <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em]">
-          Standings
+          Leaders
         </p>
         <Link
           to="/leaderboard"
@@ -281,12 +302,14 @@ export function DashboardPage() {
     queryKey: ['leaderboard'],
     queryFn: () => apiFetch<LeaderboardEntry[]>('/api/v1/leaderboard'),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: upcoming = [], isLoading: upcomingLoading } = useQuery<MatchResponse[]>({
     queryKey: ['matches', 'upcoming', 1],
     queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches/upcoming?n=1'),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: recentPreds = [], isLoading: recentLoading } = useQuery<RecentPrediction[]>({
@@ -296,19 +319,50 @@ export function DashboardPage() {
     ),
     enabled: !!player?.id,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+
+  const nextMatch = upcoming[0] ?? null;
+
+  const { data: nextMatchPrediction } = useQuery<PredictionResponse | null>({
+    queryKey: ['prediction', nextMatch?.id, player?.id],
+    queryFn: async () => {
+      try {
+        return await apiFetch<PredictionResponse>(`/api/v1/predictions/${nextMatch!.id}`);
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!nextMatch?.id && !!player?.id,
+    staleTime: 30_000,
   });
 
   const myEntry = leaderboard.find((e) => e.player_id === player?.id);
-  const nextMatch = upcoming[0] ?? null;
   const latestPred = recentPreds[0] ?? null;
+  const hasPrediction = nextMatchPrediction !== null && nextMatchPrediction !== undefined;
 
   return (
     <div className="space-y-5">
+      {/* Welcome */}
       <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight leading-tight">
-        Welcome back, <span className="text-wordmark-h">{player?.displayName}</span>
+        Welcome back, <span className="font-semibold text-text-primary">{player?.displayName}</span>
       </h1>
 
       <WelcomeCard />
+
+      {/* Next match hero — full width */}
+      {upcomingLoading ? (
+        <Skeleton className="h-[160px] rounded-lg" />
+      ) : nextMatch ? (
+        <NextMatchCard match={nextMatch} timezone={timezone} hasPrediction={hasPrediction} />
+      ) : (
+        <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
+            Next Match
+          </p>
+          <p className="text-text-muted font-sans text-sm">No upcoming matches</p>
+        </div>
+      )}
 
       {/* Rank + Points */}
       <div className="grid grid-cols-2 gap-3">
@@ -333,59 +387,12 @@ export function DashboardPage() {
         )}
       </div>
 
-      {/* Next match countdown + Latest result.
-          Special-case: when BOTH are empty (and neither is loading) we collapse
-          the two big empty cards into a single slim hint to free up scroll. */}
-      {(() => {
-        const bothLoading = upcomingLoading && recentLoading;
-        const bothEmpty = !upcomingLoading && !recentLoading && !nextMatch && !latestPred;
-        if (bothLoading) {
-          return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Skeleton className="h-[140px] rounded-lg" />
-              <Skeleton className="h-[140px] rounded-lg" />
-            </div>
-          );
-        }
-        if (bothEmpty) {
-          return (
-            <div className="rounded-lg border border-dashed border-border bg-surface/40 px-4 py-3 text-center">
-              <p className="text-sm font-sans text-text-secondary">
-                Tournament hasn&apos;t started yet — upcoming matches and your
-                latest result will appear here.
-              </p>
-            </div>
-          );
-        }
-        return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {upcomingLoading ? (
-              <Skeleton className="h-[140px] rounded-lg" />
-            ) : nextMatch ? (
-              <NextMatchCard match={nextMatch} timezone={timezone} />
-            ) : (
-              <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-                <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-                  Next Match
-                </p>
-                <p className="text-text-muted font-sans text-sm">No upcoming matches</p>
-              </div>
-            )}
-            {recentLoading ? (
-              <Skeleton className="h-[140px] rounded-lg" />
-            ) : latestPred ? (
-              <LatestResultCard prediction={latestPred} timezone={timezone} />
-            ) : (
-              <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-                <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-                  Latest Result
-                </p>
-                <p className="text-text-muted font-sans text-sm">No results yet</p>
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      {/* Quick links */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {NAV_CARDS.map((card) => (
+          <NavCardLink key={card.to} card={card} />
+        ))}
+      </div>
 
       {/* Mini leaderboard */}
       {leaderboardLoading ? (
@@ -406,12 +413,12 @@ export function DashboardPage() {
         <MiniLeaderboard entries={leaderboard} currentPlayerId={player.id} />
       ) : null}
 
-      {/* Quick links */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {NAV_CARDS.map((card) => (
-          <NavCardLink key={card.to} card={card} />
-        ))}
-      </div>
+      {/* Latest result */}
+      {recentLoading ? (
+        <Skeleton className="h-[140px] rounded-lg" />
+      ) : latestPred ? (
+        <LatestResultCard prediction={latestPred} timezone={timezone} />
+      ) : null}
     </div>
   );
 }

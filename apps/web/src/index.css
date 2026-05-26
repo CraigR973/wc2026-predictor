@@ -83,7 +83,7 @@
     /* Text */
     --text-primary: #F0F4FF;
     --text-secondary: #94A3B8;
-    --text-muted: #5A6478;
+    --text-muted: #7B859B;
     --text-inverse: #0B0E13;
 
     /* Brand */
@@ -110,7 +110,7 @@
     --warning: #F59E0B;
     --error: #EF4444;
     --live: #EF4444;
-    --locked: #5A6478;
+    --locked: #7B859B;
 
     /* Rank medals */
     --gold: #E5C46B;

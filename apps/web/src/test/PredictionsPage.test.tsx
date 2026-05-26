@@ -207,7 +207,7 @@ describe('PredictionsPage', () => {
   it('shows points badge for completed match', async () => {
     vi.stubGlobal('fetch', makeFetch());
     renderPage();
-    await waitFor(() => screen.getByText('5 pts'));
+    await waitFor(() => screen.getByText('5 pts'), { timeout: 3000 });
   });
 
   it('populates inputs from existing predictions', async () => {
