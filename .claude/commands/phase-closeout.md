@@ -1,5 +1,5 @@
 ---
-description: Run the full phase close-out workflow — push, poll CI, merge to main, tick the architecture doc (phase mode only), append a lean session-log entry, strike the batch row. Supports both architecture phases (X.Y) and pre-launch review batches (RN).
+description: Run the full phase close-out workflow — push, poll CI, merge to main, tick the architecture doc (phase mode only), append a lean session-log entry, strike the batch row. Supports architecture phases (X.Y), pre-launch review batches (RN), and premium polish batches (UN).
 ---
 
 You are running close-out. The user invokes this as one of:
@@ -8,6 +8,7 @@ You are running close-out. The user invokes this as one of:
 /phase-closeout 7.1                  # single architecture phase
 /phase-closeout 6.1,6.2,6.3,6.4      # multi-phase batch
 /phase-closeout R1                   # pre-launch review batch
+/phase-closeout U3                   # premium polish batch
 ```
 
 ## Argument parsing & mode
@@ -15,9 +16,10 @@ You are running close-out. The user invokes this as one of:
 `$ARGUMENTS` may be:
 
 - **Phase mode** — comma-separated list of IDs matching `^\d+\.\d+$` (e.g. `7.1` or `6.1,6.2,6.3,6.4`). Trim whitespace, split on commas, validate each. Reject if any ID is malformed or if the list is empty.
-- **Review mode** — a single token matching `^R\d+$` (e.g. `R1`). Reject if combined with phase IDs (mixed modes are not allowed in one close-out).
+- **Review mode** — a single token matching `^R\d+$` (e.g. `R1`). Reject if combined with phase IDs.
+- **Polish mode** — a single token matching `^U\d+$` (e.g. `U3`). Frontend-only polish batches tracked in `docs/polish-batches.md`. Reject if combined with other IDs.
 
-Set `$MODE` to `phase` or `review` based on the input shape. Many steps below behave differently per mode — read the per-step notes.
+Set `$MODE` to `phase`, `review`, or `polish` based on the input shape. Many steps below behave differently per mode — read the per-step notes.
 
 ## Pre-conditions
 
@@ -27,7 +29,7 @@ Before doing anything, verify:
 
 2. The current branch is NOT `main`. Run `git -C /Users/craigrobinson/wc_2026_predictor branch --show-current`. If it's `main`, stop and report.
 
-3. Tests, ruff, ruff format, and mypy all passed locally. Ask the user to confirm `"Did you run the full pytest + ruff + mypy locally and all green? (y/N)"`. If anything other than `y`/`yes`, stop.
+3. **Phase and review mode only:** Tests, ruff, ruff format, and mypy all passed locally. Ask the user to confirm `"Did you run the full pytest + ruff + mypy locally and all green? (y/N)"`. If anything other than `y`/`yes`, stop. **Skip this confirmation in polish mode** — polish batches are frontend-only (pnpm test + typecheck), which CI already verified.
 
 ## Steps
 
@@ -60,7 +62,7 @@ If the merge is not fast-forwardable (main moved ahead with unrelated commits si
 
 ### Step 3 — Tick the architecture doc for every phase ID
 
-**Phase mode only.** Skip this step entirely in review mode (review items do not live in `wc2026-architecture.md`).
+**Phase mode only.** Skip this step entirely in review mode and polish mode (those items do not live in `wc2026-architecture.md`).
 
 For each phase ID in `$ARGUMENTS`:
 
@@ -104,6 +106,21 @@ Append a NEW section to the bottom of `/Users/craigrobinson/wc_2026_predictor/se
 **Next:** Review batch R<N+1> — <Title> (model tag)   ← use /next-batch-prompt review to find this
 ```
 
+**Polish mode** — title is the batch ID plus the `## U<N> — ...` heading from `docs/polish-batches.md`:
+
+```
+---
+
+## Polish batch U<N> — <Title from polish-batches.md heading>
+**Commits:** <hash>[, <hash>] · CI ✅
+
+### Key facts for future sessions
+- <only non-obvious gotchas a future session can't discover by reading code or git log>
+- <max ~6 bullets>
+
+**Next:** Polish batch U<N+1> — <Title> (model tag)
+```
+
 Keep the entry under ~15 lines. Do NOT include "Files modified" or "What shipped" — they're recoverable from `git show --stat`.
 
 ### Step 5 — Commit the docs changes
@@ -128,11 +145,23 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 git -C /Users/craigrobinson/wc_2026_predictor push origin main
 ```
 
+**Polish mode** (no arch doc to tick — session-log only):
+
+```bash
+git -C /Users/craigrobinson/wc_2026_predictor add session-log.md
+git -C /Users/craigrobinson/wc_2026_predictor commit -m "docs: close out polish batch $ARGUMENTS — session log
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+git -C /Users/craigrobinson/wc_2026_predictor push origin main
+```
+
 ### Step 6 — Strike the batch row
 
 **Phase mode:** invoke `/strike-batch N` where N is the batch number that contains these phase IDs in `docs/phase-batches.md` (grep the file for a row whose 3rd column lists them).
 
 **Review mode:** invoke `/strike-batch $ARGUMENTS` directly — `$ARGUMENTS` is already the R-batch identifier (e.g. `R1`). The skill handles the file routing.
+
+**Polish mode:** invoke `/strike-batch $ARGUMENTS` directly — `$ARGUMENTS` is already the U-batch identifier (e.g. `U3`). The skill handles the file routing (`docs/polish-batches.md`).
 
 The result is one more docs commit on `main`.
 
@@ -155,6 +184,14 @@ Output a short summary to the user:
 - Batch row struck: R<N>
 - CI: ✅
 - Next batch hint: run `/next-batch-prompt review` to get the prompt for the next session
+
+**Polish mode:**
+- Polish batch closed: U<N>
+- Feature commit(s): <hashes>
+- Docs commit: <hash>
+- Batch row struck: U<N> in `docs/polish-batches.md`
+- CI: ✅
+- Next batch hint: paste the next `## U<N+1>` section from `docs/polish-batches.md` into the next session
 
 That's it.
 
