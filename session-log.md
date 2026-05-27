@@ -1096,3 +1096,20 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `RAILWAY_API_TOKEN` in `.env` was expired; replaced with `959d7ac4-54dd-4902-83e2-635dbbe56b0b`.
 
 **Next:** Lewis soak findings → multi-league architecture phases.
+
+---
+
+## Multi-league design — architecture + phase plan landed
+**Commits:** _(doc commits)_ · planning session only (no code changes)
+
+### Key facts for future sessions
+- Design doc lives at `docs/multi-league-architecture.md` (~10 sections, full DDL + mermaid ERD + 8-phase breakdown M1–M8). It is **additive** to `wc2026-architecture.md` — v1 invariants (§6.1 scoring, §6.13 state machine, §8 security, §9 reliability) stay authoritative there; the design doc cross-references rather than restates.
+- **Foundational call: predictions are global** (one row per (player, match), scored against every league the player is in). Schema treats `predictions`, `knockout_predictions`, `special_predictions` as un-scoped. Only `leaderboard_snapshots` and `invites` gain `league_id`.
+- New tables: `leagues`, `league_memberships`, `league_join_requests`. Profile gains `email/first_name/last_name/email_verified_at`; `role` → `site_role` ENUM('superadmin','user'). Per-league role lives in `league_memberships`.
+- C-2 dedupe pattern (aliased subquery + DISTINCT ON + `id DESC` tie-break) is preserved keyed on `(player_id, league_id)` — see § 2.2 MD-13. Scoring trigger rewrite (M2) inserts one snapshot per (player, active league) on each result. New index: `(league_id, player_id, snapshot_at DESC, id DESC)`.
+- Login switches from name-dropdown to email + PIN. Email verification is optional and async (Resend free tier recommended); self-service PIN reset is gated on verified email. Admin PIN-reset paths unchanged. League privacy: `private` / `public_request` / `public_open`; Steele Spreadsheet defaults to `private` post-migration.
+- Cross-league summary math = **average rank** across leagues with ≥3 members, secondary sort by total_points. Surfaces on dashboard hero.
+- Phase batches appended to `docs/phase-batches.md` as M1–M8. Implementation order is strict (M1 before M2, etc.). Total ~7–8 sessions.
+- Migration backfill script (`scripts/backfill_multi_league.py`) is M1's deliverable and is idempotent — must run cleanly on staging before prod; manual email entries via JSON sidecar (OQ-1) for existing v1 profiles whose emails aren't already known.
+
+**Next:** Batch M1 — Schema foundations + Steele Spreadsheet backfill (🔴 Opus, extended thinking ON)
