@@ -154,12 +154,21 @@ Full numbers in `docs/lighthouse-final-2026-05-26.md`. Headline:
 
 ## Tagging
 
-Once the U3.11 follow-up ships and real-phone soak is signed off,
-apply `v1.0-pre-multi-league` to `main`:
+`v1.0-pre-multi-league` applied to `main` on 27 May 2026, against
+the Lewis-soak-prep commit (this doc commit). The tag bundles:
+
+- Premium polish round 2 (U1–U5 + U3.11 a11y follow-up)
+- C-2 backend leaderboard dedupe fix (`e7796e1`) — the original
+  audit finding that the polish round chose to defer; shipped as
+  part of soak prep so Lewis's leaderboard returns 1 row per
+  player, not N.
+- Lewis soak guide (`docs/lewis-soak-guide.md`) for the
+  pre-multi-league user trial.
+
+Recover the SHA at any time:
 
 ```sh
-git tag -a v1.0-pre-multi-league -m "Pre-multi-league baseline: premium polish round 2 complete"
-git push origin v1.0-pre-multi-league
+git rev-parse v1.0-pre-multi-league
 ```
 
 This is the revert point named in the original brief, before the
