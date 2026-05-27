@@ -598,8 +598,7 @@ async def update_league(
             # Cancel all pending join requests
             await _cancel_pending_requests(league.id, db)
         elif (
-            old_privacy == LeaguePrivacy.public_request
-            and new_privacy == LeaguePrivacy.public_open
+            old_privacy == LeaguePrivacy.public_request and new_privacy == LeaguePrivacy.public_open
         ):
             # Auto-approve pending requests
             member_count = await _active_member_count(league.id, db)

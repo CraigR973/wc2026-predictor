@@ -188,12 +188,14 @@ async def test_create_league_returns_201() -> None:
     league.slug = "my-league"
     league.name = "My League"
 
-    mock_db = _stub_db([
-        # _unique_slug: no collision
-        _scalar(None),
-        # _active_member_count after commit + refresh (LeagueResponse)
-        _scalar_one(1),
-    ])
+    mock_db = _stub_db(
+        [
+            # _unique_slug: no collision
+            _scalar(None),
+            # _active_member_count after commit + refresh (LeagueResponse)
+            _scalar_one(1),
+        ]
+    )
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
     async with _override(player, mock_db):
@@ -231,12 +233,14 @@ async def test_list_my_leagues_returns_all_memberships() -> None:
     league = _make_league()
     membership = _make_membership(league.id, player.id, role=LeagueMemberRole.admin)
 
-    mock_db = _stub_db([
-        # The join query
-        _rows([(league, membership, 1)]),
-        # _active_member_count for the one league
-        _scalar_one(1),
-    ])
+    mock_db = _stub_db(
+        [
+            # The join query
+            _rows([(league, membership, 1)]),
+            # _active_member_count for the one league
+            _scalar_one(1),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -258,12 +262,14 @@ async def test_discover_returns_public_leagues() -> None:
     player = _make_profile()
     league = _make_league(privacy=LeaguePrivacy.public_open)
 
-    mock_db = _stub_db([
-        # total count query
-        _scalar_one(1),
-        # rows query
-        _rows([(league, 3)]),
-    ])
+    mock_db = _stub_db(
+        [
+            # total count query
+            _scalar_one(1),
+            # rows query
+            _rows([(league, 3)]),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -287,16 +293,18 @@ async def test_get_league_as_member_returns_member_list() -> None:
     league = _make_league()
     membership = _make_membership(league.id, player.id)
 
-    mock_db = _stub_db([
-        # _resolve_league
-        _scalar(league),
-        # _active_member_count
-        _scalar_one(2),
-        # _resolve_active_membership (is member check)
-        _scalar(membership),
-        # member list query
-        _rows([(membership, player)]),
-    ])
+    mock_db = _stub_db(
+        [
+            # _resolve_league
+            _scalar(league),
+            # _active_member_count
+            _scalar_one(2),
+            # _resolve_active_membership (is member check)
+            _scalar(membership),
+            # member list query
+            _rows([(membership, player)]),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -313,12 +321,14 @@ async def test_get_league_as_non_member_hides_member_list() -> None:
     player = _make_profile()
     league = _make_league()
 
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar_one(5),
-        # not a member
-        _scalar(None),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar_one(5),
+            # not a member
+            _scalar(None),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -466,16 +476,18 @@ async def test_join_private_league_is_403() -> None:
 async def test_join_public_open_creates_membership() -> None:
     player = _make_profile()
     league = _make_league(privacy=LeaguePrivacy.public_open)
-    mock_db = _stub_db([
-        # _resolve_league
-        _scalar(league),
-        # _resolve_active_membership (already member check)
-        _scalar(None),
-        # _active_member_count
-        _scalar_one(3),
-        # _upsert_membership: existing soft-deleted lookup
-        _scalar(None),
-    ])
+    mock_db = _stub_db(
+        [
+            # _resolve_league
+            _scalar(league),
+            # _resolve_active_membership (already member check)
+            _scalar(None),
+            # _active_member_count
+            _scalar_one(3),
+            # _upsert_membership: existing soft-deleted lookup
+            _scalar(None),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -489,15 +501,17 @@ async def test_join_public_open_creates_membership() -> None:
 async def test_join_public_request_creates_join_request() -> None:
     player = _make_profile()
     league = _make_league(privacy=LeaguePrivacy.public_request)
-    mock_db = _stub_db([
-        _scalar(league),
-        # not already a member
-        _scalar(None),
-        # _active_member_count
-        _scalar_one(3),
-        # no existing pending request
-        _scalar(None),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            # not already a member
+            _scalar(None),
+            # _active_member_count
+            _scalar_one(3),
+            # no existing pending request
+            _scalar(None),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -512,11 +526,13 @@ async def test_join_already_member_is_409() -> None:
     player = _make_profile()
     league = _make_league(privacy=LeaguePrivacy.public_open)
     membership = _make_membership(league.id, player.id)
-    mock_db = _stub_db([
-        _scalar(league),
-        # already a member
-        _scalar(membership),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            # already a member
+            _scalar(membership),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -530,11 +546,13 @@ async def test_join_already_member_is_409() -> None:
 async def test_join_full_league_is_409() -> None:
     player = _make_profile()
     league = _make_league(privacy=LeaguePrivacy.public_open, max_members=5)
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar(None),  # not already member
-        _scalar_one(5),  # at capacity
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar(None),  # not already member
+            _scalar_one(5),  # at capacity
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -554,10 +572,12 @@ async def test_leave_league_succeeds() -> None:
     player = _make_profile()
     league = _make_league()
     membership = _make_membership(league.id, player.id, role=LeagueMemberRole.player)
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar(membership),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar(membership),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -571,12 +591,14 @@ async def test_last_admin_cannot_leave() -> None:
     player = _make_profile()
     league = _make_league()
     membership = _make_membership(league.id, player.id, role=LeagueMemberRole.admin)
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar(membership),
-        # _active_admin_count → 1
-        _scalar_one(1),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar(membership),
+            # _active_admin_count → 1
+            _scalar_one(1),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -591,12 +613,14 @@ async def test_admin_with_co_admin_can_leave() -> None:
     player = _make_profile()
     league = _make_league()
     membership = _make_membership(league.id, player.id, role=LeagueMemberRole.admin)
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar(membership),
-        # two admins
-        _scalar_one(2),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar(membership),
+            # two admins
+            _scalar_one(2),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -626,11 +650,13 @@ async def test_leave_non_member_is_404() -> None:
 @pytest.mark.asyncio
 async def test_list_members_requires_membership() -> None:
     player = _make_profile()
-    mock_db = _stub_db([
-        _scalar(MagicMock(spec=League, deleted_at=None, id=uuid.uuid4())),
-        # _resolve_active_membership → None (not a member, not superadmin)
-        _scalar(None),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(MagicMock(spec=League, deleted_at=None, id=uuid.uuid4())),
+            # _resolve_active_membership → None (not a member, not superadmin)
+            _scalar(None),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -645,14 +671,16 @@ async def test_list_members_returns_members() -> None:
     league = _make_league()
     membership = _make_membership(league.id, player.id)
 
-    mock_db = _stub_db([
-        # require_league_member: _resolve_league
-        _scalar(league),
-        # require_league_member: _resolve_active_membership
-        _scalar(membership),
-        # list_members query
-        _rows([(membership, player)]),
-    ])
+    mock_db = _stub_db(
+        [
+            # require_league_member: _resolve_league
+            _scalar(league),
+            # require_league_member: _resolve_active_membership
+            _scalar(membership),
+            # list_members query
+            _rows([(membership, player)]),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -676,10 +704,14 @@ async def test_promote_member_to_admin() -> None:
     target_id = uuid.uuid4()
     target_membership = _make_membership(league.id, target_id, role=LeagueMemberRole.player)
 
-    mock_db = _admin_league_db(admin, league, [
-        # _resolve_active_membership for target
-        _scalar(target_membership),
-    ])
+    mock_db = _admin_league_db(
+        admin,
+        league,
+        [
+            # _resolve_active_membership for target
+            _scalar(target_membership),
+        ],
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -716,11 +748,15 @@ async def test_demote_admin_to_player() -> None:
     target_id = uuid.uuid4()
     target_membership = _make_membership(league.id, target_id, role=LeagueMemberRole.admin)
 
-    mock_db = _admin_league_db(admin, league, [
-        _scalar(target_membership),
-        # _active_admin_count → 2
-        _scalar_one(2),
-    ])
+    mock_db = _admin_league_db(
+        admin,
+        league,
+        [
+            _scalar(target_membership),
+            # _active_admin_count → 2
+            _scalar_one(2),
+        ],
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -736,11 +772,15 @@ async def test_last_admin_cannot_be_demoted() -> None:
     target_id = uuid.uuid4()
     target_membership = _make_membership(league.id, target_id, role=LeagueMemberRole.admin)
 
-    mock_db = _admin_league_db(admin, league, [
-        _scalar(target_membership),
-        # only 1 admin
-        _scalar_one(1),
-    ])
+    mock_db = _admin_league_db(
+        admin,
+        league,
+        [
+            _scalar(target_membership),
+            # only 1 admin
+            _scalar_one(1),
+        ],
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -798,14 +838,16 @@ async def test_set_display_name_override() -> None:
     league = _make_league()
     membership = _make_membership(league.id, player.id)
 
-    mock_db = _stub_db([
-        # require_league_member: _resolve_league
-        _scalar(league),
-        # require_league_member: _resolve_active_membership
-        _scalar(membership),
-        # set_my_display_name: _resolve_active_membership
-        _scalar(membership),
-    ])
+    mock_db = _stub_db(
+        [
+            # require_league_member: _resolve_league
+            _scalar(league),
+            # require_league_member: _resolve_active_membership
+            _scalar(membership),
+            # set_my_display_name: _resolve_active_membership
+            _scalar(membership),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -884,9 +926,7 @@ async def test_revoke_league_invite() -> None:
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
-            resp = await client.delete(
-                f"/api/v1/leagues/test-league/invites/{invite.id}"
-            )
+            resp = await client.delete(f"/api/v1/leagues/test-league/invites/{invite.id}")
 
     assert resp.status_code == 204
 
@@ -916,12 +956,14 @@ async def test_list_join_requests() -> None:
     requester = _make_profile(display_name="Bob")
     join_req = _make_join_request(league.id, requester.id)
 
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar(MagicMock(spec=LeagueMembership, role=LeagueMemberRole.admin, deleted_at=None)),
-        # list query
-        _rows([(join_req, requester)]),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar(MagicMock(spec=LeagueMembership, role=LeagueMemberRole.admin, deleted_at=None)),
+            # list query
+            _rows([(join_req, requester)]),
+        ]
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -940,12 +982,17 @@ async def test_approve_join_request() -> None:
     requester_id = uuid.uuid4()
     join_req = _make_join_request(league.id, requester_id)
 
-    mock_db = _admin_league_with_join_req_db(admin, league, join_req, [
-        # _active_member_count
-        _scalar_one(5),
-        # _upsert_membership: existing lookup
-        _scalar(None),
-    ])
+    mock_db = _admin_league_with_join_req_db(
+        admin,
+        league,
+        join_req,
+        [
+            # _active_member_count
+            _scalar_one(5),
+            # _upsert_membership: existing lookup
+            _scalar(None),
+        ],
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -964,10 +1011,15 @@ async def test_approve_join_request_full_league_is_409() -> None:
     requester_id = uuid.uuid4()
     join_req = _make_join_request(league.id, requester_id)
 
-    mock_db = _admin_league_with_join_req_db(admin, league, join_req, [
-        # at capacity
-        _scalar_one(5),
-    ])
+    mock_db = _admin_league_with_join_req_db(
+        admin,
+        league,
+        join_req,
+        [
+            # at capacity
+            _scalar_one(5),
+        ],
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -1005,12 +1057,14 @@ async def test_approve_nonexistent_request_is_404() -> None:
     league = _make_league()
     fake_id = uuid.uuid4()
 
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar(MagicMock(spec=LeagueMembership, role=LeagueMemberRole.admin, deleted_at=None)),
-        # _load_pending_request → None
-        _scalar(None),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar(MagicMock(spec=LeagueMembership, role=LeagueMemberRole.admin, deleted_at=None)),
+            # _load_pending_request → None
+            _scalar(None),
+        ]
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -1032,10 +1086,13 @@ async def test_superadmin_can_access_league_admin_endpoint() -> None:
     superadmin = _make_profile(site_role=SiteRole.superadmin)
     league = _make_league(name="Some League")
     extra = [_scalar_one(2)]  # _active_member_count for response
-    mock_db = _stub_db([
-        # require_league_admin: _resolve_league (superadmin skips membership check)
-        _scalar(league),
-    ] + extra)
+    mock_db = _stub_db(
+        [
+            # require_league_admin: _resolve_league (superadmin skips membership check)
+            _scalar(league),
+        ]
+        + extra
+    )
 
     async with _override(superadmin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -1058,11 +1115,13 @@ async def test_non_admin_cannot_patch_league() -> None:
     league = _make_league()
     player_membership = _make_membership(league.id, player.id, role=LeagueMemberRole.player)
 
-    mock_db = _stub_db([
-        _scalar(league),
-        # membership with player role
-        _scalar(player_membership),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            # membership with player role
+            _scalar(player_membership),
+        ]
+    )
 
     async with _override(player, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -1084,16 +1143,18 @@ async def test_privacy_change_to_private_cancels_join_requests() -> None:
     req2 = _make_join_request(league.id, uuid.uuid4())
 
     # Build a DB mock that handles all the queries in sequence
-    mock_db = _stub_db([
-        # require_league_admin: _resolve_league
-        _scalar(league),
-        # require_league_admin: membership check (admin)
-        _scalar(MagicMock(spec=LeagueMembership, role=LeagueMemberRole.admin, deleted_at=None)),
-        # _cancel_pending_requests query
-        _scalars([req1, req2]),
-        # _active_member_count for response
-        _scalar_one(3),
-    ])
+    mock_db = _stub_db(
+        [
+            # require_league_admin: _resolve_league
+            _scalar(league),
+            # require_league_admin: membership check (admin)
+            _scalar(MagicMock(spec=LeagueMembership, role=LeagueMemberRole.admin, deleted_at=None)),
+            # _cancel_pending_requests query
+            _scalars([req1, req2]),
+            # _active_member_count for response
+            _scalar_one(3),
+        ]
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
@@ -1119,20 +1180,22 @@ async def test_privacy_change_public_request_to_open_approves_requests() -> None
     league = _make_league(privacy=LeaguePrivacy.public_request, max_members=15)
     req1 = _make_join_request(league.id, uuid.uuid4())
 
-    mock_db = _stub_db([
-        # require_league_admin: _resolve_league
-        _scalar(league),
-        # require_league_admin: membership check
-        _scalar(MagicMock(spec=LeagueMembership, role=LeagueMemberRole.admin, deleted_at=None)),
-        # _active_member_count (under max_members check before auto-approve)
-        _scalar_one(3),
-        # _auto_approve_pending_requests: pending requests
-        _scalars([req1]),
-        # _upsert_membership: existing lookup for req1.player_id
-        _scalar(None),
-        # _active_member_count for response
-        _scalar_one(4),
-    ])
+    mock_db = _stub_db(
+        [
+            # require_league_admin: _resolve_league
+            _scalar(league),
+            # require_league_admin: membership check
+            _scalar(MagicMock(spec=LeagueMembership, role=LeagueMemberRole.admin, deleted_at=None)),
+            # _active_member_count (under max_members check before auto-approve)
+            _scalar_one(3),
+            # _auto_approve_pending_requests: pending requests
+            _scalars([req1]),
+            # _upsert_membership: existing lookup for req1.player_id
+            _scalar(None),
+            # _active_member_count for response
+            _scalar_one(4),
+        ]
+    )
 
     async with _override(admin, mock_db):
         async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
