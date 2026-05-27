@@ -6,6 +6,7 @@ import { formatSubmitTime } from '../lib/format';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { PointsBreakdownPopover } from '../components/PointsBreakdownPopover';
 import type { PlayerStats, RecentPrediction } from '../lib/types';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -274,7 +275,13 @@ export function PlayerProfilePage() {
                         {p.predicted_home ?? '?'}–{p.predicted_away ?? '?'}
                       </td>
                       <td className={`py-2 pr-4 text-center font-bold ${outcomeClass(p.points_awarded, unfinished)}`}>
-                        {unfinished ? '—' : (p.points_awarded ?? '—')}
+                        {unfinished ? '—' : (
+                          p.points_awarded != null ? (
+                            <PointsBreakdownPopover breakdown={p.points_breakdown}>
+                              <span>{p.points_awarded}</span>
+                            </PointsBreakdownPopover>
+                          ) : '—'
+                        )}
                       </td>
                     </tr>
                   );

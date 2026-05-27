@@ -58,6 +58,7 @@ const RECENT_PREDS = [
     predicted_home: 2,
     predicted_away: 1,
     points_awarded: 10,
+    points_breakdown: { goals: 2, result: 3, exact: 5, total: 10, no_prediction: false },
   },
 ];
 

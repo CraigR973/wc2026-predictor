@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -45,6 +45,7 @@ class PredictionResponse(BaseModel):
     submitted_at: str | None
     update_count: int
     points_awarded: int | None
+    points_breakdown: dict[str, Any] | None = None
     updated_at: str
 
 
@@ -54,6 +55,7 @@ class MatchPredictionItem(BaseModel):
     predicted_home: int | None
     predicted_away: int | None
     points_awarded: int | None
+    points_breakdown: dict[str, Any] | None = None
 
 
 class MatchPredictionsResponse(BaseModel):
@@ -76,6 +78,7 @@ def _to_response(pred: Prediction) -> PredictionResponse:
         submitted_at=pred.submitted_at.isoformat() + "Z" if pred.submitted_at else None,
         update_count=pred.update_count,
         points_awarded=pred.points_awarded,
+        points_breakdown=pred.points_breakdown,
         updated_at=pred.updated_at.isoformat() + "Z",
     )
 
@@ -199,6 +202,7 @@ async def match_predictions(
             predicted_home=pred.predicted_home,
             predicted_away=pred.predicted_away,
             points_awarded=pred.points_awarded,
+            points_breakdown=pred.points_breakdown,
         )
         for pred, prof in rows
     ]

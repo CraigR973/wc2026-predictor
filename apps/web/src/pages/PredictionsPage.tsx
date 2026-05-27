@@ -8,8 +8,9 @@ import { apiFetch } from '../lib/api';
 import { enqueuePrediction } from '../lib/offlineQueue';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import type { MatchResponse, GroupResponse, PredictionResponse } from '../lib/types';
+import type { MatchResponse, GroupResponse, PredictionResponse, PointsBreakdown } from '../lib/types';
 import { Badge } from '../components/ui/badge';
+import { PointsBreakdownPopover } from '../components/PointsBreakdownPopover';
 import { Button } from '../components/ui/button';
 import { ScoreInput } from '../components/ui/score-input';
 import { Skeleton } from '../components/ui/skeleton';
@@ -86,7 +87,7 @@ function initLocal(predictions: PredictionResponse[]): LocalPredictions {
 // Points badge with count-up animation
 // ---------------------------------------------------------------------------
 
-function PointsBadge({ points }: { points: number }) {
+function PointsBadge({ points, breakdown }: { points: number; breakdown?: PointsBreakdown | null }) {
   const prefersReducedMotion = useReducedMotion();
   const [displayed, setDisplayed] = useState(prefersReducedMotion ? points : 0);
 
@@ -106,9 +107,11 @@ function PointsBadge({ points }: { points: number }) {
   }, [points, prefersReducedMotion]);
 
   return (
-    <Badge variant={points > 0 ? 'success' : 'muted'} data-testid="points-badge" aria-live="polite">
-      {displayed} {displayed === 1 ? 'pt' : 'pts'}
-    </Badge>
+    <PointsBreakdownPopover breakdown={breakdown}>
+      <Badge variant={points > 0 ? 'success' : 'muted'} data-testid="points-badge" aria-live="polite">
+        {displayed} {displayed === 1 ? 'pt' : 'pts'}
+      </Badge>
+    </PointsBreakdownPopover>
   );
 }
 
@@ -215,7 +218,9 @@ function PredictionCard({
           )}
         </span>
         <div className="flex items-center gap-2 shrink-0">
-          {isCompleted && points !== null && !noSubmission && <PointsBadge points={points} />}
+          {isCompleted && points !== null && !noSubmission && (
+            <PointsBadge points={points} breakdown={prediction?.points_breakdown} />
+          )}
           {isCompleted && noSubmission && <Badge variant="muted">No entry</Badge>}
           <Badge variant={statusVariant(match.status)}>{statusLabel(match.status)}</Badge>
         </div>

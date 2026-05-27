@@ -163,6 +163,7 @@ function RoundLockBanner({ matches }: { matches: MatchResponse[] }) {
 function KnockoutCard({
   match,
   localWinnerId,
+  pointsAwarded,
   saving,
   error,
   timezone,
@@ -172,6 +173,7 @@ function KnockoutCard({
 }: {
   match: MatchResponse;
   localWinnerId: string | null;
+  pointsAwarded: number | null | undefined;
   saving: boolean;
   error: boolean;
   timezone: string;
@@ -297,9 +299,9 @@ function KnockoutCard({
       )}
 
       {/* Points (completed) */}
-      {isCompleted && localWinnerId !== null && (
+      {isCompleted && localWinnerId !== null && pointsAwarded != null && (
         <div className="mt-2 flex justify-center">
-          {/* points_awarded lives on the prediction, not the match — shown via the localWinnerId check */}
+          <PointsBadge points={pointsAwarded} />
         </div>
       )}
 
@@ -416,6 +418,7 @@ function RoundPanel({
               key={m.id}
               match={m}
               localWinnerId={winnerId}
+              pointsAwarded={pred?.points_awarded}
               saving={saving[m.id] ?? false}
               error={errors[m.id] ?? false}
               timezone={timezone}
