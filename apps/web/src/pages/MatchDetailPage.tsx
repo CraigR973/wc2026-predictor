@@ -12,6 +12,7 @@ import type {
 } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { SaveButton, type SaveButtonState } from '../components/ui/save-button';
+import { PointsBreakdownPopover } from '../components/PointsBreakdownPopover';
 import { ScoreInput } from '../components/ui/score-input';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
@@ -297,7 +298,13 @@ function ComparisonTable({ response, currentPlayerId }: ComparisonTableProps) {
                     : <span className="text-text-muted">–</span>}
                 </td>
                 <td className="px-4 py-3 text-center font-mono text-text-primary tabular-nums">
-                  {item.points_awarded !== null ? item.points_awarded : <span className="text-text-muted">–</span>}
+                  {item.points_awarded !== null ? (
+                    <PointsBreakdownPopover breakdown={item.points_breakdown}>
+                      <span>{item.points_awarded}</span>
+                    </PointsBreakdownPopover>
+                  ) : (
+                    <span className="text-text-muted">–</span>
+                  )}
                 </td>
               </tr>
             ))}

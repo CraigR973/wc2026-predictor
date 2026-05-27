@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -94,6 +94,7 @@ class RecentPredictionItem(BaseModel):
     predicted_home: int | None
     predicted_away: int | None
     points_awarded: int | None
+    points_breakdown: dict[str, Any] | None = None
 
 
 @router.get("/{player_id}/predictions/recent", response_model=list[RecentPredictionItem])
@@ -159,6 +160,7 @@ async def get_recent_predictions(
             predicted_home=pred.predicted_home,
             predicted_away=pred.predicted_away,
             points_awarded=pred.points_awarded,
+            points_breakdown=pred.points_breakdown,
         )
         for pred, match in pred_rows
     ]

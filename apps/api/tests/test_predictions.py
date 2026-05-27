@@ -62,7 +62,11 @@ def _make_match(
 
 
 def _make_prediction(
-    player_id: uuid.UUID, match_id: uuid.UUID, update_count: int = 0
+    player_id: uuid.UUID,
+    match_id: uuid.UUID,
+    update_count: int = 0,
+    points_awarded: int | None = None,
+    points_breakdown: dict | None = None,
 ) -> Prediction:
     p = MagicMock(spec=Prediction)
     p.id = uuid.uuid4()
@@ -72,7 +76,8 @@ def _make_prediction(
     p.predicted_away = 1
     p.submitted_at = _now()
     p.update_count = update_count
-    p.points_awarded = None
+    p.points_awarded = points_awarded
+    p.points_breakdown = points_breakdown
     p.updated_at = _now()
     p.deleted_at = None
     return p
@@ -156,6 +161,7 @@ def _patch_pred(obj: object, template: Prediction) -> None:
         "submitted_at",
         "update_count",
         "points_awarded",
+        "points_breakdown",
         "updated_at",
         "deleted_at",
     ):
@@ -298,6 +304,29 @@ async def test_my_predictions_empty() -> None:
 
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_my_predictions_breakdown_round_trips() -> None:
+    """points_breakdown from a settled prediction is included in the response."""
+    player = _make_player()
+    breakdown = {"goals": 2, "result": 3, "exact": 5, "total": 10, "no_prediction": False}
+    pred = _make_prediction(
+        player.id,
+        uuid.uuid4(),
+        points_awarded=10,
+        points_breakdown=breakdown,
+    )
+    db = _stub_db([_scalars([pred])])
+
+    async with _override(db, player):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/v1/predictions/me", headers={"Authorization": "Bearer x"})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data[0]["points_awarded"] == 10
+    assert data[0]["points_breakdown"] == breakdown
 
 
 # ---------------------------------------------------------------------------

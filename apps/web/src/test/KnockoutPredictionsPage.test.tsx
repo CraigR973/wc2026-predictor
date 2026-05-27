@@ -241,8 +241,8 @@ describe('KnockoutPredictionsPage', () => {
     );
     renderPage();
     await waitFor(() => expect(screen.getByText(/Round of 32/)).toBeTruthy());
-    // Points badge should appear (5 pts)
-    await waitFor(() => expect(screen.getByText(/pts?/i)).toBeTruthy(), { timeout: 2000 });
+    // Points badge should appear (5 pts) — round total + per-match both show now
+    await waitFor(() => expect(screen.getAllByText(/pts?/i).length).toBeGreaterThan(0), { timeout: 2000 });
   });
 
   it('filters out group-stage matches — no group match cards shown', async () => {
