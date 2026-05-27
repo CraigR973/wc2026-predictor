@@ -29,7 +29,16 @@ Before doing anything, verify:
 
 1. The feature work is **committed and pushed** to the current feature branch. Run `git -C /Users/craigrobinson/wc_2026_predictor status` — must be clean. Run `git -C /Users/craigrobinson/wc_2026_predictor log @{u}.. --oneline` — must be empty (no unpushed commits). If either check fails, stop and tell the user to push first.
 
-2. The current branch is NOT `main`. Run `git -C /Users/craigrobinson/wc_2026_predictor branch --show-current`. If it's `main`, stop and report.
+2. The current branch is NOT `main`. Run `git -C /Users/craigrobinson/wc_2026_predictor rev-parse --abbrev-ref HEAD` (older Git missing `branch --show-current` — fall back to `git symbolic-ref --short HEAD` if needed). If it's `main`, stop and report — **with a recovery hint:** the implementer session likely skipped the STEP 1 branch-cut in the next-batch-prompt. To recover, run:
+
+   ```bash
+   git -C /Users/craigrobinson/wc_2026_predictor checkout -b feat/<slug>   # carries unstaged changes
+   git -C /Users/craigrobinson/wc_2026_predictor add <files>
+   git -C /Users/craigrobinson/wc_2026_predictor commit -F /tmp/msg.txt    # avoid shell quoting traps
+   git -C /Users/craigrobinson/wc_2026_predictor push -u origin feat/<slug>
+   ```
+
+   then re-run `/phase-closeout`.
 
 3. **Phase, multi-league, and review mode:** Tests, ruff, ruff format, and mypy all passed locally. Ask the user to confirm `"Did you run the full pytest + ruff + mypy locally and all green? (y/N)"`. If anything other than `y`/`yes`, stop. **Skip this confirmation in polish mode** — polish batches are frontend-only (pnpm test + typecheck), which CI already verified.
 

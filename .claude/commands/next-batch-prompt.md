@@ -128,6 +128,16 @@ Output the prompt in this exact format (no preamble, no commentary, just the pro
 ````
 ```
 Batch N: Phases X.Y → X.Z — back-to-back, single <model> session.
+
+**STEP 1 before anything else:** make sure `main` is up to date and create
+the feature branch:
+
+    git fetch origin && git checkout main && git pull --ff-only origin main
+    git checkout -b feat/b<N>-<slug>     ← slug derived from the batch title
+
+Do not commit to `main` directly under any circumstance. `/phase-closeout`
+will fast-forward this branch into `main` once CI is green.
+
 Close each phase fully before starting the next.   ← include this line only if batch has 2+ phases
 
 Phase X.Y: <Title> <model emoji + tag>
@@ -149,6 +159,15 @@ PREVIOUS SESSION NOTES:
 ````
 ```
 Batch M<n>: <Title from § 8 heading> — single <model emoji + tag> session.
+
+**STEP 1 before anything else:** make sure `main` is up to date and create
+the feature branch:
+
+    git fetch origin && git checkout main && git pull --ff-only origin main
+    git checkout -b feat/m<n>-<slug>     ← slug derived from the batch title
+
+Do not commit to `main` directly under any circumstance. `/phase-closeout`
+will fast-forward this branch into `main` once CI is green.
 
 The M-series batch acceptance criteria live in `docs/multi-league-architecture.md` § 8 (NOT in `wc2026-architecture.md`). Skim § 2.2 (decision rationale), § 3 (data model + DDL), § 4 (auth flow), and § 7 (migration plan) before touching code — they were written specifically for this implementer.
 
