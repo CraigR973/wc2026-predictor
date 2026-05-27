@@ -1083,3 +1083,16 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `predictions.points_breakdown` JSONB column is correctly populated by the AFTER UPDATE trigger (`{"goals", "result", "exact", "total", "no_prediction"}`) but **not exposed** by `PredictionResponse` or any other API response. Data is sitting in the DB ready for a future per-prediction breakdown tooltip — wire it through the API when that UI is built.
 
 **Next:** Lewis 2–3 day soak on `wc2026-staging.vercel.app` → findings into `docs/lewis-soak-findings.md` → iterate fixes on `fix/*` branches off main → then begin the multi-league architecture phases.
+
+---
+
+## feat/per-prediction-breakdown — Points breakdown tooltip
+**Commits:** f5b08aa · CI ✅
+
+### Key facts for future sessions
+- `points_breakdown` was already in the DB (`predictions` JSONB column, populated by the AFTER UPDATE trigger) — this work was purely API plumbing + UI, no migration.
+- `PointsBreakdownPopover` is a tap-to-expand inline component (no floating positioning) — works correctly in table cells and flex rows on mobile. Location: `apps/web/src/components/PointsBreakdownPopover.tsx`.
+- The empty `<div>` in `KnockoutCard` (knockout winner predictions) that had a comment "points_awarded lives on the prediction" was wired up at the same time — `pointsAwarded` prop now threaded from `RoundPanel` into `KnockoutCard`. Winner predictions have no breakdown so the popover is a no-op there.
+- `RAILWAY_API_TOKEN` in `.env` was expired; replaced with `959d7ac4-54dd-4902-83e2-635dbbe56b0b`.
+
+**Next:** Lewis soak findings → multi-league architecture phases.
