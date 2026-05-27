@@ -17,6 +17,7 @@ from src.database import get_db
 from src.main import app
 from src.models.prediction import LeaderboardSnapshot
 from src.models.profile import Profile
+from tests.conftest import ensure_default_league_membership
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -321,7 +322,8 @@ async def test_leaderboard_dedupes_tied_snapshot_timestamps(
     Postgres ``now()`` returns ``transaction_timestamp()`` which is constant
     within a transaction, so multiple recompute paths in the same txn (e.g.
     the trigger plus the specials helper) produce snapshot rows with tied
-    timestamps. The endpoint must dedupe with ``DISTINCT ON (player_id)``.
+    timestamps. The endpoint must dedupe with ``DISTINCT ON (player_id)``
+    scoped to a single league (Steele by default in M2).
     """
 
     alice_id = (
@@ -350,22 +352,26 @@ async def test_leaderboard_dedupes_tied_snapshot_timestamps(
             """)
         )
     ).scalar_one()
+    # Both profiles join the Steele league so their snapshots are scoped
+    # correctly under the new C-2 DISTINCT ON pattern.
+    steele_id = await ensure_default_league_membership(db_conn, alice_id)
+    await ensure_default_league_membership(db_conn, bob_id)
 
     tied_at = datetime(2026, 6, 14, 18, 0, 0)
     await db_conn.execute(
         text("""
             INSERT INTO leaderboard_snapshots (
-                id, player_id, total_points, match_points,
+                id, player_id, league_id, total_points, match_points,
                 knockout_winner_points, special_points, rank,
                 snapshot_at, triggered_by_match_id
             )
             VALUES
-                (gen_random_uuid(), :a, 5, 5, 0, 0, 1, :t, NULL),
-                (gen_random_uuid(), :a, 10, 10, 0, 0, 1, :t, NULL),
-                (gen_random_uuid(), :b, 3, 3, 0, 0, 2, :t, NULL),
-                (gen_random_uuid(), :b, 7, 7, 0, 0, 2, :t, NULL)
+                (gen_random_uuid(), :a, :l, 5, 5, 0, 0, 1, :t, NULL),
+                (gen_random_uuid(), :a, :l, 10, 10, 0, 0, 1, :t, NULL),
+                (gen_random_uuid(), :b, :l, 3, 3, 0, 0, 2, :t, NULL),
+                (gen_random_uuid(), :b, :l, 7, 7, 0, 0, 2, :t, NULL)
         """),
-        {"a": alice_id, "b": bob_id, "t": tied_at},
+        {"a": alice_id, "b": bob_id, "l": steele_id, "t": tied_at},
     )
 
     session = AsyncSession(bind=db_conn, expire_on_commit=False)
@@ -396,3 +402,107 @@ async def test_leaderboard_dedupes_tied_snapshot_timestamps(
     by_name = {e["player_name"]: e for e in seeded}
     assert by_name["snap_tie_alice"]["total_points"] in (5, 10)
     assert by_name["snap_tie_bob"]["total_points"] in (3, 7)
+
+
+@pytest.mark.asyncio
+async def test_leaderboard_returns_steele_scoped_data_only(
+    db_conn: AsyncConnection,
+) -> None:
+    """Snapshots in a non-Steele league must not bleed into /api/v1/leaderboard.
+
+    The endpoint hardcodes the ``steele-spreadsheet`` slug in M2; slug
+    routing arrives in M3/M5. Two players are seeded — one with a Steele
+    snapshot, one with a snapshot in a totally separate league — and the
+    response is asserted to only include the Steele player.
+    """
+    steele_player_id = (
+        await db_conn.execute(
+            text("""
+                INSERT INTO profiles (id, display_name, pin_hash, role)
+                VALUES (
+                    gen_random_uuid(), 'scope_steele',
+                    '$2b$12$0000000000000000000000000000000000000000000000000000',
+                    CAST('player' AS player_role)
+                )
+                RETURNING id
+            """)
+        )
+    ).scalar_one()
+    other_player_id = (
+        await db_conn.execute(
+            text("""
+                INSERT INTO profiles (id, display_name, pin_hash, role)
+                VALUES (
+                    gen_random_uuid(), 'scope_other',
+                    '$2b$12$0000000000000000000000000000000000000000000000000000',
+                    CAST('player' AS player_role)
+                )
+                RETURNING id
+            """)
+        )
+    ).scalar_one()
+
+    steele_id = await ensure_default_league_membership(db_conn, steele_player_id)
+    other_league_id = (
+        await db_conn.execute(
+            text("""
+                INSERT INTO leagues (id, slug, name, created_by)
+                VALUES (gen_random_uuid(), 'scope-other-league', 'Other', :p)
+                RETURNING id
+            """),
+            {"p": other_player_id},
+        )
+    ).scalar_one()
+    await db_conn.execute(
+        text("""
+            INSERT INTO league_memberships (id, league_id, player_id, role)
+            VALUES (gen_random_uuid(), :l, :p,
+                    CAST('player' AS league_member_role))
+        """),
+        {"l": other_league_id, "p": other_player_id},
+    )
+
+    snap_at = datetime(2026, 6, 16, 18, 0, 0)
+    await db_conn.execute(
+        text("""
+            INSERT INTO leaderboard_snapshots (
+                id, player_id, league_id, total_points, match_points,
+                knockout_winner_points, special_points, rank,
+                snapshot_at, triggered_by_match_id
+            )
+            VALUES
+                (gen_random_uuid(), :sp, :sl, 42, 42, 0, 0, 1, :t, NULL),
+                (gen_random_uuid(), :op, :ol, 99, 99, 0, 0, 1, :t, NULL)
+        """),
+        {
+            "sp": steele_player_id,
+            "sl": steele_id,
+            "op": other_player_id,
+            "ol": other_league_id,
+            "t": snap_at,
+        },
+    )
+
+    session = AsyncSession(bind=db_conn, expire_on_commit=False)
+
+    async def _override_get_db() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_current_player] = lambda: _make_requester()
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/v1/leaderboard")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_player, None)
+        await session.close()
+
+    assert resp.status_code == 200
+    data = resp.json()
+    names = {e["player_name"] for e in data}
+    assert "scope_steele" in names
+    assert "scope_other" not in names, (
+        f"non-Steele snapshot leaked into /api/v1/leaderboard: {data}"
+    )

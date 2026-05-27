@@ -21,6 +21,8 @@ from src.auth import hash_pin
 from src.database import get_db
 from src.models.group import Group
 from src.models.invite import Invite
+from src.models.league import League
+from src.models.league_membership import LeagueMemberRole, LeagueMembership
 from src.models.match import Match, MatchStatus
 from src.models.prediction import NotificationPreferences
 from src.models.profile import PlayerRole, Profile
@@ -39,6 +41,11 @@ _MATCH_NUMBER = 9901
 _HOME_CODE = "SMK"
 _AWAY_CODE = "TST"
 _GROUP_NAME = "Z"
+# M2 — the global API surface still routes through the Steele league. The
+# smoke seed materialises it (idempotent) so create_invite + the leaderboard
+# query both succeed in a fresh CI database where no backfill has run.
+_DEFAULT_LEAGUE_SLUG = "steele-spreadsheet"
+_DEFAULT_LEAGUE_NAME = "The Steele Spreadsheet"
 
 
 class SeedResponse(BaseModel):
@@ -70,6 +77,37 @@ async def seed(db: Annotated[AsyncSession, Depends(get_db)]) -> SeedResponse:
         db.add(admin)
         await db.flush()
         db.add(NotificationPreferences(player_id=admin.id))
+        await db.flush()
+
+    # Default league (steele-spreadsheet) — M2 invites/leaderboard depend on it.
+    league_q = await db.execute(select(League).where(League.slug == _DEFAULT_LEAGUE_SLUG))
+    league = league_q.scalar_one_or_none()
+    if league is None:
+        league = League(
+            id=uuid.uuid4(),
+            slug=_DEFAULT_LEAGUE_SLUG,
+            name=_DEFAULT_LEAGUE_NAME,
+            created_by=admin.id,
+        )
+        db.add(league)
+        await db.flush()
+
+    # Admin's league membership (idempotent — the (league_id, player_id) UNIQUE
+    # prevents duplicates and we explicitly look it up first).
+    membership_q = await db.execute(
+        select(LeagueMembership).where(
+            LeagueMembership.league_id == league.id,
+            LeagueMembership.player_id == admin.id,
+        )
+    )
+    if membership_q.scalar_one_or_none() is None:
+        db.add(
+            LeagueMembership(
+                league_id=league.id,
+                player_id=admin.id,
+                role=LeagueMemberRole.admin,
+            )
+        )
         await db.flush()
 
     # Group (name must be ≤ 1 char per the schema)
@@ -153,12 +191,20 @@ async def lock_now(
 
 @router.delete("/cleanup", status_code=status.HTTP_204_NO_CONTENT)
 async def cleanup(db: Annotated[AsyncSession, Depends(get_db)]) -> None:
-    """Delete all rows created by seed() — idempotent, safe to call before/after each run."""
+    """Delete all rows created by seed() — idempotent, safe to call before/after each run.
+
+    The default league row itself survives across runs (it is a fixture, not
+    test scratch). Smoke memberships are deleted explicitly because the
+    league_memberships → profiles FK has no ondelete cascade.
+    """
     smoke_profile_q = select(Profile.id).where(
         Profile.display_name.in_([_ADMIN_NAME, _PLAYER_NAME])
     )
     # Explicit FK-ordered deletions for tables without ondelete=CASCADE on profiles.
     await db.execute(delete(Invite).where(Invite.created_by.in_(smoke_profile_q)))
+    await db.execute(
+        delete(LeagueMembership).where(LeagueMembership.player_id.in_(smoke_profile_q))
+    )
     await db.execute(delete(RefreshToken).where(RefreshToken.player_id.in_(smoke_profile_q)))
     # Predictions cascade from Match via ondelete=CASCADE.
     await db.execute(delete(Match).where(Match.match_number == _MATCH_NUMBER))

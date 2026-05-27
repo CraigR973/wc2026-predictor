@@ -25,6 +25,7 @@ from src.auth import (
 )
 from src.database import get_db
 from src.models.invite import Invite
+from src.models.league_membership import LeagueMemberRole, LeagueMembership
 from src.models.prediction import NotificationPreferences
 from src.models.profile import PlayerRole, Profile
 from src.models.refresh_token import RefreshToken
@@ -336,6 +337,17 @@ async def join(
         global_mute=False,
     )
     db.add(prefs)
+
+    # M2: claim creates a league_membership scoped to the invite's league
+    # so the player appears on the leaderboard immediately. Pre-M4 the
+    # league is always Steele (admin invite creation pins it).
+    db.add(
+        LeagueMembership(
+            league_id=invite.league_id,
+            player_id=new_player.id,
+            role=LeagueMemberRole.player,
+        )
+    )
 
     invite.claimed_by = new_player.id
     invite.claimed_at = _now()

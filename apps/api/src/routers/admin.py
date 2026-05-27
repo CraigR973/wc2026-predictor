@@ -18,6 +18,7 @@ from src.config import settings
 from src.database import get_db
 from src.models.group import Group
 from src.models.invite import Invite
+from src.models.league import League
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import KnockoutPrediction, Prediction
@@ -44,6 +45,11 @@ FdFetcher = Callable[[], Awaitable[list[FDMatch]]]
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+# M2 — until M3 ships league-aware invite creation the global admin invite
+# endpoint pins new invites to the Steele Spreadsheet so the existing UI
+# keeps working unchanged.
+_M2_DEFAULT_LEAGUE_SLUG = "steele-spreadsheet"
 
 
 def _now() -> datetime:
@@ -255,9 +261,20 @@ async def create_invite(
     if body.expires_in_days is not None:
         expires_at = _now() + timedelta(days=body.expires_in_days)
 
+    league_id_result = await db.execute(
+        select(League.id).where(League.slug == _M2_DEFAULT_LEAGUE_SLUG)
+    )
+    default_league_id = league_id_result.scalar_one_or_none()
+    if default_league_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Default league is not configured",
+        )
+
     invite = Invite(
         token=generate_opaque_token(),
         display_name_hint=body.display_name_hint,
+        league_id=default_league_id,
         created_by=admin.id,
         expires_at=expires_at,
         is_active=True,

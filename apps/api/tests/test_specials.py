@@ -580,7 +580,7 @@ async def _insert_team_raw(
 
 
 async def _insert_profile_raw(conn: AsyncConnection, display_name: str) -> uuid.UUID:
-    return await _scalar_raw(
+    profile_id = await _scalar_raw(
         conn,
         """
         INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at)
@@ -592,6 +592,12 @@ async def _insert_profile_raw(conn: AsyncConnection, display_name: str) -> uuid.
         """,
         n=display_name,
     )
+    # M2: snapshots fan out per active league membership. The recompute
+    # helper exercised by these tests needs a membership row to write to.
+    from tests.conftest import ensure_default_league_membership
+
+    await ensure_default_league_membership(conn, profile_id)
+    return profile_id
 
 
 async def test_award_specials_snapshot_has_correct_points(db_conn: AsyncConnection) -> None:

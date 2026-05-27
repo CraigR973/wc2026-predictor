@@ -151,7 +151,9 @@ def test_refresh_token_fk_references_profiles() -> None:
 
 def test_invite_fks_reference_profiles() -> None:
     fk_targets = {fk.target_fullname for fk in Invite.__table__.foreign_keys}
-    assert fk_targets == {"profiles.id"}
+    # invites also reference leagues after M2 — that FK is covered by
+    # test_invite_has_league_id.
+    assert "profiles.id" in fk_targets
 
 
 def test_profiles_no_longer_has_unique_display_name() -> None:
@@ -438,6 +440,7 @@ def test_leaderboard_snapshot_columns() -> None:
     assert {
         "id",
         "player_id",
+        "league_id",
         "total_points",
         "match_points",
         "knockout_winner_points",
@@ -459,6 +462,21 @@ def test_leaderboard_snapshot_fks() -> None:
     fk_targets = {fk.target_fullname for fk in LeaderboardSnapshot.__table__.foreign_keys}
     assert "profiles.id" in fk_targets
     assert "matches.id" in fk_targets
+    assert "leagues.id" in fk_targets
+
+
+def test_leaderboard_snapshot_league_id_not_null() -> None:
+    col = LeaderboardSnapshot.__table__.columns["league_id"]
+    assert col.nullable is False
+
+
+def test_invite_has_league_id() -> None:
+    cols = {c.name for c in Invite.__table__.columns}
+    assert "league_id" in cols
+    col = Invite.__table__.columns["league_id"]
+    assert col.nullable is False
+    fk_targets = {fk.target_fullname for fk in Invite.__table__.foreign_keys}
+    assert "leagues.id" in fk_targets
 
 
 def test_push_subscription_columns() -> None:

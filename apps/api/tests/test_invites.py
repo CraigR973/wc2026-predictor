@@ -76,6 +76,11 @@ def _scalar(value: object) -> MagicMock:
     return r
 
 
+def _default_league_lookup() -> MagicMock:
+    """Mock the M2 default-league id lookup that create_invite runs."""
+    return _scalar(uuid.uuid4())
+
+
 @asynccontextmanager
 async def _override_db_and_admin(mock_db: AsyncMock, admin: Profile) -> AsyncGenerator[None, None]:
     async def _fake_db() -> AsyncGenerator[AsyncSession, None]:
@@ -106,7 +111,7 @@ async def client() -> AsyncClient:
 
 async def test_create_invite_success(client: AsyncClient) -> None:
     admin = _make_admin()
-    mock_db = _stub_db([])
+    mock_db = _stub_db([_default_league_lookup()])
     # refresh sets the invite attributes after commit
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
@@ -125,7 +130,7 @@ async def test_create_invite_success(client: AsyncClient) -> None:
 
 async def test_create_invite_no_hint(client: AsyncClient) -> None:
     admin = _make_admin()
-    mock_db = _stub_db([])
+    mock_db = _stub_db([_default_league_lookup()])
 
     async with _override_db_and_admin(mock_db, admin):
         resp = await client.post("/api/v1/admin/invites", json={})
@@ -136,7 +141,7 @@ async def test_create_invite_no_hint(client: AsyncClient) -> None:
 
 async def test_create_invite_no_expiry(client: AsyncClient) -> None:
     admin = _make_admin()
-    mock_db = _stub_db([])
+    mock_db = _stub_db([_default_league_lookup()])
 
     async with _override_db_and_admin(mock_db, admin):
         resp = await client.post("/api/v1/admin/invites", json={"expires_in_days": None})

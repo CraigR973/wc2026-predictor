@@ -11,6 +11,7 @@ from sqlalchemy.orm import aliased
 
 from src.auth import CurrentPlayer
 from src.database import get_db
+from src.models.league import League
 from src.models.match import Match
 from src.models.prediction import LeaderboardSnapshot, Prediction
 from src.models.profile import Profile
@@ -20,6 +21,12 @@ from src.rate_limit import limiter, per_player_key
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/leaderboard", tags=["leaderboard"])
+
+# In M2 the global leaderboard surface stays at /api/v1/leaderboard but now
+# scopes per-league at the DB layer. Slug routing (e.g. /leagues/{slug}/
+# leaderboard) lands in M3/M5; until then the global endpoint resolves to
+# the Steele Spreadsheet so the existing UI keeps working unchanged.
+_M2_DEFAULT_LEAGUE_SLUG = "steele-spreadsheet"
 
 
 # ---------------------------------------------------------------------------
@@ -72,14 +79,21 @@ async def get_leaderboard(
 ) -> list[LeaderboardEntryOut]:
     """Current leaderboard from the latest snapshot per player.
 
-    Uses Postgres ``DISTINCT ON`` to pick exactly one snapshot per player.
-    Multiple recomputes inside one transaction (e.g. trigger + specials
-    helper) share ``transaction_timestamp()``, so ``snapshot_at`` ties
-    are real; the secondary ``id DESC`` sort breaks them deterministically.
+    Filters to the M2 default league (``steele-spreadsheet``) and uses
+    Postgres ``DISTINCT ON`` to pick exactly one snapshot per player
+    within that league. Multiple recomputes inside one transaction (e.g.
+    trigger + specials helper) share ``transaction_timestamp()``, so
+    ``snapshot_at`` ties are real; the secondary ``id DESC`` sort breaks
+    them deterministically.
     """
+
+    default_league_id = (
+        select(League.id).where(League.slug == _M2_DEFAULT_LEAGUE_SLUG).scalar_subquery()
+    )
 
     latest_per_player = (
         select(LeaderboardSnapshot)
+        .where(LeaderboardSnapshot.league_id == default_league_id)
         .distinct(LeaderboardSnapshot.player_id)
         .order_by(
             LeaderboardSnapshot.player_id,
@@ -130,12 +144,21 @@ async def get_leaderboard_history(
     db: Annotated[AsyncSession, Depends(get_db)],
     include_inactive: bool = Query(default=False),
 ) -> list[HistoryEntryOut]:
-    """All leaderboard snapshots per player, ordered by snapshot time."""
+    """All leaderboard snapshots per player, ordered by snapshot time.
+
+    Scoped to the M2 default league. Once slug routing lands in M3/M5,
+    the league is selected by the caller.
+    """
+
+    default_league_id = (
+        select(League.id).where(League.slug == _M2_DEFAULT_LEAGUE_SLUG).scalar_subquery()
+    )
 
     stmt = (
         select(Profile, LeaderboardSnapshot)
         .join(LeaderboardSnapshot, LeaderboardSnapshot.player_id == Profile.id)
         .where(Profile.deleted_at.is_(None))
+        .where(LeaderboardSnapshot.league_id == default_league_id)
         .order_by(LeaderboardSnapshot.snapshot_at.asc(), Profile.display_name.asc())
     )
 
