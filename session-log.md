@@ -1143,3 +1143,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - C-2 endpoint scopes via `LeaderboardSnapshot.league_id == (SELECT id FROM leagues WHERE slug='steele-spreadsheet').scalar_subquery()`. If the Steele league is ever missing, the subquery is NULL and the endpoint returns empty — degraded but not crashing.
 
 **Next:** Multi-league batch M3 — League management API (CRUD) (🟢 Sonnet)
+
+---
+
+## Multi-league batch M3 — League management API (CRUD)
+**Commits:** a15cb59, 0809780, 837f424 · CI ✅
+
+### Key facts for future sessions
+- `require_league_admin(slug)` is defined in `leagues.py` and imported by both `league_memberships.py` and `league_join_requests.py`. All three routers share the same `LeagueAdminDep` / `LeagueMemberDep` type aliases.
+- CI runs `ruff format --check` separately from `ruff check`. Local venv used an older ruff version that didn't flag format drift — always run `ruff format` before pushing, or sync venv ruff version to `ruff==0.15.x` (whatever CI installs).
+- `_upsert_membership` restores soft-deleted rows (sets `deleted_at=NULL`, refreshes `joined_at`, resets role) — mirrors the M1 backfill script semantic. Join endpoints and join-request approval both go through this path.
+- Privacy transition side effects are in `update_league` (PATCH): `→ private` cancels pending requests; `public_request → public_open` auto-approves pending requests up to `max_members`.
+- Legacy `POST /admin/invites` kept working with `Deprecation: true` header; M5 removes it.
+- `ActionType` in `notification.py` has 17 new M3 values — `test_action_type_values` in `test_models.py` is an exhaustive allowlist that must be updated whenever the enum grows.
+
+**Next:** Multi-league batch M4 — Auth refactor — email signup + verification + reset (🟢 Sonnet)
