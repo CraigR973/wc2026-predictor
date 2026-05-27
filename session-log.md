@@ -1128,3 +1128,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `_make_profile` helper in `tests/test_multi_league_migration.py` mirrors the `_insert_profile` pattern in `test_scoring_trigger.py` (raw INSERT with `CAST(:r AS player_role)`). The `db_conn` fixture already soft-deletes pre-existing profiles, so each test starts with an empty active profile set.
 
 **Next:** Multi-league batch M2 — Per-league snapshots + scoring trigger rewrite (🔴 Opus)
+
+---
+
+## Multi-league batch M2 — Per-league snapshots + scoring trigger rewrite
+**Commits:** 35a4669, 0e1e73e · CI ✅
+
+### Key facts for future sessions
+- Migration 012 uses `UPDATE ... SET league_id = (SELECT id FROM leagues WHERE slug='steele-spreadsheet')` as the backfill. On a fresh DB the subquery returns NULL but the table is empty, so the UPDATE is a no-op and the subsequent `ALTER COLUMN ... SET NOT NULL` still succeeds — that's why CI's `alembic upgrade head` works without running `scripts/backfill_multi_league.py` first.
+- The new trigger fans out via `JOIN league_memberships lm` AND inner-joins the player_totals subquery, which filters on `pr.deleted_at IS NULL`. So soft-deleted profiles get no snapshots even if their membership rows are still active. The conftest soft-deletes all pre-existing profiles, which is what isolates each test from leaked snapshot rows.
+- `tests/conftest.ensure_default_league_membership(conn, profile_id)` is the canonical helper for trigger/leaderboard tests — it idempotently creates the `steele-spreadsheet` league and adds the profile. Every `_insert_profile` helper in trigger-touching test files routes through it. Soft-deleted profiles intentionally skip it.
+- `admin.create_invite` and `auth.join` both resolve `steele-spreadsheet` at request time (no module-level cache) — the slug is the contract until M3 ships per-league invite endpoints. `test_helpers.seed` materialises the league for CI smoke runs and `cleanup` deletes memberships **before** profiles because the membership → profile FK has no ondelete cascade.
+- `notify_leaderboard_shifts` still squashes by `player_id`, so multi-league players get one non-deterministic rank-shift notification per result event. Acceptable for M2 (everyone is in Steele); proper per-league notifications arrive with MD-12 in M3+.
+- C-2 endpoint scopes via `LeaderboardSnapshot.league_id == (SELECT id FROM leagues WHERE slug='steele-spreadsheet').scalar_subquery()`. If the Steele league is ever missing, the subquery is NULL and the endpoint returns empty — degraded but not crashing.
+
+**Next:** Multi-league batch M3 — League management API (CRUD) (🟢 Sonnet)
