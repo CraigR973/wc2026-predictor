@@ -1113,3 +1113,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Migration backfill script (`scripts/backfill_multi_league.py`) is M1's deliverable and is idempotent — must run cleanly on staging before prod; manual email entries via JSON sidecar (OQ-1) for existing v1 profiles whose emails aren't already known.
 
 **Next:** Batch M1 — Schema foundations + Steele Spreadsheet backfill (🔴 Opus, extended thinking ON)
+
+---
+
+## Multi-league batch M1 — Schema foundations + Steele backfill
+**Commits:** 369ad6f · CI ✅
+
+### Key facts for future sessions
+- M1 is **additive** — `profiles.role` (`player_role` enum) is left untouched alongside the new `profiles.site_role` (`site_role` enum: `superadmin`/`user`). Backfill populates `site_role` from `role`; the old column is dropped in M8. This is why v1 application code keeps working through M1–M7.
+- `profiles.email` uses a partial unique index (`ix_profiles_email_unique_lower` on `LOWER(email) WHERE email IS NOT NULL`) rather than a plain UNIQUE constraint — the column is NULLABLE until M8, and Postgres treats NULLs as distinct so a partial index is the only correct shape.
+- Migration 011 downgrade has a safety check: it refuses to restore `uq_profiles_display_name` if duplicate display names exist. Resolve duplicates first if rollback is ever needed.
+- Backfill script (`scripts/backfill_multi_league.py`) defaults to **dry-run**; `--apply` is required to commit. It self-aborts on: missing migration 011, no active `Craig` profile, resulting Steele privacy ≠ `'private'`, or zero admin memberships. Idempotent via per-row UPSERT on `league_memberships` + slug-lookup on `leagues`.
+- Sidecar JSON shape: `{"<profile_id>": {"email": "...", "first_name": "...", "last_name": "..."}}`. Any subset of fields is fine; missing values derive from `display_name`. Sidecar lives outside the repo (PII) — see `docs/runbooks/multi-league-migration.md`.
+- `_make_profile` helper in `tests/test_multi_league_migration.py` mirrors the `_insert_profile` pattern in `test_scoring_trigger.py` (raw INSERT with `CAST(:r AS player_role)`). The `db_conn` fixture already soft-deletes pre-existing profiles, so each test starts with an empty active profile set.
+
+**Next:** Multi-league batch M2 — Per-league snapshots + scoring trigger rewrite (🔴 Opus)
