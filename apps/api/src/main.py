@@ -23,6 +23,9 @@ from src.routers import (
     groups,
     health,
     knockout_predictions,
+    league_join_requests,
+    league_memberships,
+    leagues,
     leaderboard,
     matches,
     notifications,
@@ -99,6 +102,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(leagues.router)
+app.include_router(league_memberships.router)
+app.include_router(league_join_requests.router)
 app.include_router(players.router)
 app.include_router(matches.router)
 app.include_router(groups.router)

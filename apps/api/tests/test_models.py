@@ -611,6 +611,25 @@ def test_action_type_values() -> None:
         "tiebreaker_overridden",
         "backup_failed",
         "backup_downloaded",
+        # M3 — league lifecycle
+        "league_created",
+        "league_updated",
+        "league_privacy_changed",
+        "league_deleted",
+        # M3 — membership
+        "member_joined",
+        "member_left",
+        "member_removed",
+        "member_promoted",
+        "member_demoted",
+        # M3 — join requests
+        "join_request_created",
+        "join_request_approved",
+        "join_request_rejected",
+        # M3 — per-league invites / PIN reset
+        "league_invite_created",
+        "league_invite_revoked",
+        "league_member_pin_reset",
     }
 
 

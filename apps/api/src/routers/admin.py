@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select, update
@@ -256,6 +256,7 @@ async def create_invite(
     body: CreateInviteRequest,
     admin: AdminPlayer,
     db: Annotated[AsyncSession, Depends(get_db)],
+    response: Response,
 ) -> InviteResponse:
     expires_at = None
     if body.expires_in_days is not None:
@@ -284,6 +285,10 @@ async def create_invite(
     await db.commit()
     await db.refresh(invite)
 
+    # M3: per-league invite endpoint ships at POST /api/v1/leagues/{slug}/invites.
+    # This global path is kept working until M5 removes it.
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = '</api/v1/leagues/{slug}/invites>; rel="successor-version"'
     log.info("invite created", invite_id=str(invite.id), admin_id=str(admin.id))
     return _to_response(invite)
 
