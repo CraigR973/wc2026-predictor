@@ -29,7 +29,7 @@ Per `docs/multi-league-architecture.md` § 8. Each row = one session. Order is s
 | Batch | Model | Phases | Rationale |
 |---|---|---|---|
 | ~~M1~~ | ~~🔴 Opus~~ | ~~M1~~ | ✅ Shipped 2026-05-27 |
-| M2 | 🔴 Opus | M2 | Per-league snapshot scoping + scoring trigger rewrite — preserves C-2 dedupe, fans out to per-(player, league) rows |
+| ~~M2~~ | ~~🔴 Opus~~ | ~~M2~~ | ✅ Shipped 2026-05-27 |
 | M3 | 🟢 Sonnet | M3 | League management API (CRUD + privacy matrix + last-admin protection) |
 | M4 | 🟢 Sonnet | M4 | Auth refactor — email signup, email-based login, optional verification, self-service PIN reset (Resend integration) |
 | M5 | 🔴 Opus | M5 | Per-league API scoping + cross-league summary endpoint + dedupedLeaderboard signature update |
