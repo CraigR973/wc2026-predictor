@@ -1100,7 +1100,7 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 ---
 
 ## Multi-league design — architecture + phase plan landed
-**Commits:** _(doc commits)_ · planning session only (no code changes)
+**Commits:** 6fa494e · planning session only (no code changes)
 
 ### Key facts for future sessions
 - Design doc lives at `docs/multi-league-architecture.md` (~10 sections, full DDL + mermaid ERD + 8-phase breakdown M1–M8). It is **additive** to `wc2026-architecture.md` — v1 invariants (§6.1 scoring, §6.13 state machine, §8 security, §9 reliability) stay authoritative there; the design doc cross-references rather than restates.
