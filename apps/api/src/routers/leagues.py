@@ -3,7 +3,7 @@
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -208,7 +208,7 @@ def _audit(
     action: ActionType,
     target_table: str,
     target_id: uuid.UUID | None = None,
-    changes: dict | None = None,
+    changes: dict[str, Any] | None = None,
 ) -> AuditLog:
     actor_type = ActorType.admin if _is_superadmin(actor) else ActorType.player
     return AuditLog(
@@ -568,7 +568,7 @@ async def update_league(
 ) -> LeagueResponse:
     player, league = admin_ctx
 
-    changes: dict = {}
+    changes: dict[str, Any] = {}
 
     if body.name is not None and body.name != league.name:
         changes["name"] = {"from": league.name, "to": body.name}
