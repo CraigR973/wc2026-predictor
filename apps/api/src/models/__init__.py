@@ -1,6 +1,9 @@
 from src.models.base import Base
 from src.models.group import Group
 from src.models.invite import Invite
+from src.models.league import League, LeaguePrivacy
+from src.models.league_join_request import JoinRequestStatus, LeagueJoinRequest
+from src.models.league_membership import LeagueMemberRole, LeagueMembership
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import (
     ActionType,
@@ -19,7 +22,7 @@ from src.models.prediction import (
     SpecialPrediction,
     SpecialPredictionType,
 )
-from src.models.profile import PlayerRole, Profile
+from src.models.profile import PlayerRole, Profile, SiteRole
 from src.models.refresh_token import RefreshToken
 from src.models.team import Team, TournamentStage
 
@@ -31,8 +34,14 @@ __all__ = [
     "DeliveryStatus",
     "Group",
     "Invite",
+    "JoinRequestStatus",
     "KnockoutPrediction",
     "LeaderboardSnapshot",
+    "League",
+    "LeagueJoinRequest",
+    "LeagueMemberRole",
+    "LeagueMembership",
+    "LeaguePrivacy",
     "Match",
     "MatchStatus",
     "NotificationLog",
@@ -44,6 +53,7 @@ __all__ = [
     "PushSubscription",
     "RefreshToken",
     "ResultSource",
+    "SiteRole",
     "SpecialPrediction",
     "SpecialPredictionType",
     "Team",
