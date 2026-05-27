@@ -758,7 +758,9 @@ async def test_trigger_per_league_rank_uses_league_membership(
         group_id=g,
     )
     await _insert_prediction(db_conn, player_id=alice, match_id=match, home=1, away=0)  # exact 10
-    await _insert_prediction(db_conn, player_id=bob, match_id=match, home=0, away=1)  # 0
+    # (0,2) → totals 2 ≠ actual 1, wrong winner → 0 pts (avoids the 2-pt goals
+    # bonus that fires whenever predicted total goals = actual total goals).
+    await _insert_prediction(db_conn, player_id=bob, match_id=match, home=0, away=2)
     await _insert_prediction(db_conn, player_id=carol, match_id=match, home=0, away=2)  # 0
 
     await _enter_result(db_conn, match, 1, 0)
