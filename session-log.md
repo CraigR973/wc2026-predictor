@@ -1068,3 +1068,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Local `pnpm --dir apps/web build` fails with `Rollup failed to resolve "workbox-window"` — pre-existing on the branch (reproduced by stashing U5 changes). CI builds clean (different lockfile state); a fix already exists on `feat/frontend-polish` (`27bbcdc`). Out of scope for U5.
 
 **Next:** Verification + real-phone soak per `docs/polish-batches.md` "Verification (run at the end of U5, before merge)". After user sign-off, tag `main` as `v1.0-pre-multi-league`.
+
+---
+
+## Lewis soak prep — C-2 dedupe fix + end-to-end scoring verification
+**Commits:** e7796e1 · CI ✅ · Tag `v1.0-pre-multi-league`
+
+### Key facts for future sessions
+- C-2 fix uses SQLAlchemy `aliased(LeaderboardSnapshot, subquery)` so the `(profile, snapshot)` tuple shape is preserved across the DISTINCT-ON subquery. ORDER BY must start with the distinct keys (`player_id, snapshot_at DESC, id DESC`); the secondary `id DESC` is the deterministic tie-break for snapshots inserted inside the same Postgres transaction (both `now()` calls return the same `transaction_timestamp()`).
+- `db_conn`-backed API tests (new pattern in `apps/api/tests/test_leaderboard.py`) bind an `AsyncSession` to the same connection and override `get_db` to yield it. Lets you hit the real SQL via the FastAPI route inside the autoroll-back transaction.
+- Staging Railway is **manual deploy** — CI only deploys the Vercel frontend. Use `cd apps/api && railway up --service wc2026-api`. The `RAILWAY_API_TOKEN` in `.env` doesn't work as CLI auth; create a project-scoped token from the Railway dashboard (project Settings → Tokens) and run with `RAILWAY_TOKEN=<token> railway up`.
+- `/api/v1/test/lock-now/{match_id}` is registered on staging (`settings.environment != "production"`). Useful for synthetic scoring runs — sets kickoff to `now-1min` and status to `locked`, bypassing the scheduler. Restore the original `kickoff_utc` in rollback or the match shows as "starting in the past" during the soak.
+- No knockout matches are seeded on staging — only the 72 group matches. To test the SQL trigger's knockout-draw exception end-to-end you have to SQL-INSERT throwaway R32 matches (e.g. match_numbers 9001–9003) and delete them afterwards. The TS algorithm in `packages/shared/src/scoring.ts` covers the same cases at unit level, but the trigger was verified against scenarios G/H/I (1-1→1-1=7, 1-1→2-1=0, 2-1→2-1=10) this session.
+- `predictions.points_breakdown` JSONB column is correctly populated by the AFTER UPDATE trigger (`{"goals", "result", "exact", "total", "no_prediction"}`) but **not exposed** by `PredictionResponse` or any other API response. Data is sitting in the DB ready for a future per-prediction breakdown tooltip — wire it through the API when that UI is built.
+
+**Next:** Lewis 2–3 day soak on `wc2026-staging.vercel.app` → findings into `docs/lewis-soak-findings.md` → iterate fixes on `fix/*` branches off main → then begin the multi-league architecture phases.
