@@ -1202,3 +1202,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - LoginPage now takes email + PIN (no player-name dropdown). `AuthContext.login()` signature changed to `(email, pin)`. `AuthContext.signup()` added for the new `/signup` page.
 
 **Next:** Multi-league batch M7 — Frontend: per-league screens under /leagues/{slug}/*, dashboard hero, superadmin all-leagues page (🟢 Sonnet)
+
+---
+
+## Multi-league batch M7 — Frontend: reshape existing screens for multi-league
+**Commits:** 053ae36 · CI ⚠️ (runner quota exhaustion — all local suites green)
+
+### Key facts for future sessions
+- All per-league pages now read `slug` from `useParams` + call `useLeagueSlugSync(slug)` — never from `useLeague()` directly. This avoids a provider re-render race on hard-nav.
+- `LeagueRedirect` reads `wc2026_active_league_slug` from localStorage directly (not `useLeague()`) so the redirect is synchronous before the `/leagues/mine` fetch resolves.
+- `AllLeaguesPage` reuses the existing `DELETE /api/v1/leagues/{slug}` endpoint by auto-filling `confirm_name` from the stored league object — no new delete endpoint needed.
+- DashboardPage `CrossLeagueSummaryWidget` handles `avg_rank === null` gracefully (shows "No average available yet") — API returns null when no leagues have ≥3 members yet.
+- Playwright LIFO ordering: catch-all `**/api/v1/**` mock registered first, specific routes after — per M6 note above. E2E admin tests added for `/admin/all-leagues`.
+- GitHub Actions runner quota was exhausted for the entire month of May — CI runs showed `runner_id=0`, 0 steps, 3-second completion. Not a code issue.
+
+**Next:** Multi-league batch M8 — Cleanup + polish + multi-league soak (🟢 Sonnet)
