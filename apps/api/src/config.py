@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     # Backup
     backup_dir: str = "/tmp/wc2026_backups"
 
+    # Email (Resend)
+    resend_api_key: str = ""
+    email_from: str = "WC2026 Predictor <noreply@example.com>"
+
     # Background scheduler (APScheduler) — disable in tests / one-off scripts.
     scheduler_enabled: bool = True
 
