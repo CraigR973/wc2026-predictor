@@ -142,16 +142,14 @@ export function App() {
                   </Route>
                 </Route>
 
-                {/* Admin-only routes */}
+                {/* Admin-only routes — no LeagueProvider needed; TopBar is safe via useLeagueOptional() */}
                 <Route element={<ProtectedRoute requireAdmin />}>
-                  <Route element={<LeagueAwareLayout />}>
-                    <Route element={<Layout />}>
-                      <Route path="/admin" element={<AdminDashboardPage />} />
-                      <Route path="/admin/sync" element={<AdminSyncPage />} />
-                      <Route path="/admin/results" element={<AdminResultsPage />} />
-                      <Route path="/admin/invites" element={<AdminInvitesPage />} />
-                      <Route path="/admin/players" element={<AdminPlayersPage />} />
-                    </Route>
+                  <Route element={<Layout />}>
+                    <Route path="/admin" element={<AdminDashboardPage />} />
+                    <Route path="/admin/sync" element={<AdminSyncPage />} />
+                    <Route path="/admin/results" element={<AdminResultsPage />} />
+                    <Route path="/admin/invites" element={<AdminInvitesPage />} />
+                    <Route path="/admin/players" element={<AdminPlayersPage />} />
                   </Route>
                 </Route>
 
