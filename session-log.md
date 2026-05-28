@@ -1217,3 +1217,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - GitHub Actions runner quota was exhausted for the entire month of May — CI runs showed `runner_id=0`, 0 steps, 3-second completion. Not a code issue.
 
 **Next:** Multi-league batch M8 — Cleanup + polish + multi-league soak (🟢 Sonnet)
+
+---
+
+## Multi-league batch M8 — Cleanup + polish + multi-league soak
+**Commits:** 499f735, a52dd32 · CI ⚠️ (runner quota exhaustion — all local suites green)
+
+### Key facts for future sessions
+- Migration 014 has a built-in preflight guard: aborts with a clear error if any active profile has NULL email/first_name/last_name/site_role. Run the M1 backfill first if it fires.
+- All deprecated 410-stub routes removed entirely (`_gone.py` deleted). Old paths (`/leaderboard`, `/players`, `/stats/league`, `/compare/{a}/{b}`, `POST /admin/invites`) now return 404 naturally.
+- `LoginRequest` is now email-only — `display_name` field removed. Any test that passed `display_name` to `/auth/login` had to be updated to `email`.
+- Tests that asserted 410 + Link header were updated to assert 404/405; `test_login_by_display_name_still_works` deleted.
+- `ruff format --check .` (run from `apps/api/`) catches 4 files the narrower `ruff check src/ tests/` missed — always run both from the package root in CI.
+- The multi-league Playwright spec (`e2e/multi-league.spec.ts`) follows the LIFO mock registration pattern from M6/M7.
+
+**Next:** M-series complete — staging soak with Lewis, then tag `v1.1-multi-league` on main
