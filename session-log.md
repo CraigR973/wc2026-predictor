@@ -1188,3 +1188,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - New DB-backed acceptance tests (cross-league avg-rank, other-league hiding, multi-league C-2 dedupe) run in CI only — they need Postgres and skip locally.
 
 **Next:** Multi-league batch M6 — Frontend — signup + league management UI (🟢 Sonnet)
+
+---
+
+## Multi-league batch M6 — Frontend: signup + league management UI
+**Commits:** c3e664d, f043c5d, c472ead, 8be05cb · CI ✅
+
+### Key facts for future sessions
+- `LeagueContext.tsx` owns the active league slug; persists to `localStorage` (`wc2026_active_league_slug`); redirects to `/welcome` if `/leagues/mine` returns empty. Use `useLeagueOptional()` (null-safe) in components that render outside the provider (e.g. TopBar).
+- `LeagueAwareLayout` wraps only regular authenticated routes — admin routes (`/admin/*`) are NOT wrapped; they don't need league context and wrapping caused a re-render race that detached the Sync Now button in E2E.
+- Playwright LIFO gotcha: in `catchAllApi`, register the `**/api/v1/**` catch-all FIRST and `**/api/v1/leagues/mine` SECOND. Last registered = highest priority. Getting this backwards silently makes `/leagues/mine` return `[]` → LeagueProvider redirects → pages unmount mid-test.
+- `seedAuth()` now also sets `wc2026_active_league_slug` in localStorage so LeagueProvider restores state without waiting for the `/leagues/mine` network response.
+- LoginPage now takes email + PIN (no player-name dropdown). `AuthContext.login()` signature changed to `(email, pin)`. `AuthContext.signup()` added for the new `/signup` page.
+
+**Next:** Multi-league batch M7 — Frontend: per-league screens under /leagues/{slug}/*, dashboard hero, superadmin all-leagues page (🟢 Sonnet)
