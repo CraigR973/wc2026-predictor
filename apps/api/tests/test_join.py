@@ -39,6 +39,8 @@ def _make_invite(
     inv.claimed_at = None
     inv.expires_at = expires_at
     inv.id = uuid.uuid4()
+    # M2 — join uses invite.league_id to scope the new league_membership row.
+    inv.league_id = uuid.uuid4()
     return inv
 
 

@@ -85,4 +85,68 @@ test.describe('Admin override', () => {
     // ProtectedRoute with requireAdmin redirects non-admins to /
     await expect(page).toHaveURL('/');
   });
+
+  test('superadmin can view all leagues on /admin/all-leagues', async ({ page }) => {
+    await seedAuth(page, ADMIN_PLAYER);
+    await blockSupabase(page);
+    await catchAllApi(page);
+
+    const LEAGUES = [
+      { slug: 'steele-spreadsheet', name: 'The Steele Spreadsheet', privacy: 'private', member_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      { slug: 'test-league', name: 'Test League', privacy: 'public_open', member_count: 2, created_at: '2026-02-01T00:00:00Z' },
+    ];
+
+    await page.route('**/api/v1/admin/leagues', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(LEAGUES),
+      }),
+    );
+
+    await page.goto('/admin/all-leagues');
+
+    await expect(page.getByText('The Steele Spreadsheet')).toBeVisible();
+    await expect(page.getByText('Test League')).toBeVisible();
+  });
+
+  test('superadmin can delete a league from /admin/all-leagues', async ({ page }) => {
+    await seedAuth(page, ADMIN_PLAYER);
+    await blockSupabase(page);
+    await catchAllApi(page);
+
+    const LEAGUES = [
+      { slug: 'test-league', name: 'Test League', privacy: 'public_open', member_count: 1, created_at: '2026-02-01T00:00:00Z' },
+    ];
+
+    await page.route('**/api/v1/admin/leagues', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(LEAGUES),
+      }),
+    );
+
+    let deleteCalled = false;
+    await page.route('**/api/v1/leagues/test-league', (route) => {
+      if (route.request().method() === 'DELETE') {
+        deleteCalled = true;
+        route.fulfill({ status: 204 });
+      } else {
+        route.continue();
+      }
+    });
+
+    await page.goto('/admin/all-leagues');
+    await expect(page.getByText('Test League')).toBeVisible();
+
+    // Click delete button for the test league
+    await page.getByRole('button', { name: /delete test league/i }).click();
+
+    // Confirm dialog appears
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('button', { name: /delete league/i }).click();
+
+    await expect.poll(() => deleteCalled, { timeout: 5000 }).toBe(true);
+  });
 });

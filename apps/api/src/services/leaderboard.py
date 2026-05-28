@@ -15,10 +15,10 @@ of other paths also change point totals without updating a match's
   ``knockout_predictions`` rows. The trigger doesn't fire (the score
   columns aren't changed), so we recompute the snapshot ourselves.
 
-This helper mirrors the SUM(...) shape from
-``migrations/versions/005_scoring_trigger.py:138-177`` so the trigger
-path and the non-trigger paths produce identical snapshot rows. Keep
-the two SQL bodies in sync if scoring sources ever change.
+This helper mirrors the per-league fan-out from
+``migrations/versions/012_per_league_snapshots.py`` so the trigger path
+and the non-trigger paths produce identical snapshot rows. Keep the two
+SQL bodies in sync if scoring sources or league semantics ever change.
 """
 
 from __future__ import annotations
@@ -33,12 +33,13 @@ async def recompute_leaderboard_snapshot(
     session: AsyncSession,
     triggered_by_match_id: uuid.UUID | None,
 ) -> None:
-    """Insert one fresh ``leaderboard_snapshots`` row per active player.
+    """Insert one fresh ``leaderboard_snapshots`` row per active league membership.
 
     Reads the current sums of ``predictions.points_awarded``,
     ``knockout_predictions.points_awarded``, and
     ``special_predictions.points_awarded`` per profile — the same shape
-    the trigger uses — and ranks players by ``total_points`` desc.
+    the trigger uses — and ranks players by ``total_points`` desc within
+    each league.
 
     Pending session writes are flushed first so the helper sees the
     caller's in-memory mutations (e.g. ``award_specials`` mutating
@@ -51,21 +52,26 @@ async def recompute_leaderboard_snapshot(
     await session.execute(
         text("""
             INSERT INTO leaderboard_snapshots (
-                id, player_id, total_points, match_points,
+                id, player_id, league_id, total_points, match_points,
                 knockout_winner_points, special_points, rank,
                 snapshot_at, triggered_by_match_id
             )
             SELECT
                 gen_random_uuid(),
-                player_totals.player_id,
+                lm.player_id,
+                lm.league_id,
                 player_totals.total_points,
                 player_totals.match_points,
                 player_totals.knockout_winner_points,
                 player_totals.special_points,
-                RANK() OVER (ORDER BY player_totals.total_points DESC),
+                RANK() OVER (
+                    PARTITION BY lm.league_id
+                    ORDER BY player_totals.total_points DESC
+                ),
                 now(),
                 :triggered_by_match_id
-            FROM (
+            FROM league_memberships lm
+            JOIN (
                 SELECT
                     pr.id AS player_id,
                     COALESCE((
@@ -94,7 +100,8 @@ async def recompute_leaderboard_snapshot(
                     ), 0) AS total_points
                 FROM profiles pr
                 WHERE pr.deleted_at IS NULL
-            ) AS player_totals
+            ) AS player_totals ON player_totals.player_id = lm.player_id
+            WHERE lm.deleted_at IS NULL
         """),
         {"triggered_by_match_id": triggered_by_match_id},
     )

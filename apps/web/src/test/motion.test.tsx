@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'framer-motion';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { LeagueProvider } from '@/contexts/LeagueContext';
 import { ScoreInput } from '@/components/ui/score-input';
 import { SaveButton } from '@/components/ui/save-button';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
@@ -148,9 +149,12 @@ function entry(player_id: string, rank: number, total_points: number): Leaderboa
 
 function makeFetch(initial: LeaderboardEntry[]) {
   let current = initial;
-  const fetchFn = vi.fn((_url: string) =>
-    Promise.resolve({ ok: true, json: () => Promise.resolve(current) }),
-  );
+  const fetchFn = vi.fn((url: string) => {
+    if (url.includes('/leagues/mine')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LEAGUE) });
+    }
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(current) });
+  });
   return {
     fetchFn,
     setData(next: LeaderboardEntry[]) {
@@ -165,11 +169,14 @@ function makeQueryClient() {
   });
 }
 
+const MOCK_LEAGUE = [{ slug: 'steele-spreadsheet', name: 'The Steele Spreadsheet', description: null, privacy: 'private', member_count: 2, max_members: null, created_at: '2026-01-01T00:00:00Z' }];
+
 function setupAuthStorage() {
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => {
       if (k === 'wc2026_player') return STORED_PLAYER;
       if (k === 'wc2026_access') return FAKE_JWT;
+      if (k === 'wc2026_active_league_slug') return 'steele-spreadsheet';
       return null;
     },
     setItem: vi.fn(),
@@ -184,7 +191,9 @@ function renderLeaderboard(client: QueryClient, reduced: boolean) {
       <QueryClientProvider client={client}>
         <MemoryRouter>
           <AuthProvider>
-            <LeaderboardPage />
+            <LeagueProvider>
+              <LeaderboardPage />
+            </LeagueProvider>
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>

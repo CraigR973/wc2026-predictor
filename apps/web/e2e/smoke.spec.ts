@@ -14,6 +14,9 @@ import { blockSupabase } from './helpers';
 const API_URL = 'http://localhost:8000';
 const PLAYER_NAME = 'SmokePlayer';
 const PLAYER_PIN = '22222222';
+// The seed makes the admin an admin of the default Steele league; M5 moved
+// invite creation under /leagues/{slug}/.
+const LEAGUE_SLUG = 'steele-spreadsheet';
 
 // Run all tests in this file in declaration order — each step feeds the next.
 test.describe.configure({ mode: 'serial' });
@@ -46,12 +49,12 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     expect(loginResp.ok(), `admin login failed: ${await loginResp.text()}`).toBeTruthy();
     adminJwt = (await loginResp.json()).access_token;
 
-    // Create a single-use invite for the smoke player.
-    const inviteResp = await api.post('/api/v1/admin/invites', {
+    // Create a single-use invite for the smoke player (per-league since M5).
+    const inviteResp = await api.post(`/api/v1/leagues/${LEAGUE_SLUG}/invites`, {
       headers: { Authorization: `Bearer ${adminJwt}` },
       data: { display_name_hint: PLAYER_NAME },
     });
-    expect(inviteResp.status()).toBe(201);
+    expect(inviteResp.status(), `invite create failed: ${await inviteResp.text()}`).toBe(201);
     inviteToken = (await inviteResp.json()).token;
   });
 
@@ -147,7 +150,7 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
       { access: playerJwt, refresh: playerRefresh, player: playerStoredJson },
     );
 
-    await page.goto('/leaderboard');
+    await page.goto(`/leagues/${LEAGUE_SLUG}/leaderboard`);
 
     // Wait for a row containing the smoke player's name.
     const playerRow = page

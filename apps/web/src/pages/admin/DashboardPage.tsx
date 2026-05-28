@@ -325,6 +325,7 @@ export function AdminDashboardPage() {
           { to: '/admin/results', label: 'Results' },
           { to: '/admin/players', label: 'Players' },
           { to: '/admin/invites', label: 'Invites' },
+          { to: '/admin/all-leagues', label: 'All Leagues' },
         ].map(({ to, label }) => (
           <Link
             key={to}

@@ -17,6 +17,7 @@ test.describe('JWT refresh', () => {
       localStorage.setItem('wc2026_access', expiringJwt);
       localStorage.setItem('wc2026_refresh', 'old-refresh-token');
       localStorage.setItem('wc2026_player', JSON.stringify(player));
+      localStorage.setItem('wc2026_active_league_slug', 'steele-spreadsheet');
     }, PLAYER);
 
     let refreshCalled = false;
@@ -32,7 +33,7 @@ test.describe('JWT refresh', () => {
       });
     });
 
-    await page.route('**/api/v1/leaderboard', (route) =>
+    await page.route('**/api/v1/leagues/*/leaderboard', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -70,10 +71,11 @@ test.describe('JWT refresh', () => {
       );
       localStorage.setItem('wc2026_refresh', 'valid-refresh-token');
       localStorage.setItem('wc2026_player', JSON.stringify(player));
+      localStorage.setItem('wc2026_active_league_slug', 'steele-spreadsheet');
     }, PLAYER);
 
     let attempt = 0;
-    await page.route('**/api/v1/leaderboard', (route) => {
+    await page.route('**/api/v1/leagues/*/leaderboard', (route) => {
       attempt++;
       if (attempt === 1) {
         route.fulfill({

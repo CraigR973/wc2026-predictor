@@ -21,6 +21,7 @@ from src.auth import (
 from src.database import get_db
 from src.main import app
 from src.models.profile import PlayerRole, Profile
+from src.routers.leagues import require_league_member
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -73,6 +74,21 @@ async def _override_auth(player: MagicMock) -> AsyncGenerator[None, None]:
         yield
     finally:
         app.dependency_overrides.pop(get_current_player, None)
+
+
+@asynccontextmanager
+async def _override_member(player: MagicMock) -> AsyncGenerator[None, None]:
+    league = MagicMock()
+    league.id = uuid.uuid4()
+
+    def _fake() -> tuple[MagicMock, MagicMock]:
+        return player, league
+
+    app.dependency_overrides[require_league_member] = _fake
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(require_league_member, None)
 
 
 @asynccontextmanager
@@ -153,10 +169,10 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 
 
 async def test_rate_limit_login(client: AsyncClient) -> None:
-    """POST /auth/login: 5/15 min per display_name:ip → 429 on 6th request."""
-    name = f"RLLogin-{uuid.uuid4().hex[:8]}"
+    """POST /auth/login: 5/15 min per email:ip → 429 on 6th request."""
+    email = f"rl-{uuid.uuid4().hex[:8]}@example.com"
     ip = f"10.{uuid.uuid4().int & 0xFF}.0.1"
-    body = {"display_name": name, "pin": "1234"}
+    body = {"email": email, "pin": "1234"}
     async with _override_db(_make_db()):
         status = await _exhaust_then_check(
             client,
@@ -252,15 +268,19 @@ async def test_rate_limit_knockout_predictions(client: AsyncClient) -> None:
     assert status == 429
 
 
-async def test_rate_limit_leaderboard(client: AsyncClient) -> None:
-    """GET /leaderboard: 120/minute per player → 429 on 121st request."""
+async def test_rate_limit_league_leaderboard(client: AsyncClient) -> None:
+    """GET /leagues/{slug}/leaderboard: 120/minute per player → 429 on 121st request."""
     player_id = uuid.uuid4()
     player = _make_player(player_id)
-    async with _override_auth(player), _override_db(_make_db()):
+    empty_db = AsyncMock(spec=AsyncSession)
+    empty_result = MagicMock()
+    empty_result.all.return_value = []
+    empty_db.execute = AsyncMock(return_value=empty_result)
+    async with _override_member(player), _override_db(empty_db):
         status = await _exhaust_then_check(
             client,
             "GET",
-            "/api/v1/leaderboard",
+            "/api/v1/leagues/steele-spreadsheet/leaderboard",
             120,
             headers=_bearer(player_id),
         )
@@ -335,7 +355,7 @@ async def test_rate_limit_notifications_test(client: AsyncClient) -> None:
 async def test_login_unknown_player_calls_dummy_bcrypt(client: AsyncClient) -> None:
     """When player is not found, verify_pin must be called to maintain constant-time response."""
     ip = f"10.{uuid.uuid4().int & 0xFF}.10.1"
-    body = {"display_name": "NoSuchUser", "pin": "9999"}
+    body = {"email": "nosuchuser@example.com", "pin": "9999"}
 
     with patch("src.routers.auth.verify_pin") as mock_vp:
         mock_vp.return_value = False
@@ -366,7 +386,7 @@ async def test_login_locked_account_returns_401_not_429(client: AsyncClient) -> 
     mock_db.execute = AsyncMock(return_value=r)
 
     ip = f"10.{uuid.uuid4().int & 0xFF}.11.1"
-    body = {"display_name": "TestPlayer", "pin": "1234"}
+    body = {"email": "testplayer@example.com", "pin": "1234"}
 
     async with _override_db(mock_db):
         resp = await client.post(

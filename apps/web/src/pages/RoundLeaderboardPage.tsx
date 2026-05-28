@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
+import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import type { RoundEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
@@ -21,12 +22,17 @@ const STAGES = [
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 export function RoundLeaderboardPage() {
-  const { stage = 'group' } = useParams<{ stage: string }>();
+  const { slug = DEFAULT_LEAGUE_SLUG, stage = 'group' } = useParams<{ slug: string; stage: string }>();
+  useLeagueSlugSync(slug);
+  const leagueSlug = slug;
   const navigate = useNavigate();
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<RoundEntry[]>({
-    queryKey: ['leaderboard-round', stage],
-    queryFn: () => apiFetch<RoundEntry[]>(`/api/v1/leaderboard/round/${stage}`),
+    queryKey: ['leaderboard-round', leagueSlug, stage],
+    queryFn: () =>
+      apiFetch<RoundEntry[]>(
+        `/api/v1/leagues/${leagueSlug}/leaderboard/round/${stage}`,
+      ),
     staleTime: 30_000,
   });
 
@@ -35,7 +41,7 @@ export function RoundLeaderboardPage() {
       <PageHeader
         title="Round Leaderboard"
         eyebrow="Standings"
-        back={{ to: '/leaderboard', label: 'Overall' }}
+        back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Overall' }}
       />
 
       {/* Stage pill scroller */}
@@ -46,7 +52,7 @@ export function RoundLeaderboardPage() {
             return (
               <button
                 key={s.value}
-                onClick={() => navigate(`/leaderboard/round/${s.value}`)}
+                onClick={() => navigate(`/leagues/${leagueSlug}/leaderboard/round/${s.value}`)}
                 className={cn(
                   'inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium font-sans whitespace-nowrap transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow',
                   active

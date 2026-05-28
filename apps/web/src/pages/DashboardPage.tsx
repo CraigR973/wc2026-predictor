@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
   Pencil,
@@ -10,45 +10,80 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useLeague } from '../contexts/LeagueContext';
 import { WelcomeCard } from '../components/WelcomeCard';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { dedupedLeaderboard } from '../lib/leaderboard';
-import type { LeaderboardEntry, MatchResponse, PredictionResponse, RecentPrediction } from '../lib/types';
+import type {
+  CrossLeagueSummary,
+  LeaderboardEntry,
+  LeagueSummary,
+  MatchResponse,
+  RecentPrediction,
+} from '../lib/types';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
-function StatCard({
-  label,
-  value,
-  to,
+// ---------------------------------------------------------------------------
+// Cross-league summary hero
+// ---------------------------------------------------------------------------
+
+function CrossLeagueSummaryWidget({
+  summary,
+  isLoading,
 }: {
-  label: string;
-  value: string | number;
-  to?: string;
+  summary: CrossLeagueSummary | undefined;
+  isLoading: boolean;
 }) {
-  const inner = (
-    <>
-      <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-        {label}
-      </p>
-      <p className="font-mono text-3xl sm:text-4xl text-primary tabular-nums font-medium leading-none">
-        {value}
-      </p>
-    </>
-  );
-  const cls =
-    'block rounded-lg border border-border bg-surface p-4 sm:p-5 transition-colors focus-visible:outline-none focus-visible:shadow-glow';
-  if (to) {
+  if (isLoading) {
     return (
-      <Link to={to} className={`${cls} hover:bg-surface-elevated press-down`}>
-        {inner}
-      </Link>
+      <div className="rounded-lg border border-border bg-surface p-4 sm:p-5 space-y-3">
+        <Skeleton className="h-3 w-36" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-3 w-56" />
+      </div>
     );
   }
-  return <div className={cls}>{inner}</div>;
+
+  if (!summary || summary.leagues_count === 0) return null;
+
+  const rankText =
+    summary.avg_rank !== null
+      ? `Average position ${summary.avg_rank.toFixed(1)}`
+      : 'No average available yet';
+
+  const leagueCount =
+    summary.leagues_count === 1 ? '1 league' : `${summary.leagues_count} leagues`;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+      <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
+        Cross-League
+      </p>
+      <p className="font-mono text-3xl sm:text-4xl text-primary tabular-nums font-medium leading-none mb-2">
+        {summary.avg_rank !== null ? summary.avg_rank.toFixed(1) : '—'}
+      </p>
+      <p className="font-sans text-sm text-text-secondary">
+        {rankText} across{' '}
+        <span className="text-text-primary font-medium">{leagueCount}</span>
+        {' · '}
+        <span className="font-mono text-primary font-semibold">{summary.total_points}</span>
+        {' pts'}
+      </p>
+      {summary.avg_rank === null && summary.leagues_count > 0 && (
+        <p className="text-xs text-text-muted mt-1 font-sans">
+          Average shown once a league has 3+ members and a result.
+        </p>
+      )}
+    </div>
+  );
 }
+
+// ---------------------------------------------------------------------------
+// Next match card
+// ---------------------------------------------------------------------------
 
 function formatCountdown(cd: {
   days: number;
@@ -107,13 +142,164 @@ function NextMatchCard({
         </Link>
         {!hasPrediction && !cd.expired && (
           <Button asChild size="sm" variant="default" className="ml-auto">
-            <Link to={`/predictions`}>Predict now</Link>
+            <Link to="/predictions">Predict now</Link>
           </Button>
         )}
       </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Per-league mini-leaderboard card
+// ---------------------------------------------------------------------------
+
+function MiniLeaderboard({
+  entries,
+  currentPlayerId,
+  leagueSlug,
+}: {
+  entries: LeaderboardEntry[];
+  currentPlayerId: string;
+  leagueSlug: string;
+}) {
+  const deduped = dedupedLeaderboard(entries, leagueSlug);
+  const top5 = deduped.slice(0, 5);
+  const myEntry = deduped.find((e) => e.player_id === currentPlayerId);
+  const myRankInTop5 = top5.some((e) => e.player_id === currentPlayerId);
+  const showMyRow = myEntry && !myRankInTop5;
+
+  return (
+    <table className="w-full text-sm font-sans">
+      <tbody>
+        {top5.map((e) => (
+          <tr
+            key={e.player_id}
+            className={`border-t border-border/50 ${
+              e.player_id === currentPlayerId ? 'bg-primary/5' : ''
+            }`}
+          >
+            <td className="py-2.5 pl-4 sm:pl-5 w-9">
+              <span className="text-text-muted font-mono text-xs tabular-nums">
+                {MEDAL[e.rank] ?? e.rank}
+              </span>
+            </td>
+            <td className="py-2.5">
+              <Link
+                to={`/players/${e.player_id}`}
+                className={`font-medium hover:text-primary transition-colors ${
+                  e.player_id === currentPlayerId ? 'text-primary' : 'text-text-primary'
+                }`}
+              >
+                {e.player_name}
+              </Link>
+            </td>
+            <td className="py-2.5 pr-4 sm:pr-5 text-right font-mono font-semibold text-primary tabular-nums">
+              {e.total_points}
+            </td>
+          </tr>
+        ))}
+        {showMyRow && (
+          <>
+            <tr className="border-t border-border/50">
+              <td colSpan={3} className="py-1 pl-4 sm:pl-5 text-xs font-mono text-text-muted">
+                ···
+              </td>
+            </tr>
+            <tr className="border-t border-border/50 bg-primary/5">
+              <td className="py-2.5 pl-4 sm:pl-5 w-9">
+                <span className="text-text-muted font-mono text-xs tabular-nums">
+                  {myEntry.rank}
+                </span>
+              </td>
+              <td className="py-2.5">
+                <Link
+                  to={`/players/${myEntry.player_id}`}
+                  className="font-medium text-primary hover:text-primary transition-colors"
+                >
+                  {myEntry.player_name}
+                </Link>
+              </td>
+              <td className="py-2.5 pr-4 sm:pr-5 text-right font-mono font-semibold text-primary tabular-nums">
+                {myEntry.total_points}
+              </td>
+            </tr>
+          </>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function LeagueCard({
+  league,
+  currentPlayerId,
+}: {
+  league: LeagueSummary;
+  currentPlayerId: string | undefined;
+}) {
+  const { data: leaderboard = [], isLoading } = useQuery<LeaderboardEntry[]>({
+    queryKey: ['leaderboard', league.slug],
+    queryFn: () => apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${league.slug}/leaderboard`),
+    staleTime: 30_000,
+  });
+
+  return (
+    <div className="rounded-lg border border-border bg-surface overflow-hidden">
+      <div className="px-4 sm:px-5 pt-4 pb-2 flex items-center justify-between">
+        <p className="font-sans text-sm font-semibold text-text-primary">{league.name}</p>
+        <Link
+          to={`/leagues/${league.slug}/leaderboard`}
+          className="text-xs font-sans text-text-muted hover:text-primary transition-colors tap-target inline-flex items-center"
+        >
+          Full table →
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <div className="px-4 sm:px-5 pb-4 space-y-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-3 w-4" />
+              <Skeleton className="h-3 flex-1 max-w-[120px]" />
+              <Skeleton className="h-3 w-8" />
+            </div>
+          ))}
+        </div>
+      ) : leaderboard.length > 0 && currentPlayerId ? (
+        <MiniLeaderboard
+          entries={leaderboard}
+          currentPlayerId={currentPlayerId}
+          leagueSlug={league.slug}
+        />
+      ) : (
+        <p className="px-4 sm:px-5 pb-4 text-sm text-text-muted font-sans">
+          No standings yet — check back after the first result.
+        </p>
+      )}
+
+      <div className="px-4 sm:px-5 py-3 border-t border-border/50 flex gap-2">
+        <Link
+          to={`/leagues/${league.slug}`}
+          className="text-xs font-sans text-text-muted hover:text-primary transition-colors"
+        >
+          League home
+        </Link>
+        <span className="text-border">·</span>
+        <Link
+          to={`/leagues/${league.slug}/compare`}
+          className="text-xs font-sans text-text-muted hover:text-primary transition-colors"
+        >
+          Compare
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Latest result
+// ---------------------------------------------------------------------------
 
 function LatestResultCard({
   prediction,
@@ -166,93 +352,9 @@ function LatestResultCard({
   );
 }
 
-function MiniLeaderboard({
-  entries,
-  currentPlayerId,
-}: {
-  entries: LeaderboardEntry[];
-  currentPlayerId: string;
-}) {
-  const deduped = dedupedLeaderboard(entries);
-  const top5 = deduped.slice(0, 5);
-  const myEntry = deduped.find((e) => e.player_id === currentPlayerId);
-  const myRankInTop5 = top5.some((e) => e.player_id === currentPlayerId);
-  const showMyRow = myEntry && !myRankInTop5;
-
-  return (
-    <div className="rounded-lg border border-border bg-surface overflow-hidden">
-      <div className="px-4 sm:px-5 pt-4 pb-2 flex items-center justify-between">
-        <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em]">
-          Leaders
-        </p>
-        <Link
-          to="/leaderboard"
-          className="text-xs font-sans text-text-muted hover:text-primary transition-colors tap-target inline-flex items-center"
-        >
-          Full table →
-        </Link>
-      </div>
-      <table className="w-full text-sm font-sans">
-        <tbody>
-          {top5.map((e) => (
-            <tr
-              key={e.player_id}
-              className={`border-t border-border/50 ${
-                e.player_id === currentPlayerId ? 'bg-primary/5' : ''
-              }`}
-            >
-              <td className="py-2.5 pl-4 sm:pl-5 w-9">
-                <span className="text-text-muted font-mono text-xs tabular-nums">
-                  {MEDAL[e.rank] ?? e.rank}
-                </span>
-              </td>
-              <td className="py-2.5">
-                <Link
-                  to={`/players/${e.player_id}`}
-                  className={`font-medium hover:text-primary transition-colors ${
-                    e.player_id === currentPlayerId ? 'text-primary' : 'text-text-primary'
-                  }`}
-                >
-                  {e.player_name}
-                </Link>
-              </td>
-              <td className="py-2.5 pr-4 sm:pr-5 text-right font-mono font-semibold text-primary tabular-nums">
-                {e.total_points}
-              </td>
-            </tr>
-          ))}
-          {showMyRow && (
-            <>
-              <tr className="border-t border-border/50">
-                <td colSpan={3} className="py-1 pl-4 sm:pl-5 text-xs font-mono text-text-muted">
-                  ···
-                </td>
-              </tr>
-              <tr className="border-t border-border/50 bg-primary/5">
-                <td className="py-2.5 pl-4 sm:pl-5 w-9">
-                  <span className="text-text-muted font-mono text-xs tabular-nums">
-                    {myEntry.rank}
-                  </span>
-                </td>
-                <td className="py-2.5">
-                  <Link
-                    to={`/players/${myEntry.player_id}`}
-                    className="font-medium text-primary hover:text-primary transition-colors"
-                  >
-                    {myEntry.player_name}
-                  </Link>
-                </td>
-                <td className="py-2.5 pr-4 sm:pr-5 text-right font-mono font-semibold text-primary tabular-nums">
-                  {myEntry.total_points}
-                </td>
-              </tr>
-            </>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// ---------------------------------------------------------------------------
+// Nav cards (quick links)
+// ---------------------------------------------------------------------------
 
 interface NavCard {
   to: string;
@@ -294,41 +396,42 @@ function NavCardLink({ card }: { card: NavCard }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export function DashboardPage() {
   const { player } = useAuth();
+  const { leagues, isLoading: leaguesLoading } = useLeague();
   const timezone = player?.timezone ?? 'UTC';
 
-  const { data: leaderboard = [], isLoading: leaderboardLoading } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard'],
-    queryFn: () => apiFetch<LeaderboardEntry[]>('/api/v1/leaderboard'),
+  const { data: summary, isLoading: summaryLoading } = useQuery<CrossLeagueSummary>({
+    queryKey: ['cross-league-summary'],
+    queryFn: () => apiFetch<CrossLeagueSummary>('/api/v1/me/cross-league-summary'),
     staleTime: 30_000,
-    placeholderData: keepPreviousData,
   });
 
   const { data: upcoming = [], isLoading: upcomingLoading } = useQuery<MatchResponse[]>({
     queryKey: ['matches', 'upcoming', 1],
     queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches/upcoming?n=1'),
     staleTime: 60_000,
-    placeholderData: keepPreviousData,
   });
 
   const { data: recentPreds = [], isLoading: recentLoading } = useQuery<RecentPrediction[]>({
     queryKey: ['predictions', 'recent', player?.id],
-    queryFn: () => apiFetch<RecentPrediction[]>(
-      `/api/v1/players/${player!.id}/predictions/recent?limit=1`,
-    ),
+    queryFn: () =>
+      apiFetch<RecentPrediction[]>(`/api/v1/players/${player!.id}/predictions/recent?limit=1`),
     enabled: !!player?.id,
     staleTime: 30_000,
-    placeholderData: keepPreviousData,
   });
 
   const nextMatch = upcoming[0] ?? null;
 
-  const { data: nextMatchPrediction } = useQuery<PredictionResponse | null>({
+  const { data: nextMatchPrediction } = useQuery({
     queryKey: ['prediction', nextMatch?.id, player?.id],
     queryFn: async () => {
       try {
-        return await apiFetch<PredictionResponse>(`/api/v1/predictions/${nextMatch!.id}`);
+        return await apiFetch(`/api/v1/predictions/${nextMatch!.id}`);
       } catch {
         return null;
       }
@@ -337,7 +440,6 @@ export function DashboardPage() {
     staleTime: 30_000,
   });
 
-  const myEntry = leaderboard.find((e) => e.player_id === player?.id);
   const latestPred = recentPreds[0] ?? null;
   const hasPrediction = nextMatchPrediction !== null && nextMatchPrediction !== undefined;
 
@@ -345,12 +447,16 @@ export function DashboardPage() {
     <div className="space-y-5">
       {/* Welcome */}
       <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight leading-tight">
-        Welcome back, <span className="font-semibold text-text-primary">{player?.displayName}</span>
+        Welcome back,{' '}
+        <span className="font-semibold text-text-primary">{player?.displayName}</span>
       </h1>
 
       <WelcomeCard />
 
-      {/* Next match hero — full width */}
+      {/* Cross-league summary hero */}
+      <CrossLeagueSummaryWidget summary={summary} isLoading={summaryLoading} />
+
+      {/* Next match */}
       {upcomingLoading ? (
         <Skeleton className="h-[160px] rounded-lg" />
       ) : nextMatch ? (
@@ -364,29 +470,6 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Rank + Points */}
-      <div className="grid grid-cols-2 gap-3">
-        {leaderboardLoading ? (
-          <>
-            <Skeleton className="h-[96px] rounded-lg" />
-            <Skeleton className="h-[96px] rounded-lg" />
-          </>
-        ) : (
-          <>
-            <StatCard
-              label="Your Rank"
-              value={myEntry ? `#${myEntry.rank}` : '—'}
-              to="/leaderboard"
-            />
-            <StatCard
-              label="Total Points"
-              value={myEntry?.total_points ?? '—'}
-              to={player?.id ? `/players/${player.id}` : '/leaderboard'}
-            />
-          </>
-        )}
-      </div>
-
       {/* Quick links */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {NAV_CARDS.map((card) => (
@@ -394,24 +477,22 @@ export function DashboardPage() {
         ))}
       </div>
 
-      {/* Mini leaderboard */}
-      {leaderboardLoading ? (
-        <div
-          className="rounded-lg border border-border bg-surface p-4 space-y-3"
-          aria-label="Loading standings"
-        >
-          <Skeleton className="h-3 w-24" />
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-3 w-4" />
-              <Skeleton className="h-3 flex-1 max-w-[120px]" />
-              <Skeleton className="h-3 w-8" />
-            </div>
+      {/* Per-league cards */}
+      {leaguesLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-[160px] rounded-lg" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {leagues.map((league) => (
+            <LeagueCard
+              key={league.slug}
+              league={league}
+              currentPlayerId={player?.id}
+            />
           ))}
         </div>
-      ) : leaderboard.length > 0 && player?.id ? (
-        <MiniLeaderboard entries={leaderboard} currentPlayerId={player.id} />
-      ) : null}
+      )}
 
       {/* Latest result */}
       {recentLoading ? (

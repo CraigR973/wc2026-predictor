@@ -1,5 +1,5 @@
 ---
-description: Generate the next-batch paste-prompt. No-arg or `phase` → docs/phase-batches.md + wc2026-architecture.md. `review` → docs/review-batches.md (acceptance inline). `polish` → docs/polish-batches.md (acceptance inline). Mechanical, no hallucination.
+description: Generate the next-batch paste-prompt. No-arg or `phase` → docs/phase-batches.md (numeric architecture phases AND M-batches; acceptance pulled from wc2026-architecture.md or docs/multi-league-architecture.md depending on the batch id). `review` → docs/review-batches.md (acceptance inline). `polish` → docs/polish-batches.md (acceptance inline). Mechanical, no hallucination.
 ---
 
 You are generating the copy-paste prompt for the next batch. Follow these steps **literally** — do not skip, do not infer.
@@ -8,13 +8,15 @@ You are generating the copy-paste prompt for the next batch. Follow these steps 
 
 `$ARGUMENTS` selects the source:
 
-- empty or `phase` → **phase mode**: `docs/phase-batches.md` + `wc2026-architecture.md` (legacy default)
+- empty or `phase` → **phase mode**: `docs/phase-batches.md`. The first un-struck row determines the **sub-mode**:
+  - row id matches `^\d+$` (e.g. `13`) → **architecture sub-mode**: acceptance from `wc2026-architecture.md`
+  - row id matches `^M\d+$` (e.g. `M1`) → **multi-league sub-mode**: acceptance from `docs/multi-league-architecture.md` (§ 8 `### M<n> ·` headings)
 - `review` → **review mode**: `docs/review-batches.md` only (acceptance criteria live in the per-batch sub-sections of that same file)
 - `polish` → **polish mode**: `docs/polish-batches.md` only (spec and acceptance live inline per `## U<N>` section)
 
 Reject any other value with `"Unknown mode '$ARGUMENTS' — use empty/phase, 'review', or 'polish'"`.
 
-Per-step notes call out where the modes diverge.
+Per-step notes call out where the modes (and phase sub-modes) diverge.
 
 ## Step 1 — Find the next batch
 
@@ -37,15 +39,15 @@ If every row is struck through, report "All polish batches shipped — run the f
 **Phase mode:**
 
 ```bash
-grep -n "^| [0-9~]" /Users/craigrobinson/wc_2026_predictor/docs/phase-batches.md
+grep -nE "^\| [0-9~M]" /Users/craigrobinson/wc_2026_predictor/docs/phase-batches.md
 ```
 
-The first row whose batch number is NOT wrapped in `~~...~~` (i.e. not struck through) is the next batch. Extract:
-- **Batch number** (e.g. `2`)
+The first row whose batch id is NOT wrapped in `~~...~~` (i.e. not struck through) is the next batch. Extract:
+- **Batch id** (e.g. `2` or `M1`) — set sub-mode by regex match (`^\d+$` → architecture, `^M\d+$` → multi-league)
 - **Model tag** (`🟢 Sonnet` or `🔴 Opus`)
-- **Phase IDs** (comma-separated, e.g. `7.2, 7.4`)
+- **Phase IDs** (architecture sub-mode: comma-separated, e.g. `7.2, 7.4`; multi-league sub-mode: a single `M<n>` id, e.g. `M1`)
 
-If every row is struck through, report "All batches complete — consult `wc2026-architecture.md` for any remaining unticked phases" and stop.
+If every row is struck through, report "All batches complete — consult `wc2026-architecture.md` and `docs/multi-league-architecture.md` for any remaining unticked phases" and stop.
 
 **Review mode:**
 
@@ -63,7 +65,7 @@ If every row is struck through, report "All review batches shipped" and stop.
 
 ## Step 2 — Pull acceptance criteria verbatim
 
-**Phase mode:** for each phase ID extracted in Step 1, run:
+**Phase mode — architecture sub-mode** (numeric IDs like `7.2`): for each phase ID extracted in Step 1, run:
 
 ```bash
 grep -n -A 8 "Phase X.Y:" /Users/craigrobinson/wc_2026_predictor/wc2026-architecture.md
@@ -72,6 +74,16 @@ grep -n -A 8 "Phase X.Y:" /Users/craigrobinson/wc_2026_predictor/wc2026-architec
 (Substitute `X.Y` for the actual ID.) If any grep returns no match, **STOP** and tell the user: "Phase `X.Y` does not exist in the architecture doc. Check `docs/phase-batches.md` for a typo." Do not invent acceptance criteria.
 
 Copy the bullets verbatim, including the **Acceptance:** line. Do not paraphrase.
+
+**Phase mode — multi-league sub-mode** (IDs like `M1`): for the M-id extracted in Step 1, run:
+
+```bash
+grep -n -A 14 "^### M<n> ·" /Users/craigrobinson/wc_2026_predictor/docs/multi-league-architecture.md
+```
+
+(Substitute `<n>` for the actual digit.) The section bullets are the work; the `- **Acceptance:**` sub-block lists the gate. If grep returns no match, **STOP** and tell the user: "Batch `M<n>` does not exist in `docs/multi-league-architecture.md` § 8. Check `docs/phase-batches.md` for a typo." Do not invent acceptance criteria.
+
+Copy the heading title (everything after `### M<n> · `) and all bullets verbatim. The model tag is at the end of the heading line — confirm it matches the row's model tag and stop if they disagree.
 
 **Review mode:** acceptance criteria live INLINE in `docs/review-batches.md`. Read the `## R<N> — <Title>` section of that file for the batch you identified in Step 1. Capture:
 - The section title (the part after `— `)
@@ -102,20 +114,30 @@ Identify the commits for the most-recently-shipped phase (the immediately preced
 Run:
 
 ```bash
-grep -n -B 1 -A 20 "## Phase" /Users/craigrobinson/wc_2026_predictor/session-log.md | tail -60
+grep -nE "^## (Phase|Multi-league batch|Review batch|Polish batch)" /Users/craigrobinson/wc_2026_predictor/session-log.md | tail -3
 ```
 
-Read the most recent 1–2 entries. Their `### Key facts for future sessions` bullets are candidates for the new PREVIOUS SESSION NOTES, but only carry forward those that are still relevant to the upcoming batch. Skip anything specific to the just-shipped work.
+Read the most recent 1–2 entries (use `Read` with `offset` + `limit` based on the line numbers from the grep). Their `### Key facts for future sessions` bullets are candidates for the new PREVIOUS SESSION NOTES, but only carry forward those that are still relevant to the upcoming batch. Skip anything specific to the just-shipped work.
 
 ## Step 5 — Emit the prompt
 
 Output the prompt in this exact format (no preamble, no commentary, just the prompt inside a fenced code block so the user can copy it).
 
-**Phase mode:**
+**Phase mode — architecture sub-mode** (numeric IDs):
 
 ````
 ```
 Batch N: Phases X.Y → X.Z — back-to-back, single <model> session.
+
+**STEP 1 before anything else:** make sure `main` is up to date and create
+the feature branch:
+
+    git fetch origin && git checkout main && git pull --ff-only origin main
+    git checkout -b feat/b<N>-<slug>     ← slug derived from the batch title
+
+Do not commit to `main` directly under any circumstance. `/phase-closeout`
+will fast-forward this branch into `main` once CI is green.
+
 Close each phase fully before starting the next.   ← include this line only if batch has 2+ phases
 
 Phase X.Y: <Title> <model emoji + tag>
@@ -129,6 +151,37 @@ PREVIOUS SESSION NOTES:
 - <non-obvious gotcha, anchored to a commit hash when useful>
 - <max ~6 bullets>
 - <stop if you cannot think of >3 genuinely non-obvious things — better short than padded>
+```
+````
+
+**Phase mode — multi-league sub-mode** (`M<n>` IDs):
+
+````
+```
+Batch M<n>: <Title from § 8 heading> — single <model emoji + tag> session.
+
+**STEP 1 before anything else:** make sure `main` is up to date and create
+the feature branch:
+
+    git fetch origin && git checkout main && git pull --ff-only origin main
+    git checkout -b feat/m<n>-<slug>     ← slug derived from the batch title
+
+Do not commit to `main` directly under any circumstance. `/phase-closeout`
+will fast-forward this branch into `main` once CI is green.
+
+The M-series batch acceptance criteria live in `docs/multi-league-architecture.md` § 8 (NOT in `wc2026-architecture.md`). Skim § 2.2 (decision rationale), § 3 (data model + DDL), § 4 (auth flow), and § 7 (migration plan) before touching code — they were written specifically for this implementer.
+
+Phase M<n>: <Title> <model emoji + tag>
+- <bullet verbatim from § 8>
+- <bullet verbatim from § 8>
+- Acceptance:
+  - <acceptance bullet verbatim>
+  - <acceptance bullet verbatim>
+
+PREVIOUS SESSION NOTES:
+- <non-obvious gotcha, anchored to a commit hash when useful>
+- <include the design-doc commit hash so the implementer can run `git show <hash>` for context>
+- <max ~6 bullets — stop if you cannot think of >3 genuinely non-obvious things>
 ```
 ````
 
@@ -224,12 +277,12 @@ PREVIOUS SESSION NOTES:
 ```
 ````
 
-After emitting the prompt, on a new line, remind the user: "Paste into a fresh **<model>** session. After it starts, run `/strike-batch <id>` (or edit the batches doc manually) to mark this batch in-flight." The `<id>` is `N` in phase mode, `R<N>` in review mode, and `U<N>` in polish mode.
+After emitting the prompt, on a new line, remind the user: "Paste into a fresh **<model>** session. After it starts, run `/strike-batch <id>` (or edit the batches doc manually) to mark this batch in-flight." The `<id>` is `N` in phase mode architecture sub-mode, `M<n>` in phase mode multi-league sub-mode, `R<N>` in review mode, and `U<N>` in polish mode.
 
 ## Rules
 
 - Never include "Files modified" or "What shipped" sections.
 - Never include date, model tag, or commit hashes as a metadata header — those belong in session-log entries, not the next-batch prompt.
 - Never propose a model different from what's in the batch row.
-- Never quote acceptance criteria from memory — always grep them fresh from the source doc (architecture doc in phase mode, `review-batches.md` in review mode).
-- If anything looks inconsistent (struck-through row but phase not ✅ in arch doc, or vice versa — phase mode only), stop and ask the user.
+- Never quote acceptance criteria from memory — always grep them fresh from the source doc (architecture sub-mode → `wc2026-architecture.md`; multi-league sub-mode → `docs/multi-league-architecture.md`; review mode → `docs/review-batches.md`; polish mode → `docs/polish-batches.md`).
+- If anything looks inconsistent (architecture sub-mode: struck-through row but phase not ✅ in arch doc, or vice versa; multi-league sub-mode: batch row's model tag disagrees with the § 8 heading's model tag), stop and ask the user.

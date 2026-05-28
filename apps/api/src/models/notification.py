@@ -56,6 +56,26 @@ class ActionType(StrEnum):
     tiebreaker_overridden = "tiebreaker_overridden"
     backup_failed = "backup_failed"
     backup_downloaded = "backup_downloaded"
+    # M3 — league lifecycle
+    league_created = "league_created"
+    league_updated = "league_updated"
+    league_privacy_changed = "league_privacy_changed"
+    league_deleted = "league_deleted"
+    # M3 — membership
+    member_joined = "member_joined"
+    member_left = "member_left"
+    member_removed = "member_removed"
+    member_promoted = "member_promoted"
+    member_demoted = "member_demoted"
+    # M3 — join requests
+    join_request_created = "join_request_created"
+    join_request_approved = "join_request_approved"
+    join_request_rejected = "join_request_rejected"
+    # M3 — per-league invites
+    league_invite_created = "league_invite_created"
+    league_invite_revoked = "league_invite_revoked"
+    # M3 — per-league PIN reset
+    league_member_pin_reset = "league_member_pin_reset"
 
 
 class NotificationLog(Base, UUIDPrimaryKeyMixin):

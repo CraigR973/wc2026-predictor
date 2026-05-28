@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotionConfig } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, ChevronDown, X } from 'lucide-react';
-import { apiFetch } from '../lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import type { LeaderboardEntry } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import { useLongPress } from '../hooks/useLongPress';
 import { dedupedLeaderboard } from '../lib/leaderboard';
 import { Skeleton } from '../components/ui/skeleton';
@@ -161,18 +162,17 @@ function LeaderboardRow({
   );
 }
 
-const SUB_NAV = [
-  { to: '/leaderboard', label: 'Overall', exact: true },
-  { to: '/leaderboard/round/group', label: 'By round', exact: false },
-  { to: '/leaderboard/history', label: 'History', exact: false },
-  { to: '/compare', label: 'Compare', exact: false },
-];
-
-function SubNav() {
+function SubNav({ slug }: { slug: string }) {
+  const subNav = [
+    { to: `/leagues/${slug}/leaderboard`, label: 'Overall', exact: true },
+    { to: `/leagues/${slug}/leaderboard/round/group`, label: 'By round', exact: false },
+    { to: `/leagues/${slug}/leaderboard/history`, label: 'History', exact: false },
+    { to: `/leagues/${slug}/compare`, label: 'Compare', exact: false },
+  ];
   return (
     <nav className="-mx-4 sm:-mx-0 mb-5 overflow-x-auto" aria-label="Leaderboard views">
       <div className="flex gap-1.5 px-4 sm:px-0 min-w-max">
-        {SUB_NAV.map(({ to, label, exact }) => (
+        {subNav.map(({ to, label, exact }) => (
           <NavLink
             key={to}
             to={to}
@@ -198,6 +198,9 @@ export function LeaderboardPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { player: currentUser } = useAuth();
+  const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
+  useLeagueSlugSync(slug);
+  const leagueSlug = slug;
   const prevDataRef = useRef<LeaderboardEntry[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const reduceMotion = useReducedMotionConfig() ?? false;
@@ -209,12 +212,13 @@ export function LeaderboardPage() {
   const [pulsingIds, setPulsingIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard'],
-    queryFn: () => apiFetch<LeaderboardEntry[]>('/api/v1/leaderboard'),
+    queryKey: ['leaderboard', leagueSlug],
+    queryFn: () =>
+      apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${leagueSlug}/leaderboard`),
     staleTime: 15_000,
   });
 
-  const displayData = dedupedLeaderboard(data);
+  const displayData = dedupedLeaderboard(data, leagueSlug);
 
   useEffect(() => {
     if (displayData.length === 0) return;
@@ -268,10 +272,10 @@ export function LeaderboardPage() {
 
   function openCompare(playerId: string) {
     if (!currentUser?.id || currentUser.id === playerId) {
-      navigate(`/compare?b=${playerId}`);
+      navigate(`/leagues/${leagueSlug}/compare?b=${playerId}`);
       return;
     }
-    navigate(`/compare?a=${currentUser.id}&b=${playerId}`);
+    navigate(`/leagues/${leagueSlug}/compare?a=${currentUser.id}&b=${playerId}`);
   }
 
   function dismissHint() {
@@ -299,7 +303,7 @@ export function LeaderboardPage() {
             </button>
           </div>
         )}
-        <SubNav />
+        <SubNav slug={leagueSlug} />
         <div
           className="rounded-lg border border-border bg-surface overflow-hidden divide-y divide-border/50"
           aria-label="Loading leaderboard"
@@ -350,7 +354,7 @@ export function LeaderboardPage() {
         </div>
       )}
 
-      <SubNav />
+      <SubNav slug={leagueSlug} />
 
       {displayData.length === 0 ? (
         <EmptyState

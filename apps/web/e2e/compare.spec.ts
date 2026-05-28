@@ -32,20 +32,23 @@ const H2H = {
   ],
 };
 
+// Slug seeded by seedAuth (matches MOCK_LEAGUE.slug)
+const SLUG = 'steele-spreadsheet';
+
 test.describe('Head-to-head comparison', () => {
   test('shows comparison summary for two players', async ({ page }) => {
     await seedAuth(page);
     await blockSupabase(page);
     await catchAllApi(page);
 
-    await page.route('**/api/v1/players', (route) =>
+    await page.route('**/api/v1/leagues/*/players', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYERS) }),
     );
-    await page.route('**/api/v1/compare/p1/p2', (route) =>
+    await page.route('**/api/v1/leagues/*/compare/p1/p2', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(H2H) }),
     );
 
-    await page.goto('/compare?a=p1&b=p2');
+    await page.goto(`/leagues/${SLUG}/compare?a=p1&b=p2`);
 
     // Brazil appears in the match row — proves the H2H endpoint was fetched and rendered
     await expect(page.getByText('Brazil')).toBeVisible();
@@ -56,17 +59,32 @@ test.describe('Head-to-head comparison', () => {
     await blockSupabase(page);
     await catchAllApi(page);
 
-    await page.route('**/api/v1/players', (route) =>
+    await page.route('**/api/v1/leagues/*/players', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYERS) }),
     );
-    await page.route('**/api/v1/compare/**', (route) =>
+    await page.route('**/api/v1/leagues/*/compare/**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(H2H) }),
     );
 
-    await page.goto('/compare');
+    await page.goto(`/leagues/${SLUG}/compare`);
 
     // Player pickers are now Radix Select (role=combobox, no native <select>)
     const pickers = page.getByRole('combobox');
     await expect(pickers.first()).toBeVisible();
+  });
+
+  test('old /compare URL redirects to active league compare', async ({ page }) => {
+    await seedAuth(page);
+    await blockSupabase(page);
+    await catchAllApi(page);
+
+    await page.route('**/api/v1/leagues/*/players', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYERS) }),
+    );
+
+    await page.goto('/compare');
+
+    // Should redirect to per-league URL
+    await expect(page).toHaveURL(new RegExp(`/leagues/${SLUG}/compare`));
   });
 });

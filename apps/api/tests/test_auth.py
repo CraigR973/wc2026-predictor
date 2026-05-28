@@ -43,6 +43,7 @@ def _make_player(
     p = MagicMock(spec=Profile)
     p.id = uuid.uuid4()
     p.display_name = "Test Player"
+    p.email = "testplayer@example.com"
     p.pin_hash = hash_pin("1234")
     p.role = role
     p.timezone = "UTC"
@@ -140,7 +141,7 @@ async def test_login_success(client: AsyncClient) -> None:
     async with _override_db(mock_db):
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"display_name": "Test Player", "pin": "1234"},
+            json={"email": "testplayer@example.com", "pin": "1234"},
         )
 
     assert resp.status_code == 200, resp.text
@@ -158,7 +159,7 @@ async def test_login_wrong_pin(client: AsyncClient) -> None:
     async with _override_db(mock_db):
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"display_name": "Test Player", "pin": "0000"},
+            json={"email": "testplayer@example.com", "pin": "0000"},
         )
 
     assert resp.status_code == 401
@@ -171,7 +172,7 @@ async def test_login_player_not_found(client: AsyncClient) -> None:
     async with _override_db(mock_db):
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"display_name": "Nobody", "pin": "1234"},
+            json={"email": "nobody@example.com", "pin": "1234"},
         )
 
     assert resp.status_code == 401
@@ -185,7 +186,7 @@ async def test_login_locked_account(client: AsyncClient) -> None:
     async with _override_db(mock_db):
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"display_name": "Test Player", "pin": "1234"},
+            json={"email": "testplayer@example.com", "pin": "1234"},
         )
 
     # R3.3: locked accounts return generic 401, not 429, to avoid leaking lock state
@@ -200,7 +201,7 @@ async def test_login_lockout_triggered_after_5_failures(client: AsyncClient) -> 
     async with _override_db(mock_db):
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"display_name": "Test Player", "pin": "9999"},
+            json={"email": "testplayer@example.com", "pin": "9999"},
         )
 
     assert resp.status_code == 401

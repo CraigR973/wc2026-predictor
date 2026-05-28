@@ -13,7 +13,17 @@ from src.auth import get_current_player
 from src.database import get_db
 from src.main import app
 from src.models.profile import Profile
+from src.routers.leagues import require_league_member
 from src.services.stats import PlayerStatsData, _compute_stats, _PredRow
+
+SLUG = "test-league"
+
+
+def _league() -> MagicMock:
+    league = MagicMock()
+    league.id = uuid.uuid4()
+    return league
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -310,9 +320,12 @@ async def test_get_stats_by_player_id_returns_stats() -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_league_returns_list() -> None:
-    requester = _player("Bob")
+async def test_get_league_stats_returns_list() -> None:
+    # Endpoint first loads member ids, then delegates to get_league_stats.
     mock_db = AsyncMock()
+    member_result = MagicMock()
+    member_result.scalars.return_value.all.return_value = [uuid.uuid4()]
+    mock_db.execute = AsyncMock(return_value=member_result)
     stats_list = [
         PlayerStatsData(
             player_id=str(uuid.uuid4()),
@@ -332,13 +345,13 @@ async def test_get_league_returns_list() -> None:
     ]
 
     with patch("src.routers.stats.get_league_stats", return_value=stats_list):
-        app.dependency_overrides[get_current_player] = lambda: requester
+        app.dependency_overrides[require_league_member] = lambda: (_player("Bob"), _league())
         app.dependency_overrides[get_db] = _db_with(mock_db)
         try:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.get("/api/v1/stats/league")
+                resp = await client.get(f"/api/v1/leagues/{SLUG}/stats")
         finally:
             app.dependency_overrides.clear()
 

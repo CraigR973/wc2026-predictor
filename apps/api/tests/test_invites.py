@@ -100,49 +100,17 @@ async def client() -> AsyncClient:
 
 
 # ---------------------------------------------------------------------------
-# POST /api/v1/admin/invites
+# POST /api/v1/admin/invites — removed in M8 (per-league invites only)
 # ---------------------------------------------------------------------------
 
 
-async def test_create_invite_success(client: AsyncClient) -> None:
-    admin = _make_admin()
-    mock_db = _stub_db([])
-    # refresh sets the invite attributes after commit
-    mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
-
-    async with _override_db_and_admin(mock_db, admin):
-        resp = await client.post(
-            "/api/v1/admin/invites",
-            json={"display_name_hint": "Alice", "expires_in_days": 7},
-        )
-
-    assert resp.status_code == 201, resp.text
-    data = resp.json()
-    assert "token" in data
-    assert data["is_active"] is True
-    assert data["claimed_by"] is None
-
-
-async def test_create_invite_no_hint(client: AsyncClient) -> None:
-    admin = _make_admin()
-    mock_db = _stub_db([])
-
-    async with _override_db_and_admin(mock_db, admin):
-        resp = await client.post("/api/v1/admin/invites", json={})
-
-    assert resp.status_code == 201, resp.text
-    assert resp.json()["display_name_hint"] is None
-
-
-async def test_create_invite_no_expiry(client: AsyncClient) -> None:
-    admin = _make_admin()
-    mock_db = _stub_db([])
-
-    async with _override_db_and_admin(mock_db, admin):
-        resp = await client.post("/api/v1/admin/invites", json={"expires_in_days": None})
-
-    assert resp.status_code == 201, resp.text
-    assert resp.json()["expires_at"] is None
+async def test_create_invite_removed(client: AsyncClient) -> None:
+    """The global admin POST /invites route was removed; use per-league invites."""
+    resp = await client.post(
+        "/api/v1/admin/invites",
+        json={"display_name_hint": "Alice", "expires_in_days": 7},
+    )
+    assert resp.status_code in (404, 405)
 
 
 # ---------------------------------------------------------------------------

@@ -86,20 +86,7 @@ describe('Accessibility — LoginPage', () => {
     expect(results).toHaveNoViolations();
   });
 
-  it('has no axe violations when player list loads (select dropdown)', async () => {
-    vi.stubGlobal('fetch', (url: string) => {
-      if (url.includes('/api/v1/players/names')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve([
-              { id: '1', display_name: 'Alice' },
-              { id: '2', display_name: 'Bob' },
-            ]),
-        });
-      }
-      return Promise.reject(new Error('unexpected'));
-    });
+  it('has no axe violations on the email+PIN form', async () => {
     const { container } = render(
       <MemoryRouter>
         <AuthProvider>
@@ -107,7 +94,7 @@ describe('Accessibility — LoginPage', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(container.querySelector('select')).toBeTruthy());
+    await new Promise((r) => setTimeout(r, 50));
     const results = await axe(container, AXE_CONFIG);
     expect(results).toHaveNoViolations();
   });

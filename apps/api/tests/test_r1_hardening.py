@@ -64,24 +64,26 @@ def test_settings_rejects_empty_vapid_key_in_production() -> None:
 
 
 async def test_login_rejects_non_numeric_pin(client: AsyncClient) -> None:
-    resp = await client.post("/api/v1/auth/login", json={"display_name": "Alice", "pin": "abcd"})
+    resp = await client.post(
+        "/api/v1/auth/login", json={"email": "alice@example.com", "pin": "abcd"}
+    )
     assert resp.status_code == 422
 
 
 async def test_login_rejects_pin_too_short(client: AsyncClient) -> None:
-    resp = await client.post("/api/v1/auth/login", json={"display_name": "Alice", "pin": "123"})
-    assert resp.status_code == 422
-
-
-async def test_login_rejects_bad_display_name(client: AsyncClient) -> None:
-    resp = await client.post("/api/v1/auth/login", json={"display_name": "A", "pin": "1234"})
-    assert resp.status_code == 422
-
-
-async def test_login_rejects_display_name_with_special_chars(client: AsyncClient) -> None:
     resp = await client.post(
-        "/api/v1/auth/login", json={"display_name": "Alice<script>", "pin": "1234"}
+        "/api/v1/auth/login", json={"email": "alice@example.com", "pin": "123"}
     )
+    assert resp.status_code == 422
+
+
+async def test_login_requires_email(client: AsyncClient) -> None:
+    resp = await client.post("/api/v1/auth/login", json={"pin": "1234"})
+    assert resp.status_code == 422
+
+
+async def test_login_requires_pin(client: AsyncClient) -> None:
+    resp = await client.post("/api/v1/auth/login", json={"email": "alice@example.com"})
     assert resp.status_code == 422
 
 

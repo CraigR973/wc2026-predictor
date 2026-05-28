@@ -9,11 +9,66 @@ default unit-test job stays hermetic. CI provides a Postgres service plus
 from __future__ import annotations
 
 import os
+import uuid
 from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
+
+# M2 default league slug — tests that exercise the scoring trigger or
+# /api/v1/leaderboard need the default league to exist so the trigger
+# has memberships to fan out to and the endpoint has rows to read.
+DEFAULT_TEST_LEAGUE_SLUG = "steele-spreadsheet"
+DEFAULT_TEST_LEAGUE_NAME = "The Steele Spreadsheet"
+
+
+async def ensure_default_league_membership(
+    conn: AsyncConnection,
+    profile_id: uuid.UUID | str,
+    *,
+    role: str = "player",
+) -> uuid.UUID:
+    """Idempotently create the default league and add ``profile_id`` to it.
+
+    Returns the league id. Safe to call from many test helpers in the same
+    transaction; the slug UNIQUE makes league creation a no-op after the
+    first call and the ``(league_id, player_id)`` UNIQUE makes the
+    membership insert a no-op after the first call per profile.
+
+    The new M2 scoring trigger fans snapshots out per active
+    league_membership, so every profile that needs to appear in a
+    snapshot must hold a row here.
+    """
+    league_id = (
+        await conn.execute(
+            text(
+                """
+                INSERT INTO leagues (id, slug, name, created_by)
+                VALUES (gen_random_uuid(), :slug, :name, :p)
+                ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug
+                RETURNING id
+                """
+            ),
+            {
+                "slug": DEFAULT_TEST_LEAGUE_SLUG,
+                "name": DEFAULT_TEST_LEAGUE_NAME,
+                "p": str(profile_id),
+            },
+        )
+    ).scalar_one()
+    await conn.execute(
+        text(
+            """
+            INSERT INTO league_memberships (id, league_id, player_id, role)
+            VALUES (gen_random_uuid(), :l, :p, CAST(:r AS league_member_role))
+            ON CONFLICT (league_id, player_id) DO NOTHING
+            """
+        ),
+        {"l": league_id, "p": str(profile_id), "r": role},
+    )
+    return league_id
 
 
 @pytest.fixture(autouse=True)
@@ -50,8 +105,6 @@ async def db_conn(db_engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
     are soft-deleted within the transaction so they don't inflate trigger-
     driven leaderboard snapshot counts. The rollback restores them.
     """
-    from sqlalchemy import text
-
     async with db_engine.connect() as conn:
         await conn.execute(text("UPDATE profiles SET deleted_at = now() WHERE deleted_at IS NULL"))
         try:

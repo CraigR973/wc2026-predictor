@@ -1083,3 +1083,152 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `predictions.points_breakdown` JSONB column is correctly populated by the AFTER UPDATE trigger (`{"goals", "result", "exact", "total", "no_prediction"}`) but **not exposed** by `PredictionResponse` or any other API response. Data is sitting in the DB ready for a future per-prediction breakdown tooltip — wire it through the API when that UI is built.
 
 **Next:** Lewis 2–3 day soak on `wc2026-staging.vercel.app` → findings into `docs/lewis-soak-findings.md` → iterate fixes on `fix/*` branches off main → then begin the multi-league architecture phases.
+
+---
+
+## feat/per-prediction-breakdown — Points breakdown tooltip
+**Commits:** f5b08aa · CI ✅
+
+### Key facts for future sessions
+- `points_breakdown` was already in the DB (`predictions` JSONB column, populated by the AFTER UPDATE trigger) — this work was purely API plumbing + UI, no migration.
+- `PointsBreakdownPopover` is a tap-to-expand inline component (no floating positioning) — works correctly in table cells and flex rows on mobile. Location: `apps/web/src/components/PointsBreakdownPopover.tsx`.
+- The empty `<div>` in `KnockoutCard` (knockout winner predictions) that had a comment "points_awarded lives on the prediction" was wired up at the same time — `pointsAwarded` prop now threaded from `RoundPanel` into `KnockoutCard`. Winner predictions have no breakdown so the popover is a no-op there.
+- `RAILWAY_API_TOKEN` in `.env` was expired; replaced with `959d7ac4-54dd-4902-83e2-635dbbe56b0b`.
+
+**Next:** Lewis soak findings → multi-league architecture phases.
+
+---
+
+## Multi-league design — architecture + phase plan landed
+**Commits:** 6fa494e · planning session only (no code changes)
+
+### Key facts for future sessions
+- Design doc lives at `docs/multi-league-architecture.md` (~10 sections, full DDL + mermaid ERD + 8-phase breakdown M1–M8). It is **additive** to `wc2026-architecture.md` — v1 invariants (§6.1 scoring, §6.13 state machine, §8 security, §9 reliability) stay authoritative there; the design doc cross-references rather than restates.
+- **Foundational call: predictions are global** (one row per (player, match), scored against every league the player is in). Schema treats `predictions`, `knockout_predictions`, `special_predictions` as un-scoped. Only `leaderboard_snapshots` and `invites` gain `league_id`.
+- New tables: `leagues`, `league_memberships`, `league_join_requests`. Profile gains `email/first_name/last_name/email_verified_at`; `role` → `site_role` ENUM('superadmin','user'). Per-league role lives in `league_memberships`.
+- C-2 dedupe pattern (aliased subquery + DISTINCT ON + `id DESC` tie-break) is preserved keyed on `(player_id, league_id)` — see § 2.2 MD-13. Scoring trigger rewrite (M2) inserts one snapshot per (player, active league) on each result. New index: `(league_id, player_id, snapshot_at DESC, id DESC)`.
+- Login switches from name-dropdown to email + PIN. Email verification is optional and async (Resend free tier recommended); self-service PIN reset is gated on verified email. Admin PIN-reset paths unchanged. League privacy: `private` / `public_request` / `public_open`; Steele Spreadsheet defaults to `private` post-migration.
+- Cross-league summary math = **average rank** across leagues with ≥3 members, secondary sort by total_points. Surfaces on dashboard hero.
+- Phase batches appended to `docs/phase-batches.md` as M1–M8. Implementation order is strict (M1 before M2, etc.). Total ~7–8 sessions.
+- Migration backfill script (`scripts/backfill_multi_league.py`) is M1's deliverable and is idempotent — must run cleanly on staging before prod; manual email entries via JSON sidecar (OQ-1) for existing v1 profiles whose emails aren't already known.
+
+**Next:** Batch M1 — Schema foundations + Steele Spreadsheet backfill (🔴 Opus, extended thinking ON)
+
+---
+
+## Multi-league batch M1 — Schema foundations + Steele backfill
+**Commits:** 369ad6f · CI ✅
+
+### Key facts for future sessions
+- M1 is **additive** — `profiles.role` (`player_role` enum) is left untouched alongside the new `profiles.site_role` (`site_role` enum: `superadmin`/`user`). Backfill populates `site_role` from `role`; the old column is dropped in M8. This is why v1 application code keeps working through M1–M7.
+- `profiles.email` uses a partial unique index (`ix_profiles_email_unique_lower` on `LOWER(email) WHERE email IS NOT NULL`) rather than a plain UNIQUE constraint — the column is NULLABLE until M8, and Postgres treats NULLs as distinct so a partial index is the only correct shape.
+- Migration 011 downgrade has a safety check: it refuses to restore `uq_profiles_display_name` if duplicate display names exist. Resolve duplicates first if rollback is ever needed.
+- Backfill script (`scripts/backfill_multi_league.py`) defaults to **dry-run**; `--apply` is required to commit. It self-aborts on: missing migration 011, no active `Craig` profile, resulting Steele privacy ≠ `'private'`, or zero admin memberships. Idempotent via per-row UPSERT on `league_memberships` + slug-lookup on `leagues`.
+- Sidecar JSON shape: `{"<profile_id>": {"email": "...", "first_name": "...", "last_name": "..."}}`. Any subset of fields is fine; missing values derive from `display_name`. Sidecar lives outside the repo (PII) — see `docs/runbooks/multi-league-migration.md`.
+- `_make_profile` helper in `tests/test_multi_league_migration.py` mirrors the `_insert_profile` pattern in `test_scoring_trigger.py` (raw INSERT with `CAST(:r AS player_role)`). The `db_conn` fixture already soft-deletes pre-existing profiles, so each test starts with an empty active profile set.
+
+**Next:** Multi-league batch M2 — Per-league snapshots + scoring trigger rewrite (🔴 Opus)
+
+---
+
+## Multi-league batch M2 — Per-league snapshots + scoring trigger rewrite
+**Commits:** 35a4669, 0e1e73e · CI ✅
+
+### Key facts for future sessions
+- Migration 012 uses `UPDATE ... SET league_id = (SELECT id FROM leagues WHERE slug='steele-spreadsheet')` as the backfill. On a fresh DB the subquery returns NULL but the table is empty, so the UPDATE is a no-op and the subsequent `ALTER COLUMN ... SET NOT NULL` still succeeds — that's why CI's `alembic upgrade head` works without running `scripts/backfill_multi_league.py` first.
+- The new trigger fans out via `JOIN league_memberships lm` AND inner-joins the player_totals subquery, which filters on `pr.deleted_at IS NULL`. So soft-deleted profiles get no snapshots even if their membership rows are still active. The conftest soft-deletes all pre-existing profiles, which is what isolates each test from leaked snapshot rows.
+- `tests/conftest.ensure_default_league_membership(conn, profile_id)` is the canonical helper for trigger/leaderboard tests — it idempotently creates the `steele-spreadsheet` league and adds the profile. Every `_insert_profile` helper in trigger-touching test files routes through it. Soft-deleted profiles intentionally skip it.
+- `admin.create_invite` and `auth.join` both resolve `steele-spreadsheet` at request time (no module-level cache) — the slug is the contract until M3 ships per-league invite endpoints. `test_helpers.seed` materialises the league for CI smoke runs and `cleanup` deletes memberships **before** profiles because the membership → profile FK has no ondelete cascade.
+- `notify_leaderboard_shifts` still squashes by `player_id`, so multi-league players get one non-deterministic rank-shift notification per result event. Acceptable for M2 (everyone is in Steele); proper per-league notifications arrive with MD-12 in M3+.
+- C-2 endpoint scopes via `LeaderboardSnapshot.league_id == (SELECT id FROM leagues WHERE slug='steele-spreadsheet').scalar_subquery()`. If the Steele league is ever missing, the subquery is NULL and the endpoint returns empty — degraded but not crashing.
+
+**Next:** Multi-league batch M3 — League management API (CRUD) (🟢 Sonnet)
+
+---
+
+## Multi-league batch M3 — League management API (CRUD)
+**Commits:** a15cb59, 0809780, 837f424 · CI ✅
+
+### Key facts for future sessions
+- `require_league_admin(slug)` is defined in `leagues.py` and imported by both `league_memberships.py` and `league_join_requests.py`. All three routers share the same `LeagueAdminDep` / `LeagueMemberDep` type aliases.
+- CI runs `ruff format --check` separately from `ruff check`. Local venv used an older ruff version that didn't flag format drift — always run `ruff format` before pushing, or sync venv ruff version to `ruff==0.15.x` (whatever CI installs).
+- `_upsert_membership` restores soft-deleted rows (sets `deleted_at=NULL`, refreshes `joined_at`, resets role) — mirrors the M1 backfill script semantic. Join endpoints and join-request approval both go through this path.
+- Privacy transition side effects are in `update_league` (PATCH): `→ private` cancels pending requests; `public_request → public_open` auto-approves pending requests up to `max_members`.
+- Legacy `POST /admin/invites` kept working with `Deprecation: true` header; M5 removes it.
+- `ActionType` in `notification.py` has 17 new M3 values — `test_action_type_values` in `test_models.py` is an exhaustive allowlist that must be updated whenever the enum grows.
+
+**Next:** Multi-league batch M4 — Auth refactor — email signup + verification + reset (🟢 Sonnet)
+
+---
+
+## Multi-league batch M4 — Auth refactor — email signup + verification + reset
+**Commits:** 4c0c055, 10826f2 · CI ✅
+
+### Key facts for future sessions
+- Email tokens (verify + PIN reset) are JWTs signed with `jwt_access_secret`; distinguished by a `scope` claim (`email_verify` / `pin_reset`). No new DB table — the JWT carries everything.
+- PIN reset for an unverified email silently sends a verification email instead and returns the same generic message — no enumeration leak. The check is `email_verified_at IS NULL`.
+- `LoginRequest` now accepts `email` (primary) **or** `display_name` (deprecated). The deprecated path validates `min_length=2, max_length=30, pattern=^[\w\s'\-]+$` so R1 hardening tests still pass. Deprecated path adds `X-Deprecation: use-email` response header.
+- `send_verification_email` / `send_pin_reset_email` in `src/services/email.py` are sync functions (Resend SDK is sync); called via `BackgroundTasks.add_task` — FastAPI runs them in a threadpool. Failures are logged only, never surfaced to the caller.
+- When `RESEND_API_KEY` is empty (local dev), the email service logs a warning and returns without sending — no mock needed in tests that don't care about email delivery.
+- mypy is now a mandatory gate: run `python -m mypy src --ignore-missing-imports` before every commit.
+
+**Next:** Multi-league batch M5 — Per-league API scoping + cross-league summary (🔴 Opus)
+
+---
+
+## Multi-league batch M5 — Per-league API scoping + cross-league summary
+**Commits:** fb1127e, 38f1a92 · CI ✅
+
+### Key facts for future sessions
+- Per-league read endpoints are a SECOND `league_router` (prefix `/api/v1/leagues`) inside `leaderboard.py`/`stats.py`/`compare.py`/`players.py`; the old `router` keeps only 410 stubs. `require_league_member`/`LeagueMemberDep` are imported from `leagues.py` (no import cycle).
+- Retired v1 paths answer 410 + `Link: <successor>; rel="successor-version"` (helper `src/routers/_gone.py`). Kept as superadmin tools (NOT moved): `GET`+`DELETE /admin/invites`, `GET`+`DELETE /admin/players`, `POST /admin/players/{id}/reset-pin`. Only `POST /admin/invites` was 410'd.
+- **Migration 013** backfills the 15 M3 league `action_type` enum values that M3 added to the Python enum (+`test_action_type_values` allowlist) but never to Postgres — M3/M4 tests mock the DB, so it only surfaced as a 500 in M5's full-stack smoke (`POST /leagues/{slug}/invites`). **M8's planned "migration 013" must become 014.**
+- Cross-league summary `GET /api/v1/me/cross-league-summary` reads the stored per-league snapshot rank (MD-13), averages only leagues with ≥3 members, and uses 3 fixed queries (no N+1).
+- Frontend is still single-league: pages fetch via a hardcoded `DEFAULT_LEAGUE_SLUG` in `apps/web/src/lib/api.ts`; `dedupedLeaderboard(entries, leagueSlug)`. LeagueContext + per-league routes are M7 — deliberate stopgap to keep CI/smoke green.
+- New DB-backed acceptance tests (cross-league avg-rank, other-league hiding, multi-league C-2 dedupe) run in CI only — they need Postgres and skip locally.
+
+**Next:** Multi-league batch M6 — Frontend — signup + league management UI (🟢 Sonnet)
+
+---
+
+## Multi-league batch M6 — Frontend: signup + league management UI
+**Commits:** c3e664d, f043c5d, c472ead, 8be05cb · CI ✅
+
+### Key facts for future sessions
+- `LeagueContext.tsx` owns the active league slug; persists to `localStorage` (`wc2026_active_league_slug`); redirects to `/welcome` if `/leagues/mine` returns empty. Use `useLeagueOptional()` (null-safe) in components that render outside the provider (e.g. TopBar).
+- `LeagueAwareLayout` wraps only regular authenticated routes — admin routes (`/admin/*`) are NOT wrapped; they don't need league context and wrapping caused a re-render race that detached the Sync Now button in E2E.
+- Playwright LIFO gotcha: in `catchAllApi`, register the `**/api/v1/**` catch-all FIRST and `**/api/v1/leagues/mine` SECOND. Last registered = highest priority. Getting this backwards silently makes `/leagues/mine` return `[]` → LeagueProvider redirects → pages unmount mid-test.
+- `seedAuth()` now also sets `wc2026_active_league_slug` in localStorage so LeagueProvider restores state without waiting for the `/leagues/mine` network response.
+- LoginPage now takes email + PIN (no player-name dropdown). `AuthContext.login()` signature changed to `(email, pin)`. `AuthContext.signup()` added for the new `/signup` page.
+
+**Next:** Multi-league batch M7 — Frontend: per-league screens under /leagues/{slug}/*, dashboard hero, superadmin all-leagues page (🟢 Sonnet)
+
+---
+
+## Multi-league batch M7 — Frontend: reshape existing screens for multi-league
+**Commits:** 053ae36 · CI ⚠️ (runner quota exhaustion — all local suites green)
+
+### Key facts for future sessions
+- All per-league pages now read `slug` from `useParams` + call `useLeagueSlugSync(slug)` — never from `useLeague()` directly. This avoids a provider re-render race on hard-nav.
+- `LeagueRedirect` reads `wc2026_active_league_slug` from localStorage directly (not `useLeague()`) so the redirect is synchronous before the `/leagues/mine` fetch resolves.
+- `AllLeaguesPage` reuses the existing `DELETE /api/v1/leagues/{slug}` endpoint by auto-filling `confirm_name` from the stored league object — no new delete endpoint needed.
+- DashboardPage `CrossLeagueSummaryWidget` handles `avg_rank === null` gracefully (shows "No average available yet") — API returns null when no leagues have ≥3 members yet.
+- Playwright LIFO ordering: catch-all `**/api/v1/**` mock registered first, specific routes after — per M6 note above. E2E admin tests added for `/admin/all-leagues`.
+- GitHub Actions runner quota was exhausted for the entire month of May — CI runs showed `runner_id=0`, 0 steps, 3-second completion. Not a code issue.
+
+**Next:** Multi-league batch M8 — Cleanup + polish + multi-league soak (🟢 Sonnet)
+
+---
+
+## Multi-league batch M8 — Cleanup + polish + multi-league soak
+**Commits:** 499f735, a52dd32 · CI ⚠️ (runner quota exhaustion — all local suites green)
+
+### Key facts for future sessions
+- Migration 014 has a built-in preflight guard: aborts with a clear error if any active profile has NULL email/first_name/last_name/site_role. Run the M1 backfill first if it fires.
+- All deprecated 410-stub routes removed entirely (`_gone.py` deleted). Old paths (`/leaderboard`, `/players`, `/stats/league`, `/compare/{a}/{b}`, `POST /admin/invites`) now return 404 naturally.
+- `LoginRequest` is now email-only — `display_name` field removed. Any test that passed `display_name` to `/auth/login` had to be updated to `email`.
+- Tests that asserted 410 + Link header were updated to assert 404/405; `test_login_by_display_name_still_works` deleted.
+- `ruff format --check .` (run from `apps/api/`) catches 4 files the narrower `ruff check src/ tests/` missed — always run both from the package root in CI.
+- The multi-league Playwright spec (`e2e/multi-league.spec.ts`) follows the LIFO mock registration pattern from M6/M7.
+
+**Next:** M-series complete — staging soak with Lewis, then tag `v1.1-multi-league` on main

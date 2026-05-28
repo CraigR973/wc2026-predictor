@@ -18,6 +18,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from tests.conftest import ensure_default_league_membership
+
 
 async def _exec(conn: AsyncConnection, sql: str, **params: Any) -> Any:
     return await conn.execute(text(sql), params)
@@ -65,7 +67,7 @@ async def _insert_profile(
     role: str = "player",
     deleted: bool = False,
 ) -> uuid.UUID:
-    return await _scalar(
+    profile_id = await _scalar(
         conn,
         """
         INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at)
@@ -81,6 +83,11 @@ async def _insert_profile(
         r=role,
         d=deleted,
     )
+    # Active profiles need a league membership to receive M2 snapshots.
+    # Soft-deleted profiles intentionally stay membership-less.
+    if not deleted:
+        await ensure_default_league_membership(conn, profile_id, role=role)
+    return profile_id
 
 
 async def _insert_match(
@@ -632,6 +639,197 @@ async def test_player_with_null_prediction_gets_zero(
     breakdown = json.loads(row[0]["breakdown"])
     assert breakdown["no_prediction"] is True
     assert breakdown["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase M2 — per-league fan-out
+# ---------------------------------------------------------------------------
+
+
+async def test_trigger_fans_out_per_league_for_multi_league_player(
+    db_conn: AsyncConnection,
+) -> None:
+    """A player in N active leagues receives N snapshots when a result lands."""
+    g = await _insert_group(db_conn, "M")
+    home = await _insert_team(db_conn, g, "Multi Home", "MUH")
+    away = await _insert_team(db_conn, g, "Multi Away", "MUA")
+    alice = await _insert_profile(db_conn, "alice_multi")  # joins Steele by helper
+
+    # Add alice to a second, distinct league.
+    second_league = await _scalar(
+        db_conn,
+        """
+        INSERT INTO leagues (id, slug, name, created_by)
+        VALUES (gen_random_uuid(), 'second-league', 'Second League', :p)
+        RETURNING id
+        """,
+        p=alice,
+    )
+    await _exec(
+        db_conn,
+        """
+        INSERT INTO league_memberships (id, league_id, player_id, role)
+        VALUES (gen_random_uuid(), :l, :p,
+                CAST('player' AS league_member_role))
+        """,
+        l=second_league,
+        p=alice,
+    )
+
+    match = await _insert_match(
+        db_conn,
+        stage="group",
+        match_number=400,
+        home_team_id=home,
+        away_team_id=away,
+        group_id=g,
+    )
+    await _insert_prediction(db_conn, player_id=alice, match_id=match, home=1, away=0)
+
+    await _enter_result(db_conn, match, 1, 0)
+
+    snaps = await _fetchall(
+        db_conn,
+        """
+        SELECT s.total_points, l.slug AS league_slug
+        FROM leaderboard_snapshots s
+        JOIN leagues l ON l.id = s.league_id
+        WHERE s.triggered_by_match_id = :m AND s.player_id = :p
+        ORDER BY l.slug
+        """,
+        m=match,
+        p=alice,
+    )
+    assert len(snaps) == 2
+    assert {s["league_slug"] for s in snaps} == {"second-league", "steele-spreadsheet"}
+    # Predictions are global — both leagues see the same points total.
+    assert {s["total_points"] for s in snaps} == {10}
+
+
+async def test_trigger_per_league_rank_uses_league_membership(
+    db_conn: AsyncConnection,
+) -> None:
+    """Per-league rank is computed only against members of that league."""
+    g = await _insert_group(db_conn, "R")
+    home = await _insert_team(db_conn, g, "Rank Home", "RKH")
+    away = await _insert_team(db_conn, g, "Rank Away", "RKA")
+    alice = await _insert_profile(db_conn, "alice_rank")  # in Steele
+    bob = await _insert_profile(db_conn, "bob_rank")  # in Steele
+    carol = await _insert_profile(db_conn, "carol_rank")  # in Steele
+
+    # Carol leaves Steele; bob + carol join a separate 'rivals' league.
+    await _exec(
+        db_conn,
+        """
+        UPDATE league_memberships SET deleted_at = now()
+        WHERE player_id = :p
+          AND league_id = (SELECT id FROM leagues WHERE slug = 'steele-spreadsheet')
+        """,
+        p=carol,
+    )
+    rivals = await _scalar(
+        db_conn,
+        """
+        INSERT INTO leagues (id, slug, name, created_by)
+        VALUES (gen_random_uuid(), 'rivals', 'Rivals', :p)
+        RETURNING id
+        """,
+        p=alice,
+    )
+    await _exec(
+        db_conn,
+        """
+        INSERT INTO league_memberships (id, league_id, player_id, role)
+        VALUES
+            (gen_random_uuid(), :l, :b, CAST('player' AS league_member_role)),
+            (gen_random_uuid(), :l, :c, CAST('player' AS league_member_role))
+        """,
+        l=rivals,
+        b=bob,
+        c=carol,
+    )
+
+    match = await _insert_match(
+        db_conn,
+        stage="group",
+        match_number=401,
+        home_team_id=home,
+        away_team_id=away,
+        group_id=g,
+    )
+    await _insert_prediction(db_conn, player_id=alice, match_id=match, home=1, away=0)  # exact 10
+    # (0,2) → totals 2 ≠ actual 1, wrong winner → 0 pts (avoids the 2-pt goals
+    # bonus that fires whenever predicted total goals = actual total goals).
+    await _insert_prediction(db_conn, player_id=bob, match_id=match, home=0, away=2)
+    await _insert_prediction(db_conn, player_id=carol, match_id=match, home=0, away=2)  # 0
+
+    await _enter_result(db_conn, match, 1, 0)
+
+    rows = await _fetchall(
+        db_conn,
+        """
+        SELECT l.slug, p.display_name, s.rank, s.total_points
+        FROM leaderboard_snapshots s
+        JOIN leagues l ON l.id = s.league_id
+        JOIN profiles p ON p.id = s.player_id
+        WHERE s.triggered_by_match_id = :m
+        ORDER BY l.slug, s.rank, p.display_name
+        """,
+        m=match,
+    )
+    steele = [r for r in rows if r["slug"] == "steele-spreadsheet"]
+    rivals_rows = [r for r in rows if r["slug"] == "rivals"]
+
+    # Steele has alice + bob only; carol left so she gets no Steele snapshot.
+    assert {r["display_name"] for r in steele} == {"alice_rank", "bob_rank"}
+    by_name_steele = {r["display_name"]: r for r in steele}
+    assert by_name_steele["alice_rank"]["rank"] == 1
+    assert by_name_steele["alice_rank"]["total_points"] == 10
+    assert by_name_steele["bob_rank"]["rank"] == 2
+    assert by_name_steele["bob_rank"]["total_points"] == 0
+
+    # Rivals has bob + carol only; both tied at 0 pts → rank 1.
+    assert {r["display_name"] for r in rivals_rows} == {"bob_rank", "carol_rank"}
+    assert {r["rank"] for r in rivals_rows} == {1}
+
+
+async def test_trigger_skips_soft_deleted_membership(
+    db_conn: AsyncConnection,
+) -> None:
+    """A player whose league membership is soft-deleted receives no snapshot in that league."""
+    g = await _insert_group(db_conn, "S")
+    home = await _insert_team(db_conn, g, "Soft Home", "SOH")
+    away = await _insert_team(db_conn, g, "Soft Away", "SOA")
+    alice = await _insert_profile(db_conn, "alice_left")
+    # alice "leaves" Steele — membership soft-deleted.
+    await _exec(
+        db_conn,
+        "UPDATE league_memberships SET deleted_at = now() WHERE player_id = :p",
+        p=alice,
+    )
+
+    match = await _insert_match(
+        db_conn,
+        stage="group",
+        match_number=402,
+        home_team_id=home,
+        away_team_id=away,
+        group_id=g,
+    )
+    await _insert_prediction(db_conn, player_id=alice, match_id=match, home=1, away=0)
+
+    await _enter_result(db_conn, match, 1, 0)
+
+    snap_count = await _scalar(
+        db_conn,
+        """
+        SELECT COUNT(*) FROM leaderboard_snapshots
+        WHERE triggered_by_match_id = :m AND player_id = :p
+        """,
+        m=match,
+        p=alice,
+    )
+    assert snap_count == 0
 
 
 async def test_atomicity_all_writes_visible_after_update(

@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import { cn } from '../lib/utils';
 import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -172,6 +173,9 @@ function MatchRow({ m }: { m: H2HMatchEntry }) {
 
 export function ComparePage() {
   const { player: currentUser } = useAuth();
+  const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
+  useLeagueSlugSync(slug);
+  const leagueSlug = slug;
   const [searchParams, setSearchParams] = useSearchParams();
 
   const a = searchParams.get('a') ?? '';
@@ -185,8 +189,8 @@ export function ComparePage() {
   }, [a, b, currentUser?.id, setSearchParams]);
 
   const { data: players = [], isLoading: playersLoading } = useQuery<PlayerListItem[]>({
-    queryKey: ['players', 'all'],
-    queryFn: () => apiFetch<PlayerListItem[]>('/api/v1/players'),
+    queryKey: ['players', leagueSlug],
+    queryFn: () => apiFetch<PlayerListItem[]>(`/api/v1/leagues/${leagueSlug}/players`),
   });
 
   const setA = (id: string) => {
@@ -213,8 +217,9 @@ export function ComparePage() {
   const bothSelected = Boolean(a && b && a !== b);
 
   const { data: h2h, isLoading: h2hLoading, error: h2hError } = useQuery<H2HResponse>({
-    queryKey: ['compare', a, b],
-    queryFn: () => apiFetch<H2HResponse>(`/api/v1/compare/${a}/${b}`),
+    queryKey: ['compare', leagueSlug, a, b],
+    queryFn: () =>
+      apiFetch<H2HResponse>(`/api/v1/leagues/${leagueSlug}/compare/${a}/${b}`),
     enabled: bothSelected,
   });
 
@@ -231,7 +236,7 @@ export function ComparePage() {
       <PageHeader
         title="Head-to-Head"
         eyebrow="Compare"
-        back={{ to: '/leaderboard', label: 'Leaderboard' }}
+        back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Leaderboard' }}
       />
 
       <p className="text-text-muted text-sm font-sans">

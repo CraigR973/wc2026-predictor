@@ -106,6 +106,9 @@ class LeaderboardSnapshot(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     player_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False
     )
+    league_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("leagues.id"), nullable=False
+    )
     total_points: Mapped[int] = mapped_column(Integer, nullable=False)
     match_points: Mapped[int] = mapped_column(Integer, nullable=False)
     knockout_winner_points: Mapped[int] = mapped_column(Integer, nullable=False)

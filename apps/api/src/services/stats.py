@@ -194,12 +194,20 @@ async def get_player_stats(
     return _compute_stats(player_id, player_name, group_rows, ko_rows)
 
 
-async def get_league_stats(db: AsyncSession) -> list[PlayerStatsData]:
-    players_result = await db.execute(
-        select(Profile)
-        .where(Profile.deleted_at.is_(None), Profile.is_active.is_(True))
-        .order_by(Profile.display_name)
-    )
+async def get_league_stats(
+    db: AsyncSession,
+    player_ids: list[UUID] | None = None,
+) -> list[PlayerStatsData]:
+    """League-wide stats for active players.
+
+    When ``player_ids`` is provided the player set is restricted to those ids
+    (the active members of a league); predictions themselves stay global, so
+    per-player stats are identical regardless of which league asks.
+    """
+    query = select(Profile).where(Profile.deleted_at.is_(None), Profile.is_active.is_(True))
+    if player_ids is not None:
+        query = query.where(Profile.id.in_(player_ids))
+    players_result = await db.execute(query.order_by(Profile.display_name))
     players = players_result.scalars().all()
 
     if not players:

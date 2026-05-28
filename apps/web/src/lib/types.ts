@@ -207,6 +207,55 @@ export interface H2HResponse {
   matches: H2HMatchEntry[];
 }
 
+export interface LeagueSummary {
+  slug: string;
+  name: string;
+  description: string | null;
+  privacy: 'open' | 'request' | 'private';
+  member_count: number;
+  max_members: number | null;
+  created_at: string;
+}
+
+export interface LeagueMember {
+  player_id: string;
+  display_name: string;
+  league_display_name: string | null;
+  role: 'player' | 'admin';
+  joined_at: string;
+}
+
+export interface JoinRequest {
+  id: string;
+  player_id: string;
+  display_name: string;
+  requested_at: string;
+  status: 'pending' | 'approved' | 'rejected';
+  note: string | null;
+}
+
+export interface LeagueInvite {
+  id: string;
+  token: string;
+  created_by_display_name: string;
+  created_at: string;
+  expires_at: string | null;
+  used_at: string | null;
+  invitee_email: string | null;
+}
+
+export interface CrossLeagueSummary {
+  avg_rank: number | null;
+  total_points: number;
+  leagues_count: number;
+  per_league: Array<{
+    slug: string;
+    name: string;
+    rank: number | null;
+    member_count: number;
+  }>;
+}
+
 export interface RecentPrediction {
   match_id: string;
   stage: string;

@@ -14,6 +14,9 @@ class Invite(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     token: Mapped[str] = mapped_column(String(64), nullable=False)
     display_name_hint: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    league_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("leagues.id"), nullable=False
+    )
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False
     )

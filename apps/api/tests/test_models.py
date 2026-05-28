@@ -9,8 +9,14 @@ from src.models import (
     DeliveryStatus,
     Group,
     Invite,
+    JoinRequestStatus,
     KnockoutPrediction,
     LeaderboardSnapshot,
+    League,
+    LeagueJoinRequest,
+    LeagueMemberRole,
+    LeagueMembership,
+    LeaguePrivacy,
     Match,
     MatchStatus,
     NotificationLog,
@@ -21,6 +27,7 @@ from src.models import (
     PushSubscription,
     RefreshToken,
     ResultSource,
+    SiteRole,
     SpecialPrediction,
     SpecialPredictionType,
     Team,
@@ -45,6 +52,9 @@ def test_metadata_has_expected_tables() -> None:
         "notification_preferences",
         "notification_log",
         "audit_log",
+        "leagues",
+        "league_memberships",
+        "league_join_requests",
     }
 
 
@@ -141,12 +151,115 @@ def test_refresh_token_fk_references_profiles() -> None:
 
 def test_invite_fks_reference_profiles() -> None:
     fk_targets = {fk.target_fullname for fk in Invite.__table__.foreign_keys}
-    assert fk_targets == {"profiles.id"}
+    # invites also reference leagues after M2 — that FK is covered by
+    # test_invite_has_league_id.
+    assert "profiles.id" in fk_targets
 
 
-def test_profiles_has_unique_display_name() -> None:
+def test_profiles_no_longer_has_unique_display_name() -> None:
+    # M1 dropped the UNIQUE on display_name (per MD-11); per-league overrides
+    # plus derived "First L." rendering handle display.
     constraints = {c.name for c in Profile.__table__.constraints}
-    assert "uq_profiles_display_name" in constraints
+    assert "uq_profiles_display_name" not in constraints
+
+
+def test_profile_has_new_identity_columns() -> None:
+    cols = {c.name for c in Profile.__table__.columns}
+    assert {"email", "first_name", "last_name", "email_verified_at", "site_role"}.issubset(cols)
+
+
+def test_site_role_values() -> None:
+    assert {r.value for r in SiteRole} == {"superadmin", "user"}
+
+
+def test_league_columns() -> None:
+    cols = {c.name for c in League.__table__.columns}
+    assert {
+        "id",
+        "slug",
+        "name",
+        "description",
+        "privacy",
+        "max_members",
+        "created_by",
+        "deleted_at",
+        "created_at",
+        "updated_at",
+    }.issubset(cols)
+
+
+def test_league_unique_slug() -> None:
+    constraint_names = {c.name for c in League.__table__.constraints}
+    assert "uq_leagues_slug" in constraint_names
+    assert "ck_leagues_max_members_range" in constraint_names
+
+
+def test_league_fks() -> None:
+    fk_targets = {fk.target_fullname for fk in League.__table__.foreign_keys}
+    assert "profiles.id" in fk_targets
+
+
+def test_league_privacy_values() -> None:
+    assert {p.value for p in LeaguePrivacy} == {"private", "public_request", "public_open"}
+
+
+def test_league_membership_columns() -> None:
+    cols = {c.name for c in LeagueMembership.__table__.columns}
+    assert {
+        "id",
+        "league_id",
+        "player_id",
+        "role",
+        "display_name_override",
+        "joined_at",
+        "deleted_at",
+        "created_at",
+        "updated_at",
+    }.issubset(cols)
+
+
+def test_league_membership_unique_pair() -> None:
+    constraint_names = {c.name for c in LeagueMembership.__table__.constraints}
+    assert "uq_league_memberships_league_player" in constraint_names
+
+
+def test_league_membership_fks() -> None:
+    fk_targets = {fk.target_fullname for fk in LeagueMembership.__table__.foreign_keys}
+    assert fk_targets == {"leagues.id", "profiles.id"}
+
+
+def test_league_member_role_values() -> None:
+    assert {r.value for r in LeagueMemberRole} == {"admin", "player"}
+
+
+def test_league_join_request_columns() -> None:
+    cols = {c.name for c in LeagueJoinRequest.__table__.columns}
+    assert {
+        "id",
+        "league_id",
+        "player_id",
+        "status",
+        "requested_at",
+        "decided_at",
+        "decided_by",
+        "decision_note",
+        "created_at",
+        "updated_at",
+    }.issubset(cols)
+
+
+def test_league_join_request_fks() -> None:
+    fk_targets = {fk.target_fullname for fk in LeagueJoinRequest.__table__.foreign_keys}
+    assert fk_targets == {"leagues.id", "profiles.id"}
+
+
+def test_join_request_status_values() -> None:
+    assert {s.value for s in JoinRequestStatus} == {
+        "pending",
+        "approved",
+        "rejected",
+        "cancelled",
+    }
 
 
 def test_groups_has_unique_name() -> None:
@@ -327,6 +440,7 @@ def test_leaderboard_snapshot_columns() -> None:
     assert {
         "id",
         "player_id",
+        "league_id",
         "total_points",
         "match_points",
         "knockout_winner_points",
@@ -348,6 +462,21 @@ def test_leaderboard_snapshot_fks() -> None:
     fk_targets = {fk.target_fullname for fk in LeaderboardSnapshot.__table__.foreign_keys}
     assert "profiles.id" in fk_targets
     assert "matches.id" in fk_targets
+    assert "leagues.id" in fk_targets
+
+
+def test_leaderboard_snapshot_league_id_not_null() -> None:
+    col = LeaderboardSnapshot.__table__.columns["league_id"]
+    assert col.nullable is False
+
+
+def test_invite_has_league_id() -> None:
+    cols = {c.name for c in Invite.__table__.columns}
+    assert "league_id" in cols
+    col = Invite.__table__.columns["league_id"]
+    assert col.nullable is False
+    fk_targets = {fk.target_fullname for fk in Invite.__table__.foreign_keys}
+    assert "leagues.id" in fk_targets
 
 
 def test_push_subscription_columns() -> None:
@@ -482,6 +611,25 @@ def test_action_type_values() -> None:
         "tiebreaker_overridden",
         "backup_failed",
         "backup_downloaded",
+        # M3 — league lifecycle
+        "league_created",
+        "league_updated",
+        "league_privacy_changed",
+        "league_deleted",
+        # M3 — membership
+        "member_joined",
+        "member_left",
+        "member_removed",
+        "member_promoted",
+        "member_demoted",
+        # M3 — join requests
+        "join_request_created",
+        "join_request_approved",
+        "join_request_rejected",
+        # M3 — per-league invites / PIN reset
+        "league_invite_created",
+        "league_invite_revoked",
+        "league_member_pin_reset",
     }
 
 

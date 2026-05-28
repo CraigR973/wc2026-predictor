@@ -382,7 +382,7 @@ async def _insert_team(conn: Any, group_id: uuid.UUID, name: str, code: str) -> 
 
 
 async def _insert_profile(conn: Any, display_name: str) -> uuid.UUID:
-    return await _scalar_raw(
+    profile_id = await _scalar_raw(
         conn,
         """
         INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at)
@@ -394,6 +394,12 @@ async def _insert_profile(conn: Any, display_name: str) -> uuid.UUID:
         """,
         n=display_name,
     )
+    # M2: snapshots fan out per active league membership. The trigger
+    # exercised by these override tests needs a membership row to write to.
+    from tests.conftest import ensure_default_league_membership
+
+    await ensure_default_league_membership(conn, profile_id)
+    return profile_id
 
 
 async def _insert_match_and_predict(

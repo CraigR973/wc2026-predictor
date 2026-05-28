@@ -10,14 +10,16 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, select, update
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth import AdminPlayer, generate_opaque_token, hash_pin
+from src.auth import AdminPlayer, hash_pin
 from src.config import settings
 from src.database import get_db
 from src.models.group import Group
 from src.models.invite import Invite
+from src.models.league import League
+from src.models.league_membership import LeagueMembership
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import KnockoutPrediction, Prediction
@@ -53,11 +55,6 @@ def _now() -> datetime:
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
-
-
-class CreateInviteRequest(BaseModel):
-    display_name_hint: str | None = None
-    expires_in_days: int | None = Field(default=7, ge=1, le=30)
 
 
 class InviteResponse(BaseModel):
@@ -220,6 +217,54 @@ class KnockoutAdvanceResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class AdminLeagueSummary(BaseModel):
+    slug: str
+    name: str
+    privacy: str
+    member_count: int
+    created_at: datetime
+
+
+@router.get("/leagues", response_model=list[AdminLeagueSummary])
+async def list_all_leagues(
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[AdminLeagueSummary]:
+    """List all non-deleted leagues with their member counts. Superadmin only."""
+    league_rows = (
+        (await db.execute(select(League).where(League.deleted_at.is_(None)).order_by(League.name)))
+        .scalars()
+        .all()
+    )
+
+    if not league_rows:
+        return []
+
+    league_ids = [lg.id for lg in league_rows]
+    count_rows = (
+        await db.execute(
+            select(LeagueMembership.league_id, func.count().label("member_count"))
+            .where(
+                LeagueMembership.league_id.in_(league_ids),
+                LeagueMembership.deleted_at.is_(None),
+            )
+            .group_by(LeagueMembership.league_id)
+        )
+    ).all()
+    member_counts = {row.league_id: row.member_count for row in count_rows}
+
+    return [
+        AdminLeagueSummary(
+            slug=lg.slug,
+            name=lg.name,
+            privacy=lg.privacy.value if hasattr(lg.privacy, "value") else str(lg.privacy),
+            member_count=member_counts.get(lg.id, 0),
+            created_at=lg.created_at,
+        )
+        for lg in league_rows
+    ]
+
+
 @router.get("/players", response_model=list[AdminPlayerResponse])
 async def list_all_players(
     admin: AdminPlayer,
@@ -243,32 +288,6 @@ async def list_all_players(
         )
         for p in players
     ]
-
-
-@router.post("/invites", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
-async def create_invite(
-    body: CreateInviteRequest,
-    admin: AdminPlayer,
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> InviteResponse:
-    expires_at = None
-    if body.expires_in_days is not None:
-        expires_at = _now() + timedelta(days=body.expires_in_days)
-
-    invite = Invite(
-        token=generate_opaque_token(),
-        display_name_hint=body.display_name_hint,
-        created_by=admin.id,
-        expires_at=expires_at,
-        is_active=True,
-        created_at=_now(),
-    )
-    db.add(invite)
-    await db.commit()
-    await db.refresh(invite)
-
-    log.info("invite created", invite_id=str(invite.id), admin_id=str(admin.id))
-    return _to_response(invite)
 
 
 @router.get("/invites", response_model=list[InviteResponse])
