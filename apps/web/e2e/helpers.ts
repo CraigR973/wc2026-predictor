@@ -54,16 +54,19 @@ export async function blockSupabase(page: Page) {
 
 // Catch-all: fulfill any remaining /api/v1/ requests with an empty response.
 // /leagues/mine returns a minimal league so LeagueProvider doesn't redirect to /welcome.
+// IMPORTANT: Playwright uses LIFO ordering — the catch-all is registered FIRST (lower priority)
+// and the specific /leagues/mine handler is registered SECOND (higher LIFO priority, always wins).
 export async function catchAllApi(page: Page) {
+  await page.route('**/api/v1/**', (route: Route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+  );
+  // Registered after catch-all → higher LIFO priority → always wins for /leagues/mine
   await page.route('**/api/v1/leagues/mine', (route: Route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([MOCK_LEAGUE]),
     }),
-  );
-  await page.route('**/api/v1/**', (route: Route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
   );
 }
 

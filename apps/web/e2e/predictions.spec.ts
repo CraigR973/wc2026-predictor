@@ -178,14 +178,6 @@ test.describe('Login → predict flow', () => {
     await catchAllApi(page);
     await blockSupabase(page);
 
-    await page.route('**/api/v1/players/names', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 'p1', display_name: 'Alice' }]),
-      }),
-    );
-
     await page.route('**/api/v1/auth/login', (route) =>
       route.fulfill({
         status: 200,
@@ -221,10 +213,8 @@ test.describe('Login → predict flow', () => {
     );
 
     await page.goto('/login');
-    // Name picker is now a Radix Select (role=combobox)
-    await page.waitForSelector('[role="combobox"]');
-
-    // PIN is now 4 segmented cells — fill the first cell
+    // LoginPage now uses email + PIN (no combobox name picker)
+    await page.getByLabel('Email').fill('alice@example.com');
     await page.getByLabel('PIN digit 1').fill('1');
     await page.getByRole('button', { name: /sign in/i }).click();
 
