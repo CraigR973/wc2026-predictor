@@ -192,11 +192,12 @@ async def signup(
     first = body.first_name.strip()
     last = body.last_name.strip()
     display_name = f"{first} {last[0].upper()}."
+    player_email: str = body.email.lower()  # narrow to str for type safety
 
     new_player = Profile(
         id=uuid.uuid4(),
         display_name=display_name,
-        email=body.email.lower(),
+        email=player_email,
         first_name=first,
         last_name=last,
         pin_hash=hash_pin(body.pin),
@@ -225,10 +226,10 @@ async def signup(
     await db.commit()
     await db.refresh(new_player)
 
-    verify_token = create_email_verify_token(new_player.email)  # type: ignore[arg-type]
+    verify_token = create_email_verify_token(player_email)
     background_tasks.add_task(
         send_verification_email,
-        new_player.email,
+        player_email,
         verify_token,
         settings.frontend_origin,
     )
@@ -320,6 +321,8 @@ async def pin_reset_request(
             )
         return _PIN_RESET_GENERIC
 
+    # player was looked up by email so player.email is guaranteed non-None here
+    assert player.email is not None
     reset_token = create_pin_reset_token(player.id)
     background_tasks.add_task(
         send_pin_reset_email,
@@ -377,7 +380,7 @@ async def login(
     if using_email:
         result = await db.execute(
             select(Profile).where(
-                func.lower(Profile.email) == body.email.lower(),  # type: ignore[union-attr]
+                func.lower(Profile.email) == body.email.lower(),  # type: ignore[union-attr,arg-type]
                 Profile.deleted_at.is_(None),
             )
         )
