@@ -35,6 +35,6 @@ Per `docs/multi-league-architecture.md` § 8. Each row = one session. Order is s
 | ~~M5~~ | ~~🔴 Opus~~ | ~~M5~~ | ✅ Shipped 2026-05-28 |
 | ~~M6~~ | ~~🟢 Sonnet~~ | ~~M6~~ | ✅ Shipped 2026-05-28 |
 | ~~M7~~ | ~~🟢 Sonnet~~ | ~~M7~~ | ✅ Shipped 2026-05-28 |
-| M8 | 🟢 Sonnet | M8 | Cleanup + polish — NOT NULL constraints, deprecated endpoints removed, Playwright multi-league e2e, runbook updates, 24-48h soak |
+| ~~M8~~ | ~~🟢 Sonnet~~ | ~~M8~~ | ✅ Shipped 2026-05-28 |
 
 Mark batches complete by striking through the row or removing it.
