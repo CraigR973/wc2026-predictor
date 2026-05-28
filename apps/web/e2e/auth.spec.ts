@@ -17,6 +17,7 @@ test.describe('JWT refresh', () => {
       localStorage.setItem('wc2026_access', expiringJwt);
       localStorage.setItem('wc2026_refresh', 'old-refresh-token');
       localStorage.setItem('wc2026_player', JSON.stringify(player));
+      localStorage.setItem('wc2026_active_league_slug', 'steele-spreadsheet');
     }, PLAYER);
 
     let refreshCalled = false;
@@ -70,6 +71,7 @@ test.describe('JWT refresh', () => {
       );
       localStorage.setItem('wc2026_refresh', 'valid-refresh-token');
       localStorage.setItem('wc2026_player', JSON.stringify(player));
+      localStorage.setItem('wc2026_active_league_slug', 'steele-spreadsheet');
     }, PLAYER);
 
     let attempt = 0;

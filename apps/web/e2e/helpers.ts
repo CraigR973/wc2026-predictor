@@ -19,6 +19,16 @@ export const ADMIN_PLAYER = {
   timezone: 'UTC',
 };
 
+export const MOCK_LEAGUE = {
+  slug: 'steele-spreadsheet',
+  name: 'The Steele Spreadsheet',
+  description: null,
+  privacy: 'private',
+  member_count: 2,
+  max_members: null,
+  created_at: '2026-01-01T00:00:00Z',
+};
+
 export async function seedAuth(
   page: Page,
   player: typeof PLAYER | typeof ADMIN_PLAYER = PLAYER,
@@ -28,6 +38,9 @@ export async function seedAuth(
       localStorage.setItem('wc2026_access', jwt);
       localStorage.setItem('wc2026_refresh', refresh);
       localStorage.setItem('wc2026_player', JSON.stringify(p));
+      // Seed active league slug so LeagueProvider restores it from localStorage
+      // without needing to redirect to /welcome on empty /leagues/mine responses.
+      localStorage.setItem('wc2026_active_league_slug', 'steele-spreadsheet');
     },
     { jwt: FAKE_JWT, refresh: FAKE_REFRESH, p: player },
   );
@@ -39,8 +52,16 @@ export async function blockSupabase(page: Page) {
   await page.route('**/realtime/v1/**', (route: Route) => route.abort());
 }
 
-// Catch-all: fulfill any remaining /api/v1/ requests with an empty response
+// Catch-all: fulfill any remaining /api/v1/ requests with an empty response.
+// /leagues/mine returns a minimal league so LeagueProvider doesn't redirect to /welcome.
 export async function catchAllApi(page: Page) {
+  await page.route('**/api/v1/leagues/mine', (route: Route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([MOCK_LEAGUE]),
+    }),
+  );
   await page.route('**/api/v1/**', (route: Route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
   );

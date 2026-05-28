@@ -20,11 +20,12 @@ const DESKTOP_NAV = [
 
 function LeagueSwitcher() {
   const leagueCtx = useLeagueOptional();
-  if (!leagueCtx) return null;
-  const { leagues, activeLeague, setActiveLeague } = leagueCtx;
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  if (!leagueCtx) return null;
+  const { leagues, activeLeague, setActiveLeague } = leagueCtx;
 
   if (leagues.length === 0) return null;
 
