@@ -16,7 +16,6 @@ from src.models.match import Match
 from src.models.prediction import Prediction
 from src.models.profile import Profile
 from src.models.team import Team
-from src.routers._gone import gone
 from src.routers.leagues import LeagueMemberDep
 
 router = APIRouter(prefix="/api/v1/players", tags=["players"])
@@ -31,22 +30,6 @@ class PlayerProfileResponse(BaseModel):
     is_deleted: bool
     created_at: datetime
 
-
-class PlayerNameItem(BaseModel):
-    id: str
-    display_name: str
-
-
-@router.get("/names", response_model=list[PlayerNameItem])
-async def list_player_names(
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> list[PlayerNameItem]:
-    """Public — returns active player names for the login dropdown."""
-    result = await db.execute(
-        select(Profile).where(Profile.deleted_at.is_(None)).order_by(Profile.display_name)
-    )
-    players = result.scalars().all()
-    return [PlayerNameItem(id=str(p.id), display_name=p.display_name) for p in players]
 
 
 @league_router.get("/{slug}/players", response_model=list[PlayerProfileResponse])
@@ -84,10 +67,6 @@ async def list_league_players(
         for profile, membership in rows
     ]
 
-
-@router.get("")
-async def list_players_gone() -> None:
-    raise gone("/api/v1/leagues/{slug}/players")
 
 
 @router.get("/{player_id}", response_model=PlayerProfileResponse)

@@ -1209,15 +1209,13 @@ async def test_privacy_change_public_request_to_open_approves_requests() -> None
 
 
 # ===========================================================================
-# Legacy POST /admin/invites — retired to 410 Gone in M5
+# POST /admin/invites — removed in M8 (per-league invites only)
 # ===========================================================================
 
 
 @pytest.mark.asyncio
-async def test_legacy_create_invite_is_gone() -> None:
-    """The deprecated global invite-create path now answers 410, pointing at
-    the per-league successor (it carried only a Deprecation header in M3/M4)."""
+async def test_legacy_create_invite_removed() -> None:
+    """The global admin POST /invites route was removed in M8; use per-league invites."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
         resp = await client.post("/api/v1/admin/invites", json={"display_name_hint": "Craig"})
-    assert resp.status_code == 410
-    assert "/api/v1/leagues/{slug}/invites" in resp.headers.get("link", "")
+    assert resp.status_code in (404, 405)

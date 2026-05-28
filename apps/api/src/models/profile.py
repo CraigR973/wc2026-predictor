@@ -8,8 +8,7 @@ from src.models.base import Base, UpdatedAtMixin, UUIDPrimaryKeyMixin
 
 
 class PlayerRole(StrEnum):
-    """Legacy single-league role enum. Retained for v1 compatibility until M8
-    drops the ``profiles.role`` column. New code should use :class:`SiteRole`."""
+    """Legacy single-league role enum. New code should use :class:`SiteRole`."""
 
     player = "player"
     admin = "admin"
@@ -38,14 +37,13 @@ class Profile(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
 
-    # M1 additive identity columns (nullable until M8 NOT-NULL pass).
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=False), nullable=True
     )
-    site_role: Mapped[SiteRole | None] = mapped_column(
+    site_role: Mapped[SiteRole] = mapped_column(
         Enum(SiteRole, name="site_role", create_type=False),
-        nullable=True,
+        nullable=False,
     )

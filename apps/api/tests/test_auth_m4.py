@@ -45,7 +45,7 @@ def _now() -> datetime:
 
 def _make_player(
     *,
-    email: str | None = "alice@example.com",
+    email: str = "alice@example.com",
     email_verified_at: datetime | None = None,
     role: PlayerRole = PlayerRole.player,
     failed: int = 0,
@@ -409,26 +409,7 @@ async def test_login_by_email_case_insensitive(client: AsyncClient) -> None:
     assert resp.status_code == 200
 
 
-# ---------------------------------------------------------------------------
-# Login — display_name compat path (deprecated)
-# ---------------------------------------------------------------------------
-
-
-async def test_login_by_display_name_still_works(client: AsyncClient) -> None:
-    player = _make_player(email=None)
-    mock_db = _stub_db([_scalar(player), _scalar(None)])
-
-    async with _override_db(mock_db):
-        resp = await client.post(
-            "/api/v1/auth/login",
-            json={"display_name": "Alice Wong", "pin": "1234"},
-        )
-
-    assert resp.status_code == 200
-    assert resp.headers.get("X-Deprecation") == "use-email"
-
-
-async def test_login_no_identifier_returns_422(client: AsyncClient) -> None:
+async def test_login_no_email_returns_422(client: AsyncClient) -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post("/api/v1/auth/login", json={"pin": "1234"})
     assert resp.status_code == 422

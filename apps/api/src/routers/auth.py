@@ -6,8 +6,8 @@ from typing import Annotated
 
 import bcrypt as _bcrypt
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field, model_validator
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,16 +64,8 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    # M4: email is the primary identifier; display_name retained for one-phase compat.
-    email: str | None = None
-    display_name: str | None = Field(None, min_length=2, max_length=30, pattern=r"^[\w\s'\-]+$")
+    email: str
     pin: str = Field(pattern=r"^\d{4,8}$")
-
-    @model_validator(mode="after")
-    def _require_identifier(self) -> "LoginRequest":
-        if not self.email and not self.display_name:
-            raise ValueError("email or display_name is required")
-        return self
 
 
 class TokenResponse(BaseModel):
@@ -372,36 +364,20 @@ async def pin_reset(
 async def login(
     request: Request,
     body: LoginRequest,
-    response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
-    using_email = bool(body.email)
-
-    if using_email:
-        result = await db.execute(
-            select(Profile).where(
-                func.lower(Profile.email) == body.email.lower(),  # type: ignore[union-attr,arg-type]
-                Profile.deleted_at.is_(None),
-            )
+    result = await db.execute(
+        select(Profile).where(
+            func.lower(Profile.email) == body.email.lower(),
+            Profile.deleted_at.is_(None),
         )
-    else:
-        # Legacy display_name path — one-phase deprecation.
-        response.headers["X-Deprecation"] = "use-email"
-        result = await db.execute(
-            select(Profile).where(
-                Profile.display_name == body.display_name,
-                Profile.deleted_at.is_(None),
-            )
-        )
+    )
 
     player = result.scalar_one_or_none()
 
     if player is None:
         verify_pin(body.pin, _DUMMY_HASH)
-        log.info(
-            "login failed — player not found",
-            using_email=using_email,
-        )
+        log.info("login failed — player not found")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     if player.locked_until and player.locked_until > _now():
@@ -439,7 +415,6 @@ async def login(
         "login successful",
         player_id=str(player.id),
         role=player.role.value,
-        using_email=using_email,
     )
     return TokenResponse(
         access_token=access,

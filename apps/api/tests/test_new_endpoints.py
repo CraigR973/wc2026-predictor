@@ -1,6 +1,5 @@
 """Tests for new endpoints in phases 2.5–2.6:
 - GET /api/v1/auth/invite/{token}  (public invite preview)
-- GET /api/v1/players/names         (public player name list)
 - GET /api/v1/admin/players         (admin player list, with include_deleted)
 """
 
@@ -156,40 +155,6 @@ async def test_invite_preview_expired() -> None:
 
     assert resp.status_code == 400
     assert "expired" in resp.json()["detail"].lower()
-
-
-# ---------------------------------------------------------------------------
-# GET /api/v1/players/names  (public)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_player_names_public() -> None:
-    p1 = _make_profile()
-    p1.display_name = "Alice"
-    p2 = _make_profile()
-    p2.display_name = "Bob"
-    mock_db = _stub_db([_scalars([p1, p2])])
-
-    async with _override_db(mock_db):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get("/api/v1/players/names")
-
-    assert resp.status_code == 200
-    names = [item["display_name"] for item in resp.json()]
-    assert names == ["Alice", "Bob"]
-
-
-@pytest.mark.asyncio
-async def test_player_names_no_auth_required() -> None:
-    mock_db = _stub_db([_scalars([])])
-
-    async with _override_db(mock_db):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            # No Authorization header
-            resp = await client.get("/api/v1/players/names")
-
-    assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------

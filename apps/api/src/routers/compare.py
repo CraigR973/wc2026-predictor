@@ -16,7 +16,6 @@ from src.models.match import Match
 from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
 from src.models.team import Team
-from src.routers._gone import gone
 from src.routers.leagues import LeagueMemberDep
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -293,10 +292,3 @@ async def compare_league_players(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/compare/{a}/{b} — retired (410 Gone)
-# ---------------------------------------------------------------------------
-
-
-@router.get("/{player_a_id}/{player_b_id}")
-async def compare_players_gone(player_a_id: str, player_b_id: str) -> None:
-    raise gone("/api/v1/leagues/{slug}/compare/{player_a_id}/{player_b_id}")

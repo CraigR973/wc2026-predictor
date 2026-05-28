@@ -25,7 +25,6 @@ from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
 from src.rate_limit import limiter, per_player_key
-from src.routers._gone import gone
 from src.services.backup import BackupInfo, create_backup, list_backups, resolve_backup_path
 from src.services.football_data import FDMatch, FootballDataClient, FootballDataError
 from src.services.knockout_advancement import (
@@ -290,15 +289,6 @@ async def list_all_players(
         for p in players
     ]
 
-
-@router.post("/invites")
-async def create_invite_gone() -> None:
-    """Retired in M5 — invites are created per-league.
-
-    Was kept alive with a ``Deprecation`` header through M3/M4; now answers
-    410 Gone, pointing at ``POST /api/v1/leagues/{slug}/invites``.
-    """
-    raise gone("/api/v1/leagues/{slug}/invites")
 
 
 @router.get("/invites", response_model=list[InviteResponse])

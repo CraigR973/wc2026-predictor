@@ -1,9 +1,8 @@
 """Leaderboard endpoints — per-league overall, history, and per-round.
 
-The v1 global paths (``/api/v1/leaderboard*``) were retired in M5 and now
-answer 410 Gone. Live data is served per-league under
-``/api/v1/leagues/{slug}/leaderboard*``; the league is resolved (and
-membership enforced) by the ``require_league_member`` dependency.
+Data is served per-league under ``/api/v1/leagues/{slug}/leaderboard*``;
+the league is resolved (and membership enforced) by the
+``require_league_member`` dependency.
 """
 
 import uuid
@@ -23,14 +22,10 @@ from src.models.prediction import LeaderboardSnapshot, Prediction
 from src.models.profile import Profile
 from src.models.team import TournamentStage
 from src.rate_limit import limiter, per_player_key
-from src.routers._gone import gone
 from src.routers.leagues import LeagueMemberDep
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
-# Retired v1 surface — answers 410 Gone, pointing at the per-league successor.
-router = APIRouter(prefix="/api/v1/leaderboard", tags=["leaderboard"])
-# Live per-league surface.
 league_router = APIRouter(prefix="/api/v1/leagues", tags=["leaderboard"])
 
 
@@ -249,22 +244,3 @@ async def get_league_round_leaderboard(
     _player, league = ctx
     return await _round_leaderboard(db, league.id, stage, include_inactive=include_inactive)
 
-
-# ---------------------------------------------------------------------------
-# Retired v1 paths — 410 Gone
-# ---------------------------------------------------------------------------
-
-
-@router.get("")
-async def get_leaderboard_gone() -> None:
-    raise gone("/api/v1/leagues/{slug}/leaderboard")
-
-
-@router.get("/history")
-async def get_leaderboard_history_gone() -> None:
-    raise gone("/api/v1/leagues/{slug}/leaderboard/history")
-
-
-@router.get("/round/{stage}")
-async def get_round_leaderboard_gone(stage: str) -> None:
-    raise gone("/api/v1/leagues/{slug}/leaderboard/round/{stage}")

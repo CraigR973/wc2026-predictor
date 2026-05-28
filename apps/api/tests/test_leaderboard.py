@@ -307,27 +307,23 @@ async def test_league_round_leaderboard_invalid_stage_returns_422() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Retired v1 paths answer 410 Gone
+# Removed v1 paths return 404
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("path", "successor"),
+    "path",
     [
-        ("/api/v1/leaderboard", "/api/v1/leagues/{slug}/leaderboard"),
-        ("/api/v1/leaderboard/history", "/api/v1/leagues/{slug}/leaderboard/history"),
-        (
-            "/api/v1/leaderboard/round/group",
-            "/api/v1/leagues/{slug}/leaderboard/round/{stage}",
-        ),
+        "/api/v1/leaderboard",
+        "/api/v1/leaderboard/history",
+        "/api/v1/leaderboard/round/group",
     ],
 )
-async def test_old_leaderboard_paths_gone(path: str, successor: str) -> None:
+async def test_old_leaderboard_paths_removed(path: str) -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get(path)
-    assert resp.status_code == 410
-    assert successor in resp.headers.get("link", "")
+    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------

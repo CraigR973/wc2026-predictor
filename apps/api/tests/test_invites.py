@@ -100,18 +100,17 @@ async def client() -> AsyncClient:
 
 
 # ---------------------------------------------------------------------------
-# POST /api/v1/admin/invites — retired in M5 (per-league invites only)
+# POST /api/v1/admin/invites — removed in M8 (per-league invites only)
 # ---------------------------------------------------------------------------
 
 
-async def test_create_invite_gone(client: AsyncClient) -> None:
-    """The global admin invite-create path is gone; invites are per-league."""
+async def test_create_invite_removed(client: AsyncClient) -> None:
+    """The global admin POST /invites route was removed; use per-league invites."""
     resp = await client.post(
         "/api/v1/admin/invites",
         json={"display_name_hint": "Alice", "expires_in_days": 7},
     )
-    assert resp.status_code == 410
-    assert "/api/v1/leagues/{slug}/invites" in resp.headers.get("link", "")
+    assert resp.status_code in (404, 405)
 
 
 # ---------------------------------------------------------------------------

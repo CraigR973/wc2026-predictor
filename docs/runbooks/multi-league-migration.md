@@ -1,17 +1,20 @@
-# Runbook: Multi-League Migration (M1)
+# Runbook: Multi-League Migration
 
-Run this when applying the first multi-league schema change (migration `011`)
-and the Steele backfill against staging or prod. The migration itself is
-additive and reversible; the backfill is idempotent.
+Complete operator checklist for applying the multi-league schema changes
+(migrations `011`–`014`) and the Steele backfill against staging or prod.
 
-The full plan lives in [`docs/multi-league-architecture.md`](../multi-league-architecture.md) — this runbook is the operator's checklist.
+Migrations 011–013 are additive and reversible. Migration 014 (NOT NULL
+constraints) is forward-only in practice — rolling it back requires
+re-allowing NULLs that should not exist.
+
+The full design lives in [`docs/multi-league-architecture.md`](../multi-league-architecture.md).
 
 ---
 
 ## Prerequisites
 
 - `DATABASE_URL` exported in the shell, pointing at the target environment.
-- Repo at the commit that ships migration 011.
+- Repo at the commit that ships migration 014 (the final M8 commit).
 - A pre-flight backup taken via [`restore.md`](restore.md) step 1.
 - `scripts/backfill_multi_league.py` reachable from repo root.
 - `apps/api/.venv` populated (`pip install -r apps/api/requirements-dev.txt`).
@@ -52,28 +55,28 @@ contains PII and must NOT be committed.
 
 ---
 
-## Step 2 — Apply migration 011
+## Step 2 — Apply migrations 011–013 (schema + backfill preparation)
 
-On the target database:
+**Skip if already applied.** `SELECT version_num FROM alembic_version` tells you where you are.
 
 ```bash
 DATABASE_URL="$TARGET_DB_URL" \
   /Users/craigrobinson/wc_2026_predictor/apps/api/.venv/bin/python \
   -m alembic -c /Users/craigrobinson/wc_2026_predictor/apps/api/alembic.ini \
-  upgrade head
+  upgrade 013
 ```
 
 Verify:
 
 ```sql
-SELECT version_num FROM alembic_version;             -- expect '011' (or higher)
+SELECT version_num FROM alembic_version;             -- expect '013'
 SELECT to_regclass('public.leagues');                -- expect 'leagues'
 SELECT to_regclass('public.league_memberships');     -- expect 'league_memberships'
 SELECT to_regclass('public.league_join_requests');   -- expect 'league_join_requests'
 SELECT column_name FROM information_schema.columns
   WHERE table_name = 'profiles' AND column_name IN (
     'email','first_name','last_name','email_verified_at','site_role'
-  );                                                  -- expect all 5
+  );                                                  -- expect all 5 (nullable at this stage)
 ```
 
 ---
@@ -161,7 +164,44 @@ SELECT count(*) AS missing_site_role FROM profiles
 
 ---
 
-## Step 6 — Smoke test (staging only)
+## Step 6 — Apply migration 014 (NOT NULL constraints)
+
+**Run only after the backfill has been applied and Step 5 confirms zero NULLs.**
+Migration 014 has a built-in guard that aborts if any active profile has a
+NULL identity field, so it is safe to run and will tell you exactly how many
+rows need fixing if you've missed any.
+
+```bash
+DATABASE_URL="$TARGET_DB_URL" \
+  /Users/craigrobinson/wc_2026_predictor/apps/api/.venv/bin/python \
+  -m alembic -c /Users/craigrobinson/wc_2026_predictor/apps/api/alembic.ini \
+  upgrade 014
+```
+
+Verify:
+
+```sql
+SELECT version_num FROM alembic_version;  -- expect '014'
+
+-- Columns are now NOT NULL
+SELECT column_name, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'profiles'
+  AND column_name IN ('email', 'first_name', 'last_name', 'site_role');
+-- All four rows: is_nullable = 'NO'
+
+-- Full unique index (no WHERE clause) replaces the partial one
+SELECT indexname, indexdef FROM pg_indexes
+WHERE tablename = 'profiles' AND indexname = 'ix_profiles_email_unique_lower';
+-- indexdef should NOT contain 'WHERE'
+```
+
+If the migration aborts with a NULL-count error, rerun the backfill against
+the affected profiles (see Step 4), then retry.
+
+---
+
+## Step 7 — Smoke test (staging only)
 
 After staging cutover:
 
@@ -169,8 +209,9 @@ After staging cutover:
 curl -sf https://<staging-api>/api/v1/health
 ```
 
-Existing v1 endpoints (login, predictions, leaderboard) must continue to
-work. There is no new frontend route yet — M1 is schema-only.
+All endpoints must continue to work. Verify email-based login works and that
+the deprecated paths (`/api/v1/leaderboard`, `/api/v1/players`, etc.) return
+404 — not 410.
 
 ---
 
@@ -204,4 +245,4 @@ target if the issue is broader than the schema alone.
 - The script writes `email_verified_at = NOW()` only for the operator
   (`display_name = 'Craig'`). Everyone else verifies via the M4 flow.
 - Per-profile `site_role` derives from the legacy `profiles.role` column:
-  `admin → superadmin`, `player → user`. The legacy column is dropped in M8.
+  `admin → superadmin`, `player → user`.

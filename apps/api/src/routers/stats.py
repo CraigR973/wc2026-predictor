@@ -13,7 +13,6 @@ from src.auth import CurrentPlayer
 from src.database import get_db
 from src.models.league_membership import LeagueMembership
 from src.models.profile import Profile
-from src.routers._gone import gone
 from src.routers.leagues import LeagueMemberDep
 from src.services.stats import PlayerStatsData, get_league_stats, get_player_stats
 
@@ -105,15 +104,6 @@ async def get_league_stats_endpoint(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/stats/league — retired (410 Gone)
-# ---------------------------------------------------------------------------
-
-
-@router.get("/league")
-async def get_league_gone() -> None:
-    raise gone("/api/v1/leagues/{slug}/stats")
-
-
 # ---------------------------------------------------------------------------
 # GET /api/v1/stats/{player_id}
 # ---------------------------------------------------------------------------

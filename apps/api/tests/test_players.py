@@ -184,10 +184,9 @@ async def test_list_league_players_requires_auth(client: AsyncClient) -> None:
     assert resp.status_code in (401, 403)
 
 
-async def test_old_players_list_path_gone(client: AsyncClient) -> None:
+async def test_old_players_list_path_removed(client: AsyncClient) -> None:
     resp = await client.get("/api/v1/players")
-    assert resp.status_code == 410
-    assert "/api/v1/leagues/{slug}/players" in resp.headers.get("link", "")
+    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
