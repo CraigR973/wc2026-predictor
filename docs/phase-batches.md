@@ -32,7 +32,7 @@ Per `docs/multi-league-architecture.md` § 8. Each row = one session. Order is s
 | ~~M2~~ | ~~🔴 Opus~~ | ~~M2~~ | ✅ Shipped 2026-05-27 |
 | ~~M3~~ | ~~🟢 Sonnet~~ | ~~M3~~ | ✅ Shipped 2026-05-27 |
 | ~~M4~~ | ~~🟢 Sonnet~~ | ~~M4~~ | ✅ Shipped 2026-05-28 |
-| M5 | 🔴 Opus | M5 | Per-league API scoping + cross-league summary endpoint + dedupedLeaderboard signature update |
+| ~~M5~~ | ~~🔴 Opus~~ | ~~M5~~ | ✅ Shipped 2026-05-28 |
 | M6 | 🟢 Sonnet | M6 | Frontend — signup, /welcome, /leagues/*, LeagueContext, TopBar switcher, login screen reshape |
 | M7 | 🟢 Sonnet | M7 | Frontend — move per-league screens under /leagues/{slug}/*, dashboard hero, superadmin all-leagues page |
 | M8 | 🟢 Sonnet | M8 | Cleanup + polish — NOT NULL constraints, deprecated endpoints removed, Playwright multi-league e2e, runbook updates, 24-48h soak |
