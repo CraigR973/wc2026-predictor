@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   CartesianGrid,
@@ -11,7 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
-import { useLeague } from '../contexts/LeagueContext';
+import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import type { HistoryEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
@@ -51,8 +52,9 @@ function buildChartData(players: HistoryEntry[]): ChartPoint[] {
 }
 
 export function LeaderboardHistoryPage() {
-  const { activeLeague } = useLeague();
-  const leagueSlug = activeLeague?.slug ?? DEFAULT_LEAGUE_SLUG;
+  const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
+  useLeagueSlugSync(slug);
+  const leagueSlug = slug;
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<HistoryEntry[]>({
     queryKey: ['leaderboard-history', leagueSlug],
@@ -108,7 +110,7 @@ export function LeaderboardHistoryPage() {
       <PageHeader
         title="Rank History"
         eyebrow="Standings"
-        back={{ to: '/leaderboard', label: 'Leaderboard' }}
+        back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Leaderboard' }}
       />
 
       {data.length === 0 ? (

@@ -24,6 +24,9 @@ const LEADERBOARD = [
   },
 ];
 
+// Slug seeded by seedAuth (matches MOCK_LEAGUE.slug)
+const SLUG = 'steele-spreadsheet';
+
 test.describe('Leaderboard', () => {
   test('shows players ranked by points', async ({ page }) => {
     await seedAuth(page);
@@ -39,7 +42,7 @@ test.describe('Leaderboard', () => {
       }),
     );
 
-    await page.goto('/leaderboard');
+    await page.goto(`/leagues/${SLUG}/leaderboard`);
 
     await expect(page.getByTestId('leaderboard-row-p1')).toBeVisible();
     await expect(page.getByTestId('leaderboard-row-p2')).toBeVisible();
@@ -66,12 +69,32 @@ test.describe('Leaderboard', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     });
 
-    await page.goto('/leaderboard');
+    await page.goto(`/leagues/${SLUG}/leaderboard`);
     await expect(page.getByTestId('leaderboard-row-p1')).toContainText('45');
 
     // Navigate away and back — triggers a fresh fetch
     await page.goto('/');
-    await page.goto('/leaderboard');
+    await page.goto(`/leagues/${SLUG}/leaderboard`);
     await expect(page.getByTestId('leaderboard-row-p1')).toContainText('52');
+  });
+
+  test('old /leaderboard URL redirects to active league leaderboard', async ({ page }) => {
+    await seedAuth(page);
+    await blockSupabase(page);
+    await catchAllApi(page);
+
+    await page.route('**/api/v1/leagues/*/leaderboard', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(LEADERBOARD),
+      }),
+    );
+
+    await page.goto('/leaderboard');
+
+    // Should redirect to per-league URL
+    await expect(page).toHaveURL(`/leagues/${SLUG}/leaderboard`);
+    await expect(page.getByTestId('leaderboard-row-p1')).toBeVisible();
   });
 });

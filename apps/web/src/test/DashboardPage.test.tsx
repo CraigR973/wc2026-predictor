@@ -73,9 +73,14 @@ describe('DashboardPage — keepPreviousData', () => {
       resolveSecondLeaderboard = res;
     });
 
+    const SUMMARY = { avg_rank: null, total_points: 0, leagues_count: 0, per_league: [] };
+
     vi.stubGlobal('fetch', (url: string) => {
       if (url.includes('/leagues/mine')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LEAGUE) });
+      }
+      if (url.includes('/cross-league-summary')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SUMMARY) });
       }
       if (url.includes('/leaderboard')) {
         leaderboardCallCount++;
@@ -85,7 +90,7 @@ describe('DashboardPage — keepPreviousData', () => {
             json: () => Promise.resolve(LEADERBOARD),
           });
         }
-        // Stall second fetch to verify keepPreviousData keeps old values visible
+        // Stall second fetch to verify stale data keeps old values visible
         return secondLeaderboardFetch.then(() => ({
           ok: true,
           json: () => Promise.resolve(LEADERBOARD),

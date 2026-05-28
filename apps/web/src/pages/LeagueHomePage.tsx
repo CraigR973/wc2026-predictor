@@ -49,7 +49,7 @@ export function LeagueHomePage() {
         </div>
         <div className="flex gap-2 shrink-0">
           <Button asChild size="sm" variant="outline">
-            <Link to={`/leagues/${slug}/members`}>Members</Link>
+            <Link to={`/leagues/${slug}/admin/members`}>Members</Link>
           </Button>
         </div>
       </div>
@@ -77,7 +77,7 @@ export function LeagueHomePage() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Standings</CardTitle>
             <Button asChild size="sm" variant="ghost" className="text-xs">
-              <Link to="/leaderboard">Full table →</Link>
+              <Link to={`/leagues/${slug}/leaderboard`}>Full table →</Link>
             </Button>
           </div>
         </CardHeader>
@@ -125,10 +125,10 @@ export function LeagueHomePage() {
 
       <div className="flex gap-3">
         <Button asChild variant="outline" className="flex-1">
-          <Link to={`/leaderboard/history`}>History</Link>
+          <Link to={`/leagues/${slug}/leaderboard/history`}>History</Link>
         </Button>
         <Button asChild variant="outline" className="flex-1">
-          <Link to={`/compare`}>Compare</Link>
+          <Link to={`/leagues/${slug}/compare`}>Compare</Link>
         </Button>
       </div>
     </div>

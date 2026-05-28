@@ -150,7 +150,7 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
       { access: playerJwt, refresh: playerRefresh, player: playerStoredJson },
     );
 
-    await page.goto('/leaderboard');
+    await page.goto(`/leagues/${LEAGUE_SLUG}/leaderboard`);
 
     // Wait for a row containing the smoke player's name.
     const playerRow = page

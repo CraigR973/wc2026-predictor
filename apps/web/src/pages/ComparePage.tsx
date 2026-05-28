@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { useLeague } from '../contexts/LeagueContext';
+import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import { cn } from '../lib/utils';
 import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -173,8 +173,9 @@ function MatchRow({ m }: { m: H2HMatchEntry }) {
 
 export function ComparePage() {
   const { player: currentUser } = useAuth();
-  const { activeLeague } = useLeague();
-  const leagueSlug = activeLeague?.slug ?? DEFAULT_LEAGUE_SLUG;
+  const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
+  useLeagueSlugSync(slug);
+  const leagueSlug = slug;
   const [searchParams, setSearchParams] = useSearchParams();
 
   const a = searchParams.get('a') ?? '';
@@ -235,7 +236,7 @@ export function ComparePage() {
       <PageHeader
         title="Head-to-Head"
         eyebrow="Compare"
-        back={{ to: '/leaderboard', label: 'Leaderboard' }}
+        back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Leaderboard' }}
       />
 
       <p className="text-text-muted text-sm font-sans">
