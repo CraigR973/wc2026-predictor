@@ -1173,3 +1173,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - mypy is now a mandatory gate: run `python -m mypy src --ignore-missing-imports` before every commit.
 
 **Next:** Multi-league batch M5 — Per-league API scoping + cross-league summary (🔴 Opus)
+
+---
+
+## Multi-league batch M5 — Per-league API scoping + cross-league summary
+**Commits:** fb1127e, 38f1a92 · CI ✅
+
+### Key facts for future sessions
+- Per-league read endpoints are a SECOND `league_router` (prefix `/api/v1/leagues`) inside `leaderboard.py`/`stats.py`/`compare.py`/`players.py`; the old `router` keeps only 410 stubs. `require_league_member`/`LeagueMemberDep` are imported from `leagues.py` (no import cycle).
+- Retired v1 paths answer 410 + `Link: <successor>; rel="successor-version"` (helper `src/routers/_gone.py`). Kept as superadmin tools (NOT moved): `GET`+`DELETE /admin/invites`, `GET`+`DELETE /admin/players`, `POST /admin/players/{id}/reset-pin`. Only `POST /admin/invites` was 410'd.
+- **Migration 013** backfills the 15 M3 league `action_type` enum values that M3 added to the Python enum (+`test_action_type_values` allowlist) but never to Postgres — M3/M4 tests mock the DB, so it only surfaced as a 500 in M5's full-stack smoke (`POST /leagues/{slug}/invites`). **M8's planned "migration 013" must become 014.**
+- Cross-league summary `GET /api/v1/me/cross-league-summary` reads the stored per-league snapshot rank (MD-13), averages only leagues with ≥3 members, and uses 3 fixed queries (no N+1).
+- Frontend is still single-league: pages fetch via a hardcoded `DEFAULT_LEAGUE_SLUG` in `apps/web/src/lib/api.ts`; `dedupedLeaderboard(entries, leagueSlug)`. LeagueContext + per-league routes are M7 — deliberate stopgap to keep CI/smoke green.
+- New DB-backed acceptance tests (cross-league avg-rank, other-league hiding, multi-league C-2 dedupe) run in CI only — they need Postgres and skip locally.
+
+**Next:** Multi-league batch M6 — Frontend — signup + league management UI (🟢 Sonnet)
