@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useLeague } from '../contexts/LeagueContext';
 import { WelcomeCard } from '../components/WelcomeCard';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
@@ -169,11 +170,13 @@ function LatestResultCard({
 function MiniLeaderboard({
   entries,
   currentPlayerId,
+  leagueSlug,
 }: {
   entries: LeaderboardEntry[];
   currentPlayerId: string;
+  leagueSlug: string;
 }) {
-  const deduped = dedupedLeaderboard(entries, DEFAULT_LEAGUE_SLUG);
+  const deduped = dedupedLeaderboard(entries, leagueSlug);
   const top5 = deduped.slice(0, 5);
   const myEntry = deduped.find((e) => e.player_id === currentPlayerId);
   const myRankInTop5 = top5.some((e) => e.player_id === currentPlayerId);
@@ -296,12 +299,14 @@ function NavCardLink({ card }: { card: NavCard }) {
 
 export function DashboardPage() {
   const { player } = useAuth();
+  const { activeLeague } = useLeague();
+  const leagueSlug = activeLeague?.slug ?? DEFAULT_LEAGUE_SLUG;
   const timezone = player?.timezone ?? 'UTC';
 
   const { data: leaderboard = [], isLoading: leaderboardLoading } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard', DEFAULT_LEAGUE_SLUG],
+    queryKey: ['leaderboard', leagueSlug],
     queryFn: () =>
-      apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/leaderboard`),
+      apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${leagueSlug}/leaderboard`),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
@@ -411,7 +416,7 @@ export function DashboardPage() {
           ))}
         </div>
       ) : leaderboard.length > 0 && player?.id ? (
-        <MiniLeaderboard entries={leaderboard} currentPlayerId={player.id} />
+        <MiniLeaderboard entries={leaderboard} currentPlayerId={player.id} leagueSlug={leagueSlug} />
       ) : null}
 
       {/* Latest result */}

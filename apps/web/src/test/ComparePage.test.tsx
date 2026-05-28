@@ -3,7 +3,10 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { LeagueProvider } from '@/contexts/LeagueContext';
 import { ComparePage } from '@/pages/ComparePage';
+
+const MOCK_LEAGUE = [{ slug: 'steele-spreadsheet', name: 'The Steele Spreadsheet', description: null, privacy: 'private', member_count: 2, max_members: null, created_at: '2026-01-01T00:00:00Z' }];
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -115,6 +118,9 @@ const H2H_EMPTY = {
 
 function makeFetch(h2hPayload: unknown = H2H_ALICE_BOB) {
   return vi.fn((url: string) => {
+    if (url.includes('/leagues/mine')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LEAGUE) });
+    }
     if (url.endsWith('/players')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(PLAYERS) });
     }
@@ -143,6 +149,7 @@ function renderPage(initialPath = '/compare', h2hPayload: unknown = H2H_ALICE_BO
     getItem: (k: string) => {
       if (k === 'wc2026_player') return storedPlayer;
       if (k === 'wc2026_access') return FAKE_JWT;
+      if (k === 'wc2026_active_league_slug') return 'steele-spreadsheet';
       return null;
     },
     setItem: vi.fn(),
@@ -156,9 +163,11 @@ function renderPage(initialPath = '/compare', h2hPayload: unknown = H2H_ALICE_BO
     <QueryClientProvider client={makeQueryClient()}>
       <MemoryRouter initialEntries={[initialPath]}>
         <AuthProvider>
-          <Routes>
-            <Route path="/compare" element={<ComparePage />} />
-          </Routes>
+          <LeagueProvider>
+            <Routes>
+              <Route path="/compare" element={<ComparePage />} />
+            </Routes>
+          </LeagueProvider>
         </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,

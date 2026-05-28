@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useLeague } from '../contexts/LeagueContext';
 import { cn } from '../lib/utils';
 import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -172,6 +173,8 @@ function MatchRow({ m }: { m: H2HMatchEntry }) {
 
 export function ComparePage() {
   const { player: currentUser } = useAuth();
+  const { activeLeague } = useLeague();
+  const leagueSlug = activeLeague?.slug ?? DEFAULT_LEAGUE_SLUG;
   const [searchParams, setSearchParams] = useSearchParams();
 
   const a = searchParams.get('a') ?? '';
@@ -185,8 +188,8 @@ export function ComparePage() {
   }, [a, b, currentUser?.id, setSearchParams]);
 
   const { data: players = [], isLoading: playersLoading } = useQuery<PlayerListItem[]>({
-    queryKey: ['players', DEFAULT_LEAGUE_SLUG],
-    queryFn: () => apiFetch<PlayerListItem[]>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/players`),
+    queryKey: ['players', leagueSlug],
+    queryFn: () => apiFetch<PlayerListItem[]>(`/api/v1/leagues/${leagueSlug}/players`),
   });
 
   const setA = (id: string) => {
@@ -213,9 +216,9 @@ export function ComparePage() {
   const bothSelected = Boolean(a && b && a !== b);
 
   const { data: h2h, isLoading: h2hLoading, error: h2hError } = useQuery<H2HResponse>({
-    queryKey: ['compare', DEFAULT_LEAGUE_SLUG, a, b],
+    queryKey: ['compare', leagueSlug, a, b],
     queryFn: () =>
-      apiFetch<H2HResponse>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/compare/${a}/${b}`),
+      apiFetch<H2HResponse>(`/api/v1/leagues/${leagueSlug}/compare/${a}/${b}`),
     enabled: bothSelected,
   });
 

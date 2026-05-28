@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './contexts/AuthContext';
+import { LeagueProvider } from './contexts/LeagueContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -16,8 +17,7 @@ import { JoinPage } from './pages/JoinPage';
 // lazy-loading it keeps those deps out of the unauthenticated /login chunk.
 const Layout = lazy(() => import('./components/Layout').then((m) => ({ default: m.Layout })));
 
-// Lazy-loaded routes: only the login + join chunks ship eagerly so the unauth
-// entry point is fast. Everything else loads after auth.
+// Lazy-loaded routes: only login + join ship eagerly so the unauth entry is fast.
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const SchedulePage = lazy(() => import('./pages/SchedulePage').then((m) => ({ default: m.SchedulePage })));
 const PredictionsPage = lazy(() => import('./pages/PredictionsPage').then((m) => ({ default: m.PredictionsPage })));
@@ -41,6 +41,19 @@ const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage').then
 const AdminSyncPage = lazy(() => import('./pages/admin/SyncPage').then((m) => ({ default: m.AdminSyncPage })));
 const AdminResultsPage = lazy(() => import('./pages/admin/ResultsPage').then((m) => ({ default: m.AdminResultsPage })));
 
+// M6 new pages
+const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })));
+const WelcomePage = lazy(() => import('./pages/WelcomePage').then((m) => ({ default: m.WelcomePage })));
+const MyLeaguesPage = lazy(() => import('./pages/MyLeaguesPage').then((m) => ({ default: m.MyLeaguesPage })));
+const CreateLeaguePage = lazy(() => import('./pages/CreateLeaguePage').then((m) => ({ default: m.CreateLeaguePage })));
+const DiscoverLeaguesPage = lazy(() => import('./pages/DiscoverLeaguesPage').then((m) => ({ default: m.DiscoverLeaguesPage })));
+const LeagueHomePage = lazy(() => import('./pages/LeagueHomePage').then((m) => ({ default: m.LeagueHomePage })));
+const LeagueMembersPage = lazy(() => import('./pages/LeagueMembersPage').then((m) => ({ default: m.LeagueMembersPage })));
+const LeagueSettingsPage = lazy(() => import('./pages/LeagueSettingsPage').then((m) => ({ default: m.LeagueSettingsPage })));
+const LeagueJoinRequestsPage = lazy(() => import('./pages/LeagueJoinRequestsPage').then((m) => ({ default: m.LeagueJoinRequestsPage })));
+const LeagueAdminInvitesPage = lazy(() => import('./pages/LeagueAdminInvitesPage').then((m) => ({ default: m.LeagueAdminInvitesPage })));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -59,6 +72,19 @@ function RouteFallback() {
   );
 }
 
+/**
+ * Wraps protected routes with LeagueProvider.
+ * Must be inside BrowserRouter (for useNavigate) and QueryClientProvider (for useQuery).
+ * /welcome lives here without Layout chrome so it can be a full-screen redirect landing.
+ */
+function LeagueAwareLayout() {
+  return (
+    <LeagueProvider>
+      <Outlet />
+    </LeagueProvider>
+  );
+}
+
 export function App() {
   return (
     <ThemeProvider>
@@ -71,40 +97,61 @@ export function App() {
           <ErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
+                {/* Public routes (no auth, no league context) */}
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
                 <Route path="/join/:token" element={<JoinPage />} />
 
-                {/* Player routes — wrapped in Layout (NavBar + main) */}
+                {/* Protected: authenticated + LeagueProvider */}
                 <Route element={<ProtectedRoute />}>
-                  <Route element={<Layout />}>
-                    <Route path="/" element={<DashboardPage />} />
-                    <Route path="/schedule" element={<SchedulePage />} />
-                    <Route path="/predictions" element={<PredictionsPage />} />
-                    <Route path="/predictions/knockout" element={<KnockoutPredictionsPage />} />
-                    <Route path="/predictions/specials" element={<SpecialsPage />} />
-                    <Route path="/bracket" element={<BracketPage />} />
-                    <Route path="/groups" element={<GroupsPage />} />
-                    <Route path="/groups/:name" element={<GroupDetailPage />} />
-                    <Route path="/matches/:id" element={<MatchDetailPage />} />
-                    <Route path="/leaderboard" element={<LeaderboardPage />} />
-                    <Route path="/leaderboard/history" element={<LeaderboardHistoryPage />} />
-                    <Route path="/leaderboard/round/:stage" element={<RoundLeaderboardPage />} />
-                    <Route path="/players/:id" element={<PlayerProfilePage />} />
-                    <Route path="/compare" element={<ComparePage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/about" element={<AboutPage />} />
-                    <Route path="/offline" element={<OfflinePage />} />
+                  <Route element={<LeagueAwareLayout />}>
+                    {/* Full-screen pages (no Layout chrome) */}
+                    <Route path="/welcome" element={<WelcomePage />} />
+
+                    {/* Standard app shell with TopBar + TabBar */}
+                    <Route element={<Layout />}>
+                      <Route path="/" element={<DashboardPage />} />
+                      <Route path="/schedule" element={<SchedulePage />} />
+                      <Route path="/predictions" element={<PredictionsPage />} />
+                      <Route path="/predictions/knockout" element={<KnockoutPredictionsPage />} />
+                      <Route path="/predictions/specials" element={<SpecialsPage />} />
+                      <Route path="/bracket" element={<BracketPage />} />
+                      <Route path="/groups" element={<GroupsPage />} />
+                      <Route path="/groups/:name" element={<GroupDetailPage />} />
+                      <Route path="/matches/:id" element={<MatchDetailPage />} />
+                      <Route path="/leaderboard" element={<LeaderboardPage />} />
+                      <Route path="/leaderboard/history" element={<LeaderboardHistoryPage />} />
+                      <Route path="/leaderboard/round/:stage" element={<RoundLeaderboardPage />} />
+                      <Route path="/players/:id" element={<PlayerProfilePage />} />
+                      <Route path="/compare" element={<ComparePage />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/about" element={<AboutPage />} />
+                      <Route path="/offline" element={<OfflinePage />} />
+
+                      {/* League management */}
+                      <Route path="/leagues" element={<MyLeaguesPage />} />
+                      <Route path="/leagues/new" element={<CreateLeaguePage />} />
+                      <Route path="/leagues/discover" element={<DiscoverLeaguesPage />} />
+                      <Route path="/leagues/:slug" element={<LeagueHomePage />} />
+                      <Route path="/leagues/:slug/members" element={<LeagueMembersPage />} />
+                      <Route path="/leagues/:slug/settings" element={<LeagueSettingsPage />} />
+                      <Route path="/leagues/:slug/requests" element={<LeagueJoinRequestsPage />} />
+                      <Route path="/leagues/:slug/admin/invites" element={<LeagueAdminInvitesPage />} />
+                    </Route>
                   </Route>
                 </Route>
 
                 {/* Admin-only routes */}
                 <Route element={<ProtectedRoute requireAdmin />}>
-                  <Route element={<Layout />}>
-                    <Route path="/admin" element={<AdminDashboardPage />} />
-                    <Route path="/admin/sync" element={<AdminSyncPage />} />
-                    <Route path="/admin/results" element={<AdminResultsPage />} />
-                    <Route path="/admin/invites" element={<AdminInvitesPage />} />
-                    <Route path="/admin/players" element={<AdminPlayersPage />} />
+                  <Route element={<LeagueAwareLayout />}>
+                    <Route element={<Layout />}>
+                      <Route path="/admin" element={<AdminDashboardPage />} />
+                      <Route path="/admin/sync" element={<AdminSyncPage />} />
+                      <Route path="/admin/results" element={<AdminResultsPage />} />
+                      <Route path="/admin/invites" element={<AdminInvitesPage />} />
+                      <Route path="/admin/players" element={<AdminPlayersPage />} />
+                    </Route>
                   </Route>
                 </Route>
 

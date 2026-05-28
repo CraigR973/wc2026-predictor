@@ -3,7 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { LeagueProvider } from '@/contexts/LeagueContext';
 import { DashboardPage } from '@/pages/DashboardPage';
+
+const MOCK_LEAGUE = [{ slug: 'steele-spreadsheet', name: 'The Steele Spreadsheet', description: null, privacy: 'private', member_count: 2, max_members: null, created_at: '2026-01-01T00:00:00Z' }];
 
 const FAKE_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwMSIsImV4cCI6OTk5OTk5OTk5OX0.fake';
 const STORED_PLAYER = JSON.stringify({
@@ -18,6 +21,7 @@ function stubAuth() {
     getItem: (k: string) => {
       if (k === 'wc2026_player') return STORED_PLAYER;
       if (k === 'wc2026_access') return FAKE_JWT;
+      if (k === 'wc2026_active_league_slug') return 'steele-spreadsheet';
       if (k === 'sss_leaderboard_hint_dismissed') return null;
       return null;
     },
@@ -70,6 +74,9 @@ describe('DashboardPage — keepPreviousData', () => {
     });
 
     vi.stubGlobal('fetch', (url: string) => {
+      if (url.includes('/leagues/mine')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LEAGUE) });
+      }
       if (url.includes('/leaderboard')) {
         leaderboardCallCount++;
         if (leaderboardCallCount === 1) {
@@ -96,7 +103,9 @@ describe('DashboardPage — keepPreviousData', () => {
       <QueryClientProvider client={qc}>
         <MemoryRouter>
           <AuthProvider>
-            <DashboardPage />
+            <LeagueProvider>
+              <DashboardPage />
+            </LeagueProvider>
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>

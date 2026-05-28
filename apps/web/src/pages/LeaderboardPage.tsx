@@ -7,6 +7,7 @@ import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import type { LeaderboardEntry } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useLeague } from '../contexts/LeagueContext';
 import { useLongPress } from '../hooks/useLongPress';
 import { dedupedLeaderboard } from '../lib/leaderboard';
 import { Skeleton } from '../components/ui/skeleton';
@@ -198,6 +199,8 @@ export function LeaderboardPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { player: currentUser } = useAuth();
+  const { activeLeague } = useLeague();
+  const leagueSlug = activeLeague?.slug ?? DEFAULT_LEAGUE_SLUG;
   const prevDataRef = useRef<LeaderboardEntry[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const reduceMotion = useReducedMotionConfig() ?? false;
@@ -209,13 +212,13 @@ export function LeaderboardPage() {
   const [pulsingIds, setPulsingIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard', DEFAULT_LEAGUE_SLUG],
+    queryKey: ['leaderboard', leagueSlug],
     queryFn: () =>
-      apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/leaderboard`),
+      apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${leagueSlug}/leaderboard`),
     staleTime: 15_000,
   });
 
-  const displayData = dedupedLeaderboard(data, DEFAULT_LEAGUE_SLUG);
+  const displayData = dedupedLeaderboard(data, leagueSlug);
 
   useEffect(() => {
     if (displayData.length === 0) return;

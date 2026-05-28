@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
+import { useLeague } from '../contexts/LeagueContext';
 import type { HistoryEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
@@ -50,10 +51,13 @@ function buildChartData(players: HistoryEntry[]): ChartPoint[] {
 }
 
 export function LeaderboardHistoryPage() {
+  const { activeLeague } = useLeague();
+  const leagueSlug = activeLeague?.slug ?? DEFAULT_LEAGUE_SLUG;
+
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<HistoryEntry[]>({
-    queryKey: ['leaderboard-history', DEFAULT_LEAGUE_SLUG],
+    queryKey: ['leaderboard-history', leagueSlug],
     queryFn: () =>
-      apiFetch<HistoryEntry[]>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/leaderboard/history`),
+      apiFetch<HistoryEntry[]>(`/api/v1/leagues/${leagueSlug}/leaderboard/history`),
     staleTime: 60_000,
   });
 

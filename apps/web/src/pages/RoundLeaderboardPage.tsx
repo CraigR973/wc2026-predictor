@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
+import { useLeague } from '../contexts/LeagueContext';
 import type { RoundEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
@@ -23,12 +24,14 @@ const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 export function RoundLeaderboardPage() {
   const { stage = 'group' } = useParams<{ stage: string }>();
   const navigate = useNavigate();
+  const { activeLeague } = useLeague();
+  const leagueSlug = activeLeague?.slug ?? DEFAULT_LEAGUE_SLUG;
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<RoundEntry[]>({
-    queryKey: ['leaderboard-round', DEFAULT_LEAGUE_SLUG, stage],
+    queryKey: ['leaderboard-round', leagueSlug, stage],
     queryFn: () =>
       apiFetch<RoundEntry[]>(
-        `/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/leaderboard/round/${stage}`,
+        `/api/v1/leagues/${leagueSlug}/leaderboard/round/${stage}`,
       ),
     staleTime: 30_000,
   });
