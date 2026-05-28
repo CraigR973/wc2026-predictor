@@ -243,4 +243,3 @@ async def get_league_round_leaderboard(
 ) -> list[RoundEntryOut]:
     _player, league = ctx
     return await _round_leaderboard(db, league.id, stage, include_inactive=include_inactive)
-

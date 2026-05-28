@@ -362,7 +362,6 @@ async def test_get_league_stats_returns_list() -> None:
     assert body[0]["avg_prediction_timing_mins"] is None
 
 
-
 @pytest.mark.asyncio
 async def test_stats_requires_auth() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

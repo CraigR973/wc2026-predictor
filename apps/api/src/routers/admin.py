@@ -232,10 +232,10 @@ async def list_all_leagues(
 ) -> list[AdminLeagueSummary]:
     """List all non-deleted leagues with their member counts. Superadmin only."""
     league_rows = (
-        await db.execute(
-            select(League).where(League.deleted_at.is_(None)).order_by(League.name)
-        )
-    ).scalars().all()
+        (await db.execute(select(League).where(League.deleted_at.is_(None)).order_by(League.name)))
+        .scalars()
+        .all()
+    )
 
     if not league_rows:
         return []
@@ -288,7 +288,6 @@ async def list_all_players(
         )
         for p in players
     ]
-
 
 
 @router.get("/invites", response_model=list[InviteResponse])

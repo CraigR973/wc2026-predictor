@@ -31,7 +31,6 @@ class PlayerProfileResponse(BaseModel):
     created_at: datetime
 
 
-
 @league_router.get("/{slug}/players", response_model=list[PlayerProfileResponse])
 async def list_league_players(
     ctx: LeagueMemberDep,
@@ -66,7 +65,6 @@ async def list_league_players(
         )
         for profile, membership in rows
     ]
-
 
 
 @router.get("/{player_id}", response_model=PlayerProfileResponse)
