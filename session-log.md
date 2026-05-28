@@ -1158,3 +1158,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `ActionType` in `notification.py` has 17 new M3 values — `test_action_type_values` in `test_models.py` is an exhaustive allowlist that must be updated whenever the enum grows.
 
 **Next:** Multi-league batch M4 — Auth refactor — email signup + verification + reset (🟢 Sonnet)
+
+---
+
+## Multi-league batch M4 — Auth refactor — email signup + verification + reset
+**Commits:** 4c0c055, 10826f2 · CI ✅
+
+### Key facts for future sessions
+- Email tokens (verify + PIN reset) are JWTs signed with `jwt_access_secret`; distinguished by a `scope` claim (`email_verify` / `pin_reset`). No new DB table — the JWT carries everything.
+- PIN reset for an unverified email silently sends a verification email instead and returns the same generic message — no enumeration leak. The check is `email_verified_at IS NULL`.
+- `LoginRequest` now accepts `email` (primary) **or** `display_name` (deprecated). The deprecated path validates `min_length=2, max_length=30, pattern=^[\w\s'\-]+$` so R1 hardening tests still pass. Deprecated path adds `X-Deprecation: use-email` response header.
+- `send_verification_email` / `send_pin_reset_email` in `src/services/email.py` are sync functions (Resend SDK is sync); called via `BackgroundTasks.add_task` — FastAPI runs them in a threadpool. Failures are logged only, never surfaced to the caller.
+- When `RESEND_API_KEY` is empty (local dev), the email service logs a warning and returns without sending — no mock needed in tests that don't care about email delivery.
+- mypy is now a mandatory gate: run `python -m mypy src --ignore-missing-imports` before every commit.
+
+**Next:** Multi-league batch M5 — Per-league API scoping + cross-league summary (🔴 Opus)
