@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { dedupedLeaderboard } from '@/lib/leaderboard';
 import type { LeaderboardEntry } from '@/lib/types';
 
+const SLUG = 'steele-spreadsheet';
+
 function makeEntry(overrides: Partial<LeaderboardEntry> & { player_id: string }): LeaderboardEntry {
   return {
     rank: 4,
@@ -22,14 +24,14 @@ describe('dedupedLeaderboard', () => {
       ...Array(3).fill(null).map(() => makeEntry({ player_id: 'p2', total_points: 0, rank: 4 })),
       ...Array(3).fill(null).map(() => makeEntry({ player_id: 'p3', total_points: 0, rank: 4 })),
     ];
-    const result = dedupedLeaderboard(entries);
+    const result = dedupedLeaderboard(entries, SLUG);
     expect(result).toHaveLength(3);
     expect(result.every((e) => e.rank === 1)).toBe(true);
     expect(new Set(result.map((e) => e.player_id)).size).toBe(3);
   });
 
   it('handles empty input', () => {
-    expect(dedupedLeaderboard([])).toEqual([]);
+    expect(dedupedLeaderboard([], SLUG)).toEqual([]);
   });
 
   it('assigns standard competition ranks (1-2-2-4 for tied second)', () => {
@@ -39,7 +41,7 @@ describe('dedupedLeaderboard', () => {
       makeEntry({ player_id: 'p3', total_points: 20, rank: 2 }),
       makeEntry({ player_id: 'p4', total_points: 10, rank: 4 }),
     ];
-    const result = dedupedLeaderboard(entries);
+    const result = dedupedLeaderboard(entries, SLUG);
     expect(result.map((e) => e.rank)).toEqual([1, 2, 2, 4]);
   });
 
@@ -48,7 +50,7 @@ describe('dedupedLeaderboard', () => {
       makeEntry({ player_id: 'p1', total_points: 10, player_name: 'First' }),
       makeEntry({ player_id: 'p1', total_points: 10, player_name: 'Duplicate' }),
     ];
-    const result = dedupedLeaderboard(entries);
+    const result = dedupedLeaderboard(entries, SLUG);
     expect(result).toHaveLength(1);
     expect(result[0].player_name).toBe('First');
   });
@@ -59,7 +61,7 @@ describe('dedupedLeaderboard', () => {
       makeEntry({ player_id: 'p1', total_points: 15, rank: 99 }),
       makeEntry({ player_id: 'p3', total_points: 10, rank: 99 }),
     ];
-    const result = dedupedLeaderboard(entries);
+    const result = dedupedLeaderboard(entries, SLUG);
     expect(result[0].player_id).toBe('p1');
     expect(result[0].rank).toBe(1);
     expect(result[1].rank).toBe(2);

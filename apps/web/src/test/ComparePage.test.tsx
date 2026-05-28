@@ -115,10 +115,10 @@ const H2H_EMPTY = {
 
 function makeFetch(h2hPayload: unknown = H2H_ALICE_BOB) {
   return vi.fn((url: string) => {
-    if (url.endsWith('/api/v1/players')) {
+    if (url.endsWith('/players')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(PLAYERS) });
     }
-    if (url.includes('/api/v1/compare/')) {
+    if (url.includes('/compare/')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(h2hPayload) });
     }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));

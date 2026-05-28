@@ -3,27 +3,51 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
-from src.auth import get_current_player
 from src.database import get_db
 from src.main import app
 from src.models.match import Match
 from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
 
+# Bound to the original function at import time, so the autouse no-op patch
+# (which reassigns the module attribute) does not shadow it in these unit tests.
+from src.routers.compare import _require_league_members
+from src.routers.leagues import require_league_member
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+SLUG = "test-league"
 PLAYER_A_ID = uuid.uuid4()
 PLAYER_B_ID = uuid.uuid4()
 MATCH_1_ID = uuid.uuid4()
 MATCH_2_ID = uuid.uuid4()
+
+
+def _league() -> MagicMock:
+    league = MagicMock()
+    league.id = uuid.uuid4()
+    return league
+
+
+@pytest.fixture(autouse=True)
+def _skip_member_check() -> Iterator[None]:
+    """Per-league compare verifies membership separately; the unit tests mock
+    only the comparison query order, so no-op the membership guard here."""
+    with patch(
+        "src.routers.compare._require_league_members",
+        new=AsyncMock(return_value=None),
+    ):
+        yield
 
 
 def _profile(pid: uuid.UUID, name: str) -> MagicMock:
@@ -154,11 +178,11 @@ async def test_compare_returns_correct_winner_summary() -> None:
         _profile(PLAYER_A_ID, "Alice"), _profile(PLAYER_B_ID, "Bob"), group_rows, []
     )
 
-    app.dependency_overrides[get_current_player] = lambda: _requester()
+    app.dependency_overrides[require_league_member] = lambda: (_requester(), _league())
     app.dependency_overrides[get_db] = _db_with(mock_db)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(f"/api/v1/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
+            resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
     finally:
         app.dependency_overrides.clear()
 
@@ -184,11 +208,11 @@ async def test_compare_draw_when_equal_points() -> None:
         [],
     )
 
-    app.dependency_overrides[get_current_player] = lambda: _requester()
+    app.dependency_overrides[require_league_member] = lambda: (_requester(), _league())
     app.dependency_overrides[get_db] = _db_with(mock_db)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(f"/api/v1/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
+            resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
     finally:
         app.dependency_overrides.clear()
 
@@ -210,11 +234,11 @@ async def test_compare_edge_case_one_player_missing_prediction() -> None:
         [],
     )
 
-    app.dependency_overrides[get_current_player] = lambda: _requester()
+    app.dependency_overrides[require_league_member] = lambda: (_requester(), _league())
     app.dependency_overrides[get_db] = _db_with(mock_db)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(f"/api/v1/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
+            resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
     finally:
         app.dependency_overrides.clear()
 
@@ -237,11 +261,11 @@ async def test_compare_includes_knockout_predictions() -> None:
         [(ko_a, ko_match), (ko_b, ko_match)],
     )
 
-    app.dependency_overrides[get_current_player] = lambda: _requester()
+    app.dependency_overrides[require_league_member] = lambda: (_requester(), _league())
     app.dependency_overrides[get_db] = _db_with(mock_db)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(f"/api/v1/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
+            resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
     finally:
         app.dependency_overrides.clear()
 
@@ -261,11 +285,11 @@ async def test_compare_empty_when_no_settled_predictions() -> None:
         [],
     )
 
-    app.dependency_overrides[get_current_player] = lambda: _requester()
+    app.dependency_overrides[require_league_member] = lambda: (_requester(), _league())
     app.dependency_overrides[get_db] = _db_with(mock_db)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(f"/api/v1/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
+            resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
     finally:
         app.dependency_overrides.clear()
 
@@ -283,11 +307,11 @@ async def test_compare_404_unknown_player_a() -> None:
     result.scalar_one_or_none.return_value = None
     mock_db.execute = AsyncMock(return_value=result)
 
-    app.dependency_overrides[get_current_player] = lambda: _requester()
+    app.dependency_overrides[require_league_member] = lambda: (_requester(), _league())
     app.dependency_overrides[get_db] = _db_with(mock_db)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(f"/api/v1/compare/{uuid.uuid4()}/{uuid.uuid4()}")
+            resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{uuid.uuid4()}/{uuid.uuid4()}")
     finally:
         app.dependency_overrides.clear()
 
@@ -311,11 +335,11 @@ async def test_compare_404_unknown_player_b() -> None:
     mock_db = AsyncMock()
     mock_db.execute = AsyncMock(side_effect=side_effect)
 
-    app.dependency_overrides[get_current_player] = lambda: _requester()
+    app.dependency_overrides[require_league_member] = lambda: (_requester(), _league())
     app.dependency_overrides[get_db] = _db_with(mock_db)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(f"/api/v1/compare/{PLAYER_A_ID}/{uuid.uuid4()}")
+            resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{PLAYER_A_ID}/{uuid.uuid4()}")
     finally:
         app.dependency_overrides.clear()
 
@@ -325,7 +349,7 @@ async def test_compare_404_unknown_player_b() -> None:
 @pytest.mark.asyncio
 async def test_compare_requires_auth() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get(f"/api/v1/compare/{uuid.uuid4()}/{uuid.uuid4()}")
+        resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{uuid.uuid4()}/{uuid.uuid4()}")
     assert resp.status_code == 401
 
 
@@ -347,14 +371,46 @@ async def test_compare_matches_sorted_by_kickoff() -> None:
         [],
     )
 
-    app.dependency_overrides[get_current_player] = lambda: _requester()
+    app.dependency_overrides[require_league_member] = lambda: (_requester(), _league())
     app.dependency_overrides[get_db] = _db_with(mock_db)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(f"/api/v1/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
+            resp = await client.get(f"/api/v1/leagues/{SLUG}/compare/{PLAYER_A_ID}/{PLAYER_B_ID}")
     finally:
         app.dependency_overrides.clear()
 
     body = resp.json()
     assert body["matches"][0]["player_a_points"] == 3  # early match first
     assert body["matches"][1]["player_a_points"] == 5  # late match second
+
+
+# ---------------------------------------------------------------------------
+# Per-league membership guard
+# ---------------------------------------------------------------------------
+
+
+def _members_db(member_ids: list[uuid.UUID]) -> AsyncMock:
+    mock_db = AsyncMock()
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = member_ids
+    mock_db.execute = AsyncMock(return_value=result)
+    return mock_db
+
+
+@pytest.mark.asyncio
+async def test_require_league_members_passes_when_both_members() -> None:
+    league_id = uuid.uuid4()
+    await _require_league_members(
+        league_id, [PLAYER_A_ID, PLAYER_B_ID], _members_db([PLAYER_A_ID, PLAYER_B_ID])
+    )
+
+
+@pytest.mark.asyncio
+async def test_require_league_members_404_when_one_is_not_a_member() -> None:
+    league_id = uuid.uuid4()
+    # Only player A is in the league; B is a member of some other league.
+    with pytest.raises(HTTPException) as exc:
+        await _require_league_members(
+            league_id, [PLAYER_A_ID, PLAYER_B_ID], _members_db([PLAYER_A_ID])
+        )
+    assert exc.value.status_code == 404

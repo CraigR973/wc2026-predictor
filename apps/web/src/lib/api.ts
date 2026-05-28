@@ -12,6 +12,14 @@ if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
 }
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
+/**
+ * Default league slug for screens not yet migrated to the per-league
+ * LeagueContext (arrives in M6/M7). Mirrors the backend's M2 default so the
+ * existing single-league UI keeps resolving to The Steele Spreadsheet after
+ * the M5 endpoint move under /api/v1/leagues/{slug}/.
+ */
+export const DEFAULT_LEAGUE_SLUG = 'steele-spreadsheet';
+
 let refreshPromise: Promise<void> | null = null;
 
 async function silentRefresh(): Promise<void> {

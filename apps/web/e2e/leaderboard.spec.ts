@@ -31,7 +31,7 @@ test.describe('Leaderboard', () => {
     // catchAllApi FIRST, specific route registered after takes priority (LIFO)
     await catchAllApi(page);
 
-    await page.route('**/api/v1/leaderboard', (route) =>
+    await page.route('**/api/v1/leagues/*/leaderboard', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -54,7 +54,7 @@ test.describe('Leaderboard', () => {
     await catchAllApi(page);
 
     let callCount = 0;
-    await page.route('**/api/v1/leaderboard', (route) => {
+    await page.route('**/api/v1/leagues/*/leaderboard', (route) => {
       callCount++;
       const data =
         callCount === 1

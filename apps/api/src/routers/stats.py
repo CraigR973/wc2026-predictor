@@ -11,12 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
+from src.models.league_membership import LeagueMembership
 from src.models.profile import Profile
+from src.routers._gone import gone
+from src.routers.leagues import LeagueMemberDep
 from src.services.stats import PlayerStatsData, get_league_stats, get_player_stats
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/stats", tags=["stats"])
+league_router = APIRouter(prefix="/api/v1/leagues", tags=["stats"])
 
 
 # ---------------------------------------------------------------------------
@@ -73,17 +77,41 @@ async def get_my_stats(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/stats/league
+# GET /api/v1/leagues/{slug}/stats
 # ---------------------------------------------------------------------------
 
 
-@router.get("/league", response_model=list[PlayerStatsOut])
-async def get_league(
-    _player: CurrentPlayer,
+@league_router.get("/{slug}/stats", response_model=list[PlayerStatsOut])
+async def get_league_stats_endpoint(
+    ctx: LeagueMemberDep,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PlayerStatsOut]:
-    stats_list = await get_league_stats(db)
+    """Per-player stats for the active members of one league."""
+    _player, league = ctx
+    member_ids = (
+        (
+            await db.execute(
+                select(LeagueMembership.player_id).where(
+                    LeagueMembership.league_id == league.id,
+                    LeagueMembership.deleted_at.is_(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    stats_list = await get_league_stats(db, player_ids=list(member_ids))
     return [_to_out(s) for s in stats_list]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/stats/league — retired (410 Gone)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/league")
+async def get_league_gone() -> None:
+    raise gone("/api/v1/leagues/{slug}/stats")
 
 
 # ---------------------------------------------------------------------------

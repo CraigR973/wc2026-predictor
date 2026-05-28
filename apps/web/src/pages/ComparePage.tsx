@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { Skeleton } from '../components/ui/skeleton';
@@ -185,8 +185,8 @@ export function ComparePage() {
   }, [a, b, currentUser?.id, setSearchParams]);
 
   const { data: players = [], isLoading: playersLoading } = useQuery<PlayerListItem[]>({
-    queryKey: ['players', 'all'],
-    queryFn: () => apiFetch<PlayerListItem[]>('/api/v1/players'),
+    queryKey: ['players', DEFAULT_LEAGUE_SLUG],
+    queryFn: () => apiFetch<PlayerListItem[]>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/players`),
   });
 
   const setA = (id: string) => {
@@ -213,8 +213,9 @@ export function ComparePage() {
   const bothSelected = Boolean(a && b && a !== b);
 
   const { data: h2h, isLoading: h2hLoading, error: h2hError } = useQuery<H2HResponse>({
-    queryKey: ['compare', a, b],
-    queryFn: () => apiFetch<H2HResponse>(`/api/v1/compare/${a}/${b}`),
+    queryKey: ['compare', DEFAULT_LEAGUE_SLUG, a, b],
+    queryFn: () =>
+      apiFetch<H2HResponse>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/compare/${a}/${b}`),
     enabled: bothSelected,
   });
 

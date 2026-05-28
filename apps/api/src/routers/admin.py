@@ -7,23 +7,23 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth import AdminPlayer, generate_opaque_token, hash_pin
+from src.auth import AdminPlayer, hash_pin
 from src.config import settings
 from src.database import get_db
 from src.models.group import Group
 from src.models.invite import Invite
-from src.models.league import League
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
 from src.rate_limit import limiter, per_player_key
+from src.routers._gone import gone
 from src.services.backup import BackupInfo, create_backup, list_backups, resolve_backup_path
 from src.services.football_data import FDMatch, FootballDataClient, FootballDataError
 from src.services.knockout_advancement import (
@@ -46,11 +46,6 @@ log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
-# M2 — until M3 ships league-aware invite creation the global admin invite
-# endpoint pins new invites to the Steele Spreadsheet so the existing UI
-# keeps working unchanged.
-_M2_DEFAULT_LEAGUE_SLUG = "steele-spreadsheet"
-
 
 def _now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
@@ -59,11 +54,6 @@ def _now() -> datetime:
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
-
-
-class CreateInviteRequest(BaseModel):
-    display_name_hint: str | None = None
-    expires_in_days: int | None = Field(default=7, ge=1, le=30)
 
 
 class InviteResponse(BaseModel):
@@ -251,46 +241,14 @@ async def list_all_players(
     ]
 
 
-@router.post("/invites", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
-async def create_invite(
-    body: CreateInviteRequest,
-    admin: AdminPlayer,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    response: Response,
-) -> InviteResponse:
-    expires_at = None
-    if body.expires_in_days is not None:
-        expires_at = _now() + timedelta(days=body.expires_in_days)
+@router.post("/invites")
+async def create_invite_gone() -> None:
+    """Retired in M5 — invites are created per-league.
 
-    league_id_result = await db.execute(
-        select(League.id).where(League.slug == _M2_DEFAULT_LEAGUE_SLUG)
-    )
-    default_league_id = league_id_result.scalar_one_or_none()
-    if default_league_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Default league is not configured",
-        )
-
-    invite = Invite(
-        token=generate_opaque_token(),
-        display_name_hint=body.display_name_hint,
-        league_id=default_league_id,
-        created_by=admin.id,
-        expires_at=expires_at,
-        is_active=True,
-        created_at=_now(),
-    )
-    db.add(invite)
-    await db.commit()
-    await db.refresh(invite)
-
-    # M3: per-league invite endpoint ships at POST /api/v1/leagues/{slug}/invites.
-    # This global path is kept working until M5 removes it.
-    response.headers["Deprecation"] = "true"
-    response.headers["Link"] = '</api/v1/leagues/{slug}/invites>; rel="successor-version"'
-    log.info("invite created", invite_id=str(invite.id), admin_id=str(admin.id))
-    return _to_response(invite)
+    Was kept alive with a ``Deprecation`` header through M3/M4; now answers
+    410 Gone, pointing at ``POST /api/v1/leagues/{slug}/invites``.
+    """
+    raise gone("/api/v1/leagues/{slug}/invites")
 
 
 @router.get("/invites", response_model=list[InviteResponse])

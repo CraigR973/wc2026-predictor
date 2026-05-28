@@ -11,12 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
+from src.models.league_membership import LeagueMembership
 from src.models.match import Match
 from src.models.prediction import Prediction
 from src.models.profile import Profile
 from src.models.team import Team
+from src.routers._gone import gone
+from src.routers.leagues import LeagueMemberDep
 
 router = APIRouter(prefix="/api/v1/players", tags=["players"])
+league_router = APIRouter(prefix="/api/v1/leagues", tags=["players"])
 
 
 class PlayerProfileResponse(BaseModel):
@@ -45,16 +49,45 @@ async def list_player_names(
     return [PlayerNameItem(id=str(p.id), display_name=p.display_name) for p in players]
 
 
-@router.get("", response_model=list[PlayerProfileResponse])
-async def list_players(
-    _player: CurrentPlayer,
+@league_router.get("/{slug}/players", response_model=list[PlayerProfileResponse])
+async def list_league_players(
+    ctx: LeagueMemberDep,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PlayerProfileResponse]:
-    result = await db.execute(
-        select(Profile).where(Profile.deleted_at.is_(None)).order_by(Profile.created_at)
-    )
-    players = result.scalars().all()
-    return [_to_response(p) for p in players]
+    """Active members of one league, in join order.
+
+    Replaces the v1 global player list. ``role`` is the per-league membership
+    role and ``display_name`` honours any per-league override (MD-11).
+    """
+    _player, league = ctx
+    rows = (
+        await db.execute(
+            select(Profile, LeagueMembership)
+            .join(LeagueMembership, LeagueMembership.player_id == Profile.id)
+            .where(
+                LeagueMembership.league_id == league.id,
+                LeagueMembership.deleted_at.is_(None),
+                Profile.deleted_at.is_(None),
+            )
+            .order_by(LeagueMembership.joined_at)
+        )
+    ).all()
+    return [
+        PlayerProfileResponse(
+            id=str(profile.id),
+            display_name=membership.display_name_override or profile.display_name,
+            role=membership.role.value,
+            timezone=profile.timezone,
+            is_deleted=profile.deleted_at is not None,
+            created_at=profile.created_at,
+        )
+        for profile, membership in rows
+    ]
+
+
+@router.get("")
+async def list_players_gone() -> None:
+    raise gone("/api/v1/leagues/{slug}/players")
 
 
 @router.get("/{player_id}", response_model=PlayerProfileResponse)

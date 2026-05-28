@@ -14,10 +14,50 @@ from src.auth import get_current_player, require_admin
 from src.database import get_db
 from src.main import app
 from src.models.profile import PlayerRole, Profile
+from src.routers.leagues import require_league_member
+
+SLUG = "test-league"
 
 
 def _now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _league() -> MagicMock:
+    league = MagicMock()
+    league.id = uuid.uuid4()
+    return league
+
+
+def _membership(role: str = "player", override: str | None = None) -> MagicMock:
+    m = MagicMock()
+    m.role = MagicMock()
+    m.role.value = role
+    m.display_name_override = override
+    m.joined_at = _now()
+    return m
+
+
+def _rows(items: list) -> MagicMock:
+    r = MagicMock()
+    r.all.return_value = items
+    return r
+
+
+@asynccontextmanager
+async def _override_member_and_db(
+    mock_db: AsyncMock, player: Profile
+) -> AsyncGenerator[None, None]:
+    async def _fake_db() -> AsyncGenerator[AsyncSession, None]:
+        yield mock_db
+
+    app.dependency_overrides[get_db] = _fake_db
+    app.dependency_overrides[require_league_member] = lambda: (player, _league())
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(require_league_member, None)
 
 
 def _make_profile(
@@ -43,12 +83,6 @@ def _stub_db(execute_results: list) -> AsyncMock:
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
     mock_db.add = MagicMock()
     return mock_db
-
-
-def _scalars(items: list) -> MagicMock:
-    r = MagicMock()
-    r.scalars.return_value.all.return_value = items
-    return r
 
 
 def _scalar(value: object) -> MagicMock:
@@ -100,38 +134,60 @@ async def client() -> AsyncClient:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/players
+# GET /api/v1/leagues/{slug}/players
 # ---------------------------------------------------------------------------
 
 
-async def test_list_players_returns_active(client: AsyncClient) -> None:
+async def test_list_league_players_returns_members(client: AsyncClient) -> None:
     caller = _make_profile(display_name="Caller")
-    players = [_make_profile(display_name="Alice"), _make_profile(display_name="Bob")]
-    mock_db = _stub_db([_scalars(players)])
+    rows = [
+        (_make_profile(display_name="Alice"), _membership(role="admin")),
+        (_make_profile(display_name="Bob"), _membership(role="player")),
+    ]
+    mock_db = _stub_db([_rows(rows)])
 
-    async with _override_player_and_db(mock_db, caller):
-        resp = await client.get("/api/v1/players")
+    async with _override_member_and_db(mock_db, caller):
+        resp = await client.get(f"/api/v1/leagues/{SLUG}/players")
 
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert len(data) == 2
+    assert {p["role"] for p in data} == {"admin", "player"}
     assert all(not p["is_deleted"] for p in data)
 
 
-async def test_list_players_empty(client: AsyncClient) -> None:
-    caller = _make_profile()
-    mock_db = _stub_db([_scalars([])])
+async def test_list_league_players_honours_display_override(client: AsyncClient) -> None:
+    caller = _make_profile(display_name="Caller")
+    rows = [(_make_profile(display_name="Craig Robinson"), _membership(override="Gaffer"))]
+    mock_db = _stub_db([_rows(rows)])
 
-    async with _override_player_and_db(mock_db, caller):
-        resp = await client.get("/api/v1/players")
+    async with _override_member_and_db(mock_db, caller):
+        resp = await client.get(f"/api/v1/leagues/{SLUG}/players")
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()[0]["display_name"] == "Gaffer"
+
+
+async def test_list_league_players_empty(client: AsyncClient) -> None:
+    caller = _make_profile()
+    mock_db = _stub_db([_rows([])])
+
+    async with _override_member_and_db(mock_db, caller):
+        resp = await client.get(f"/api/v1/leagues/{SLUG}/players")
 
     assert resp.status_code == 200
     assert resp.json() == []
 
 
-async def test_list_players_requires_auth(client: AsyncClient) -> None:
-    resp = await client.get("/api/v1/players")
+async def test_list_league_players_requires_auth(client: AsyncClient) -> None:
+    resp = await client.get(f"/api/v1/leagues/{SLUG}/players")
     assert resp.status_code in (401, 403)
+
+
+async def test_old_players_list_path_gone(client: AsyncClient) -> None:
+    resp = await client.get("/api/v1/players")
+    assert resp.status_code == 410
+    assert "/api/v1/leagues/{slug}/players" in resp.headers.get("link", "")
 
 
 # ---------------------------------------------------------------------------
@@ -204,14 +260,14 @@ async def test_delete_player_not_found(client: AsyncClient) -> None:
 
 
 async def test_delete_player_hidden_from_list(client: AsyncClient) -> None:
-    """After soft-delete, player does not appear in active list."""
+    """After soft-delete, player does not appear in the league member list."""
     caller = _make_profile()
     # Soft-deleted players are excluded from the query at the DB layer;
     # the mock returns empty list simulating that filter.
-    mock_db = _stub_db([_scalars([])])
+    mock_db = _stub_db([_rows([])])
 
-    async with _override_player_and_db(mock_db, caller):
-        resp = await client.get("/api/v1/players")
+    async with _override_member_and_db(mock_db, caller):
+        resp = await client.get(f"/api/v1/leagues/{SLUG}/players")
 
     assert resp.status_code == 200
     assert resp.json() == []

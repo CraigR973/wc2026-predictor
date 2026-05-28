@@ -76,11 +76,6 @@ def _scalar(value: object) -> MagicMock:
     return r
 
 
-def _default_league_lookup() -> MagicMock:
-    """Mock the M2 default-league id lookup that create_invite runs."""
-    return _scalar(uuid.uuid4())
-
-
 @asynccontextmanager
 async def _override_db_and_admin(mock_db: AsyncMock, admin: Profile) -> AsyncGenerator[None, None]:
     async def _fake_db() -> AsyncGenerator[AsyncSession, None]:
@@ -105,49 +100,18 @@ async def client() -> AsyncClient:
 
 
 # ---------------------------------------------------------------------------
-# POST /api/v1/admin/invites
+# POST /api/v1/admin/invites — retired in M5 (per-league invites only)
 # ---------------------------------------------------------------------------
 
 
-async def test_create_invite_success(client: AsyncClient) -> None:
-    admin = _make_admin()
-    mock_db = _stub_db([_default_league_lookup()])
-    # refresh sets the invite attributes after commit
-    mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
-
-    async with _override_db_and_admin(mock_db, admin):
-        resp = await client.post(
-            "/api/v1/admin/invites",
-            json={"display_name_hint": "Alice", "expires_in_days": 7},
-        )
-
-    assert resp.status_code == 201, resp.text
-    data = resp.json()
-    assert "token" in data
-    assert data["is_active"] is True
-    assert data["claimed_by"] is None
-
-
-async def test_create_invite_no_hint(client: AsyncClient) -> None:
-    admin = _make_admin()
-    mock_db = _stub_db([_default_league_lookup()])
-
-    async with _override_db_and_admin(mock_db, admin):
-        resp = await client.post("/api/v1/admin/invites", json={})
-
-    assert resp.status_code == 201, resp.text
-    assert resp.json()["display_name_hint"] is None
-
-
-async def test_create_invite_no_expiry(client: AsyncClient) -> None:
-    admin = _make_admin()
-    mock_db = _stub_db([_default_league_lookup()])
-
-    async with _override_db_and_admin(mock_db, admin):
-        resp = await client.post("/api/v1/admin/invites", json={"expires_in_days": None})
-
-    assert resp.status_code == 201, resp.text
-    assert resp.json()["expires_at"] is None
+async def test_create_invite_gone(client: AsyncClient) -> None:
+    """The global admin invite-create path is gone; invites are per-league."""
+    resp = await client.post(
+        "/api/v1/admin/invites",
+        json={"display_name_hint": "Alice", "expires_in_days": 7},
+    )
+    assert resp.status_code == 410
+    assert "/api/v1/leagues/{slug}/invites" in resp.headers.get("link", "")
 
 
 # ---------------------------------------------------------------------------

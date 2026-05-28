@@ -38,10 +38,10 @@ test.describe('Head-to-head comparison', () => {
     await blockSupabase(page);
     await catchAllApi(page);
 
-    await page.route('**/api/v1/players', (route) =>
+    await page.route('**/api/v1/leagues/*/players', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYERS) }),
     );
-    await page.route('**/api/v1/compare/p1/p2', (route) =>
+    await page.route('**/api/v1/leagues/*/compare/p1/p2', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(H2H) }),
     );
 
@@ -56,10 +56,10 @@ test.describe('Head-to-head comparison', () => {
     await blockSupabase(page);
     await catchAllApi(page);
 
-    await page.route('**/api/v1/players', (route) =>
+    await page.route('**/api/v1/leagues/*/players', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYERS) }),
     );
-    await page.route('**/api/v1/compare/**', (route) =>
+    await page.route('**/api/v1/leagues/*/compare/**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(H2H) }),
     );
 

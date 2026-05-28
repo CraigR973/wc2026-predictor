@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { apiFetch } from '../lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import type { HistoryEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
@@ -51,8 +51,9 @@ function buildChartData(players: HistoryEntry[]): ChartPoint[] {
 
 export function LeaderboardHistoryPage() {
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<HistoryEntry[]>({
-    queryKey: ['leaderboard-history'],
-    queryFn: () => apiFetch<HistoryEntry[]>('/api/v1/leaderboard/history'),
+    queryKey: ['leaderboard-history', DEFAULT_LEAGUE_SLUG],
+    queryFn: () =>
+      apiFetch<HistoryEntry[]>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/leaderboard/history`),
     staleTime: 60_000,
   });
 

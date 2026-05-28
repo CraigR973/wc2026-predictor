@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotionConfig } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, ChevronDown, X } from 'lucide-react';
-import { apiFetch } from '../lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import type { LeaderboardEntry } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -209,12 +209,13 @@ export function LeaderboardPage() {
   const [pulsingIds, setPulsingIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard'],
-    queryFn: () => apiFetch<LeaderboardEntry[]>('/api/v1/leaderboard'),
+    queryKey: ['leaderboard', DEFAULT_LEAGUE_SLUG],
+    queryFn: () =>
+      apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/leaderboard`),
     staleTime: 15_000,
   });
 
-  const displayData = dedupedLeaderboard(data);
+  const displayData = dedupedLeaderboard(data, DEFAULT_LEAGUE_SLUG);
 
   useEffect(() => {
     if (displayData.length === 0) return;

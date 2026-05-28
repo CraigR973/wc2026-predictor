@@ -8,7 +8,7 @@ import {
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
-import { apiFetch } from '../lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { WelcomeCard } from '../components/WelcomeCard';
 import { useCountdown } from '../hooks/useCountdown';
@@ -173,7 +173,7 @@ function MiniLeaderboard({
   entries: LeaderboardEntry[];
   currentPlayerId: string;
 }) {
-  const deduped = dedupedLeaderboard(entries);
+  const deduped = dedupedLeaderboard(entries, DEFAULT_LEAGUE_SLUG);
   const top5 = deduped.slice(0, 5);
   const myEntry = deduped.find((e) => e.player_id === currentPlayerId);
   const myRankInTop5 = top5.some((e) => e.player_id === currentPlayerId);
@@ -299,8 +299,9 @@ export function DashboardPage() {
   const timezone = player?.timezone ?? 'UTC';
 
   const { data: leaderboard = [], isLoading: leaderboardLoading } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard'],
-    queryFn: () => apiFetch<LeaderboardEntry[]>('/api/v1/leaderboard'),
+    queryKey: ['leaderboard', DEFAULT_LEAGUE_SLUG],
+    queryFn: () =>
+      apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/leaderboard`),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });

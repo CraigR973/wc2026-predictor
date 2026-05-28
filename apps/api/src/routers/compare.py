@@ -10,16 +10,19 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth import CurrentPlayer
 from src.database import get_db
+from src.models.league_membership import LeagueMembership
 from src.models.match import Match
 from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
 from src.models.team import Team
+from src.routers._gone import gone
+from src.routers.leagues import LeagueMemberDep
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/compare", tags=["compare"])
+league_router = APIRouter(prefix="/api/v1/leagues", tags=["compare"])
 
 
 # ---------------------------------------------------------------------------
@@ -78,16 +81,14 @@ def _winner(pts_a: int, pts_b: int) -> str:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/compare/{player_a_id}/{player_b_id}
+# Comparison core (shared)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/{player_a_id}/{player_b_id}", response_model=H2HResponse)
-async def compare_players(
+async def _compute_h2h(
     player_a_id: uuid.UUID,
     player_b_id: uuid.UUID,
-    _player: CurrentPlayer,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    db: AsyncSession,
 ) -> H2HResponse:
     """Match-by-match head-to-head comparison between two players.
 
@@ -245,3 +246,57 @@ async def compare_players(
         ),
         matches=match_entries,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/leagues/{slug}/compare/{player_a_id}/{player_b_id}
+# ---------------------------------------------------------------------------
+
+
+async def _require_league_members(
+    league_id: uuid.UUID,
+    player_ids: list[uuid.UUID],
+    db: AsyncSession,
+) -> None:
+    """Reject the comparison unless every player is an active league member."""
+    rows = (
+        (
+            await db.execute(
+                select(LeagueMembership.player_id).where(
+                    LeagueMembership.league_id == league_id,
+                    LeagueMembership.player_id.in_(player_ids),
+                    LeagueMembership.deleted_at.is_(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if set(rows) != set(player_ids):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Both players must be members of this league",
+        )
+
+
+@league_router.get("/{slug}/compare/{player_a_id}/{player_b_id}", response_model=H2HResponse)
+async def compare_league_players(
+    player_a_id: uuid.UUID,
+    player_b_id: uuid.UUID,
+    ctx: LeagueMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> H2HResponse:
+    """Head-to-head comparison constrained to two members of one league."""
+    _player, league = ctx
+    await _require_league_members(league.id, [player_a_id, player_b_id], db)
+    return await _compute_h2h(player_a_id, player_b_id, db)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/compare/{a}/{b} — retired (410 Gone)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{player_a_id}/{player_b_id}")
+async def compare_players_gone(player_a_id: str, player_b_id: str) -> None:
+    raise gone("/api/v1/leagues/{slug}/compare/{player_a_id}/{player_b_id}")

@@ -1209,53 +1209,15 @@ async def test_privacy_change_public_request_to_open_approves_requests() -> None
 
 
 # ===========================================================================
-# Deprecation header on legacy POST /admin/invites
+# Legacy POST /admin/invites — retired to 410 Gone in M5
 # ===========================================================================
 
 
 @pytest.mark.asyncio
-async def test_legacy_create_invite_has_deprecation_header() -> None:
-    from src.auth import require_admin
-
-    admin_profile = _make_profile(role=PlayerRole.admin)
-    admin_profile.site_role = None
-
-    league_id = uuid.uuid4()
-
-    from src.models.invite import Invite as InviteModel
-
-    invite = MagicMock(spec=InviteModel)
-    invite.id = uuid.uuid4()
-    invite.token = "abc"
-    invite.display_name_hint = None
-    invite.created_by = admin_profile.id
-    invite.claimed_by = None
-    invite.claimed_at = None
-    invite.expires_at = None
-    invite.is_active = True
-    invite.created_at = _now()
-
-    mock_db = AsyncMock(spec=AsyncSession)
-    league_scalar = MagicMock()
-    league_scalar.scalar_one_or_none.return_value = league_id
-    mock_db.execute = AsyncMock(return_value=league_scalar)
-    mock_db.add = MagicMock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
-
-    async def _get_db() -> AsyncGenerator[AsyncMock, None]:
-        yield mock_db
-
-    app.dependency_overrides[get_db] = _get_db
-    app.dependency_overrides[require_admin] = lambda: admin_profile
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
-            resp = await client.post(
-                "/api/v1/admin/invites",
-                json={"display_name_hint": "Craig"},
-            )
-        assert resp.status_code == 201
-        assert "Deprecation" in resp.headers
-    finally:
-        app.dependency_overrides.pop(get_db, None)
-        app.dependency_overrides.pop(require_admin, None)
+async def test_legacy_create_invite_is_gone() -> None:
+    """The deprecated global invite-create path now answers 410, pointing at
+    the per-league successor (it carried only a Deprecation header in M3/M4)."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE) as client:
+        resp = await client.post("/api/v1/admin/invites", json={"display_name_hint": "Craig"})
+    assert resp.status_code == 410
+    assert "/api/v1/leagues/{slug}/invites" in resp.headers.get("link", "")

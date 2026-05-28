@@ -70,7 +70,7 @@ describe('DashboardPage — keepPreviousData', () => {
     });
 
     vi.stubGlobal('fetch', (url: string) => {
-      if (url.includes('/api/v1/leaderboard')) {
+      if (url.includes('/leaderboard')) {
         leaderboardCallCount++;
         if (leaderboardCallCount === 1) {
           return Promise.resolve({

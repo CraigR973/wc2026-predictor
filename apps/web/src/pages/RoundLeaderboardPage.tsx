@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import type { RoundEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
@@ -25,8 +25,11 @@ export function RoundLeaderboardPage() {
   const navigate = useNavigate();
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<RoundEntry[]>({
-    queryKey: ['leaderboard-round', stage],
-    queryFn: () => apiFetch<RoundEntry[]>(`/api/v1/leaderboard/round/${stage}`),
+    queryKey: ['leaderboard-round', DEFAULT_LEAGUE_SLUG, stage],
+    queryFn: () =>
+      apiFetch<RoundEntry[]>(
+        `/api/v1/leagues/${DEFAULT_LEAGUE_SLUG}/leaderboard/round/${stage}`,
+      ),
     staleTime: 30_000,
   });
 

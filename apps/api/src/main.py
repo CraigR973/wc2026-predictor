@@ -28,6 +28,7 @@ from src.routers import (
     league_memberships,
     leagues,
     matches,
+    me,
     notifications,
     players,
     predictions,
@@ -102,19 +103,24 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(me.router)
 app.include_router(leagues.router)
 app.include_router(league_memberships.router)
 app.include_router(league_join_requests.router)
 app.include_router(players.router)
+app.include_router(players.league_router)
 app.include_router(matches.router)
 app.include_router(groups.router)
 app.include_router(predictions.router)
 app.include_router(knockout_predictions.router)
 app.include_router(leaderboard.router)
+app.include_router(leaderboard.league_router)
 app.include_router(specials.router)
 app.include_router(specials.admin_router)
 app.include_router(stats.router)
+app.include_router(stats.league_router)
 app.include_router(compare.router)
+app.include_router(compare.league_router)
 app.include_router(notifications.router)
 
 if settings.environment != "production":

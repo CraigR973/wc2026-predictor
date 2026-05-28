@@ -1,16 +1,24 @@
 import type { LeaderboardEntry } from './types';
 
 /**
- * Deduplicate leaderboard entries by player_id (keep first occurrence) and
- * recompute ranks locally using standard competition ranking (1224 style).
- * Run defensively even after the backend dedup bug is fixed.
+ * Deduplicate leaderboard entries by (player_id, leagueSlug) (keep first
+ * occurrence) and recompute ranks locally using standard competition ranking
+ * (1224 style). Run defensively even after the backend dedup bug is fixed.
+ *
+ * Each response is already scoped to one league, so leagueSlug is constant for
+ * a given call; threading it explicitly documents intent and guards a future
+ * stacked-leagues view from collapsing the same player across leagues.
  */
-export function dedupedLeaderboard(entries: LeaderboardEntry[]): LeaderboardEntry[] {
+export function dedupedLeaderboard(
+  entries: LeaderboardEntry[],
+  leagueSlug: string,
+): LeaderboardEntry[] {
   const seen = new Set<string>();
   const unique: LeaderboardEntry[] = [];
   for (const e of entries) {
-    if (!seen.has(e.player_id)) {
-      seen.add(e.player_id);
+    const key = `${e.player_id}:${leagueSlug}`;
+    if (!seen.has(key)) {
+      seen.add(key);
       unique.push(e);
     }
   }

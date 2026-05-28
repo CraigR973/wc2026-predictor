@@ -32,7 +32,7 @@ test.describe('JWT refresh', () => {
       });
     });
 
-    await page.route('**/api/v1/leaderboard', (route) =>
+    await page.route('**/api/v1/leagues/*/leaderboard', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -73,7 +73,7 @@ test.describe('JWT refresh', () => {
     }, PLAYER);
 
     let attempt = 0;
-    await page.route('**/api/v1/leaderboard', (route) => {
+    await page.route('**/api/v1/leagues/*/leaderboard', (route) => {
       attempt++;
       if (attempt === 1) {
         route.fulfill({
