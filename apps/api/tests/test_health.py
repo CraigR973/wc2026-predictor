@@ -14,6 +14,7 @@ async def client() -> AsyncClient:
 
 # R8.1 — /health returns sha field
 
+
 async def test_health_ok_has_sha(client: AsyncClient) -> None:
     response = await client.get("/api/v1/health")
     assert response.status_code == 200
@@ -24,6 +25,7 @@ async def test_health_ok_has_sha(client: AsyncClient) -> None:
 
 async def test_health_sha_from_env(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
     import src.routers.health as h
+
     monkeypatch.setattr(h.settings, "railway_git_commit_sha", "abc1234")
     response = await client.get("/api/v1/health")
     assert response.json()["sha"] == "abc1234"
@@ -33,12 +35,14 @@ async def test_health_sha_unknown_when_unset(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import src.routers.health as h
+
     monkeypatch.setattr(h.settings, "railway_git_commit_sha", None)
     response = await client.get("/api/v1/health")
     assert response.json()["sha"] == "unknown"
 
 
 # R8.2 — /health/ready returns 503 when DB is unreachable
+
 
 async def test_ready_db_ok(client: AsyncClient) -> None:
     mock_session = AsyncMock()

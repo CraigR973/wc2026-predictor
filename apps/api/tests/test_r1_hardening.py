@@ -168,7 +168,13 @@ def test_settings_rejects_empty_frontend_origin_in_production() -> None:
 
 def test_settings_rejects_empty_database_url_in_production() -> None:
     with pytest.raises(ValidationError, match="database_url is empty"):
-        Settings(**{**_PROD_BASE, "database_url": "", "frontend_origin": "https://wc2026-prod.vercel.app"})
+        Settings(
+            **{
+                **_PROD_BASE,
+                "database_url": "",
+                "frontend_origin": "https://wc2026-prod.vercel.app",
+            }
+        )
 
 
 def test_settings_accepts_valid_prod_origin() -> None:
