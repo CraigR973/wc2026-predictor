@@ -33,7 +33,7 @@ All 59 implementation phases shipped 2026-05-17. Tournament starts 11 June 2026 
 **Goals:**
 - Tighten local mypy config to match CI (CI has `redundant-cast` enabled, local was looser; bit us once on `bootstrap_admin.py`)
 - Add `apps/web/vercel.json` with explicit SPA rewrites so the deployment config lives in the repo rather than Vercel's UI
-- Optionally add `apps/api/nixpacks.toml` pinning `postgresql-client` in the Railway image (pre-empts the `pg_dump` backup risk flagged in `deploy.md`'s "Common failure modes" table)
+- Optionally add `apps/api/nixpacks.toml` pinning `postgresql-client` in the Railway image (pre-empts the `pg_dump` backup risk flagged in `deploy.md`'s "Common failure modes" table) — **superseded:** Railway now builds the repo-root `Dockerfile` (not Nixpacks), which `apt-get install`s `postgresql-client` directly; no `nixpacks.toml` exists or is needed
 
 **Session prompt:**
 ```

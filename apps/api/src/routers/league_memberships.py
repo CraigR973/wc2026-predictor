@@ -10,9 +10,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth import generate_opaque_token, hash_pin
+from src.auth import CurrentPlayer, generate_opaque_token, hash_pin
 from src.database import get_db
 from src.models.invite import Invite
+from src.models.league import League
 from src.models.league_membership import LeagueMemberRole, LeagueMembership
 from src.models.notification import ActionType
 from src.models.profile import Profile
@@ -22,14 +23,78 @@ from src.routers.leagues import (
     LeagueMemberDep,
     MemberInfo,
     _active_admin_count,
+    _active_member_count,
     _audit,
     _now,
     _resolve_active_membership,
+    _upsert_membership,
 )
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/leagues", tags=["leagues"])
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/leagues/claim-invite
+# Authenticated player claims an invite token to join a private league.
+# Must be registered before /{slug} routes to avoid slug-capture.
+# ---------------------------------------------------------------------------
+
+
+class ClaimInviteBody(BaseModel):
+    token: str
+
+
+class ClaimInviteResponse(BaseModel):
+    league_slug: str
+    league_name: str
+
+
+@router.post("/claim-invite", response_model=ClaimInviteResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("10/hour", key_func=per_player_key)
+async def claim_invite_authenticated(
+    request: Request,
+    body: ClaimInviteBody,
+    player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ClaimInviteResponse:
+    invite_result = await db.execute(select(Invite).where(Invite.token == body.token))
+    invite = invite_result.scalar_one_or_none()
+
+    if invite is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid invite token")
+    if not invite.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has been revoked"
+        )
+    if invite.claimed_by is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
+    if invite.expires_at is not None and invite.expires_at < _now():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
+
+    league_result = await db.execute(select(League).where(League.id == invite.league_id))
+    league = league_result.scalar_one_or_none()
+    if league is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+
+    existing = await _resolve_active_membership(league.id, player.id, db)
+    if existing is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="ALREADY_MEMBER")
+
+    if await _active_member_count(league.id, db) >= league.max_members:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="LEAGUE_FULL")
+
+    await _upsert_membership(league.id, player.id, db)
+    db.add(_audit(player, ActionType.member_joined, "league_memberships", league.id))
+
+    invite.claimed_by = player.id
+    invite.claimed_at = _now()
+    invite.is_active = False
+
+    await db.commit()
+    log.info("invite claimed", league_id=str(league.id), player_id=str(player.id))
+    return ClaimInviteResponse(league_slug=league.slug, league_name=league.name)
 
 
 # ---------------------------------------------------------------------------

@@ -13,7 +13,7 @@ Run this **twice** — once for a `staging` environment, then again for `product
   - `psql` (for migrations + manual SQL)
   - `node` ≥ 20 and `pnpm`
   - Python 3.11 with the project venv at `apps/api/.venv/`
-  - `railway` CLI (`npm i -g @railway/cli`)
+  - `railway` CLI (`npm i -g @railway/cli`) — only for `railway logs`; deploys go through GitHub, not the CLI
   - `vercel` CLI (`npm i -g vercel`)
 - A working clone of this repo at `/Users/craigrobinson/wc_2026_predictor`
 - A football-data.org API key — register at <https://www.football-data.org/client/register> (free tier, requires email confirmation)
@@ -73,6 +73,11 @@ Record these in a password manager. You'll paste them into Railway + Vercel in t
 
 ## Step 3 — Apply migrations to Supabase
 
+This manual migrate is a **first-time bootstrap** only — it gets the schema in
+place so the seed in Step 4 can run before the backend service exists. From
+Step 5 on, Railway re-runs `alembic upgrade head` on every deploy (Dockerfile
+CMD), so you never run this by hand again.
+
 From the repo root, run Alembic against the new Supabase Postgres:
 
 ```bash
@@ -83,7 +88,7 @@ PYTHONPATH=/Users/craigrobinson/wc_2026_predictor/apps/api \
   upgrade head
 ```
 
-Expect 7 migrations to apply (`001_core_schema` through `007_profile_is_active`). Verify with:
+Expect 14 migrations to apply (`001_core_schema` through `014_profiles_not_null_constraints`). Verify with:
 
 ```bash
 psql "${DATABASE_URL/postgresql+asyncpg/postgres}" -c "\dt"
@@ -113,26 +118,28 @@ Expect: 12 groups, 48 teams, 72 group-stage matches loaded. Knockout matches are
 
 ## Step 5 — Deploy the backend to Railway
 
-```bash
-cd /Users/craigrobinson/wc_2026_predictor
-railway login
-railway init           # pick "Empty Project", name it wc2026-api-{staging,prod}
-railway link
-```
+The backend deploys **automatically from GitHub**. Railway watches one branch per
+service, and on every push it builds the repo-root `Dockerfile`, whose CMD runs
+`alembic upgrade head` before uvicorn. There is **no `railway up`** and **no
+manual migration step** in normal operation — this section is the one-time wiring.
 
-In the Railway dashboard, set the **Root Directory** to `apps/api` (Settings → Source → Root Directory). Without this, Railway traverses to the git root, finds `pnpm-workspace.yaml`, and misidentifies the project as Node.
-
-Confirm the start command is set to:
-
-```
-python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT
-```
+1. Railway dashboard → **New Project → Deploy from GitHub repo** → pick
+   `CraigR973/wc2026-predictor`. Name the service `wc2026-api-{staging,prod}`.
+2. **Settings → Source:**
+   - **Branch:** `staging` for the staging service, `main` for prod. Railway
+     auto-deploys that branch on every push.
+   - **Root Directory:** leave at the **repo root** (blank), *not* `apps/api`. The
+     build context must include `/migrations`, and the root `railway.toml` pins
+     `builder = "dockerfile"` so Railway will not misdetect the monorepo as Node.
+   - **Custom Start Command:** leave **empty**. The `Dockerfile` CMD already runs
+     `alembic upgrade head && uvicorn …`; a leftover start command silently skips
+     the migration step (this exact mistake once let a migration fail to run).
 
 Add **all** of these env vars in the Railway service (Settings → Variables):
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://...` (from Step 1, NOT the pooled URL) |
+| `DATABASE_URL` | `postgresql+asyncpg://...` — the **Session-pooler** URL from Step 1 (with `?prepared_statement_cache_size=0`); Railway cannot reach the direct host |
 | `SUPABASE_URL` | from Step 1 |
 | `SUPABASE_SERVICE_KEY` | from Step 1 |
 | `JWT_ACCESS_SECRET` | from Step 2 |
@@ -144,16 +151,13 @@ Add **all** of these env vars in the Railway service (Settings → Variables):
 | `FRONTEND_ORIGIN` | leave blank for now — set in Step 7 after Vercel gives you a URL |
 | `SENTRY_DSN_BACKEND` | optional (see Step 9) |
 
-Verify `pg_dump` is in the Railway image PATH (it should be on the default Python image). The daily backup job at 03:00 UTC will fail loudly if it's not — check the first day's scheduler logs.
+`pg_dump` for the daily 03:00 UTC backup is already in the image — the root
+`Dockerfile` installs `postgresql-client`. No Nixpacks step needed.
 
-Deploy:
-
-```bash
-cd /Users/craigrobinson/wc_2026_predictor/apps/api
-railway up --service wc2026-api
-```
-
-> **Important:** Run `railway up` from `apps/api`, not the repo root. Railway auto-detects the project type from the uploaded directory tree — uploading the monorepo root causes Railpack to see `./apps/` and fail to identify the Python project.
+Deploy by pushing the tracked branch (or click **Deploy** for the first build).
+Railway builds the Dockerfile, runs `alembic upgrade head` on boot, and the
+healthcheck at `/api/v1/health` only goes green **after** the migration completes
+— so a green deploy is itself proof the DB migrated.
 
 Once deployed, capture the Railway-generated domain (e.g. `wc2026-api-staging.up.railway.app`). Smoke test:
 
@@ -209,7 +213,7 @@ Go back to Railway and set:
 FRONTEND_ORIGIN=https://wc2026-staging.vercel.app
 ```
 
-Redeploy the backend so the new env takes effect (`railway up` or the dashboard's "Redeploy" button). Then verify CORS from the frontend domain:
+Saving a variable in Railway triggers a redeploy on its own; if it doesn't, hit the dashboard's **Redeploy** button (no `railway up`). Then verify CORS from the frontend domain:
 
 ```bash
 curl -I -X OPTIONS https://wc2026-api-staging.up.railway.app/api/v1/health \
@@ -298,5 +302,5 @@ Once prod is green, share invite links with the real players.
 | `/health/ready` returns `db: unreachable` with auth error | `DATABASE_URL` is missing the `+asyncpg` scheme suffix, wrong password, or special chars in the password need URL-encoding (`%2C` for `,`, `%21` for `!`, `%26` for `&`). |
 | Push subscription returns `InvalidAccessError` | `VITE_VAPID_PUBLIC_KEY` doesn't match the `VAPID_PUBLIC_KEY` Railway is signing with, or one of them is from a different env |
 | Service worker never registers | The site is not served over HTTPS — Vercel does this automatically, but a custom domain in pending-verification state can serve HTTP briefly |
-| Daily backup at 03:00 UTC fails | `pg_dump` is not in the Railway image PATH — add a Nixpacks step or switch to a Postgres-bundled base image |
+| Daily backup at 03:00 UTC fails with `pg_dump: not found` | The root `Dockerfile`'s `apt-get install postgresql-client` line was removed or broke — restore it; that line is what puts `pg_dump` on PATH |
 | Auto-sync logs `401 Unauthorized` | `FOOTBALL_DATA_API_KEY` invalid or quota exceeded — free tier is 10 requests/min, 100 requests/day per key |
