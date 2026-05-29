@@ -300,6 +300,83 @@ def upgrade() -> None:
     # --- drop UNIQUE constraint on display_name (per MD-11) ---
     op.drop_constraint("uq_profiles_display_name", "profiles", type_="unique")
 
+    # --- inline backfill (replaces the manual backfill_multi_league.py step) ---
+    # Idempotent: all statements are guarded by WHERE / IF NOT EXISTS / ON CONFLICT.
+    # On staging the steele-spreadsheet league already existed before this migration
+    # ran, so the INSERT is a no-op there. On fresh prod deployments where the
+    # backfill script was never run, this ensures 012 and 014 can succeed.
+
+    # 1. Backfill profile identity columns from display_name for any rows still NULL.
+    op.execute(
+        """
+        UPDATE profiles SET
+            email      = CONCAT('pending+',
+                                LOWER(REGEXP_REPLACE(display_name, '[^a-z0-9]+', '-', 'ig')),
+                                '@steele.invalid'),
+            first_name = SPLIT_PART(display_name, ' ', 1),
+            last_name  = CASE
+                           WHEN STRPOS(display_name, ' ') > 0
+                           THEN SUBSTRING(display_name FROM STRPOS(display_name, ' ') + 1)
+                           ELSE ''
+                         END,
+            site_role  = CASE WHEN role = 'admin'
+                              THEN CAST('superadmin' AS site_role)
+                              ELSE CAST('user' AS site_role)
+                         END,
+            email_verified_at = CASE
+                                  WHEN role = 'admin' AND email_verified_at IS NULL
+                                  THEN NOW()
+                                  ELSE email_verified_at
+                                END
+        WHERE deleted_at IS NULL
+          AND (email IS NULL OR first_name IS NULL OR last_name IS NULL OR site_role IS NULL)
+        """
+    )
+
+    # 2. Create the Steele Spreadsheet league if it doesn't exist.
+    op.execute(
+        """
+        INSERT INTO leagues
+            (id, slug, name, description, privacy, max_members,
+             created_by, created_at, updated_at)
+        SELECT
+            gen_random_uuid(),
+            'steele-spreadsheet',
+            'The Steele Spreadsheet',
+            'The original.',
+            CAST('private' AS league_privacy),
+            15,
+            (SELECT id FROM profiles WHERE role = 'admin' AND deleted_at IS NULL
+             ORDER BY created_at LIMIT 1),
+            NOW(), NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM leagues WHERE slug = 'steele-spreadsheet')
+        """
+    )
+
+    # 3. Create league_memberships for all active profiles that don't have one yet.
+    op.execute(
+        """
+        INSERT INTO league_memberships
+            (id, league_id, player_id, role, joined_at, created_at, updated_at)
+        SELECT
+            gen_random_uuid(),
+            (SELECT id FROM leagues WHERE slug = 'steele-spreadsheet'),
+            p.id,
+            CASE WHEN p.role = 'admin'
+                 THEN CAST('admin' AS league_member_role)
+                 ELSE CAST('player' AS league_member_role)
+            END,
+            NOW(), NOW(), NOW()
+        FROM profiles p
+        WHERE p.deleted_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM league_memberships lm
+              WHERE lm.league_id = (SELECT id FROM leagues WHERE slug = 'steele-spreadsheet')
+                AND lm.player_id = p.id
+          )
+        """
+    )
+
 
 def downgrade() -> None:
     # Safety: refuse to restore the display_name UNIQUE if duplicates exist.

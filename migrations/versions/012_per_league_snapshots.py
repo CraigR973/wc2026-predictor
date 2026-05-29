@@ -78,6 +78,17 @@ def upgrade() -> None:
         "invites",
         sa.Column("league_id", UUID(as_uuid=True), nullable=True),
     )
+    # Backfill: map existing invites to the Steele Spreadsheet league.
+    # If that league doesn't exist yet (fresh prod deployment where the
+    # bootstrap script hasn't run), delete the unmappable invites so the
+    # NOT NULL constraint can pass — they'll be re-issued after bootstrap.
+    op.execute(
+        """
+        DELETE FROM invites
+        WHERE league_id IS NULL
+          AND (SELECT id FROM leagues WHERE slug = 'steele-spreadsheet') IS NULL
+        """
+    )
     op.execute(
         """
         UPDATE invites
