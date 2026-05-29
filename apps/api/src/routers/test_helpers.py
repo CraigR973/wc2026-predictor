@@ -35,6 +35,7 @@ router = APIRouter(prefix="/api/v1/test", tags=["test-helpers"])
 
 # Fixed identifiers — chosen to avoid collisions with any real tournament data.
 _ADMIN_NAME = "__smoke_admin__"
+_ADMIN_EMAIL = "smoke-admin@test.invalid"
 _ADMIN_PIN = "11111111"
 _PLAYER_NAME = "SmokePlayer"
 _MATCH_NUMBER = 9901
@@ -50,6 +51,7 @@ _DEFAULT_LEAGUE_NAME = "The Steele Spreadsheet"
 
 class SeedResponse(BaseModel):
     admin_display_name: str
+    admin_email: str
     admin_pin: str
     match_id: str
 
@@ -73,7 +75,7 @@ async def seed(db: Annotated[AsyncSession, Depends(get_db)]) -> SeedResponse:
             role=PlayerRole.admin,
             timezone="UTC",
             failed_login_count=0,
-            email="smoke-admin@test.invalid",
+            email=_ADMIN_EMAIL,
             first_name="Smoke",
             last_name="Admin",
             site_role=SiteRole.superadmin,
@@ -172,6 +174,7 @@ async def seed(db: Annotated[AsyncSession, Depends(get_db)]) -> SeedResponse:
     log.info("smoke seed ready", match_id=str(match.id))
     return SeedResponse(
         admin_display_name=_ADMIN_NAME,
+        admin_email=_ADMIN_EMAIL,
         admin_pin=_ADMIN_PIN,
         match_id=str(match.id),
     )

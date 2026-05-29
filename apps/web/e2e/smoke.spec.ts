@@ -42,9 +42,9 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     const seed = await seedResp.json();
     matchId = seed.match_id;
 
-    // Authenticate as the seeded admin.
+    // Authenticate as the seeded admin (login uses email + pin since M9).
     const loginResp = await api.post('/api/v1/auth/login', {
-      data: { display_name: seed.admin_display_name, pin: seed.admin_pin },
+      data: { email: seed.admin_email, pin: seed.admin_pin },
     });
     expect(loginResp.ok(), `admin login failed: ${await loginResp.text()}`).toBeTruthy();
     adminJwt = (await loginResp.json()).access_token;
