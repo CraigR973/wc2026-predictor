@@ -36,6 +36,6 @@ Per `docs/multi-league-architecture.md` § 8. Each row = one session. Order is s
 | ~~M6~~ | ~~🟢 Sonnet~~ | ~~M6~~ | ✅ Shipped 2026-05-28 |
 | ~~M7~~ | ~~🟢 Sonnet~~ | ~~M7~~ | ✅ Shipped 2026-05-28 |
 | ~~M8~~ | ~~🟢 Sonnet~~ | ~~M8~~ | ✅ Shipped 2026-05-28 |
-| M9 | 🟢 Sonnet | M9 | Frontend — Leagues tab + drop active-league switcher (post-M8 UX change) |
+| ~~M9~~ | ~~🟢 Sonnet~~ | ~~M9~~ | ✅ Shipped 2026-05-29 |
 
 Mark batches complete by striking through the row or removing it.
