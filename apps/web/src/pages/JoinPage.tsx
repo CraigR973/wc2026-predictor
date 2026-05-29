@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Brand } from '@/components/Brand';
 import { brand } from '@/theme/tokens';
+import { useAuth } from '@/contexts/AuthContext';
+import { getAccessToken } from '@/lib/tokens';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -33,10 +35,14 @@ type InviteState = 'loading' | 'valid' | 'error';
 
 export function JoinPage() {
   const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const { player } = useAuth();
 
   const [inviteState, setInviteState] = useState<InviteState>('loading');
   const [inviteError, setInviteError] = useState('');
+  const [leagueHint, setLeagueHint] = useState('');
 
+  // Unauthenticated create-account form state
   const [displayName, setDisplayName] = useState('');
   const [pin, setPin] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
@@ -70,6 +76,37 @@ export function JoinPage() {
       });
   }, [token]);
 
+  // Authenticated path — claim the invite directly
+  async function handleAuthenticatedClaim() {
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const accessToken = getAccessToken();
+      const resp = await fetch(`${BASE}/api/v1/leagues/claim-invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ token }),
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        const detail = body.detail ?? 'Failed to join league';
+        if (detail === 'ALREADY_MEMBER') throw new Error('You are already a member of this league.');
+        if (detail === 'LEAGUE_FULL') throw new Error('This league is full.');
+        throw new Error(detail);
+      }
+      const data = await resp.json() as { league_slug: string; league_name: string };
+      setLeagueHint(data.league_name);
+      navigate(`/leagues/${data.league_slug}`, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to join league');
+      setIsSubmitting(false);
+    }
+  }
+
+  // Unauthenticated path — create account via invite
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -100,7 +137,6 @@ export function JoinPage() {
         throw new Error(body.detail ?? 'Join failed');
       }
       const data = await resp.json();
-      // Manually store the tokens the same way login does
       const { storeTokens } = await import('@/lib/tokens');
       storeTokens(data.access_token, data.refresh_token, {
         id: data.player.id,
@@ -108,8 +144,6 @@ export function JoinPage() {
         role: data.player.role,
         timezone: data.player.timezone,
       });
-      // Trigger an auth context refresh via login-less navigation
-      // (tokens are stored; a full-page navigate forces AuthProvider to re-read)
       window.location.href = '/';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Join failed');
@@ -142,7 +176,25 @@ export function JoinPage() {
           </Card>
         )}
 
-        {inviteState === 'valid' && (
+        {inviteState === 'valid' && player && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-center text-text-primary">Join the league</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-text-secondary font-sans text-center">
+                You&apos;re signed in as <strong>{player.displayName}</strong>.
+                {leagueHint && ` Click below to join ${leagueHint}.`}
+              </p>
+              {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}
+              <Button className="w-full" onClick={handleAuthenticatedClaim} disabled={isSubmitting}>
+                {isSubmitting ? 'Joining…' : 'Join league'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {inviteState === 'valid' && !player && (
           <Card>
             <CardHeader>
               <CardTitle className="text-center text-text-primary">Join the league</CardTitle>
