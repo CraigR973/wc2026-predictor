@@ -336,7 +336,10 @@ async def _new_profile(conn: AsyncConnection, name: str) -> uuid.UUID:
         await conn.execute(
             text(
                 """
-                INSERT INTO profiles (id, display_name, pin_hash, role, email, first_name, last_name, site_role)
+                INSERT INTO profiles (
+                    id, display_name, pin_hash, role, email,
+                    first_name, last_name, site_role
+                )
                 VALUES (
                     gen_random_uuid(), :name,
                     '$2b$12$0000000000000000000000000000000000000000000000000000',

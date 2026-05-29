@@ -54,25 +54,34 @@ async def _fetchall(conn: AsyncConnection, sql: str, **params: Any) -> list[Any]
 
 
 async def _make_profile(conn: AsyncConnection, display_name: str, role: str = "player") -> str:
+    # Pre-populate with backfill-derived values so run_backfill preserves them
+    # and the test assertions still pass (email/first_name/last_name NOT NULL since 014).
+    first, last = _derive_first_last(display_name)
+    pending_email = f"pending+{_slugify(display_name)}@steele.invalid"
     pid = await _scalar(
         conn,
         """
-        INSERT INTO profiles (id, display_name, pin_hash, role, email, first_name, last_name, site_role)
+        INSERT INTO profiles (
+            id, display_name, pin_hash, role, email,
+            first_name, last_name, site_role
+        )
         VALUES (
             gen_random_uuid(),
             :n,
             '$2b$12$0000000000000000000000000000000000000000000000000000',
             CAST(:r AS player_role),
             :email,
-            'Test',
-            'User',
+            :first_name,
+            :last_name,
             CAST('user' AS site_role)
         )
         RETURNING id
         """,
         n=display_name,
         r=role,
-        email=f"{display_name}@test.invalid",
+        email=pending_email,
+        first_name=first,
+        last_name=last,
     )
     return str(pid)
 

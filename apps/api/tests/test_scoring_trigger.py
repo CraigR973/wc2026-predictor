@@ -70,7 +70,10 @@ async def _insert_profile(
     profile_id = await _scalar(
         conn,
         """
-        INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at, email, first_name, last_name, site_role)
+        INSERT INTO profiles (
+            id, display_name, pin_hash, role, deleted_at, email,
+            first_name, last_name, site_role
+        )
         VALUES (
             gen_random_uuid(), :n,
             '$2b$12$0000000000000000000000000000000000000000000000000000',
