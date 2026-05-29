@@ -25,7 +25,7 @@ feat/ fix/ chore/  ──►  /ship-staging  ──►  staging branch
          ┌────────────────────────────────────────┴───────────────────────────────┐
          ▼  Vercel GitHub integration                       Railway GitHub integration
    Vercel auto-deploy                                   Railway auto-deploy + migrate
-   wc2026.vercel.app                                    (alembic upgrade head on boot)
+   wc2026-prod.vercel.app                                    (alembic upgrade head on boot)
    (frontend)                                            prod API + prod DB
 ```
 
@@ -38,10 +38,10 @@ serving, so a bad migration never half-applies to a live DB.
 
 | What | Where it deploys | How it deploys |
 |---|---|---|
-| Push to `main` | `wc2026.vercel.app` (frontend) | Vercel GitHub integration auto-deploys |
+| Push to `main` | `wc2026-prod.vercel.app` (frontend) | Vercel GitHub integration auto-deploys |
 | Push to `main` | `wc2026-api-production-a0f4.up.railway.app` (backend) | Railway GitHub integration auto-deploys; root `Dockerfile` CMD runs `alembic upgrade head` then uvicorn |
 | Push to `staging` | `wc2026-staging.vercel.app` (frontend) | GitHub Actions `deploy-staging` job in `ci.yml` runs after every other job passes, then `vercel deploy --prod` (remote build, not `--prebuilt` — see CI comment) |
-| Push to `staging` | `wc2026-api-production-333a.up.railway.app` (backend) | Railway GitHub integration auto-deploys; same `Dockerfile` migrate-on-boot |
+| Push to `staging` | `wc2026-predictor-staging.up.railway.app` (backend) | Railway GitHub integration auto-deploys; same `Dockerfile` migrate-on-boot |
 | Push to any other branch | nothing | Both Vercel projects skip the build (ignore-build-step); Railway only tracks `main`/`staging` |
 | Local CLI `vercel deploy` | one-off preview URL on whichever project's linked | rare — only when staging is currently in use by someone else |
 
@@ -70,7 +70,7 @@ serving, so a bad migration never half-applies to a live DB.
    git merge --ff-only staging  # or non-ff if there are merge commits
    git push origin main
    ```
-   Vercel auto-deploys to `https://wc2026.vercel.app`. **Live in ~90 s.**
+   Vercel auto-deploys to `https://wc2026-prod.vercel.app`. **Live in ~90 s.**
 
 > [!NOTE]
 > Tests + typecheck + lint + alembic-migration-check + Playwright smoke
@@ -91,7 +91,7 @@ In the Vercel dashboard for `wc2026-prod`:
 2. Find the last known-good production deployment (look for the green
    ✓ + "Production" badge before the bad one).
 3. Hover the row → **⋯** menu → **Promote to Production**.
-4. Confirm. The custom domain (`wc2026.vercel.app` + any alias) repoints
+4. Confirm. The custom domain (`wc2026-prod.vercel.app` + any alias) repoints
    in seconds.
 
 A pure frontend regression only needs this step.
@@ -182,6 +182,16 @@ deploy briefly interrupts in-flight requests.
   `~/.claude/projects/-Users-craigrobinson-wc-2026-predictor/memory/`
 - **Supabase tables**: dashboard or use the Supabase MCP.
 
+### Single-replica assumption
+
+The backend is designed for **exactly one Railway replica**. APScheduler runs
+in-process and has no leader election — scaling to 2+ replicas would double-fire
+every scheduled job (result fetches, push notifications, score recalculations).
+The `alembic upgrade head` on boot also has no distributed lock, so two replicas
+starting simultaneously would race on the same migration. Do not increase the
+replica count without first moving the scheduler to a separate worker process and
+adding a migration lock (e.g. a Postgres advisory lock on `env.py`).
+
 ### Required secrets
 
 - `VERCEL_TOKEN` on the GitHub repo (used by `deploy-staging` job in CI).
@@ -216,7 +226,7 @@ VERCEL_PROJECT_ID=prj_hVMpuWm33XjuNrVUWrCti27ZfIX7 \
 VERCEL_ORG_ID=team_MVQMOaFtYHlwO5QVzSOZQ0Ud \
 vercel deploy --prod --yes
 
-# Deploy to prod (overwrites wc2026.vercel.app — be careful)
+# Deploy to prod (overwrites wc2026-prod.vercel.app — be careful)
 VERCEL_PROJECT_ID=prj_xSA1k6vKHfk0KLRjGNPUTluZD8UT \
 VERCEL_ORG_ID=team_MVQMOaFtYHlwO5QVzSOZQ0Ud \
 vercel deploy --prod --yes
