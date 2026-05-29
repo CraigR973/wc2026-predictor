@@ -39,7 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth import hash_pin
 from src.database import AsyncSessionLocal
 from src.models.prediction import NotificationPreferences
-from src.models.profile import PlayerRole, Profile
+from src.models.profile import PlayerRole, Profile, SiteRole
 
 MAX_PLAYERS = 15  # mirrors src/routers/auth.py
 
@@ -71,6 +71,7 @@ async def create_admin(
     display_name: str,
     pin: str,
     timezone: str,
+    email: str | None = None,
 ) -> Profile:
     """Insert a new admin Profile (+ default NotificationPreferences row).
 
@@ -91,6 +92,12 @@ async def create_admin(
     if (await _active_profile_count(session)) >= MAX_PLAYERS:
         raise BootstrapError(f"League is full ({MAX_PLAYERS} active players)")
 
+    _parts = display_name.strip().split()
+    _first = _parts[0] if _parts else display_name
+    _last = _parts[-1].rstrip(".") if len(_parts) > 1 else _first
+    _slug = display_name.lower().replace(" ", "-")
+    _email = email or f"pending+{_slug}@steele.invalid"
+
     profile = Profile(
         id=uuid.uuid4(),
         display_name=display_name,
@@ -100,6 +107,10 @@ async def create_admin(
         failed_login_count=0,
         locked_until=None,
         deleted_at=None,
+        email=_email,
+        first_name=_first,
+        last_name=_last,
+        site_role=SiteRole.superadmin,
     )
     session.add(profile)
     await session.flush()  # commit profile row before FK-dependent insert
@@ -133,6 +144,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--display-name", required=True, help="The player's display name")
+    parser.add_argument(
+        "--email", help="Admin's real email (optional; pending placeholder used if omitted)"
+    )
     parser.add_argument("--timezone", default="UTC", help="IANA timezone (default: UTC)")
     parser.add_argument(
         "--pin",
@@ -159,6 +173,7 @@ async def _async_main(args: argparse.Namespace) -> int:
                     display_name=args.display_name,
                     pin=pin,
                     timezone=args.timezone,
+                    email=getattr(args, "email", None),
                 )
                 action = "created"
             await session.commit()
