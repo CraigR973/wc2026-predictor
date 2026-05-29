@@ -1288,3 +1288,15 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - The guard test passes when the R5.1 error fires; if the guard regresses the test fails, blocking CI.
 
 **Next:** Review batch R10 — Deploy docs reconciliation (🟢 Sonnet)
+
+---
+
+## Review batch R10 — Deploy docs reconciliation
+**Commits:** f699202, aba97b5 · CI ✅
+
+### Key facts for future sessions
+- `deploys-ongoing.md` now uses `wc2026-prod.vercel.app` throughout (the old `wc2026.vercel.app` references all replaced); `wc2026-api-production-333a.up.railway.app` (deleted project) replaced with `wc2026-predictor-staging.up.railway.app`.
+- Single-replica assumption is now written down in the "Operational concerns" section — do not scale Railway replicas without adding scheduler leader election and a migration lock.
+- `docs/runbooks/env-manifest.md` created: ownership table for every runtime var (Railway vs Vercel, per env), with ⚠️ flags on the four that break prod silently (`VITE_API_URL`, `FRONTEND_ORIGIN`, `DATABASE_URL`, `SCHEDULER_ENABLED`).
+
+**Next:** R8–R10 review series complete — operator actions OP1–OP5 remain (dashboard-only, see docs/review-batches.md)
