@@ -4,6 +4,21 @@ Running record of completed phases, decisions made mid-build, and carry-over not
 
 ---
 
+## Multi-league staging soak — v1.1-multi-league tag
+**Commits:** 8e4894c, 448d9fc · Tagged: `v1.1-multi-league`
+
+### Key facts for future sessions
+- **Bug found & fixed:** No endpoint existed for an already-authenticated player to claim an invite token and join a private league. `POST /api/v1/leagues/claim-invite` was added to `league_memberships.py` (registered before `/{slug}` routes to avoid slug-capture). `JoinPage.tsx` now branches on auth state — authenticated users see a one-click "Join league" button; unauthenticated users see the original create-account form.
+- **Migration incident:** `railway up` accidentally targeted the prod Railway project (`wc2026-api-prod`). Migrations 011–014 ran in a single Alembic transaction; migration 012 (`invites.league_id NOT NULL`) failed because prod had invites with null `league_id` and no `steele-spreadsheet` league existed. Fixed by: (a) embedding the backfill (create league, backfill profiles, create memberships) into migration 011 itself; (b) adding a DELETE guard in migration 012 for unmappable invites. Prod recovered and is now at migration 014.
+- Staging Railway project is named `endearing-integrity` (ID `d56eb1a4`). To deploy: `railway link --project endearing-integrity && railway up --detach`. Switch back to prod: `railway link --project wc2026-api-prod`.
+- Staging Supabase MCP is connected to the staging DB (project ref differs from prod `kznxjyaanotrejcevngy`). Use Railway env vars + asyncpg directly to query prod DB if needed.
+- Leaderboard only shows players with a `leaderboard_snapshot` row — new members appear after the next scheduled snapshot run, not immediately on join.
+- `/auth/join` (old unauthenticated invite flow) still works unchanged — only adds the new authenticated path alongside it.
+
+**Next:** World Cup begins 11 Jun 2026 — live match result sync, predictions deadline monitoring
+
+---
+
 ## Format
 
 Each entry follows this structure:
