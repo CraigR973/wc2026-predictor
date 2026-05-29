@@ -92,7 +92,7 @@ export function PlayerProfilePage() {
         title="Player not found"
         description="This profile either doesn't exist or couldn't be loaded."
         action={
-          <Link to="/leaderboard" className="text-primary text-sm font-sans hover:underline">
+          <Link to="/leagues" className="text-primary text-sm font-sans hover:underline">
             ← Back to leaderboard
           </Link>
         }
@@ -126,7 +126,7 @@ export function PlayerProfilePage() {
       <PageHeader
         title={stats.player_name}
         eyebrow={`${stats.total_predictions_settled} predictions settled`}
-        back={{ to: '/leaderboard', label: 'Leaderboard' }}
+        back={{ to: '/leagues', label: 'Leagues' }}
       />
 
       {/* Stat cards */}

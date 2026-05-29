@@ -9,7 +9,6 @@ import {
   MoreHorizontal,
   GitBranch,
   Users,
-  GitCompare,
   Settings as SettingsIcon,
   Info,
   Shield,
@@ -31,13 +30,12 @@ const PRIMARY: ReadonlyArray<TabDef> = [
   { to: '/', label: 'Home', Icon: Home },
   { to: '/schedule', label: 'Schedule', Icon: CalendarDays },
   { to: '/predictions', label: 'Predict', Icon: Pencil, matchPrefix: ['/predictions'] },
-  { to: '/leaderboard', label: 'Standings', Icon: Trophy, matchPrefix: ['/leaderboard', '/players'] },
+  { to: '/leagues', label: 'Leagues', Icon: Trophy, matchPrefix: ['/leagues', '/players'] },
 ];
 
 const SECONDARY: ReadonlyArray<TabDef> = [
   { to: '/bracket', label: 'Bracket', Icon: GitBranch },
   { to: '/groups', label: 'Groups', Icon: Users, matchPrefix: ['/groups'] },
-  { to: '/compare', label: 'Compare', Icon: GitCompare },
   { to: '/settings', label: 'Settings', Icon: SettingsIcon },
   { to: '/about', label: 'About', Icon: Info },
 ];

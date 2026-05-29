@@ -88,16 +88,6 @@ function LeagueAwareLayout() {
 }
 
 /**
- * Redirects old top-level per-league URLs to the per-slug equivalents.
- * Reads the active slug from localStorage to avoid waiting for the LeagueProvider
- * to finish its async /leagues/mine fetch.
- */
-function LeagueRedirect({ suffix }: { suffix: string }) {
-  const slug = localStorage.getItem('wc2026_active_league_slug') ?? DEFAULT_LEAGUE_SLUG;
-  return <Navigate to={`/leagues/${slug}${suffix}`} replace />;
-}
-
-/**
  * Redirects /leagues/:slug/members and siblings to the new /admin/* sub-paths.
  * Reads :slug from URL params so the slug is preserved exactly.
  */
@@ -146,11 +136,11 @@ export function App() {
                       <Route path="/about" element={<AboutPage />} />
                       <Route path="/offline" element={<OfflinePage />} />
 
-                      {/* Old top-level per-league routes → redirect to active league slug */}
-                      <Route path="/leaderboard" element={<LeagueRedirect suffix="/leaderboard" />} />
-                      <Route path="/leaderboard/history" element={<LeagueRedirect suffix="/leaderboard/history" />} />
-                      <Route path="/leaderboard/round/:stage" element={<LeagueRedirect suffix="/leaderboard/round/group" />} />
-                      <Route path="/compare" element={<LeagueRedirect suffix="/compare" />} />
+                      {/* Old top-level routes → redirect to the Leagues hub */}
+                      <Route path="/leaderboard" element={<Navigate to="/leagues" replace />} />
+                      <Route path="/leaderboard/history" element={<Navigate to="/leagues" replace />} />
+                      <Route path="/leaderboard/round/:stage" element={<Navigate to="/leagues" replace />} />
+                      <Route path="/compare" element={<Navigate to="/leagues" replace />} />
 
                       {/* League management — public (all members) */}
                       <Route path="/leagues" element={<MyLeaguesPage />} />
@@ -178,7 +168,7 @@ export function App() {
                   </Route>
                 </Route>
 
-                {/* Admin-only routes — no LeagueProvider needed; TopBar is safe via useLeagueOptional() */}
+                {/* Admin-only routes — no LeagueProvider needed */}
                 <Route element={<ProtectedRoute requireAdmin />}>
                   <Route element={<Layout />}>
                     <Route path="/admin" element={<AdminDashboardPage />} />

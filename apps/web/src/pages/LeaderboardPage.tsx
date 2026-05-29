@@ -7,7 +7,6 @@ import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import type { LeaderboardEntry } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import { useLongPress } from '../hooks/useLongPress';
 import { dedupedLeaderboard } from '../lib/leaderboard';
 import { Skeleton } from '../components/ui/skeleton';
@@ -199,7 +198,6 @@ export function LeaderboardPage() {
   const navigate = useNavigate();
   const { player: currentUser } = useAuth();
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
-  useLeagueSlugSync(slug);
   const leagueSlug = slug;
   const prevDataRef = useRef<LeaderboardEntry[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());

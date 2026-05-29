@@ -22,12 +22,11 @@ function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-function stubAuthWithLeague(activeSlug: string | null = 'steele-spreadsheet') {
+function stubAuth() {
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => {
       if (k === 'wc2026_player') return STORED_PLAYER;
       if (k === 'wc2026_access') return FAKE_JWT;
-      if (k === 'wc2026_active_league_slug') return activeSlug;
       return null;
     },
     setItem: vi.fn(),
@@ -36,13 +35,15 @@ function stubAuthWithLeague(activeSlug: string | null = 'steele-spreadsheet') {
   });
 }
 
-function ActiveLeagueDisplay() {
-  const { activeLeague, leagues, isLoading } = useLeague();
+function LeagueDisplay() {
+  const { leagues, isLoading } = useLeague();
   if (isLoading) return <div>loading</div>;
   return (
     <div>
-      <div data-testid="active">{activeLeague?.name ?? 'none'}</div>
       <div data-testid="count">{leagues.length}</div>
+      {leagues.map((l) => (
+        <div key={l.slug} data-testid={`league-${l.slug}`}>{l.name}</div>
+      ))}
     </div>
   );
 }
@@ -60,7 +61,7 @@ function renderWithLeague(leagues: unknown[]) {
       <MemoryRouter>
         <AuthProvider>
           <LeagueProvider>
-            <ActiveLeagueDisplay />
+            <LeagueDisplay />
           </LeagueProvider>
         </AuthProvider>
       </MemoryRouter>
@@ -70,32 +71,27 @@ function renderWithLeague(leagues: unknown[]) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  stubAuthWithLeague('steele-spreadsheet');
+  stubAuth();
 });
 
 describe('LeagueContext', () => {
-  it('loads leagues and sets active from localStorage', async () => {
+  it('loads leagues and exposes them', async () => {
     renderWithLeague([MOCK_LEAGUE]);
-    await waitFor(() => expect(screen.getByTestId('active').textContent).toBe('The Steele Spreadsheet'));
-    expect(screen.getByTestId('count').textContent).toBe('1');
+    await waitFor(() => expect(screen.getByTestId('count').textContent).toBe('1'));
+    expect(screen.getByTestId('league-steele-spreadsheet').textContent).toBe('The Steele Spreadsheet');
   });
 
-  it('shows no active league when list is empty (redirects to /welcome)', async () => {
+  it('shows empty list when no leagues (redirects to /welcome)', async () => {
     renderWithLeague([]);
     await waitFor(() => {
-      // With an empty league list, the context redirects to /welcome.
-      // In a MemoryRouter starting at '/', the navigate replaces the route.
-      // We just verify the context doesn't throw.
-      expect(screen.queryByTestId('active')).toBeTruthy();
+      expect(screen.queryByTestId('count')).toBeTruthy();
     });
   });
 
-  it('falls back to first league when saved slug is unknown', async () => {
-    stubAuthWithLeague('unknown-slug');
-    renderWithLeague([MOCK_LEAGUE]);
-    await waitFor(() =>
-      expect(screen.getByTestId('active').textContent).toBe('The Steele Spreadsheet'),
-    );
+  it('exposes multiple leagues', async () => {
+    const second = { ...MOCK_LEAGUE, slug: 'friends-league', name: 'Friends League' };
+    renderWithLeague([MOCK_LEAGUE, second]);
+    await waitFor(() => expect(screen.getByTestId('count').textContent).toBe('2'));
   });
 
   it('useLeague throws when used outside LeagueProvider', () => {

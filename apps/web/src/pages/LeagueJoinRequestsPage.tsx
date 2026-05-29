@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { JoinRequest } from '@/lib/types';
-import { useLeagueSlugSync } from '@/contexts/LeagueContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,6 @@ import { PageHeader } from '@/components/PageHeader';
 
 export function LeagueJoinRequestsPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
-  useLeagueSlugSync(slug);
   const queryClient = useQueryClient();
   const [actingOn, setActingOn] = useState<string | null>(null);
 

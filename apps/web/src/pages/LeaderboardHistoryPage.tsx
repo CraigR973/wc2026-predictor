@@ -12,7 +12,6 @@ import {
   YAxis,
 } from 'recharts';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
-import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import type { HistoryEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
@@ -53,7 +52,6 @@ function buildChartData(players: HistoryEntry[]): ChartPoint[] {
 
 export function LeaderboardHistoryPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
-  useLeagueSlugSync(slug);
   const leagueSlug = slug;
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<HistoryEntry[]>({

@@ -176,7 +176,6 @@ function setupAuthStorage() {
     getItem: (k: string) => {
       if (k === 'wc2026_player') return STORED_PLAYER;
       if (k === 'wc2026_access') return FAKE_JWT;
-      if (k === 'wc2026_active_league_slug') return 'steele-spreadsheet';
       return null;
     },
     setItem: vi.fn(),

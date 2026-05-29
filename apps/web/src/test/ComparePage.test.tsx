@@ -149,7 +149,6 @@ function renderPage(initialPath = '/compare', h2hPayload: unknown = H2H_ALICE_BO
     getItem: (k: string) => {
       if (k === 'wc2026_player') return storedPlayer;
       if (k === 'wc2026_access') return FAKE_JWT;
-      if (k === 'wc2026_active_league_slug') return 'steele-spreadsheet';
       return null;
     },
     setItem: vi.fn(),

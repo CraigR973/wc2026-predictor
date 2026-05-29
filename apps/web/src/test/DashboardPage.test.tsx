@@ -21,7 +21,6 @@ function stubAuth() {
     getItem: (k: string) => {
       if (k === 'wc2026_player') return STORED_PLAYER;
       if (k === 'wc2026_access') return FAKE_JWT;
-      if (k === 'wc2026_active_league_slug') return 'steele-spreadsheet';
       if (k === 'sss_leaderboard_hint_dismissed') return null;
       return null;
     },

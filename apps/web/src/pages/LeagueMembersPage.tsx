@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { LeagueMember } from '@/lib/types';
-import { useLeagueSlugSync } from '@/contexts/LeagueContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,6 @@ import { Avatar } from '@/components/ui/avatar';
 
 export function LeagueMembersPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
-  useLeagueSlugSync(slug);
   const { player } = useAuth();
   const queryClient = useQueryClient();
   const [actingOn, setActingOn] = useState<string | null>(null);

@@ -198,10 +198,10 @@ describe('PlayerProfilePage', () => {
     });
   });
 
-  it('includes link back to leaderboard', async () => {
+  it('includes link back to leagues hub', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Leaderboard')).toBeInTheDocument();
+      expect(screen.getByText('Leagues')).toBeInTheDocument();
     });
   });
 });

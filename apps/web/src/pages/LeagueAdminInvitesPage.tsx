@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { LeagueInvite } from '@/lib/types';
-import { useLeagueSlugSync } from '@/contexts/LeagueContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +13,6 @@ import { PageHeader } from '@/components/PageHeader';
 
 export function LeagueAdminInvitesPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
-  useLeagueSlugSync(slug);
   const queryClient = useQueryClient();
   const [inviteeEmail, setInviteeEmail] = useState('');
   const [isCreating, setIsCreating] = useState(false);

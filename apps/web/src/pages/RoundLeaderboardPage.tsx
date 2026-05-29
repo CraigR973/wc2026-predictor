@@ -1,7 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
-import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import type { RoundEntry } from '../lib/types';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
@@ -23,7 +22,6 @@ const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 export function RoundLeaderboardPage() {
   const { slug = DEFAULT_LEAGUE_SLUG, stage = 'group' } = useParams<{ slug: string; stage: string }>();
-  useLeagueSlugSync(slug);
   const leagueSlug = slug;
   const navigate = useNavigate();
 

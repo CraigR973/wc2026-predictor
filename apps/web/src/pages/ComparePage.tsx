@@ -3,7 +3,6 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { useLeagueSlugSync } from '../contexts/LeagueContext';
 import { cn } from '../lib/utils';
 import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -174,7 +173,6 @@ function MatchRow({ m }: { m: H2HMatchEntry }) {
 export function ComparePage() {
   const { player: currentUser } = useAuth();
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
-  useLeagueSlugSync(slug);
   const leagueSlug = slug;
   const [searchParams, setSearchParams] = useSearchParams();
 

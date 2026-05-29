@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { LeaderboardEntry, LeagueSummary } from '@/lib/types';
 import { dedupedLeaderboard } from '@/lib/leaderboard';
-import { useLeagueSlugSync } from '@/contexts/LeagueContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export function LeagueHomePage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
-  useLeagueSlugSync(slug);
   const { player } = useAuth();
 
   const { data: league, isLoading: leagueLoading } = useQuery<LeagueSummary>({
