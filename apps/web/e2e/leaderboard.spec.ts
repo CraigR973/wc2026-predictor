@@ -78,23 +78,14 @@ test.describe('Leaderboard', () => {
     await expect(page.getByTestId('leaderboard-row-p1')).toContainText('52');
   });
 
-  test('old /leaderboard URL redirects to active league leaderboard', async ({ page }) => {
+  test('old /leaderboard URL redirects to leagues hub', async ({ page }) => {
     await seedAuth(page);
     await blockSupabase(page);
     await catchAllApi(page);
 
-    await page.route('**/api/v1/leagues/*/leaderboard', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(LEADERBOARD),
-      }),
-    );
-
     await page.goto('/leaderboard');
 
-    // Should redirect to per-league URL
-    await expect(page).toHaveURL(`/leagues/${SLUG}/leaderboard`);
-    await expect(page.getByTestId('leaderboard-row-p1')).toBeVisible();
+    // M9: old /leaderboard redirects to the Leagues hub, not a per-league URL
+    await expect(page).toHaveURL('/leagues');
   });
 });

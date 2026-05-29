@@ -73,18 +73,14 @@ test.describe('Head-to-head comparison', () => {
     await expect(pickers.first()).toBeVisible();
   });
 
-  test('old /compare URL redirects to active league compare', async ({ page }) => {
+  test('old /compare URL redirects to leagues hub', async ({ page }) => {
     await seedAuth(page);
     await blockSupabase(page);
     await catchAllApi(page);
 
-    await page.route('**/api/v1/leagues/*/players', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYERS) }),
-    );
-
     await page.goto('/compare');
 
-    // Should redirect to per-league URL
-    await expect(page).toHaveURL(new RegExp(`/leagues/${SLUG}/compare`));
+    // M9: old /compare redirects to the Leagues hub, not a per-league URL
+    await expect(page).toHaveURL('/leagues');
   });
 });

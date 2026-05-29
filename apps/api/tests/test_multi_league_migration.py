@@ -57,12 +57,13 @@ async def _make_profile(conn: AsyncConnection, display_name: str, role: str = "p
     pid = await _scalar(
         conn,
         """
-        INSERT INTO profiles (id, display_name, pin_hash, role)
+        INSERT INTO profiles (id, display_name, pin_hash, role, email)
         VALUES (
             gen_random_uuid(),
             :n,
             '$2b$12$0000000000000000000000000000000000000000000000000000',
-            CAST(:r AS player_role)
+            CAST(:r AS player_role),
+            :n || '@test.invalid'
         )
         RETURNING id
         """,

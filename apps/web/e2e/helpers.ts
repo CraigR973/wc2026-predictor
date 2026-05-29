@@ -38,9 +38,6 @@ export async function seedAuth(
       localStorage.setItem('wc2026_access', jwt);
       localStorage.setItem('wc2026_refresh', refresh);
       localStorage.setItem('wc2026_player', JSON.stringify(p));
-      // Seed active league slug so LeagueProvider restores it from localStorage
-      // without needing to redirect to /welcome on empty /leagues/mine responses.
-      localStorage.setItem('wc2026_active_league_slug', 'steele-spreadsheet');
     },
     { jwt: FAKE_JWT, refresh: FAKE_REFRESH, p: player },
   );

@@ -17,7 +17,6 @@ test.describe('JWT refresh', () => {
       localStorage.setItem('wc2026_access', expiringJwt);
       localStorage.setItem('wc2026_refresh', 'old-refresh-token');
       localStorage.setItem('wc2026_player', JSON.stringify(player));
-      localStorage.setItem('wc2026_active_league_slug', 'steele-spreadsheet');
     }, PLAYER);
 
     let refreshCalled = false;
@@ -52,7 +51,7 @@ test.describe('JWT refresh', () => {
       }),
     );
 
-    await page.goto('/leaderboard');
+    await page.goto('/leagues/steele-spreadsheet/leaderboard');
     await expect(page.getByTestId('leaderboard-row-p1')).toBeVisible();
     expect(refreshCalled).toBe(true);
   });
@@ -71,7 +70,6 @@ test.describe('JWT refresh', () => {
       );
       localStorage.setItem('wc2026_refresh', 'valid-refresh-token');
       localStorage.setItem('wc2026_player', JSON.stringify(player));
-      localStorage.setItem('wc2026_active_league_slug', 'steele-spreadsheet');
     }, PLAYER);
 
     let attempt = 0;
@@ -111,7 +109,7 @@ test.describe('JWT refresh', () => {
       }),
     );
 
-    await page.goto('/leaderboard');
+    await page.goto('/leagues/steele-spreadsheet/leaderboard');
     await expect(page.getByTestId('leaderboard-row-p1')).toBeVisible();
   });
 });

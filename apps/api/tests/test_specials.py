@@ -583,11 +583,11 @@ async def _insert_profile_raw(conn: AsyncConnection, display_name: str) -> uuid.
     profile_id = await _scalar_raw(
         conn,
         """
-        INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at)
+        INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at, email)
         VALUES (
             gen_random_uuid(), :n,
             '$2b$12$0000000000000000000000000000000000000000000000000000',
-            'player', NULL
+            'player', NULL, :n || '@test.invalid'
         ) RETURNING id
         """,
         n=display_name,

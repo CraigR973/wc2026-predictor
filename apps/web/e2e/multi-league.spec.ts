@@ -48,8 +48,11 @@ test.describe('signup', () => {
     await page.getByLabel(/email/i).fill('alice@example.com');
     await page.getByLabel(/first name/i).fill('Alice');
     await page.getByLabel(/last name/i).fill('Smith');
-    // PIN via PinInput (renders individual digit inputs)
-    await page.getByLabel(/choose a pin/i).fill('1234');
+    // PIN via PinInput (renders individual digit inputs with aria-label="PIN digit N")
+    await page.getByLabel('PIN digit 1').fill('1');
+    await page.getByLabel('PIN digit 2').fill('2');
+    await page.getByLabel('PIN digit 3').fill('3');
+    await page.getByLabel('PIN digit 4').fill('4');
     await page.getByLabel(/confirm pin/i).fill('1234');
     await page.getByRole('button', { name: /create account/i }).click();
 
@@ -72,7 +75,10 @@ test.describe('signup', () => {
     await page.getByLabel(/email/i).fill('alice@example.com');
     await page.getByLabel(/first name/i).fill('Alice');
     await page.getByLabel(/last name/i).fill('Smith');
-    await page.getByLabel(/choose a pin/i).fill('1234');
+    await page.getByLabel('PIN digit 1').fill('1');
+    await page.getByLabel('PIN digit 2').fill('2');
+    await page.getByLabel('PIN digit 3').fill('3');
+    await page.getByLabel('PIN digit 4').fill('4');
     await page.getByLabel(/confirm pin/i).fill('1234');
     await page.getByRole('button', { name: /create account/i }).click();
 

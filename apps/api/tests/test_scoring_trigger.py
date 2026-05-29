@@ -70,12 +70,13 @@ async def _insert_profile(
     profile_id = await _scalar(
         conn,
         """
-        INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at)
+        INSERT INTO profiles (id, display_name, pin_hash, role, deleted_at, email)
         VALUES (
             gen_random_uuid(), :n,
             '$2b$12$0000000000000000000000000000000000000000000000000000',
             CAST(:r AS player_role),
-            CASE WHEN :d THEN now() ELSE NULL END
+            CASE WHEN :d THEN now() ELSE NULL END,
+            :n || '@test.invalid'
         )
         RETURNING id
         """,
