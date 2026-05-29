@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     sentry_dsn_backend: str = ""
     log_level: str = "INFO"
     environment: str = "development"
+    # Railway injects this into the deploy env so /health can expose the running SHA.
+    railway_git_commit_sha: str | None = None
 
     # Backup
     backup_dir: str = "/tmp/wc2026_backups"
@@ -56,6 +58,10 @@ class Settings(BaseSettings):
             errors.append("supabase_service_key is empty")
         if not self.football_data_api_key:
             errors.append("football_data_api_key is empty")
+        if not self.database_url:
+            errors.append("database_url is empty")
+        if not self.frontend_origin or self.frontend_origin.startswith("http://localhost"):
+            errors.append("frontend_origin must not be empty or localhost in production")
         if errors:
             raise ValueError("Refusing to start with weak/missing secrets: " + "; ".join(errors))
         return self

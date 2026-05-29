@@ -88,17 +88,43 @@ The push to `main` triggers three things in parallel:
 1. Frontend: `curl -sI https://wc2026-prod.vercel.app` returns HTTP 200. Fetch
    the HTML, extract the `index-*.js` chunk, fetch it, grep for a marker the
    user expects from this release.
-2. Backend: both must return 200:
+2. Backend health checks — both must return 200:
    ```bash
    curl -s https://wc2026-api-production-a0f4.up.railway.app/api/v1/health
    curl -s https://wc2026-api-production-a0f4.up.railway.app/api/v1/health/ready
    ```
    `/health/ready` returning `db: ok` confirms the backend booted **after** its
    migrations applied — i.e. the prod migration succeeded.
-3. If `main` CI concluded `failure` OR either prod check is unhealthy, treat it
-   as a bad release: surface the failing job/log tail and point the user to the
-   rollback section of `docs/runbooks/deploys-ongoing.md` (Vercel "Promote to
-   Production" on the last good deploy; Railway redeploys the prior image).
+
+3. **SHA gate (R8.1 — hard gate, do not skip):** Assert the running commit SHA
+   matches the `main` HEAD that was just pushed:
+   ```bash
+   EXPECTED_SHA=$(git -C /Users/craigrobinson/wc_2026_predictor rev-parse main)
+   ACTUAL_SHA=$(curl -s https://wc2026-api-production-a0f4.up.railway.app/api/v1/health | python3 -c "import sys,json; print(json.load(sys.stdin).get('sha','unknown'))")
+   echo "expected=$EXPECTED_SHA actual=$ACTUAL_SHA"
+   [ "$ACTUAL_SHA" = "$EXPECTED_SHA" ] || echo "FAIL"
+   ```
+   If `ACTUAL_SHA` differs from `EXPECTED_SHA` **or** is `"unknown"`, **stop
+   and fail the promotion** with:
+   > "Backend is still serving a previous image (sha mismatch: expected
+   > `<expected>`, got `<actual>`). Check the Railway source/branch trigger
+   > (Operator action OP2 in `docs/review-batches.md`). Do not proceed."
+
+4. **Post-deploy synthetic (R8.5 — hard gate):** Hit a read-only API route
+   through the prod frontend origin to catch prod-only env/CORS mismatches:
+   ```bash
+   curl -sf -H "Origin: https://wc2026-prod.vercel.app" \
+     "https://wc2026-api-production-a0f4.up.railway.app/api/v1/matches/upcoming" \
+     | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'data' in d, f'unexpected shape: {d}'; print('synthetic ok, matches:', len(d[\"data\"]))"
+   ```
+   If this fails (non-2xx, missing `data` key, or CORS rejection), **stop and
+   fail the promotion**: the prod environment has a misconfiguration that staging
+   did not catch. Do not proceed.
+
+5. If `main` CI concluded `failure` OR any prod check above is unhealthy, treat
+   it as a bad release: surface the failing job/log tail and point the user to
+   the rollback section of `docs/runbooks/deploys-ongoing.md` (Vercel "Promote
+   to Production" on the last good deploy; Railway redeploys the prior image).
 
 ## Step 4 — Report
 
