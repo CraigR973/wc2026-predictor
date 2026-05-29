@@ -921,6 +921,26 @@ Eight phases. Each ends with merge-to-main + CI green + something demonstrable.
   - Lewis soak surfaces no P1 issues.
   - Tag `v1.1-multi-league` on main.
 
+### M9 · Frontend — Leagues tab + drop active-league switcher 🟢 Sonnet
+**Goal:** replace the whole-app "active league" switching model with a fantasy-football-style model — one personal dashboard plus a "Leagues" tab (repurposing the bottom "Standings" tab) that lists every league the player is in with their live rank, drilling into each league for its standings. No top-of-screen league switcher. (Post-M8 UX refinement surfaced by real use; predictions are already global and only standings are per-league, so this is mostly subtractive.)
+- Bottom nav (`apps/web/src/components/TabBar.tsx`): repurpose the "Standings" tab (`/leaderboard`) into "Leagues" (`/leagues`, Trophy icon, `matchPrefix: ['/leagues', '/players']`); remove "Compare" from the More sheet (it is per-league now, reached inside a league)
+- Desktop nav (`apps/web/src/components/TopBar.tsx`): delete the `LeagueSwitcher` dropdown entirely; rename "Standings" → "Leagues" (`/leagues`); remove the top-level "Compare" item
+- Leagues hub (`apps/web/src/pages/MyLeaguesPage.tsx` at `/leagues`): each league card shows the player's live rank + points in that league (reuse the per-league leaderboard fetch + `dedupedLeaderboard` pattern from `DashboardPage`'s `LeagueCard`) alongside member count; tap → `/leagues/:slug`
+- Routing (`apps/web/src/App.tsx`): the bare `/leaderboard`, `/leaderboard/history`, `/leaderboard/round/:stage`, `/compare` routes redirect to `/leagues` (the hub) instead of the active league; delete the now-unused `LeagueRedirect` helper
+- `apps/web/src/contexts/LeagueContext.tsx`: slim to `{ leagues, isLoading, refetch }` — remove `activeLeague`, `setActiveLeague`, the `wc2026_active_league_slug` localStorage, `useLeagueSlugSync`, and `useLeagueOptional`; keep the zero-leagues → `/welcome` redirect
+- Remove the now-no-op `useLeagueSlugSync(slug)` calls from the 9 per-league pages that call it (Leaderboard, History, Round, Compare, LeagueHome, Members, Settings, JoinRequests, AdminInvites) — they already read `slug` from `useParams`
+- `apps/web/src/pages/PlayerProfilePage.tsx`: repoint its two bare `/leaderboard` back-links to `/leagues` (the page is global; a player can be in several of the viewer's leagues)
+- Dashboard (`apps/web/src/pages/DashboardPage.tsx`): unchanged — keep the cross-league summary hero + per-league mini-tables
+- Update Vitest specs that mock `wc2026_active_league_slug` / assert `activeLeague` (`LeagueContext.test.tsx`, `DashboardPage.test.tsx`, `motion.test.tsx`, `ComparePage.test.tsx`); add a hub test asserting per-league rank + points render
+- **Acceptance:**
+  - Bottom nav shows "Leagues" (not "Standings"); it routes to `/leagues` and stays highlighted while browsing any `/leagues/*` or `/players/*` page.
+  - No `LeagueSwitcher` dropdown anywhere; no reads or writes of `wc2026_active_league_slug` remain in the codebase.
+  - The Leagues hub lists every league the player is in, each showing live rank + points + member count.
+  - Drilling into a league (`/leagues/:slug`) still shows that league's standings, history, and compare.
+  - Old bookmarks/deep links to `/leaderboard`, `/compare`, etc. land on `/leagues` (no blank screen, no crash).
+  - Dashboard still renders the cross-league hero + per-league mini-tables for both the 1-league and N-league cases.
+  - `pnpm test` + `pnpm typecheck` + `pnpm lint` green; no console errors in a manual click-through.
+
 ### Phase summary
 
 | Phase | Model | Sessions est. | Hardest call |
@@ -933,7 +953,8 @@ Eight phases. Each ends with merge-to-main + CI green + something demonstrable.
 | M6 | 🟢 Sonnet | 1 | LeagueContext lifecycle + URL/state sync |
 | M7 | 🟢 Sonnet | 1 | Dashboard reshape without regressing v1 polish (U-series work) |
 | M8 | 🟢 Sonnet | 0.5–1 | Soak feedback iteration |
-| **Total** | | **~7–8 sessions** | |
+| M9 | 🟢 Sonnet | 1 | Removing the active-league concept without breaking per-slug pages |
+| **Total** | | **~8–9 sessions** | |
 
 ---
 
