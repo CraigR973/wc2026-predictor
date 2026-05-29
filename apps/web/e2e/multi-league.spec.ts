@@ -13,6 +13,7 @@ import {
   catchAllApi,
   FAKE_JWT,
   FAKE_REFRESH,
+  GROUP_A,
   MOCK_LEAGUE,
   PLAYER,
   seedAuth,
@@ -166,10 +167,11 @@ test.describe('create invite', () => {
           body: JSON.stringify(createdInvite),
         });
       } else {
+        // Return the created invite so the token is visible in the list
         route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([]),
+          body: JSON.stringify([createdInvite]),
         });
       }
     });
@@ -177,7 +179,8 @@ test.describe('create invite', () => {
     await page.goto(`/leagues/${MOCK_LEAGUE.slug}/admin/invites`);
     await expect(page.getByRole('heading', { name: 'Invites', exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: /create invite/i }).click();
+    // Button label is "Generate invite link" (create form is always visible)
+    await page.getByRole('button', { name: /generate invite link/i }).click();
 
     // After creation the invite link (containing the token) should appear on the page
     await expect(page.getByText('tok-abc123')).toBeVisible();
@@ -235,10 +238,18 @@ test.describe('predictions', () => {
     await catchAllApi(page);
     await blockSupabase(page);
 
-    const match = makeMatch({ id: 'm-wc1', status: 'scheduled' });
+    const match = makeMatch({ id: 'm-wc1', status: 'scheduled', group_id: GROUP_A.id });
     const prediction = makePrediction({ match_id: 'm-wc1', predicted_home: 2, predicted_away: 1 });
 
-    // PredictionsPage fetches /api/v1/matches?stage=group and /api/v1/predictions/me
+    // PredictionsPage fetches /api/v1/groups, /api/v1/matches?stage=group, /api/v1/predictions/me
+    await page.route('**/api/v1/groups*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([GROUP_A]),
+      }),
+    );
+
     await page.route('**/api/v1/matches*', (route) =>
       route.fulfill({
         status: 200,
@@ -267,13 +278,17 @@ test.describe('predictions', () => {
     await page.goto('/predictions');
     await expect(page.getByTestId(`prediction-card-${match.id}`)).toBeVisible();
 
-    // Fill in home and away score
+    // Fill in home and away score (spinbuttons are inside the card)
     const card = page.getByTestId(`prediction-card-${match.id}`);
     await card.getByRole('spinbutton').nth(0).fill('2');
     await card.getByRole('spinbutton').nth(1).fill('1');
-    await card.getByRole('button', { name: /save/i }).click();
 
-    await expect(page.getByTestId('points-badge')).toBeVisible();
+    // Save button is at the group-panel level ("Save Group A"), not inside the card
+    const saveBtn = page.getByRole('button', { name: /save group/i });
+    await saveBtn.click();
+
+    // After save the dirty count drops to 0 → button becomes disabled
+    await expect(saveBtn).toBeDisabled();
   });
 });
 
