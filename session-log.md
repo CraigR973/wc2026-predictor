@@ -1232,3 +1232,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - The multi-league Playwright spec (`e2e/multi-league.spec.ts`) follows the LIFO mock registration pattern from M6/M7.
 
 **Next:** M-series complete — staging soak with Lewis, then tag `v1.1-multi-league` on main
+
+---
+
+## Multi-league batch M9 — Frontend: Leagues tab + drop active-league switcher
+**Commits:** 8aaaeff · CI ⚠️ (runner quota exhaustion — all local suites green: 187 tests, typecheck clean, lint 0 errors)
+
+### Key facts for future sessions
+- `LeagueContext` now exposes only `{ leagues, isLoading, refetch }` — `activeLeague`, `setActiveLeague`, `wc2026_active_league_slug` localStorage key, `useLeagueSlugSync`, and `useLeagueOptional` are fully removed; nothing reads or writes that key anymore.
+- Bottom nav "Standings" → "Leagues" at `/leagues`; desktop nav LeagueSwitcher dropdown deleted; Compare removed from both navs (it's per-league, reached from inside a league).
+- `/leaderboard`, `/leaderboard/history`, `/leaderboard/round/:stage`, `/compare` now redirect to `/leagues` — old bookmarks land cleanly, no blank screens.
+- `MyLeaguesPage` now shows live rank + points per league card (per-league leaderboard fetch + `dedupedLeaderboard`); `PlayerProfilePage` back-links point to `/leagues`.
+- 9 per-league pages had no-op `useLeagueSlugSync` calls removed; they already read `slug` from `useParams`.
+
+**Next:** M-series complete — staging soak with Lewis, then tag `v1.1-multi-league` on main
