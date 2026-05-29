@@ -334,6 +334,11 @@ def upgrade() -> None:
     )
 
     # 2. Create the Steele Spreadsheet league if it doesn't exist.
+    #    Guarded on an admin profile existing: ``leagues.created_by`` is NOT
+    #    NULL, so on a fresh DB with no profiles (CI, or a brand-new prod that
+    #    migrates before bootstrap_admin runs) this is a clean no-op rather than
+    #    an INSERT of a NULL created_by. Mirrors 012's tolerance of a missing
+    #    Steele league.
     op.execute(
         """
         INSERT INTO leagues
@@ -350,6 +355,9 @@ def upgrade() -> None:
              ORDER BY created_at LIMIT 1),
             NOW(), NOW()
         WHERE NOT EXISTS (SELECT 1 FROM leagues WHERE slug = 'steele-spreadsheet')
+          AND EXISTS (
+              SELECT 1 FROM profiles WHERE role = 'admin' AND deleted_at IS NULL
+          )
         """
     )
 
@@ -369,6 +377,7 @@ def upgrade() -> None:
             NOW(), NOW(), NOW()
         FROM profiles p
         WHERE p.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM leagues WHERE slug = 'steele-spreadsheet')
           AND NOT EXISTS (
               SELECT 1 FROM league_memberships lm
               WHERE lm.league_id = (SELECT id FROM leagues WHERE slug = 'steele-spreadsheet')
