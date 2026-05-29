@@ -25,7 +25,7 @@ from src.models.league import League
 from src.models.league_membership import LeagueMemberRole, LeagueMembership
 from src.models.match import Match, MatchStatus
 from src.models.prediction import NotificationPreferences
-from src.models.profile import PlayerRole, Profile
+from src.models.profile import PlayerRole, Profile, SiteRole
 from src.models.refresh_token import RefreshToken
 from src.models.team import Team, TournamentStage
 
@@ -73,6 +73,10 @@ async def seed(db: Annotated[AsyncSession, Depends(get_db)]) -> SeedResponse:
             role=PlayerRole.admin,
             timezone="UTC",
             failed_login_count=0,
+            email="smoke-admin@test.invalid",
+            first_name="Smoke",
+            last_name="Admin",
+            site_role=SiteRole.superadmin,
         )
         db.add(admin)
         await db.flush()
