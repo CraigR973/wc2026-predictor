@@ -76,13 +76,14 @@ async def _insert_profile(
             '$2b$12$0000000000000000000000000000000000000000000000000000',
             CAST(:r AS player_role),
             CASE WHEN :d THEN now() ELSE NULL END,
-            :n || '@test.invalid'
+            :email
         )
         RETURNING id
         """,
         n=display_name,
         r=role,
         d=deleted,
+        email=f"{display_name}@test.invalid",
     )
     # Active profiles need a league membership to receive M2 snapshots.
     # Soft-deleted profiles intentionally stay membership-less.

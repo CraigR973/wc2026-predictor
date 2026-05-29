@@ -341,12 +341,12 @@ async def _new_profile(conn: AsyncConnection, name: str) -> uuid.UUID:
                     gen_random_uuid(), :name,
                     '$2b$12$0000000000000000000000000000000000000000000000000000',
                     CAST('player' AS player_role),
-                    :name || '@test.invalid'
+                    :email
                 )
                 RETURNING id
                 """
             ),
-            {"name": name},
+            {"name": name, "email": f"{name}@test.invalid"},
         )
     ).scalar_one()
 

@@ -63,12 +63,13 @@ async def _make_profile(conn: AsyncConnection, display_name: str, role: str = "p
             :n,
             '$2b$12$0000000000000000000000000000000000000000000000000000',
             CAST(:r AS player_role),
-            :n || '@test.invalid'
+            :email
         )
         RETURNING id
         """,
         n=display_name,
         r=role,
+        email=f"{display_name}@test.invalid",
     )
     return str(pid)
 

@@ -587,10 +587,11 @@ async def _insert_profile_raw(conn: AsyncConnection, display_name: str) -> uuid.
         VALUES (
             gen_random_uuid(), :n,
             '$2b$12$0000000000000000000000000000000000000000000000000000',
-            'player', NULL, :n || '@test.invalid'
+            'player', NULL, :email
         ) RETURNING id
         """,
         n=display_name,
+        email=f"{display_name}@test.invalid",
     )
     # M2: snapshots fan out per active league membership. The recompute
     # helper exercised by these tests needs a membership row to write to.
