@@ -207,12 +207,15 @@ async def _profile(conn: AsyncConnection, name: str) -> uuid.UUID:
         await conn.execute(
             text(
                 """
-                INSERT INTO profiles (id, display_name, pin_hash, role, email)
+                INSERT INTO profiles (id, display_name, pin_hash, role, email, first_name, last_name, site_role)
                 VALUES (
                     gen_random_uuid(), :name,
                     '$2b$12$0000000000000000000000000000000000000000000000000000',
                     CAST('player' AS player_role),
-                    :email
+                    :email,
+                    'Test',
+                    'User',
+                    CAST('user' AS site_role)
                 )
                 RETURNING id
                 """
