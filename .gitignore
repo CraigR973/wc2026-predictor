@@ -58,3 +58,4 @@ test-results/
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 .mcp.json
+.vercel

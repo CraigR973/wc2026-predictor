@@ -9,23 +9,40 @@ hotfixes, and rollback.
 ## The setup, in one diagram
 
 ```
-feat/foo ──┐
-fix/bar  ──┼─► PR ─► merge ──► staging branch ──┐         ┌──► wc2026-staging.vercel.app
-chore/xyz ─┘                                    │ CI gate │     (staging API + staging DB)
-                                                ▼         ▼
-                                          GitHub Actions ─┤
-                                          (deploy job)    │
-                                                          │
-                                          merge staging → main ──► wc2026-prod (Vercel auto)
-                                                                   └► wc2026.vercel.app
-                                                                      (prod API + prod DB)
+feat/ fix/ chore/  ──►  /ship-staging  ──►  staging branch
+                                                  │
+         ┌────────────────────────────────────────┴───────────────────────────────┐
+         ▼  CI gate (deploy-staging job)                    Railway GitHub integration
+   Vercel deploy                                        Railway auto-deploy + migrate
+   wc2026-staging.vercel.app                            (alembic upgrade head on boot;
+   (frontend)                                            healthcheck gates the cutover)
+                                                         staging API + staging DB
+         │
+         ▼  soak on iPhone, then:  /ship-prod   (refuses unless the staging-HEAD CI run is green)
+                                                  │
+                                             main branch
+                                                  │
+         ┌────────────────────────────────────────┴───────────────────────────────┐
+         ▼  Vercel GitHub integration                       Railway GitHub integration
+   Vercel auto-deploy                                   Railway auto-deploy + migrate
+   wc2026.vercel.app                                    (alembic upgrade head on boot)
+   (frontend)                                            prod API + prod DB
 ```
+
+Frontend (Vercel) and backend (Railway) deploy on **independent planes**: Vercel
+on staging is gated behind GitHub Actions CI (the `deploy-staging` job), Railway
+deploys straight off its own GitHub integration on push. Railway's own gate is the
+boot migration + healthcheck — if `alembic upgrade head` or the app fails to come
+up healthy, the container exits and Railway keeps the **last healthy deployment**
+serving, so a bad migration never half-applies to a live DB.
 
 | What | Where it deploys | How it deploys |
 |---|---|---|
-| Push to `main` | `wc2026.vercel.app` (custom prod) | Vercel GitHub integration auto-deploys |
-| Push to `staging` | `wc2026-staging.vercel.app` | GitHub Actions `deploy-staging` job in `ci.yml` runs after every other job passes, then `vercel deploy --prebuilt --prod` |
-| Push to any other branch | nothing | Both Vercel projects skip the build (ignore-build-step) |
+| Push to `main` | `wc2026.vercel.app` (frontend) | Vercel GitHub integration auto-deploys |
+| Push to `main` | `wc2026-api-production-a0f4.up.railway.app` (backend) | Railway GitHub integration auto-deploys; root `Dockerfile` CMD runs `alembic upgrade head` then uvicorn |
+| Push to `staging` | `wc2026-staging.vercel.app` (frontend) | GitHub Actions `deploy-staging` job in `ci.yml` runs after every other job passes, then `vercel deploy --prod` (remote build, not `--prebuilt` — see CI comment) |
+| Push to `staging` | `wc2026-api-production-333a.up.railway.app` (backend) | Railway GitHub integration auto-deploys; same `Dockerfile` migrate-on-boot |
+| Push to any other branch | nothing | Both Vercel projects skip the build (ignore-build-step); Railway only tracks `main`/`staging` |
 | Local CLI `vercel deploy` | one-off preview URL on whichever project's linked | rare — only when staging is currently in use by someone else |
 
 ---
@@ -67,7 +84,7 @@ chore/xyz ─┘                                    │ CI gate │     (staging
 
 The fastest fix is to roll back, not roll forward.
 
-### Rollback (~30 s)
+### Frontend rollback (Vercel, ~30 s)
 
 In the Vercel dashboard for `wc2026-prod`:
 1. Go to **Deployments** tab.
@@ -77,8 +94,24 @@ In the Vercel dashboard for `wc2026-prod`:
 4. Confirm. The custom domain (`wc2026.vercel.app` + any alias) repoints
    in seconds.
 
-This rolls back the **frontend only**. If the broken release also
-shipped a backend migration, follow the schema-change section below.
+A pure frontend regression only needs this step.
+
+### Backend rollback (Railway)
+
+The backend deploys from the root `Dockerfile`, so a rollback re-runs a
+*previous* image — but mind the migration it carries.
+
+1. Railway dashboard → `wc2026-api-prod` service → **Deployments**.
+2. Find the last healthy deployment before the bad one → **⋯** → **Redeploy**.
+   Railway rebuilds that commit; its `alembic upgrade head` is a no-op when the
+   schema is already at or ahead of that revision.
+3. **A forward-only migration does not undo itself by redeploying an older
+   image** — the old image's `alembic upgrade head` will not *downgrade* the DB.
+   If the bad release migrated the schema and you must reverse it, run the
+   explicit `alembic downgrade` (see `restore.md`), and only if that migration
+   was written reversibly. This is the whole reason we use expand/contract: an
+   additive migration needs no rollback, so the older image runs cleanly against
+   the newer schema and you can roll the API back independently of the DB.
 
 ### Roll forward instead (if rollback won't help)
 
@@ -100,18 +133,25 @@ shipped a backend migration, follow the schema-change section below.
 
 ## Schema changes (backend migration + frontend)
 
-When a PR touches both:
+A migration and the frontend that depends on it ship in the **same merge** —
+no manual ordering, no separate `railway up`. The model sequences it for you:
 
-1. **Order matters**: migrate first, deploy frontend second.
-2. Railway auto-applies migrations on container boot (per
-   `apps/api/Dockerfile` CMD). So:
-   - Merge the backend-only part of the change → Railway redeploys →
-     migrations apply.
-   - Verify backend health: `curl https://wc2026-api-production-a0f4.up.railway.app/api/v1/health`
-   - Merge the frontend part → Vercel deploys.
-3. **Avoid backwards-incompatible migrations** during the live tournament
-   window (Jun 11 – Jul 19, 2026). Keep new columns nullable, add before
-   removing, etc.
+1. Merge to `staging` via `/ship-staging`. Railway redeploys the staging backend
+   and runs `alembic upgrade head` against the **staging DB** on boot (root
+   `Dockerfile` CMD); Vercel deploys the staging frontend. If the migration
+   fails, the staging container never goes healthy and the previous one keeps
+   serving — you catch it on staging, not in prod.
+2. Soak on the staging iPhone. The migration has now proven itself against a
+   real (staging) database.
+3. Promote with `/ship-prod`. It refuses unless the staging-HEAD CI run is green,
+   then merges `staging → main`. Railway runs the **same** migration against the
+   **prod DB** on boot. Because it already succeeded on staging, this is the
+   gated-but-automatic step — no hand-run migration against prod, ever.
+4. **Use expand/contract during the live tournament window (Jun 11 – Jul 19,
+   2026).** Keep new columns nullable, add before removing, backfill in a
+   follow-up — so old app code keeps working against the new schema during the
+   brief window where both run. A migration that drops or renames a column the
+   running app still reads will break in-flight prediction submits.
 
 ---
 
