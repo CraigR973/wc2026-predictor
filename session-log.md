@@ -1275,3 +1275,16 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `ship-prod.md` Step 3 now has two hard gates: SHA gate (stops if actual SHA ≠ pushed main HEAD or is `"unknown"`) and post-deploy synthetic hitting `/api/v1/matches/upcoming` through the prod frontend origin.
 
 **Next:** Review batch R9 — CI runs the production frontend bundle (🟢 Sonnet)
+
+---
+
+## Review batch R9 — CI runs the production frontend bundle
+**Commits:** 171f13a, 3eea100 · CI ✅
+
+### Key facts for future sessions
+- Separate `playwright.prod-bundle.config.ts` (port 4173, no webServer) keeps prod-bundle tests fully isolated from the dev-server e2e projects.
+- `prod-bundle*.spec.ts` files must be in `testIgnore` for the chromium/firefox/webkit projects in `playwright.config.ts` — otherwise they're picked up by the dev-server e2e job where `import.meta.env.PROD` is `false` and the guard test fails.
+- `prod-bundle-check` CI job manages vite builds and preview starts manually; it runs two cycles (positive with `VITE_API_URL` set, negative without) back-to-back in the same job.
+- The guard test passes when the R5.1 error fires; if the guard regresses the test fails, blocking CI.
+
+**Next:** Review batch R10 — Deploy docs reconciliation (🟢 Sonnet)
