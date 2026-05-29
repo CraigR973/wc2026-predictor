@@ -1261,3 +1261,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - 9 per-league pages had no-op `useLeagueSlugSync` calls removed; they already read `slug` from `useParams`.
 
 **Next:** M-series complete — staging soak with Lewis, then tag `v1.1-multi-league` on main
+
+---
+
+## Review batch R8 — Deploy detection & fail-fast
+**Commits:** 5e9ad9f, 75ab75c · CI ✅
+
+### Key facts for future sessions
+- `RAILWAY_GIT_COMMIT_SHA` is the confirmed env var name Railway injects; defaults to `"unknown"` if absent so boot never crashes on a missing var.
+- `/health/ready` now returns HTTP 503 (was 200) when DB unreachable — any caller doing a status-code check will now correctly detect the degraded state.
+- Prod validator (`_reject_weak_secrets_in_prod`) extended: also rejects localhost/empty `frontend_origin` and empty `database_url` — a misconfigured Railway deploy will refuse to start rather than silently misbehave.
+- `migrations/env.py` sets `lock_timeout='5s'` on the migration connection; transactional DDL rolls back cleanly on timeout, no half-applied migration risk.
+- `ship-prod.md` Step 3 now has two hard gates: SHA gate (stops if actual SHA ≠ pushed main HEAD or is `"unknown"`) and post-deploy synthetic hitting `/api/v1/matches/upcoming` through the prod frontend origin.
+
+**Next:** Review batch R9 — CI runs the production frontend bundle (🟢 Sonnet)
