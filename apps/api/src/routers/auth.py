@@ -192,6 +192,7 @@ async def signup(
         email=player_email,
         first_name=first,
         last_name=last,
+        site_role=SiteRole.user,
         pin_hash=hash_pin(body.pin),
         role=PlayerRole.player,
         timezone=body.timezone,
