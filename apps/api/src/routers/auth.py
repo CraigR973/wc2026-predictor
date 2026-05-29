@@ -32,7 +32,7 @@ from src.database import get_db
 from src.models.invite import Invite
 from src.models.league_membership import LeagueMemberRole, LeagueMembership
 from src.models.prediction import NotificationPreferences
-from src.models.profile import PlayerRole, Profile
+from src.models.profile import PlayerRole, Profile, SiteRole
 from src.models.refresh_token import RefreshToken
 from src.rate_limit import limiter, login_key, per_player_key, refresh_token_key
 from src.services.email import send_pin_reset_email, send_verification_email
@@ -541,6 +541,14 @@ async def join(
             status_code=status.HTTP_400_BAD_REQUEST, detail="League is full (max 15 players)"
         )
 
+    # Derive first/last name from display_name (format "First L."); fall back
+    # to splitting on whitespace so any display_name format is handled.
+    _name_parts = body.display_name.strip().split()
+    _first = _name_parts[0] if _name_parts else body.display_name
+    _last = _name_parts[-1].rstrip(".") if len(_name_parts) > 1 else _first
+    # Email placeholder — invitees supply their real email later via profile update.
+    _pending_email = f"pending+{body.display_name.lower().replace(' ', '-')}@steele.invalid"
+
     new_player = Profile(
         id=uuid.uuid4(),
         display_name=body.display_name,
@@ -550,6 +558,10 @@ async def join(
         failed_login_count=0,
         locked_until=None,
         deleted_at=None,
+        email=_pending_email,
+        first_name=_first,
+        last_name=_last,
+        site_role=SiteRole.user,
     )
     db.add(new_player)
     await db.flush()
