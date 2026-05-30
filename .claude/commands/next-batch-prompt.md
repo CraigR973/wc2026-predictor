@@ -1,5 +1,5 @@
 ---
-description: Generate the next-batch paste-prompt. No-arg or `phase` → docs/phase-batches.md (numeric architecture phases AND M-batches; acceptance pulled from wc2026-architecture.md or docs/multi-league-architecture.md depending on the batch id). `review` → docs/review-batches.md (acceptance inline). `polish` → docs/polish-batches.md (acceptance inline). Mechanical, no hallucination.
+description: Generate the next-batch paste-prompt. No-arg or `phase` → docs/phase-batches.md (numeric architecture phases AND M-batches; acceptance pulled from wc2026-architecture.md or docs/multi-league-architecture.md depending on the batch id). `review` → docs/review-batches.md (acceptance inline). `polish` → docs/polish-batches.md (acceptance inline). `env` → docs/env-batches.md (acceptance inline). Mechanical, no hallucination.
 ---
 
 You are generating the copy-paste prompt for the next batch. Follow these steps **literally** — do not skip, do not infer.
@@ -13,8 +13,9 @@ You are generating the copy-paste prompt for the next batch. Follow these steps 
   - row id matches `^M\d+$` (e.g. `M1`) → **multi-league sub-mode**: acceptance from `docs/multi-league-architecture.md` (§ 8 `### M<n> ·` headings)
 - `review` → **review mode**: `docs/review-batches.md` only (acceptance criteria live in the per-batch sub-sections of that same file)
 - `polish` → **polish mode**: `docs/polish-batches.md` only (spec and acceptance live inline per `## U<N>` section)
+- `env` → **env mode**: `docs/env-batches.md` only (spec and acceptance live inline per `## E<N>` section; no code commits or CI involved)
 
-Reject any other value with `"Unknown mode '$ARGUMENTS' — use empty/phase, 'review', or 'polish'"`.
+Reject any other value with `"Unknown mode '$ARGUMENTS' — use empty/phase, 'review', 'polish', or 'env'"`.
 
 Per-step notes call out where the modes (and phase sub-modes) diverge.
 
@@ -63,6 +64,20 @@ The first row whose batch id is NOT wrapped in `~~...~~` is the next review batc
 
 If every row is struck through, report "All review batches shipped" and stop.
 
+**Env mode:**
+
+```bash
+grep -nE "^\| E[0-9~]" /Users/craigrobinson/wc_2026_predictor/docs/env-batches.md
+```
+
+The first row whose batch id is NOT wrapped in `~~...~~` is the next env batch. Extract:
+- **Batch id** (e.g. `E1`)
+- **Model tag** (`🟢 Sonnet` or `🔴 Opus`)
+- **Effort** (e.g. `~20 min`)
+- **Items range** (e.g. `E1.1–E1.5`)
+
+If every row is struck through, report "All env batches shipped" and stop.
+
 ## Step 2 — Pull acceptance criteria verbatim
 
 **Phase mode — architecture sub-mode** (numeric IDs like `7.2`): for each phase ID extracted in Step 1, run:
@@ -91,6 +106,13 @@ Copy the heading title (everything after `### M<n> · `) and all bullets verbati
 - The **Acceptance:** paragraph at the end of the section
 
 Do **not** grep `wc2026-architecture.md` in review mode — review items are not in it. If the section is missing, stop and report.
+
+**Env mode:** spec and acceptance live INLINE in `docs/env-batches.md`. Read the `## E<N> — <Title>` section for the batch identified in Step 1. Capture:
+- The section title (the part after `— `)
+- The one-line summary of each `### E<N>.<M>` sub-section heading
+- The entire **Acceptance:** block at the end of the section
+
+Do **not** grep architecture docs in env mode. If the section is missing, stop and report.
 
 **Polish mode:** spec and acceptance live INLINE in `docs/polish-batches.md`. Read the `## U<N> — <Title>` section for the batch you identified in Step 1. Capture:
 - The section title (the part after `— `)
@@ -277,7 +299,36 @@ PREVIOUS SESSION NOTES:
 ```
 ````
 
-After emitting the prompt, on a new line, remind the user: "Paste into a fresh **<model>** session. After it starts, run `/strike-batch <id>` (or edit the batches doc manually) to mark this batch in-flight." The `<id>` is `N` in phase mode architecture sub-mode, `M<n>` in phase mode multi-league sub-mode, `R<N>` in review mode, and `U<N>` in polish mode.
+**Env mode:**
+
+````
+```
+# Batch E<N> — <Title>
+
+You're running an **ops-only** env-variable batch for the World Cup 2026 Prediction League. No code changes — this is all Railway CLI and Vercel CLI/dashboard work.
+
+Open `docs/env-batches.md` and read the entire **E<N> — <Title>** section before starting. The per-item instructions there are authoritative; don't infer the spec from this prompt.
+
+**Model & effort:** sized for <model emoji + tag>, <effort>. If you hit a missing CLI permission or unexpected output, stop and ask rather than guessing.
+
+Items to complete (full spec in `docs/env-batches.md`):
+- E<N>.1 — <one-line summary from ### heading>
+- E<N>.2 — <one-line summary>
+- ...
+
+**Acceptance (from `docs/env-batches.md`):**
+- <acceptance bullet verbatim>
+- <acceptance bullet verbatim>
+- ...
+
+**No feature branch. No commits. No CI. No `/phase-closeout`.** When all acceptance criteria pass, report back and the user will run `/strike-batch E<N>`.
+
+PREVIOUS SESSION NOTES:
+- <non-obvious gotchas from the most recent env-batch session-log entry — max ~4 bullets, or omit entirely if this is E1>
+```
+````
+
+After emitting the prompt, on a new line, remind the user: "Paste into a fresh **<model>** session. After it starts, run `/strike-batch <id>` (or edit the batches doc manually) to mark this batch in-flight." The `<id>` is `N` in phase mode architecture sub-mode, `M<n>` in phase mode multi-league sub-mode, `R<N>` in review mode, `U<N>` in polish mode, and `E<N>` in env mode.
 
 ## Rules
 
