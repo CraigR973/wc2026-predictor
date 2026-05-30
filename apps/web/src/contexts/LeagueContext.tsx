@@ -2,10 +2,8 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
 } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import type { LeagueSummary } from '../lib/types';
 
@@ -18,7 +16,6 @@ interface LeagueContextValue {
 const LeagueContext = createContext<LeagueContextValue | null>(null);
 
 export function LeagueProvider({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: leagues = [], isLoading } = useQuery<LeagueSummary[]>({
@@ -26,13 +23,6 @@ export function LeagueProvider({ children }: { children: React.ReactNode }) {
     queryFn: () => apiFetch<LeagueSummary[]>('/api/v1/leagues/mine'),
     staleTime: 60_000,
   });
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (leagues.length === 0) {
-      navigate('/welcome', { replace: true });
-    }
-  }, [leagues, isLoading, navigate]);
 
   const refetchLeagues = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['leagues', 'mine'] });
