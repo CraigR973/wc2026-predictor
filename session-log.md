@@ -1300,3 +1300,15 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `docs/runbooks/env-manifest.md` created: ownership table for every runtime var (Railway vs Vercel, per env), with ⚠️ flags on the four that break prod silently (`VITE_API_URL`, `FRONTEND_ORIGIN`, `DATABASE_URL`, `SCHEDULER_ENABLED`).
 
 **Next:** R8–R10 review series complete — operator actions OP1–OP5 remain (dashboard-only, see docs/review-batches.md)
+
+---
+
+## Multi-league batch M10 — Staging soak fixes
+**Commits:** d62afea, c6d21ec · CI ✅
+
+### Key facts for future sessions
+- `WelcomePage` (`/welcome`) removed entirely — post-signup now redirects straight to `/dashboard`. The route no longer exists; any deep-linked `/welcome` URLs will 404.
+- Invites + Settings buttons on the league page are gated to `role === 'admin'`; non-admin members see neither.
+- OP4 confirmed N/A: `wc2026.vercel.app` is not owned by this project; canonical prod frontend stays `wc2026-prod.vercel.app`.
+
+**Next:** E2 — Email setup (Resend) whenever Resend account + domain are ready (`/next-batch-prompt env`)
