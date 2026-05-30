@@ -64,7 +64,7 @@ export function SignupPage() {
       if (inviteToken) {
         navigate(`/join/${inviteToken}`, { replace: true });
       } else {
-        navigate('/welcome', { replace: true });
+        navigate('/', { replace: true });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Signup failed';

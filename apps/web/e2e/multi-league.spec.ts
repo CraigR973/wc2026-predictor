@@ -26,7 +26,7 @@ import {
 // ---------------------------------------------------------------------------
 
 test.describe('signup', () => {
-  test('new player can sign up and is redirected to /welcome', async ({ page }) => {
+  test('new player can sign up and is redirected to dashboard', async ({ page }) => {
     // catchAllApi FIRST so specific routes take priority (LIFO)
     await catchAllApi(page);
     await blockSupabase(page);
@@ -57,7 +57,7 @@ test.describe('signup', () => {
     await page.getByLabel(/confirm pin/i).fill('1234');
     await page.getByRole('button', { name: /create account/i }).click();
 
-    await expect(page).toHaveURL('/welcome');
+    await expect(page).toHaveURL('/');
   });
 
   test('shows error when email already exists', async ({ page }) => {

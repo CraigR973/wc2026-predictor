@@ -138,6 +138,61 @@ jobs:
       - run: pnpm build
         working-directory: apps/web
 
+  prod-bundle-check:
+    name: Prod bundle check (VITE_API_URL guard)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install
+      - name: Install Playwright Chromium
+        run: pnpm e2e:prod-bundle:install
+        working-directory: apps/web
+
+      # ── Positive case: VITE_API_URL set — bundle must load without errors ────
+      - name: "Build prod bundle (VITE_API_URL set)"
+        working-directory: apps/web
+        env:
+          VITE_API_URL: https://wc2026-api-production-a0f4.up.railway.app
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
+        run: pnpm build
+      - name: "Start vite preview (positive)"
+        working-directory: apps/web
+        run: |
+          pnpm preview --port 4173 &
+          echo $! > /tmp/vite-preview.pid
+          for i in $(seq 1 20); do curl -sf http://localhost:4173 && break || sleep 1; done
+      - name: "Load prod bundle — assert no page errors"
+        working-directory: apps/web
+        run: pnpm e2e:prod-bundle
+      - name: "Stop vite preview (positive)"
+        run: kill "$(cat /tmp/vite-preview.pid)" || true
+
+      # ── Negative case: VITE_API_URL unset — R5.1 guard must fire ─────────────
+      - name: "Build prod bundle (VITE_API_URL unset)"
+        working-directory: apps/web
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
+        run: pnpm build
+      - name: "Start vite preview (negative)"
+        working-directory: apps/web
+        run: |
+          pnpm preview --port 4173 &
+          echo $! > /tmp/vite-preview.pid
+          for i in $(seq 1 20); do curl -sf http://localhost:4173 && break || sleep 1; done
+      - name: "Assert VITE_API_URL guard fires on module load"
+        working-directory: apps/web
+        run: pnpm e2e:prod-bundle:guard
+      - name: "Stop vite preview (negative)"
+        if: always()
+        run: kill "$(cat /tmp/vite-preview.pid)" || true
+
   e2e:
     name: E2E tests (Playwright — mocked)
     runs-on: ubuntu-latest
@@ -243,7 +298,7 @@ jobs:
   deploy-staging:
     name: Deploy → wc2026-staging.vercel.app
     if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
-    needs: [lint-api, typecheck-api, test-api, migration-check, build-web, e2e, smoke]
+    needs: [lint-api, typecheck-api, test-api, migration-check, build-web, prod-bundle-check, e2e, smoke]
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-staging

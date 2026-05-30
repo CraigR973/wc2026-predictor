@@ -139,3 +139,44 @@ async def test_hsts_present_in_production(
     monkeypatch.setattr(mw.settings, "environment", "production")
     resp = await client.get("/api/v1/health")
     assert resp.headers.get("strict-transport-security") == "max-age=63072000; includeSubDomains"
+
+
+# ---------------------------------------------------------------------------
+# R8.3 — Settings rejects localhost/empty frontend_origin and empty database_url
+# ---------------------------------------------------------------------------
+
+_PROD_BASE = dict(
+    jwt_access_secret="real-access-secret",
+    jwt_refresh_secret="real-refresh-secret",
+    vapid_private_key="real-vapid",
+    supabase_service_key="real-supabase",
+    football_data_api_key="real-football",
+    database_url="postgresql+asyncpg://prod:prod@host/db",
+    environment="production",
+)
+
+
+def test_settings_rejects_localhost_frontend_origin_in_production() -> None:
+    with pytest.raises(ValidationError, match="frontend_origin must not be empty or localhost"):
+        Settings(**{**_PROD_BASE, "frontend_origin": "http://localhost:5173"})
+
+
+def test_settings_rejects_empty_frontend_origin_in_production() -> None:
+    with pytest.raises(ValidationError, match="frontend_origin must not be empty or localhost"):
+        Settings(**{**_PROD_BASE, "frontend_origin": ""})
+
+
+def test_settings_rejects_empty_database_url_in_production() -> None:
+    with pytest.raises(ValidationError, match="database_url is empty"):
+        Settings(
+            **{
+                **_PROD_BASE,
+                "database_url": "",
+                "frontend_origin": "https://wc2026-prod.vercel.app",
+            }
+        )
+
+
+def test_settings_accepts_valid_prod_origin() -> None:
+    s = Settings(**{**_PROD_BASE, "frontend_origin": "https://wc2026-prod.vercel.app"})
+    assert s.frontend_origin == "https://wc2026-prod.vercel.app"

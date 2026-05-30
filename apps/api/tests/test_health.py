@@ -12,10 +12,36 @@ async def client() -> AsyncClient:
         yield c
 
 
-async def test_health_ok(client: AsyncClient) -> None:
+# R8.1 — /health returns sha field
+
+
+async def test_health_ok_has_sha(client: AsyncClient) -> None:
     response = await client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "sha" in data
+
+
+async def test_health_sha_from_env(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.routers.health as h
+
+    monkeypatch.setattr(h.settings, "railway_git_commit_sha", "abc1234")
+    response = await client.get("/api/v1/health")
+    assert response.json()["sha"] == "abc1234"
+
+
+async def test_health_sha_unknown_when_unset(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import src.routers.health as h
+
+    monkeypatch.setattr(h.settings, "railway_git_commit_sha", None)
+    response = await client.get("/api/v1/health")
+    assert response.json()["sha"] == "unknown"
+
+
+# R8.2 — /health/ready returns 503 when DB is unreachable
 
 
 async def test_ready_db_ok(client: AsyncClient) -> None:
@@ -33,7 +59,7 @@ async def test_ready_db_ok(client: AsyncClient) -> None:
     assert data["db"] == "ok"
 
 
-async def test_ready_db_down(client: AsyncClient) -> None:
+async def test_ready_db_down_returns_503(client: AsyncClient) -> None:
     mock_session = AsyncMock()
     mock_session.__aenter__ = AsyncMock(side_effect=Exception("connection refused"))
     mock_session.__aexit__ = AsyncMock(return_value=False)
@@ -41,7 +67,7 @@ async def test_ready_db_down(client: AsyncClient) -> None:
     with patch("src.routers.health.AsyncSessionLocal", return_value=mock_session):
         response = await client.get("/api/v1/health/ready")
 
-    assert response.status_code == 200
+    assert response.status_code == 503
     data = response.json()
     assert data["status"] == "not_ready"
     assert data["db"] == "unreachable"

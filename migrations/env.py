@@ -5,6 +5,7 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 # Make src.* importable from apps/api/
@@ -41,6 +42,9 @@ def run_migrations_offline() -> None:
 def _do_run_migrations(connection):  # type: ignore[no-untyped-def]
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
+        # Fail fast if another connection holds a lock (e.g. long-running query).
+        # Transactional DDL rolls back cleanly on timeout.
+        connection.execute(text("SET lock_timeout = '5s'"))
         context.run_migrations()
 
 

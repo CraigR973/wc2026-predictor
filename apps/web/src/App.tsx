@@ -46,7 +46,6 @@ const AdminAllLeaguesPage = lazy(() => import('./pages/admin/AllLeaguesPage').th
 // M6 new pages
 const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })));
-const WelcomePage = lazy(() => import('./pages/WelcomePage').then((m) => ({ default: m.WelcomePage })));
 const MyLeaguesPage = lazy(() => import('./pages/MyLeaguesPage').then((m) => ({ default: m.MyLeaguesPage })));
 const CreateLeaguePage = lazy(() => import('./pages/CreateLeaguePage').then((m) => ({ default: m.CreateLeaguePage })));
 const DiscoverLeaguesPage = lazy(() => import('./pages/DiscoverLeaguesPage').then((m) => ({ default: m.DiscoverLeaguesPage })));
@@ -77,7 +76,6 @@ function RouteFallback() {
 /**
  * Wraps protected routes with LeagueProvider.
  * Must be inside BrowserRouter (for useNavigate) and QueryClientProvider (for useQuery).
- * /welcome lives here without Layout chrome so it can be a full-screen redirect landing.
  */
 function LeagueAwareLayout() {
   return (
@@ -117,9 +115,6 @@ export function App() {
                 {/* Protected: authenticated + LeagueProvider */}
                 <Route element={<ProtectedRoute />}>
                   <Route element={<LeagueAwareLayout />}>
-                    {/* Full-screen pages (no Layout chrome) */}
-                    <Route path="/welcome" element={<WelcomePage />} />
-
                     {/* Standard app shell with TopBar + TabBar */}
                     <Route element={<Layout />}>
                       <Route path="/" element={<DashboardPage />} />

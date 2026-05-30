@@ -81,7 +81,7 @@ describe('LeagueContext', () => {
     expect(screen.getByTestId('league-steele-spreadsheet').textContent).toBe('The Steele Spreadsheet');
   });
 
-  it('shows empty list when no leagues (redirects to /welcome)', async () => {
+  it('shows empty list when no leagues', async () => {
     renderWithLeague([]);
     await waitFor(() => {
       expect(screen.queryByTestId('count')).toBeTruthy();

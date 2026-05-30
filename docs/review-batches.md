@@ -151,9 +151,9 @@ intentionally not R-rows (nothing to merge or close out).
 
 | Batch | Model | Effort | Items | Rationale |
 |---|---|---|---|---|
-| R8 | 🟢 Sonnet | ~3 h | R8.1–R8.5 | Deploy detection & fail-fast — closes the "stale image still returns 200" blind spot |
-| R9 | 🟢 Sonnet | ~1.5 h | R9.1 | CI actually runs the production frontend bundle |
-| R10 | 🟢 Sonnet | ~1 h | R10.1–R10.3 | Deploy docs reconciliation (doc-only, zero deploy risk) |
+| ~~R8~~ | ~~🟢 Sonnet~~ | ~~R8.1–R8.5~~ | ✅ Shipped 2026-05-30 |
+| ~~R9~~ | ~~🟢 Sonnet~~ | ~~R9.1~~ | ✅ Shipped 2026-05-30 |
+| ~~R10~~ | ~~🟢 Sonnet~~ | ~~R10.1–R10.3~~ | ✅ Shipped 2026-05-30 |
 
 Land **R8 first** — R9, R10, and the operator actions all reference the SHA
 endpoint it adds.

@@ -13,6 +13,9 @@
     "e2e:install": "playwright install --with-deps chromium firefox webkit",
     "e2e:smoke": "playwright test --project=smoke",
     "e2e:smoke:install": "playwright install --with-deps chromium",
+    "e2e:prod-bundle": "playwright test --config=playwright.prod-bundle.config.ts prod-bundle.spec.ts",
+    "e2e:prod-bundle:guard": "playwright test --config=playwright.prod-bundle.config.ts prod-bundle-guard.spec.ts",
+    "e2e:prod-bundle:install": "playwright install --with-deps chromium",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives",
     "typecheck": "tsc --noEmit"
   },
