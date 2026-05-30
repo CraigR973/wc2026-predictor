@@ -37,5 +37,6 @@ Per `docs/multi-league-architecture.md` § 8. Each row = one session. Order is s
 | ~~M7~~ | ~~🟢 Sonnet~~ | ~~M7~~ | ✅ Shipped 2026-05-28 |
 | ~~M8~~ | ~~🟢 Sonnet~~ | ~~M8~~ | ✅ Shipped 2026-05-28 |
 | ~~M9~~ | ~~🟢 Sonnet~~ | ~~M9~~ | ✅ Shipped 2026-05-29 |
+| M10 | 🟢 Sonnet | M10 | Staging soak fixes: signup redirect to dashboard, remove WelcomePage |
 
 Mark batches complete by striking through the row or removing it.
