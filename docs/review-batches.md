@@ -213,7 +213,7 @@ Not R-batches: there is nothing to merge or close out, so they do not run throug
 - [ ] **OP1** (audit H1) — Enable GitHub branch protection on `main` **and** `staging`: require the `CI` workflow to pass before merge. This is the only thing that makes the `/ship-prod` gate un-bypassable by a direct `git push origin main`.
 - [ ] **OP2** (audit C1) — In the Railway `wc2026-api-prod` project, verify both environments' GitHub **Source → branch → deploy-on-push** triggers are connected (`production`→`main`, `staging`→`staging`). Record the settings here so re-establishing them after any project change is mechanical. This is the trigger that silently went missing in the 2026-05-29 incident.
 - [ ] **OP3** (audit M3) — Confirm the Railway `staging` env sets `SCHEDULER_ENABLED=false` (the code default is `True`, `apps/api/src/config.py:42`). Otherwise staging polls football-data.org every 5 min and sends real web-push alongside prod.
-- [ ] **OP4** (audit H2, infra half) — Determine what `wc2026.vercel.app` actually is (it currently serves a *different* bundle than `wc2026-prod.vercel.app`). Retire it or redirect it to prod so bookmarked users are not on stale code.
+- [x] **OP4** (audit H2, infra half) — N/A: `wc2026.vercel.app` is not owned by this project. Canonical prod frontend is `wc2026-prod.vercel.app`; no action required.
 - [ ] **OP5** (audit L4) — Scope `VERCEL_TOKEN` to the narrowest available access and confirm the annual rotation reminder in `deploys-ongoing.md`.
 
 ---
