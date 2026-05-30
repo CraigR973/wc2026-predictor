@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
-import type { LeaderboardEntry, LeagueSummary } from '@/lib/types';
+import type { LeaderboardEntry, LeagueDetail } from '@/lib/types';
 import { dedupedLeaderboard } from '@/lib/leaderboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,10 +14,13 @@ export function LeagueHomePage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   const { player } = useAuth();
 
-  const { data: league, isLoading: leagueLoading } = useQuery<LeagueSummary>({
+  const { data: league, isLoading: leagueLoading } = useQuery<LeagueDetail>({
     queryKey: ['league', slug],
-    queryFn: () => apiFetch<LeagueSummary>(`/api/v1/leagues/${slug}`),
+    queryFn: () => apiFetch<LeagueDetail>(`/api/v1/leagues/${slug}`),
   });
+
+  const isLeagueAdmin =
+    league?.members?.some((m) => m.id === player?.id && m.role === 'admin') ?? false;
 
   const { data: leaderboard, isLoading: lbLoading } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard', slug],
@@ -49,6 +52,16 @@ export function LeagueHomePage() {
           <Button asChild size="sm" variant="outline">
             <Link to={`/leagues/${slug}/admin/members`}>Members</Link>
           </Button>
+          {isLeagueAdmin && (
+            <>
+              <Button asChild size="sm" variant="outline">
+                <Link to={`/leagues/${slug}/admin/invites`}>Invites</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to={`/leagues/${slug}/admin/settings`}>Settings</Link>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
