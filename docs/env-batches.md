@@ -7,7 +7,7 @@ Use `/next-batch-prompt env` to generate the paste prompt. Use `/strike-batch E1
 | Batch | Model | Items | Rationale |
 |---|---|---|---|
 | ~~E1~~ | ~~🟢 Sonnet~~ | ~~E1.1–E1.5~~ | ✅ Shipped 2026-05-30 |
-| E2 | 🟢 Sonnet | E2.1–E2.5 | Email setup — requires Resend account + domain DNS |
+| ~~E2~~ | ~~🟢 Sonnet~~ | ~~E2.1–E2.5~~ | ✅ N/A — invite link copied to clipboard; email not needed |
 
 ---
 
