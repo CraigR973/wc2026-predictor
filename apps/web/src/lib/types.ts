@@ -217,6 +217,13 @@ export interface LeagueSummary {
   created_at: string;
 }
 
+/** Shape returned by GET /api/v1/leagues/{slug} — includes member list with roles. */
+export interface LeagueDetail extends LeagueSummary {
+  id: string;
+  created_by: string;
+  members: Array<{ id: string; display_name: string; role: 'player' | 'admin'; joined_at: string }> | null;
+}
+
 export interface LeagueMember {
   player_id: string;
   display_name: string;
