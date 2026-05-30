@@ -211,10 +211,10 @@ Not R-batches: there is nothing to merge or close out, so they do not run throug
 `/ship-staging` or `/phase-closeout`. Tick them here when done.
 
 - [x] **OP1** (audit H1) — GitHub branch protection enabled on `main` and `staging`: all 7 CI status checks required before merge. Done 2026-05-30.
-- [ ] **OP2** (audit C1) — In the Railway `wc2026-api-prod` project, verify both environments' GitHub **Source → branch → deploy-on-push** triggers are connected (`production`→`main`, `staging`→`staging`). Record the settings here so re-establishing them after any project change is mechanical. This is the trigger that silently went missing in the 2026-05-29 incident.
-- [ ] **OP3** (audit M3) — Confirm the Railway `staging` env sets `SCHEDULER_ENABLED=false` (the code default is `True`, `apps/api/src/config.py:42`). Otherwise staging polls football-data.org every 5 min and sends real web-push alongside prod.
+- [x] **OP2** (audit C1) — Railway GitHub triggers verified: `production`→`main`, `staging`→`staging`, deploy-on-push enabled on both. Done 2026-05-30.
+- [x] **OP3** (audit M3) — `SCHEDULER_ENABLED=false` confirmed on Railway staging env. Done 2026-05-30.
 - [x] **OP4** (audit H2, infra half) — N/A: `wc2026.vercel.app` is not owned by this project. Canonical prod frontend is `wc2026-prod.vercel.app`; no action required.
-- [ ] **OP5** (audit L4) — Scope `VERCEL_TOKEN` to the narrowest available access and confirm the annual rotation reminder in `deploys-ongoing.md`.
+- [x] **OP5** (audit L4) — `VERCEL_TOKEN` scoped and rotation confirmed. Done 2026-05-30.
 
 ---
 
