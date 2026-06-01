@@ -85,9 +85,7 @@ def _stub_db(side_effects: list) -> AsyncMock:
 
 
 @asynccontextmanager
-async def _override(
-    player: MagicMock, mock_db: AsyncMock
-) -> AsyncGenerator[None, None]:
+async def _override(player: MagicMock, mock_db: AsyncMock) -> AsyncGenerator[None, None]:
     async def _get_db() -> AsyncGenerator[AsyncMock, None]:
         yield mock_db
 
@@ -257,10 +255,12 @@ async def test_match_predictions_filters_cross_league_players() -> None:
     other_profile = MagicMock()
     other_profile.display_name = "OtherPlayer"
 
-    mock_db = _stub_db([
-        _scalar(match),
-        _rows([(shared_pred, shared_profile), (other_pred, other_profile)]),
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(match),
+            _rows([(shared_pred, shared_profile), (other_pred, other_profile)]),
+        ]
+    )
 
     with patch(
         "src.routers.predictions.shared_league_player_ids",
@@ -415,9 +415,7 @@ async def test_departed_member_drops_off_leaderboard(db_conn: AsyncConnection) -
         MagicMock(id=league_id),
     )
     try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get(f"/api/v1/leagues/{slug}/leaderboard")
         assert resp.status_code == 200
         names_before = {e["player_name"] for e in resp.json()}
@@ -443,9 +441,7 @@ async def test_departed_member_drops_off_leaderboard(db_conn: AsyncConnection) -
         MagicMock(id=league_id),
     )
     try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get(f"/api/v1/leagues/{slug}/leaderboard")
         assert resp.status_code == 200
         names_after = {e["player_name"] for e in resp.json()}
@@ -482,17 +478,17 @@ async def test_private_league_non_member_gets_404() -> None:
     player = _profile()
     league = _league(privacy=LeaguePrivacy.private)
 
-    mock_db = _stub_db([
-        # _resolve_league
-        _scalar(league),
-        # _resolve_active_membership (non-member)
-        _scalar(None),
-    ])
+    mock_db = _stub_db(
+        [
+            # _resolve_league
+            _scalar(league),
+            # _resolve_active_membership (non-member)
+            _scalar(None),
+        ]
+    )
 
     async with _override(player, mock_db):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/leagues/secret-league")
 
     assert resp.status_code == 404
@@ -510,21 +506,21 @@ async def test_private_league_member_gets_200() -> None:
     membership.joined_at = datetime(2026, 1, 1)
     membership.deleted_at = None
 
-    mock_db = _stub_db([
-        # _resolve_league
-        _scalar(league),
-        # _resolve_active_membership (is member)
-        _scalar(membership),
-        # _active_member_count
-        _scalar_one(1),
-        # member list
-        _rows([(membership, player)]),
-    ])
+    mock_db = _stub_db(
+        [
+            # _resolve_league
+            _scalar(league),
+            # _resolve_active_membership (is member)
+            _scalar(membership),
+            # _active_member_count
+            _scalar_one(1),
+            # member list
+            _rows([(membership, player)]),
+        ]
+    )
 
     async with _override(player, mock_db):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/leagues/secret-league")
 
     assert resp.status_code == 200
@@ -536,19 +532,19 @@ async def test_public_open_league_non_member_gets_200() -> None:
     player = _profile()
     league = _league(privacy=LeaguePrivacy.public_open)
 
-    mock_db = _stub_db([
-        # _resolve_league
-        _scalar(league),
-        # _resolve_active_membership (not a member)
-        _scalar(None),
-        # _active_member_count
-        _scalar_one(3),
-    ])
+    mock_db = _stub_db(
+        [
+            # _resolve_league
+            _scalar(league),
+            # _resolve_active_membership (not a member)
+            _scalar(None),
+            # _active_member_count
+            _scalar_one(3),
+        ]
+    )
 
     async with _override(player, mock_db):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/leagues/secret-league")
 
     assert resp.status_code == 200
