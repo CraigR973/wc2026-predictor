@@ -229,7 +229,7 @@ R12/R13 are isolation/clarity work on an otherwise-healthy backend.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| R11 | 🔴 Opus (extended thinking ON) | ~3 h | R11.1–R11.4 | ⛔ BLOCKER — do first, before soak |
+| ~~R11~~ | ~~🔴 Opus (extended thinking ON)~~ | ~~~3 h~~ | ~~R11.1–R11.4~~ | ✅ Shipped 2026-06-01 |
 | R12 | 🟢 Sonnet | ~2.5 h | R12.1–R12.3 | Pending |
 | R13 | 🟢 Sonnet | ~2 h | R13.1–R13.5 | Pending |
 
