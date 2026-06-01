@@ -1326,3 +1326,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - R12/R13 are the next soak-audit batches (tenant isolation + admin hardening) — not soak-blockers.
 
 **Next:** Review batch R12 — Backend tenant isolation 🟢 Sonnet (`/next-batch-prompt review`)
+
+---
+
+## Review batch R12 — Backend tenant isolation
+**Commits:** 02a4478, a38a6b8 · CI ✅
+
+### Key facts for future sessions
+- New `src/deps.py` with `shared_league_player_ids(requester_id, db)` — one SQL call (correlated subquery); always includes requester's own ID.
+- Six endpoints now gate on shared-league membership: GET /players/{id}, GET /players/{id}/predictions/recent, GET /stats/{id}, GET /predictions/player/{id} return 403; GET /predictions/match/{id} and GET /specials/all filter rows silently.
+- Leaderboard helpers `_leaderboard_entries` and `_leaderboard_history` now inner-join `league_memberships` (deleted_at IS NULL); `_round_leaderboard` already had this join.
+- `GET /leagues/{slug}`: private league + non-member now returns 404 (not 403); membership check moved before `_active_member_count` — existing tests updated to match new call order.
+- Existing mock tests for predictions/players/stats/specials patched with `unittest.mock.patch` for `shared_league_player_ids` to avoid stub exhaustion.
+
+**Next:** Review batch R13 — Admin authority + hardening cleanup 🟢 Sonnet (`/next-batch-prompt review`)
