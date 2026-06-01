@@ -1381,3 +1381,15 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `font.display` in `tokens.ts` corrected to `"Outfit"` — Instrument Serif was never loaded; the token was a lie.
 
 **Next:** Polish batch U8 — Partnership lockup polish 🟢 Sonnet
+
+---
+
+## Polish batch U8 — Partnership lockup polish
+**Commits:** 9035327 · CI ✅
+
+### Key facts for future sessions
+- `robinsons-logo.png` (439×227 raster, blue-sky background) replaced by `apps/web/public/robinsons-logo.svg` — hand-authored arch SVG: even-odd filled band (outer r=110, inner r=69), gold border (r=110/67), `<textPath>` for "ROBINSONS" on a radius-85 arc, two-ellipse leaf. Transparent background; renders crisp at any size.
+- Partnership lockup extracted to `PartnershipLockup` component (`apps/web/src/components/PartnershipLockup.tsx`) — imports `brand.tagline`, renders "In partnership with" label + SVG logo + italic tagline.
+- `SignupPage` previously showed only `<Brand variant="splash" />`; now shows the full lockup to match Login. Both pages are now identical in their pre-card splash content.
+
+**Next:** U8 is the last defined polish batch (round 3). Run `/next-batch-prompt polish` to check for further batches or pivot to the next phase.
