@@ -117,16 +117,16 @@ describe('DashboardPage — keepPreviousData', () => {
 
     render(<Wrapper />);
 
-    // Wait for leaderboard data: "Zara" only comes from the leaderboard row
-    // (not the welcome heading), so seeing it confirms the table rendered.
-    await waitFor(() => expect(screen.queryByText('Zara')).toBeTruthy());
-    expect(screen.getByText('Zara')).toBeTruthy();
+    // Wait for leaderboard data: "42 pts" comes from the compact league strip
+    // (Alice is rank 1 with 42 points), confirming the strip rendered.
+    await waitFor(() => expect(screen.queryByText('42 pts')).toBeTruthy());
+    expect(screen.getByText('42 pts')).toBeTruthy();
 
     // Trigger a refetch that stalls
     qc.invalidateQueries({ queryKey: ['leaderboard'] });
 
-    // keepPreviousData must keep "Zara" visible during the in-flight refetch
-    expect(screen.getByText('Zara')).toBeTruthy();
+    // keepPreviousData must keep Alice's points visible during the in-flight refetch
+    expect(screen.getByText('42 pts')).toBeTruthy();
 
     // Unblock
     resolveSecondLeaderboard!(undefined);

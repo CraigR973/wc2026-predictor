@@ -1,13 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
-import {
-  Pencil,
-  Swords,
-  Sparkles,
-  ChevronRight,
-  type LucideIcon,
-} from 'lucide-react';
+import { Sparkles, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useLeague } from '../contexts/LeagueContext';
@@ -151,87 +145,10 @@ function NextMatchCard({
 }
 
 // ---------------------------------------------------------------------------
-// Per-league mini-leaderboard card
+// Compact league rank strip
 // ---------------------------------------------------------------------------
 
-function MiniLeaderboard({
-  entries,
-  currentPlayerId,
-  leagueSlug,
-}: {
-  entries: LeaderboardEntry[];
-  currentPlayerId: string;
-  leagueSlug: string;
-}) {
-  const deduped = dedupedLeaderboard(entries, leagueSlug);
-  const top5 = deduped.slice(0, 5);
-  const myEntry = deduped.find((e) => e.player_id === currentPlayerId);
-  const myRankInTop5 = top5.some((e) => e.player_id === currentPlayerId);
-  const showMyRow = myEntry && !myRankInTop5;
-
-  return (
-    <table className="w-full text-sm font-sans">
-      <tbody>
-        {top5.map((e) => (
-          <tr
-            key={e.player_id}
-            className={`border-t border-border/50 ${
-              e.player_id === currentPlayerId ? 'bg-primary/5' : ''
-            }`}
-          >
-            <td className="py-2.5 pl-4 sm:pl-5 w-9">
-              <span className="text-text-muted font-mono text-xs tabular-nums">
-                {MEDAL[e.rank] ?? e.rank}
-              </span>
-            </td>
-            <td className="py-2.5">
-              <Link
-                to={`/players/${e.player_id}`}
-                className={`font-medium hover:text-primary transition-colors ${
-                  e.player_id === currentPlayerId ? 'text-primary' : 'text-text-primary'
-                }`}
-              >
-                {e.player_name}
-              </Link>
-            </td>
-            <td className="py-2.5 pr-4 sm:pr-5 text-right font-mono font-semibold text-primary tabular-nums">
-              {e.total_points}
-            </td>
-          </tr>
-        ))}
-        {showMyRow && (
-          <>
-            <tr className="border-t border-border/50">
-              <td colSpan={3} className="py-1 pl-4 sm:pl-5 text-xs font-mono text-text-muted">
-                ···
-              </td>
-            </tr>
-            <tr className="border-t border-border/50 bg-primary/5">
-              <td className="py-2.5 pl-4 sm:pl-5 w-9">
-                <span className="text-text-muted font-mono text-xs tabular-nums">
-                  {myEntry.rank}
-                </span>
-              </td>
-              <td className="py-2.5">
-                <Link
-                  to={`/players/${myEntry.player_id}`}
-                  className="font-medium text-primary hover:text-primary transition-colors"
-                >
-                  {myEntry.player_name}
-                </Link>
-              </td>
-              <td className="py-2.5 pr-4 sm:pr-5 text-right font-mono font-semibold text-primary tabular-nums">
-                {myEntry.total_points}
-              </td>
-            </tr>
-          </>
-        )}
-      </tbody>
-    </table>
-  );
-}
-
-function LeagueCard({
+function CompactLeagueRow({
   league,
   currentPlayerId,
 }: {
@@ -244,56 +161,33 @@ function LeagueCard({
     staleTime: 30_000,
   });
 
+  const myEntry = currentPlayerId
+    ? dedupedLeaderboard(leaderboard, league.slug).find((e) => e.player_id === currentPlayerId)
+    : undefined;
+
   return (
-    <div className="rounded-lg border border-border bg-surface overflow-hidden">
-      <div className="px-4 sm:px-5 pt-4 pb-2 flex items-center justify-between">
-        <p className="font-sans text-sm font-semibold text-text-primary">{league.name}</p>
-        <Link
-          to={`/leagues/${league.slug}/leaderboard`}
-          className="text-xs font-sans text-text-muted hover:text-primary transition-colors tap-target inline-flex items-center"
-        >
-          Full table →
-        </Link>
-      </div>
-
+    <Link
+      to={`/leagues/${league.slug}/leaderboard`}
+      className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-border/50 last:border-b-0 hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+    >
+      <span className="flex-1 min-w-0 font-sans text-sm font-medium text-text-primary truncate">
+        {league.name}
+      </span>
       {isLoading ? (
-        <div className="px-4 sm:px-5 pb-4 space-y-2">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-3 w-4" />
-              <Skeleton className="h-3 flex-1 max-w-[120px]" />
-              <Skeleton className="h-3 w-8" />
-            </div>
-          ))}
-        </div>
-      ) : leaderboard.length > 0 && currentPlayerId ? (
-        <MiniLeaderboard
-          entries={leaderboard}
-          currentPlayerId={currentPlayerId}
-          leagueSlug={league.slug}
-        />
+        <Skeleton className="h-4 w-20" />
+      ) : myEntry ? (
+        <span className="shrink-0 flex items-center gap-2 font-mono text-xs tabular-nums">
+          <span className="text-text-muted">
+            {MEDAL[myEntry.rank] ?? `#${myEntry.rank}`}
+            <span className="font-sans opacity-60"> of {league.member_count}</span>
+          </span>
+          <span className="text-primary font-semibold">{myEntry.total_points} pts</span>
+        </span>
       ) : (
-        <p className="px-4 sm:px-5 pb-4 text-sm text-text-muted font-sans">
-          No standings yet — check back after the first result.
-        </p>
+        <span className="shrink-0 text-xs font-sans text-text-muted">—</span>
       )}
-
-      <div className="px-4 sm:px-5 py-3 border-t border-border/50 flex gap-2">
-        <Link
-          to={`/leagues/${league.slug}`}
-          className="text-xs font-sans text-text-muted hover:text-primary transition-colors"
-        >
-          League home
-        </Link>
-        <span className="text-border">·</span>
-        <Link
-          to={`/leagues/${league.slug}/compare`}
-          className="text-xs font-sans text-text-muted hover:text-primary transition-colors"
-        >
-          Compare
-        </Link>
-      </div>
-    </div>
+      <ChevronRight className="h-3.5 w-3.5 text-text-muted shrink-0" aria-hidden />
+    </Link>
   );
 }
 
@@ -312,7 +206,7 @@ function LatestResultCard({
   const homeLabel = prediction.home_team_name ?? '?';
   const awayLabel = prediction.away_team_name ?? '?';
   const pts = prediction.points_awarded;
-  const hasPoints = pts !== null && pts > 0;
+  const bd = prediction.points_breakdown;
 
   return (
     <Link
@@ -329,7 +223,7 @@ function LatestResultCard({
         {prediction.away_team_flag} {awayLabel}
       </p>
       {prediction.actual_home !== null && prediction.actual_away !== null && (
-        <p className="font-mono text-xs text-text-muted tabular-nums mb-2">
+        <p className="font-mono text-xs text-text-muted tabular-nums mb-3">
           {prediction.actual_home}–{prediction.actual_away}
           {prediction.predicted_home !== null && prediction.predicted_away !== null && (
             <span className="ml-2 text-text-muted/70">
@@ -338,58 +232,75 @@ function LatestResultCard({
           )}
         </p>
       )}
-      <span
-        className={`inline-flex items-baseline gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium ${
-          hasPoints
-            ? 'bg-primary/15 text-primary border border-primary/25'
-            : 'bg-surface-elevated text-text-muted border border-border'
-        }`}
-      >
-        <span className="tabular-nums">{pts !== null ? pts : '—'}</span>
-        <span className="opacity-70">{pts !== null ? `pt${pts !== 1 ? 's' : ''}` : 'no entry'}</span>
-      </span>
+      {bd ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
+          {(
+            [
+              { label: 'Result', val: bd.result },
+              { label: 'Goals', val: bd.goals },
+              { label: 'Exact', val: bd.exact },
+            ] as const
+          ).map(({ label, val }) => (
+            <span key={label} className="flex items-center gap-1 font-sans text-xs">
+              <span className={val > 0 ? 'text-success' : 'text-text-muted'}>
+                {val > 0 ? '✓' : '✗'}
+              </span>
+              <span className="text-text-muted">{label}</span>
+              <span
+                className={`font-mono tabular-nums font-medium ${val > 0 ? 'text-primary' : 'text-text-muted'}`}
+              >
+                {val > 0 ? `+${val}` : '—'}
+              </span>
+            </span>
+          ))}
+          <span className="font-mono text-xs font-semibold text-primary tabular-nums ml-auto">
+            {bd.total} pts
+          </span>
+        </div>
+      ) : (
+        pts !== null && (
+          <span
+            className={`inline-flex items-baseline gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium mb-2 ${
+              pts > 0
+                ? 'bg-primary/15 text-primary border border-primary/25'
+                : 'bg-surface-elevated text-text-muted border border-border'
+            }`}
+          >
+            <span className="tabular-nums">{pts}</span>
+            <span className="opacity-70">pt{pts !== 1 ? 's' : ''}</span>
+          </span>
+        )
+      )}
     </Link>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Nav cards (quick links)
+// Specials CTA
 // ---------------------------------------------------------------------------
 
-interface NavCard {
-  to: string;
-  title: string;
-  desc: string;
-  Icon: LucideIcon;
-}
-
-const NAV_CARDS: ReadonlyArray<NavCard> = [
-  { to: '/predictions', title: 'Predictions', desc: 'Submit your match scores', Icon: Pencil },
-  { to: '/predictions/knockout', title: 'Knockout Picks', desc: 'Pick winners for each round', Icon: Swords },
-  { to: '/predictions/specials', title: 'Specials', desc: 'Tournament winner, Golden Boot, top scorer', Icon: Sparkles },
-];
-
-function NavCardLink({ card }: { card: NavCard }) {
-  const { to, title, desc, Icon } = card;
+function SpecialsCTA() {
   return (
     <Link
-      to={to}
-      className="group flex items-start gap-4 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+      to="/predictions/specials"
+      className="group flex items-center gap-3 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
     >
       <span
-        className="shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-md bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors"
+        className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-md bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors"
         aria-hidden
       >
-        <Icon className="h-5 w-5" />
+        <Sparkles className="h-4 w-4" />
       </span>
       <span className="flex-1 min-w-0">
-        <span className="block font-sans text-base font-semibold text-text-primary tracking-tight">
-          {title}
+        <span className="block font-sans text-sm font-semibold text-text-primary">
+          Make your specials picks
         </span>
-        <span className="block text-text-muted text-sm font-sans mt-0.5">{desc}</span>
+        <span className="block text-text-muted text-xs font-sans mt-0.5">
+          Tournament winner, Golden Boot, top scorer
+        </span>
       </span>
       <ChevronRight
-        className="h-4 w-4 text-text-muted shrink-0 mt-1 transition-transform group-hover:translate-x-0.5"
+        className="h-4 w-4 text-text-muted shrink-0 transition-transform group-hover:translate-x-0.5"
         aria-hidden
       />
     </Link>
@@ -470,36 +381,30 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Quick links */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {NAV_CARDS.map((card) => (
-          <NavCardLink key={card.to} card={card} />
-        ))}
-      </div>
+      {/* Latest result — directly under Next Match */}
+      {recentLoading ? (
+        <Skeleton className="h-[140px] rounded-lg" />
+      ) : latestPred ? (
+        <LatestResultCard prediction={latestPred} timezone={timezone} />
+      ) : null}
 
-      {/* Per-league cards */}
+      {/* Compact league rank strip */}
       {leaguesLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-[160px] rounded-lg" />
-        </div>
-      ) : (
-        <div className="space-y-4">
+        <Skeleton className="h-[80px] rounded-lg" />
+      ) : leagues.length > 0 ? (
+        <div className="rounded-lg border border-border bg-surface overflow-hidden">
           {leagues.map((league) => (
-            <LeagueCard
+            <CompactLeagueRow
               key={league.slug}
               league={league}
               currentPlayerId={player?.id}
             />
           ))}
         </div>
-      )}
-
-      {/* Latest result */}
-      {recentLoading ? (
-        <Skeleton className="h-[140px] rounded-lg" />
-      ) : latestPred ? (
-        <LatestResultCard prediction={latestPred} timezone={timezone} />
       ) : null}
+
+      {/* Specials CTA */}
+      <SpecialsCTA />
     </div>
   );
 }
