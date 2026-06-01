@@ -6,15 +6,12 @@ import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { LeagueInvite } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
 
 export function LeagueAdminInvitesPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
-  const [inviteeEmail, setInviteeEmail] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
@@ -27,14 +24,11 @@ export function LeagueAdminInvitesPage() {
     e.preventDefault();
     setIsCreating(true);
     try {
-      const body: Record<string, unknown> = {};
-      if (inviteeEmail.trim()) body.invitee_email = inviteeEmail.trim();
       const invite = await apiFetch<LeagueInvite>(`/api/v1/leagues/${slug}/invites`, {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({}),
       });
       toast.success('Invite created');
-      setInviteeEmail('');
       queryClient.invalidateQueries({ queryKey: ['league-invites', slug] });
       const joinUrl = `${window.location.origin}/join/${invite.token}`;
       await navigator.clipboard.writeText(joinUrl).catch(() => {});
@@ -78,20 +72,7 @@ export function LeagueAdminInvitesPage() {
           <CardTitle className="text-base">Create invite</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={createInvite} className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="inviteeEmail">Invitee email (optional)</Label>
-              <Input
-                id="inviteeEmail"
-                type="email"
-                value={inviteeEmail}
-                onChange={(e) => setInviteeEmail(e.target.value)}
-                placeholder="friend@example.com"
-              />
-              <p className="text-xs text-text-muted font-sans">
-                Leave blank for a generic shareable link.
-              </p>
-            </div>
+          <form onSubmit={createInvite}>
             <Button type="submit" disabled={isCreating} className="w-full">
               {isCreating ? 'Creating…' : 'Generate invite link'}
             </Button>
@@ -119,11 +100,6 @@ export function LeagueAdminInvitesPage() {
                     <p className="text-sm font-mono truncate text-text-secondary">
                       {`${window.location.origin}/join/${invite.token}`}
                     </p>
-                    {invite.invitee_email && (
-                      <p className="text-xs text-text-muted font-sans mt-0.5">
-                        For: {invite.invitee_email}
-                      </p>
-                    )}
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <Button

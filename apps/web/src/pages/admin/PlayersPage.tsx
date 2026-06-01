@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 
 interface AdminPlayer {
@@ -32,6 +34,10 @@ export function AdminPlayersPage() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Delete confirm dialog
+  const [deleteTarget, setDeleteTarget] = useState<AdminPlayer | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
 
   // Reset PIN dialog
   const [resetTarget, setResetTarget] = useState<AdminPlayer | null>(null);
@@ -58,17 +64,19 @@ export function AdminPlayersPage() {
     load(showDeleted);
   }, [showDeleted]);
 
-  async function handleDelete(p: AdminPlayer) {
-    if (!window.confirm(`Remove ${p.display_name} from the league? This cannot be undone.`)) return;
+  async function confirmDelete() {
+    if (!deleteTarget) return;
     try {
-      await apiFetch(`/api/v1/admin/players/${p.id}`, { method: 'DELETE' });
+      await apiFetch(`/api/v1/admin/players/${deleteTarget.id}`, { method: 'DELETE' });
       setPlayers((prev) =>
         showDeleted
-          ? prev.map((pl) => (pl.id === p.id ? { ...pl, is_deleted: true } : pl))
-          : prev.filter((pl) => pl.id !== p.id),
+          ? prev.map((pl) => (pl.id === deleteTarget.id ? { ...pl, is_deleted: true } : pl))
+          : prev.filter((pl) => pl.id !== deleteTarget.id),
       );
+      setDeleteTarget(null);
+      setDeleteConfirmInput('');
     } catch {
-      alert('Failed to remove player.');
+      toast.error('Failed to remove player.');
     }
   }
 
@@ -167,7 +175,7 @@ export function AdminPlayersPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => handleDelete(p)}
+                        onClick={() => { setDeleteTarget(p); setDeleteConfirmInput(''); }}
                       >
                         Remove
                       </Button>
@@ -184,6 +192,40 @@ export function AdminPlayersPage() {
             />
           )}
         </div>
+
+      {/* Delete confirm dialog */}
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteConfirmInput(''); } }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove player</DialogTitle>
+            <DialogDescription>
+              Type <strong>{deleteTarget?.display_name}</strong> to confirm removal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Input
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              placeholder="Type name to confirm"
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => { setDeleteTarget(null); setDeleteConfirmInput(''); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteConfirmInput !== deleteTarget?.display_name}
+                onClick={confirmDelete}
+              >
+                Remove
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reset PIN dialog */}
       <Dialog open={!!resetTarget} onOpenChange={(open) => !open && closeResetDialog()}>

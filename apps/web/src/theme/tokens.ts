@@ -72,7 +72,7 @@ export const shadow = {
 } as const;
 
 export const font = {
-  display: '"Instrument Serif", Georgia, serif',
+  display: '"Outfit", system-ui, sans-serif',
   sans: '"Outfit", system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, monospace',
 } as const;
