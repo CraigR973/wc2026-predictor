@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { blockSupabase, catchAllApi, FAKE_JWT } from './helpers';
+import { blockSupabase, catchAllApi, fillPinGroup, FAKE_JWT } from './helpers';
 
 test.describe('Join flow', () => {
   test('player can join with a valid invite token and is redirected home', async ({ page }) => {
@@ -33,8 +33,8 @@ test.describe('Join flow', () => {
     // Name pre-filled from hint
     await expect(page.getByLabel(/display name/i)).toHaveValue('Test Player');
 
-    await page.getByLabel(/choose a pin/i).fill('12345');
-    await page.getByLabel(/confirm pin/i).fill('12345');
+    await fillPinGroup(page.getByRole('group', { name: 'PIN', exact: true }), '12345');
+    await fillPinGroup(page.getByRole('group', { name: 'Confirm PIN', exact: true }), '12345');
     await page.getByRole('button', { name: /join league/i }).click();
 
     // window.location.href = '/' is called on success

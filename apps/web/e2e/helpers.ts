@@ -1,4 +1,11 @@
-import type { Page, Route } from '@playwright/test';
+import type { Page, Locator, Route } from '@playwright/test';
+
+/** Fill a PinInput segmented component — scope to entry or confirm group using exact:true. */
+export async function fillPinGroup(group: Locator, pin: string) {
+  for (let i = 0; i < pin.length; i++) {
+    await group.getByLabel(`PIN digit ${i + 1}`).fill(pin[i]);
+  }
+}
 
 // Far-future JWT: {"sub":"p1","exp":9999999999}
 export const FAKE_JWT =
