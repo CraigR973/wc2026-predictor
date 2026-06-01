@@ -8,7 +8,7 @@ export function PartnershipLockup() {
         In partnership with
       </p>
       <img
-        src="/robinsons-logo.svg"
+        src="/robinsons-logo.png"
         alt="Robinson's"
         className="h-12 w-auto object-contain"
         draggable={false}

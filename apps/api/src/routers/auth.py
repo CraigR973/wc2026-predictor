@@ -59,13 +59,13 @@ class SignupRequest(BaseModel):
     email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
-    pin: str = Field(pattern=r"^\d{4,8}$")
+    pin: str = Field(pattern=r"^\d{4}$")
     timezone: str = "UTC"
 
 
 class LoginRequest(BaseModel):
     email: str
-    pin: str = Field(pattern=r"^\d{4,8}$")
+    pin: str = Field(pattern=r"^\d{4}$")
 
 
 class TokenResponse(BaseModel):
@@ -97,13 +97,13 @@ class LogoutRequest(BaseModel):
 class JoinRequest(BaseModel):
     token: str
     display_name: str = Field(min_length=2, max_length=30, pattern=r"^[\w\s'\-]+$")
-    pin: str = Field(pattern=r"^\d{4,8}$")
+    pin: str = Field(pattern=r"^\d{4}$")
     timezone: str = "UTC"
 
 
 class ChangePinRequest(BaseModel):
-    current_pin: str = Field(pattern=r"^\d{4,8}$")
-    new_pin: str = Field(pattern=r"^\d{4,8}$")
+    current_pin: str = Field(pattern=r"^\d{4}$")
+    new_pin: str = Field(pattern=r"^\d{4}$")
 
 
 class VerifyEmailRequest(BaseModel):
@@ -116,7 +116,7 @@ class PinResetRequestBody(BaseModel):
 
 class PinResetConfirm(BaseModel):
     token: str
-    new_pin: str = Field(pattern=r"^\d{4,8}$")
+    new_pin: str = Field(pattern=r"^\d{4}$")
 
 
 MAX_PLAYERS = 15

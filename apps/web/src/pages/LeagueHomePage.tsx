@@ -43,7 +43,7 @@ export function LeagueHomePage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <PageHeader title={league?.name ?? slug} />
+          <PageHeader title={league?.name ?? slug} back={{ to: '/leagues', label: 'Leagues' }} />
           {league?.description && (
             <p className="text-text-secondary font-sans text-sm mt-1">{league.description}</p>
           )}

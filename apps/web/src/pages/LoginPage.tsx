@@ -66,7 +66,7 @@ export function LoginPage() {
 
               <div className="space-y-1">
                 <Label>PIN</Label>
-                <PinInput value={pin} onChange={setPin} maxLength={8} />
+                <PinInput value={pin} onChange={setPin} maxLength={4} />
               </div>
 
               {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}
@@ -75,11 +75,12 @@ export function LoginPage() {
                 {isLoading ? 'Signing in…' : 'Sign in'}
               </Button>
 
-              <div className="flex items-center justify-between text-xs font-sans text-text-muted">
-                <Link to="/signup" className="hover:text-text-primary transition-colors">
-                  Create account
-                </Link>
-                <Link to="/forgot-pin" className="hover:text-text-primary transition-colors">
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/signup">Create account</Link>
+              </Button>
+
+              <div className="text-center">
+                <Link to="/forgot-pin" className="text-xs font-sans text-text-muted hover:text-text-primary transition-colors">
                   Forgot PIN?
                 </Link>
               </div>

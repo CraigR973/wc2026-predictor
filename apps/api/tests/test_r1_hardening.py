@@ -77,6 +77,27 @@ async def test_login_rejects_pin_too_short(client: AsyncClient) -> None:
     assert resp.status_code == 422
 
 
+async def test_login_rejects_pin_too_long(client: AsyncClient) -> None:
+    resp = await client.post(
+        "/api/v1/auth/login", json={"email": "alice@example.com", "pin": "12345"}
+    )
+    assert resp.status_code == 422
+
+
+async def test_signup_rejects_pin_too_long(client: AsyncClient) -> None:
+    resp = await client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "newuser@example.com",
+            "first_name": "New",
+            "last_name": "User",
+            "pin": "12345",
+            "timezone": "UTC",
+        },
+    )
+    assert resp.status_code == 422
+
+
 async def test_login_requires_email(client: AsyncClient) -> None:
     resp = await client.post("/api/v1/auth/login", json={"pin": "1234"})
     assert resp.status_code == 422
