@@ -1355,3 +1355,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - RANK vs DENSE_RANK: RANK intentional (gaps after ties = standard sports table). Comment in `services/leaderboard.py`.
 
 **Next:** all R-batches complete — project ready for soak / prod launch
+
+---
+
+## Polish batch U6 — Variable-length PIN, unified everywhere
+**Commits:** c042b15, 436d23c, fe9b004, 2fefc31 · CI ✅
+
+### Key facts for future sessions
+- `PinInput` now accepts `maxLength` (default 4), `label` (default `'PIN'`), and `autoComplete` props. Signup/Join pass `maxLength={8}`, `autoComplete="new-password"`, and confirm gets `label="Confirm PIN"` to disambiguate the two groups.
+- Login updated to `maxLength={8}` so users with longer PINs can sign in.
+- Playwright `getByRole('group', { name: 'PIN' })` substring-matches `'Confirm PIN'` without `exact: true` — always use `exact: true` when scoping PIN group queries in E2E tests.
+- Added `fillPinGroup(group, pin)` helper to `e2e/helpers.ts` for DRY per-cell fills.
+- JoinPage Vitest test gained missing `AuthProvider` wrapper (pre-existing failure now fixed).
+
+**Next:** Polish batch U7 — Invite-flow cleanup + finish issues 🟢 Sonnet
