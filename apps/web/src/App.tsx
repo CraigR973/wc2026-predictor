@@ -9,6 +9,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UpdateBanner } from './components/UpdateBanner';
 import { InstallPromptController } from './components/InstallPromptController';
+import { FirstRunController } from './components/FirstRunController';
 import { Skeleton } from './components/ui/skeleton';
 import { LoginPage } from './pages/LoginPage';
 import { JoinPage } from './pages/JoinPage';
@@ -42,6 +43,10 @@ const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage').then
 const AdminSyncPage = lazy(() => import('./pages/admin/SyncPage').then((m) => ({ default: m.AdminSyncPage })));
 const AdminResultsPage = lazy(() => import('./pages/admin/ResultsPage').then((m) => ({ default: m.AdminResultsPage })));
 const AdminAllLeaguesPage = lazy(() => import('./pages/admin/AllLeaguesPage').then((m) => ({ default: m.AdminAllLeaguesPage })));
+
+// U10 new pages
+const ForgotPinPage = lazy(() => import('./pages/ForgotPinPage').then((m) => ({ default: m.ForgotPinPage })));
+const PinResetPage = lazy(() => import('./pages/PinResetPage').then((m) => ({ default: m.PinResetPage })));
 
 // M6 new pages
 const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })));
@@ -102,6 +107,7 @@ export function App() {
           <AuthProvider>
           <UpdateBanner />
           <InstallPromptController />
+          <FirstRunController />
           <Toaster position="bottom-right" richColors closeButton />
           <ErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
@@ -109,6 +115,8 @@ export function App() {
                 {/* Public routes (no auth, no league context) */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
+                <Route path="/forgot-pin" element={<ForgotPinPage />} />
+                <Route path="/pin/reset/:token" element={<PinResetPage />} />
                 <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
                 <Route path="/join/:token" element={<JoinPage />} />
 
