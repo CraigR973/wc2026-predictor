@@ -80,8 +80,9 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     // The hint pre-fills the name field; overwrite to ensure our known value.
     await page.getByLabel(/display name/i).fill(PLAYER_NAME);
     // PinInput renders individual cells — fill each digit into its labelled cell
-    const pinEntry = page.getByRole('group', { name: 'PIN' });
-    const pinConfirm = page.getByRole('group', { name: 'Confirm PIN' });
+    // exact: true is required; without it 'PIN' substring-matches 'Confirm PIN' too
+    const pinEntry = page.getByRole('group', { name: 'PIN', exact: true });
+    const pinConfirm = page.getByRole('group', { name: 'Confirm PIN', exact: true });
     for (let i = 0; i < PLAYER_PIN.length; i++) {
       await pinEntry.getByLabel(`PIN digit ${i + 1}`).fill(PLAYER_PIN[i]);
     }
