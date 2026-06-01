@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
+from src.deps import shared_league_player_ids
 from src.models.league_membership import LeagueMembership
 from src.models.profile import Profile
 from src.routers.leagues import LeagueMemberDep
@@ -112,7 +113,7 @@ async def get_league_stats_endpoint(
 @router.get("/{player_id}", response_model=PlayerStatsOut)
 async def get_player_stats_by_id(
     player_id: uuid.UUID,
-    _player: CurrentPlayer,
+    requester: CurrentPlayer,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PlayerStatsOut:
     result = await db.execute(
@@ -121,5 +122,11 @@ async def get_player_stats_by_id(
     profile = result.scalar_one_or_none()
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+    shared = await shared_league_player_ids(requester.id, db)
+    if player_id not in shared:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not share a league with this player",
+        )
     stats = await get_player_stats(player_id, profile.display_name, db)
     return _to_out(stats)

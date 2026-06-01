@@ -96,6 +96,12 @@ async def _leaderboard_entries(
     stmt = (
         select(Profile, latest_snap)
         .join(latest_snap, latest_snap.player_id == Profile.id)
+        .join(
+            LeagueMembership,
+            (LeagueMembership.player_id == Profile.id)
+            & (LeagueMembership.league_id == league_id)
+            & (LeagueMembership.deleted_at.is_(None)),
+        )
         .where(Profile.deleted_at.is_(None))
     )
     if not include_inactive:
@@ -124,6 +130,12 @@ async def _leaderboard_history(
     stmt = (
         select(Profile, LeaderboardSnapshot)
         .join(LeaderboardSnapshot, LeaderboardSnapshot.player_id == Profile.id)
+        .join(
+            LeagueMembership,
+            (LeagueMembership.player_id == Profile.id)
+            & (LeagueMembership.league_id == league_id)
+            & (LeagueMembership.deleted_at.is_(None)),
+        )
         .where(Profile.deleted_at.is_(None))
         .where(LeaderboardSnapshot.league_id == league_id)
         .order_by(LeaderboardSnapshot.snapshot_at.asc(), Profile.display_name.asc())

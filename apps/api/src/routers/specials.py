@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import AdminPlayer, CurrentPlayer
 from src.database import get_db
+from src.deps import shared_league_player_ids
 from src.models.match import Match
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import SpecialPrediction, SpecialPredictionType
@@ -239,8 +240,11 @@ async def get_all_specials(
     )
     rows = result.all()
 
+    shared = await shared_league_player_ids(player.id, db)
     by_player: dict[str, PlayerSpecialsItem] = {}
     for pred, prof in rows:
+        if prof.id not in shared:
+            continue
         pid = str(prof.id)
         if pid not in by_player:
             by_player[pid] = PlayerSpecialsItem(

@@ -4,7 +4,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -342,12 +342,18 @@ async def test_match_predictions_post_lock() -> None:
     profile = _make_player(player.id)
     db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])
 
-    async with _override(db, player):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(
-                f"/api/v1/predictions/match/{match.id}",
-                headers={"Authorization": "Bearer x"},
-            )
+    with patch(
+        "src.routers.predictions.shared_league_player_ids",
+        return_value=frozenset({player.id}),
+    ):
+        async with _override(db, player):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.get(
+                    f"/api/v1/predictions/match/{match.id}",
+                    headers={"Authorization": "Bearer x"},
+                )
 
     assert resp.status_code == 200
     data = resp.json()
@@ -381,12 +387,18 @@ async def test_match_predictions_cancelled_returns_predictions() -> None:
     profile = _make_player(player.id)
     db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])
 
-    async with _override(db, player):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(
-                f"/api/v1/predictions/match/{match.id}",
-                headers={"Authorization": "Bearer x"},
-            )
+    with patch(
+        "src.routers.predictions.shared_league_player_ids",
+        return_value=frozenset({player.id}),
+    ):
+        async with _override(db, player):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.get(
+                    f"/api/v1/predictions/match/{match.id}",
+                    headers={"Authorization": "Bearer x"},
+                )
 
     assert resp.status_code == 200
 
@@ -404,12 +416,18 @@ async def test_player_predictions_only_post_lock() -> None:
     pred = _make_prediction(target_id, uuid.uuid4())
     db = _stub_db([_scalar_one(target_profile), _scalars([pred])])
 
-    async with _override(db, requester):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(
-                f"/api/v1/predictions/player/{target_id}",
-                headers={"Authorization": "Bearer x"},
-            )
+    with patch(
+        "src.routers.predictions.shared_league_player_ids",
+        return_value=frozenset({requester.id, target_id}),
+    ):
+        async with _override(db, requester):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.get(
+                    f"/api/v1/predictions/player/{target_id}",
+                    headers={"Authorization": "Bearer x"},
+                )
 
     assert resp.status_code == 200
     data = resp.json()

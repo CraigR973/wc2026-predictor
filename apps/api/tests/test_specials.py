@@ -345,9 +345,17 @@ async def test_get_all_specials_post_lock() -> None:
     pred = _make_special(other_id, SpecialPredictionType.tournament_winner, team_id=uuid.uuid4())
     db = _stub_db([_scalar_one(opening), _rows([(pred, other_profile)])])
 
-    async with _override(db, player):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get("/api/v1/specials/all", headers={"Authorization": "Bearer x"})
+    with patch(
+        "src.routers.specials.shared_league_player_ids",
+        return_value=frozenset({player.id, other_id}),
+    ):
+        async with _override(db, player):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.get(
+                    "/api/v1/specials/all", headers={"Authorization": "Bearer x"}
+                )
 
     assert resp.status_code == 200
     data = resp.json()

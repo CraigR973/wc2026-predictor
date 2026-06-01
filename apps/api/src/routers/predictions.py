@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
+from src.deps import shared_league_player_ids
 from src.models.match import Match, MatchStatus
 from src.models.prediction import Prediction
 from src.models.profile import Profile
@@ -195,6 +196,7 @@ async def match_predictions(
     )
     rows = result.all()
 
+    shared = await shared_league_player_ids(player.id, db)
     items = [
         MatchPredictionItem(
             player_id=str(pred.player_id),
@@ -205,6 +207,7 @@ async def match_predictions(
             points_breakdown=pred.points_breakdown,
         )
         for pred, prof in rows
+        if pred.player_id in shared
     ]
     return MatchPredictionsResponse(match_id=str(match_id), predictions=items)
 
@@ -217,7 +220,7 @@ async def match_predictions(
 @router.get("/player/{player_id}", response_model=list[PredictionResponse])
 async def player_predictions(
     player_id: uuid.UUID,
-    _requester: CurrentPlayer,
+    requester: CurrentPlayer,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PredictionResponse]:
     # Verify target player exists
@@ -226,6 +229,13 @@ async def player_predictions(
     )
     if profile_result.scalar_one_or_none() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+
+    shared = await shared_league_player_ids(requester.id, db)
+    if player_id not in shared:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not share a league with this player",
+        )
 
     # Only return predictions for matches that are no longer scheduled (post-lock)
     pred_result = await db.execute(
