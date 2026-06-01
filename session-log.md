@@ -1393,3 +1393,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `SignupPage` previously showed only `<Brand variant="splash" />`; now shows the full lockup to match Login. Both pages are now identical in their pre-card splash content.
 
 **Next:** U8 is the last defined polish batch (round 3). Run `/next-batch-prompt polish` to check for further batches or pivot to the next phase.
+
+---
+
+## Polish batch U9 — Login + leagues quick wins
+**Commits:** 8ddf043, 6ab843f · CI ✅
+
+### Key facts for future sessions
+- PIN reverted to exactly 4 digits (reverses U6 5–8 range). The `PinInput` component's `maxLength` prop was already there — only the _callers_ and the backend Pydantic patterns changed.
+- Smoke test seed PINs were 8 digits (`"11111111"`, `"22222222"`) — updated to `"1111"` / `"2222"` in `test_helpers.py` and `smoke.spec.ts`; missed on first push, caught by CI smoke job.
+- `robinsons-logo.svg` removed; `PartnershipLockup` reverts to `.png`. The raster was already in HEAD — U8.1 only _added_ the SVG alongside it; restoring was a pointer swap + file delete.
+- `LeagueCard` is now a block `<Link>` wrapping the whole card — no nested-interactive children so no a11y issue.
+- `SelectContent` (Radix) lacked a height cap; all dropdowns (including 48-team specials picker) now scroll via `max-h-[min(20rem,var(--radix-select-content-available-height))]` + `ScrollUpButton`/`ScrollDownButton`.
+
+**Next:** Polish batch U10 — Forgot-PIN + first-run onboarding 🟢 Sonnet
