@@ -221,6 +221,7 @@ export interface LeagueSummary {
 export interface LeagueDetail extends LeagueSummary {
   id: string;
   created_by: string;
+  join_code: string | null;
   members: Array<{ id: string; display_name: string; role: 'player' | 'admin'; joined_at: string }> | null;
 }
 

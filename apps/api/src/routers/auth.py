@@ -101,6 +101,13 @@ class JoinRequest(BaseModel):
     timezone: str = "UTC"
 
 
+class JoinByCodeRequest(BaseModel):
+    code: str
+    display_name: str = Field(min_length=2, max_length=30, pattern=r"^[\w\s'\-]+$")
+    pin: str = Field(pattern=r"^\d{4}$")
+    timezone: str = "UTC"
+
+
 class ChangePinRequest(BaseModel):
     current_pin: str = Field(pattern=r"^\d{4}$")
     new_pin: str = Field(pattern=r"^\d{4}$")
@@ -600,6 +607,109 @@ async def join(
 
     access, refresh_tok = await _issue_token_pair(new_player, db)
     log.info("player joined", player_id=str(new_player.id))
+    return TokenResponse(
+        access_token=access,
+        refresh_token=refresh_tok,
+        player=PlayerInfo(
+            id=str(new_player.id),
+            display_name=new_player.display_name,
+            role=new_player.role.value,
+            timezone=new_player.timezone,
+        ),
+    )
+
+
+@router.post("/join-by-code", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/hour")
+async def join_by_code(
+    request: Request,
+    body: JoinByCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TokenResponse:
+    """Unauthenticated: create account and join a league by its reusable join code."""
+    from src.models.league import League  # avoid circular import at module level  # noqa: PLC0415
+
+    league_result = await db.execute(
+        select(League).where(
+            League.join_code == body.code.upper(),
+            League.deleted_at.is_(None),
+        )
+    )
+    league = league_result.scalar_one_or_none()
+    if league is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid join code")
+
+    member_count_result = await db.execute(
+        select(func.count()).where(
+            LeagueMembership.league_id == league.id,
+            LeagueMembership.deleted_at.is_(None),
+        )
+    )
+    if (member_count_result.scalar() or 0) >= league.max_members:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="League is full")
+
+    name_result = await db.execute(
+        select(Profile).where(
+            Profile.display_name == body.display_name,
+            Profile.deleted_at.is_(None),
+        )
+    )
+    if name_result.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Display name already taken"
+        )
+
+    _name_parts = body.display_name.strip().split()
+    _first = _name_parts[0] if _name_parts else body.display_name
+    _last = _name_parts[-1].rstrip(".") if len(_name_parts) > 1 else _first
+    _pending_email = f"pending+{body.display_name.lower().replace(' ', '-')}@steele.invalid"
+
+    new_player = Profile(
+        id=uuid.uuid4(),
+        display_name=body.display_name,
+        pin_hash=hash_pin(body.pin),
+        role=PlayerRole.player,
+        timezone=body.timezone,
+        failed_login_count=0,
+        locked_until=None,
+        deleted_at=None,
+        email=_pending_email,
+        first_name=_first,
+        last_name=_last,
+        site_role=SiteRole.user,
+    )
+    db.add(new_player)
+    await db.flush()
+
+    prefs = NotificationPreferences(
+        player_id=new_player.id,
+        deadline_warning=True,
+        match_locked=True,
+        result_detected=True,
+        leaderboard_shift=True,
+        round_complete=True,
+        match_postponed=True,
+        special_results=True,
+        global_mute=False,
+    )
+    db.add(prefs)
+
+    db.add(
+        LeagueMembership(
+            league_id=league.id,
+            player_id=new_player.id,
+            role=LeagueMemberRole.player,
+        )
+    )
+
+    await db.commit()
+    await db.refresh(new_player)
+
+    await notify_invite_accepted(db, new_player.display_name)
+    await db.commit()
+
+    access, refresh_tok = await _issue_token_pair(new_player, db)
+    log.info("player joined by code", player_id=str(new_player.id))
     return TokenResponse(
         access_token=access,
         refresh_token=refresh_tok,

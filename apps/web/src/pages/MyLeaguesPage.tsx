@@ -88,6 +88,9 @@ export function MyLeaguesPage() {
           <Button asChild variant="outline" size="sm">
             <Link to="/leagues/discover">Discover</Link>
           </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/leagues/join">Join</Link>
+          </Button>
           <Button asChild size="sm">
             <Link to="/leagues/new">+ New</Link>
           </Button>
@@ -108,9 +111,12 @@ export function MyLeaguesPage() {
             <p className="text-text-secondary font-sans text-sm mb-4">
               You&apos;re not in any leagues yet.
             </p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center flex-wrap">
               <Button asChild size="sm">
                 <Link to="/leagues/new">Create league</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/leagues/join">Join by code</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
                 <Link to="/leagues/discover">Browse leagues</Link>

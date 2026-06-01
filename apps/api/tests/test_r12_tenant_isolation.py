@@ -467,6 +467,7 @@ def _league(privacy: LeaguePrivacy = LeaguePrivacy.private) -> MagicMock:
     lg.max_members = 15
     lg.created_by = uuid.uuid4()
     lg.created_at = datetime(2026, 1, 1)
+    lg.join_code = "ABCDE2"
     lg.updated_at = datetime(2026, 1, 1)
     lg.deleted_at = None
     return lg

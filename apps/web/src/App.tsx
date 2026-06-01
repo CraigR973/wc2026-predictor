@@ -60,6 +60,10 @@ const LeagueSettingsPage = lazy(() => import('./pages/LeagueSettingsPage').then(
 const LeagueJoinRequestsPage = lazy(() => import('./pages/LeagueJoinRequestsPage').then((m) => ({ default: m.LeagueJoinRequestsPage })));
 const LeagueAdminInvitesPage = lazy(() => import('./pages/LeagueAdminInvitesPage').then((m) => ({ default: m.LeagueAdminInvitesPage })));
 
+// U12 new pages
+const JoinByCodePage = lazy(() => import('./pages/JoinByCodePage').then((m) => ({ default: m.JoinByCodePage })));
+const WelcomePage = lazy(() => import('./pages/WelcomePage').then((m) => ({ default: m.WelcomePage })));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -119,6 +123,7 @@ export function App() {
                 <Route path="/pin/reset/:token" element={<PinResetPage />} />
                 <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
                 <Route path="/join/:token" element={<JoinPage />} />
+                <Route path="/welcome" element={<WelcomePage />} />
 
                 {/* Protected: authenticated + LeagueProvider */}
                 <Route element={<ProtectedRoute />}>
@@ -149,6 +154,7 @@ export function App() {
                       <Route path="/leagues" element={<MyLeaguesPage />} />
                       <Route path="/leagues/new" element={<CreateLeaguePage />} />
                       <Route path="/leagues/discover" element={<DiscoverLeaguesPage />} />
+                      <Route path="/leagues/join" element={<JoinByCodePage />} />
                       <Route path="/leagues/:slug" element={<LeagueHomePage />} />
 
                       {/* Per-league standings + compare */}

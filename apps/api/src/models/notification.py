@@ -76,6 +76,8 @@ class ActionType(StrEnum):
     league_invite_revoked = "league_invite_revoked"
     # M3 — per-league PIN reset
     league_member_pin_reset = "league_member_pin_reset"
+    # U12 — join code rotation
+    league_join_code_rotated = "league_join_code_rotated"
 
 
 class NotificationLog(Base, UUIDPrimaryKeyMixin):

@@ -46,4 +46,5 @@ class League(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False
     )
+    join_code: Mapped[str | None] = mapped_column(String(8), nullable=True, unique=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
