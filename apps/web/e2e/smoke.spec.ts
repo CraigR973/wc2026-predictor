@@ -79,8 +79,16 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
 
     // The hint pre-fills the name field; overwrite to ensure our known value.
     await page.getByLabel(/display name/i).fill(PLAYER_NAME);
-    await page.getByLabel(/choose a pin/i).fill(PLAYER_PIN);
-    await page.getByLabel(/confirm pin/i).fill(PLAYER_PIN);
+    // PinInput renders individual cells — fill each digit into its labelled cell
+    // exact: true is required; without it 'PIN' substring-matches 'Confirm PIN' too
+    const pinEntry = page.getByRole('group', { name: 'PIN', exact: true });
+    const pinConfirm = page.getByRole('group', { name: 'Confirm PIN', exact: true });
+    for (let i = 0; i < PLAYER_PIN.length; i++) {
+      await pinEntry.getByLabel(`PIN digit ${i + 1}`).fill(PLAYER_PIN[i]);
+    }
+    for (let i = 0; i < PLAYER_PIN.length; i++) {
+      await pinConfirm.getByLabel(`PIN digit ${i + 1}`).fill(PLAYER_PIN[i]);
+    }
     await page.getByRole('button', { name: /join league/i }).click();
 
     // If the join POST fails the page shows a [role="alert"] and stays put.

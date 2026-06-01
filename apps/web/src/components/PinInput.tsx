@@ -4,9 +4,12 @@ import { cn } from '@/lib/utils';
 interface PinInputProps {
   value: string;
   onChange: (v: string) => void;
+  maxLength?: number;
+  autoComplete?: string;
+  label?: string;
 }
 
-export function PinInput({ value, onChange }: PinInputProps) {
+export function PinInput({ value, onChange, maxLength = 4, autoComplete = 'current-password', label = 'PIN' }: PinInputProps) {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
 
   function focusCell(i: number) {
@@ -19,42 +22,42 @@ export function PinInput({ value, onChange }: PinInputProps) {
 
   function handleChange(i: number, raw: string) {
     const digit = raw.replace(/\D/g, '').slice(-1);
-    const arr = Array.from({ length: 4 }, (_, j) => getDigit(j));
+    const arr = Array.from({ length: maxLength }, (_, j) => getDigit(j));
     arr[i] = digit;
-    onChange(arr.join(''));
-    if (digit && i < 3) focusCell(i + 1);
+    onChange(arr.join('').replace(/\s+$/, '').trimEnd());
+    if (digit && i < maxLength - 1) focusCell(i + 1);
   }
 
   function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Backspace') {
       e.preventDefault();
       if (getDigit(i)) {
-        const arr = Array.from({ length: 4 }, (_, j) => getDigit(j));
+        const arr = Array.from({ length: maxLength }, (_, j) => getDigit(j));
         arr[i] = '';
         onChange(arr.join('').trimEnd());
       } else if (i > 0) {
-        const arr = Array.from({ length: 4 }, (_, j) => getDigit(j));
+        const arr = Array.from({ length: maxLength }, (_, j) => getDigit(j));
         arr[i - 1] = '';
         onChange(arr.join('').trimEnd());
         focusCell(i - 1);
       }
     } else if (e.key === 'ArrowLeft' && i > 0) {
       focusCell(i - 1);
-    } else if (e.key === 'ArrowRight' && i < 3) {
+    } else if (e.key === 'ArrowRight' && i < maxLength - 1) {
       focusCell(i + 1);
     }
   }
 
   function handlePaste(e: React.ClipboardEvent) {
     e.preventDefault();
-    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, maxLength);
     onChange(digits);
-    if (digits.length > 0) focusCell(Math.min(digits.length, 3));
+    if (digits.length > 0) focusCell(Math.min(digits.length, maxLength - 1));
   }
 
   return (
-    <div className="flex gap-2" role="group" aria-label="PIN">
-      {Array.from({ length: 4 }, (_, i) => (
+    <div className="flex gap-2" role="group" aria-label={label}>
+      {Array.from({ length: maxLength }, (_, i) => (
         <input
           key={i}
           ref={(el) => { inputs.current[i] = el; }}
@@ -65,7 +68,7 @@ export function PinInput({ value, onChange }: PinInputProps) {
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
-          autoComplete={i === 0 ? 'current-password' : 'off'}
+          autoComplete={i === 0 ? autoComplete : 'off'}
           aria-label={`PIN digit ${i + 1}`}
           className={cn(
             'w-12 h-12 text-center text-lg font-mono tracking-widest',

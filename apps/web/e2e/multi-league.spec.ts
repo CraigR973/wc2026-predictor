@@ -11,6 +11,7 @@ import { test, expect } from '@playwright/test';
 import {
   blockSupabase,
   catchAllApi,
+  fillPinGroup,
   FAKE_JWT,
   FAKE_REFRESH,
   GROUP_A,
@@ -49,12 +50,8 @@ test.describe('signup', () => {
     await page.getByLabel(/email/i).fill('alice@example.com');
     await page.getByLabel(/first name/i).fill('Alice');
     await page.getByLabel(/last name/i).fill('Smith');
-    // PIN via PinInput (renders individual digit inputs with aria-label="PIN digit N")
-    await page.getByLabel('PIN digit 1').fill('1');
-    await page.getByLabel('PIN digit 2').fill('2');
-    await page.getByLabel('PIN digit 3').fill('3');
-    await page.getByLabel('PIN digit 4').fill('4');
-    await page.getByLabel(/confirm pin/i).fill('1234');
+    await fillPinGroup(page.getByRole('group', { name: 'PIN', exact: true }), '1234');
+    await fillPinGroup(page.getByRole('group', { name: 'Confirm PIN', exact: true }), '1234');
     await page.getByRole('button', { name: /create account/i }).click();
 
     await expect(page).toHaveURL('/');
@@ -76,11 +73,8 @@ test.describe('signup', () => {
     await page.getByLabel(/email/i).fill('alice@example.com');
     await page.getByLabel(/first name/i).fill('Alice');
     await page.getByLabel(/last name/i).fill('Smith');
-    await page.getByLabel('PIN digit 1').fill('1');
-    await page.getByLabel('PIN digit 2').fill('2');
-    await page.getByLabel('PIN digit 3').fill('3');
-    await page.getByLabel('PIN digit 4').fill('4');
-    await page.getByLabel(/confirm pin/i).fill('1234');
+    await fillPinGroup(page.getByRole('group', { name: 'PIN', exact: true }), '1234');
+    await fillPinGroup(page.getByRole('group', { name: 'Confirm PIN', exact: true }), '1234');
     await page.getByRole('button', { name: /create account/i }).click();
 
     await expect(page.getByRole('alert')).toContainText(/already exists/i);
@@ -220,8 +214,8 @@ test.describe('join via invite', () => {
     await expect(page.getByRole('heading', { name: /join the league/i })).toBeVisible();
     await expect(page.getByLabel(/display name/i)).toHaveValue('Bob J.');
 
-    await page.getByLabel(/choose a pin/i).fill('5678');
-    await page.getByLabel(/confirm pin/i).fill('5678');
+    await fillPinGroup(page.getByRole('group', { name: 'PIN', exact: true }), '5678');
+    await fillPinGroup(page.getByRole('group', { name: 'Confirm PIN', exact: true }), '5678');
     await page.getByRole('button', { name: /join league/i }).click();
 
     await expect(page).toHaveURL('/');

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PinInput } from '@/components/PinInput';
 import { Brand } from '@/components/Brand';
+import { PartnershipLockup } from '@/components/PartnershipLockup';
 
 const TIMEZONES = [
   'Europe/London',
@@ -49,8 +50,8 @@ export function SignupPage() {
     e.preventDefault();
     setError('');
 
-    if (pin.length < 4) {
-      setError('PIN must be at least 4 digits.');
+    if (pin.length < 4 || pin.length > 8) {
+      setError('PIN must be 4–8 digits.');
       return;
     }
     if (pin !== pinConfirm) {
@@ -83,6 +84,7 @@ export function SignupPage() {
       <div className="w-full max-w-sm">
         <div className="mb-10">
           <Brand variant="splash" />
+          <PartnershipLockup />
         </div>
 
         <Card>
@@ -149,24 +151,12 @@ export function SignupPage() {
 
               <div className="space-y-1">
                 <Label>Choose a PIN (4–8 digits)</Label>
-                <PinInput value={pin} onChange={setPin} />
+                <PinInput value={pin} onChange={setPin} maxLength={8} autoComplete="new-password" />
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="pinConfirm">Confirm PIN</Label>
-                <Input
-                  id="pinConfirm"
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="new-password"
-                  required
-                  minLength={4}
-                  maxLength={8}
-                  value={pinConfirm}
-                  onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, ''))}
-                  placeholder="••••"
-                  className="tracking-widest"
-                />
+                <Label>Confirm PIN</Label>
+                <PinInput value={pinConfirm} onChange={setPinConfirm} maxLength={8} autoComplete="new-password" label="Confirm PIN" />
               </div>
 
               {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}

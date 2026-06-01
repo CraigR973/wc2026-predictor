@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PinInput } from '@/components/PinInput';
 import { Brand } from '@/components/Brand';
-import { brand } from '@/theme/tokens';
+import { PartnershipLockup } from '@/components/PartnershipLockup';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -42,21 +42,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-10">
           <Brand variant="splash" />
-          <div className="mt-8 flex flex-col items-center gap-2">
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-muted">
-              In partnership with
-            </p>
-            <img
-              src="/robinsons-logo.png"
-              alt="Robinson's"
-              className="h-10 w-auto object-contain opacity-80"
-              draggable={false}
-            />
-          </div>
-
-          <p className="text-center text-text-primary mt-6 font-sans text-base sm:text-lg italic">
-            {brand.tagline}
-          </p>
+          <PartnershipLockup />
         </div>
 
         <Card>
@@ -80,7 +66,7 @@ export function LoginPage() {
 
               <div className="space-y-1">
                 <Label>PIN</Label>
-                <PinInput value={pin} onChange={setPin} />
+                <PinInput value={pin} onChange={setPin} maxLength={8} />
               </div>
 
               {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}

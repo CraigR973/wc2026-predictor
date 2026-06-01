@@ -8,15 +8,29 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { Avatar } from '@/components/ui/avatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export function LeagueMembersPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   const { player } = useAuth();
   const queryClient = useQueryClient();
   const [actingOn, setActingOn] = useState<string | null>(null);
+
+  const [removeTarget, setRemoveTarget] = useState<LeagueMember | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState('');
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [leaveConfirm, setLeaveConfirm] = useState('');
 
   const { data: members, isLoading } = useQuery<LeagueMember[]>({
     queryKey: ['league-members', slug],
@@ -52,12 +66,15 @@ export function LeagueMembersPage() {
     }
   }
 
-  async function removeMember(playerId: string, displayName: string) {
-    if (!confirm(`Remove ${displayName} from the league?`)) return;
-    setActingOn(playerId);
+  async function confirmRemoveMember() {
+    if (!removeTarget) return;
+    setActingOn(removeTarget.player_id);
+    const name = removeTarget.display_name;
     try {
-      await apiFetch(`/api/v1/leagues/${slug}/members/${playerId}`, { method: 'DELETE' });
-      toast.success(`${displayName} removed`);
+      await apiFetch(`/api/v1/leagues/${slug}/members/${removeTarget.player_id}`, { method: 'DELETE' });
+      toast.success(`${name} removed`);
+      setRemoveTarget(null);
+      setRemoveConfirm('');
       queryClient.invalidateQueries({ queryKey: ['league-members', slug] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove member');
@@ -66,11 +83,12 @@ export function LeagueMembersPage() {
     }
   }
 
-  async function leaveLeague() {
-    if (!confirm('Leave this league?')) return;
+  async function confirmLeaveLeague() {
     try {
       await apiFetch(`/api/v1/leagues/${slug}/membership`, { method: 'DELETE' });
       toast.success('Left the league');
+      setShowLeaveDialog(false);
+      setLeaveConfirm('');
       queryClient.invalidateQueries({ queryKey: ['leagues', 'mine'] });
       window.location.href = '/leagues';
     } catch (err) {
@@ -83,7 +101,7 @@ export function LeagueMembersPage() {
       <div className="flex items-center justify-between">
         <PageHeader title="Members" />
         {myMembership && (
-          <Button size="sm" variant="outline" className="text-error border-error/40 hover:bg-error/10" onClick={leaveLeague}>
+          <Button size="sm" variant="outline" className="text-error border-error/40 hover:bg-error/10" onClick={() => setShowLeaveDialog(true)}>
             Leave league
           </Button>
         )}
@@ -148,7 +166,7 @@ export function LeagueMembersPage() {
                             variant="ghost"
                             className="text-xs h-7 px-2 text-error hover:bg-error/10"
                             disabled={actingOn === m.player_id}
-                            onClick={() => removeMember(m.player_id, m.display_name)}
+                            onClick={() => { setRemoveTarget(m); setRemoveConfirm(''); }}
                           >
                             Remove
                           </Button>
@@ -162,6 +180,76 @@ export function LeagueMembersPage() {
           ))}
         </div>
       )}
+
+      <Dialog
+        open={!!removeTarget}
+        onOpenChange={(open) => { if (!open) { setRemoveTarget(null); setRemoveConfirm(''); } }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove member</DialogTitle>
+            <DialogDescription>
+              Type <strong>{removeTarget?.league_display_name ?? removeTarget?.display_name}</strong> to confirm removal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Input
+              value={removeConfirm}
+              onChange={(e) => setRemoveConfirm(e.target.value)}
+              placeholder="Type name to confirm"
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => { setRemoveTarget(null); setRemoveConfirm(''); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={
+                  removeConfirm !== (removeTarget?.league_display_name ?? removeTarget?.display_name) ||
+                  actingOn === removeTarget?.player_id
+                }
+                onClick={confirmRemoveMember}
+              >
+                {actingOn === removeTarget?.player_id ? 'Removing…' : 'Remove'}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showLeaveDialog}
+        onOpenChange={(open) => { if (!open) { setShowLeaveDialog(false); setLeaveConfirm(''); } }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Leave league</DialogTitle>
+            <DialogDescription>
+              Type <strong>LEAVE</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Input
+              value={leaveConfirm}
+              onChange={(e) => setLeaveConfirm(e.target.value)}
+              placeholder="Type LEAVE to confirm"
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => { setShowLeaveDialog(false); setLeaveConfirm(''); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                className="border-error/40 text-error hover:bg-error/10"
+                disabled={leaveConfirm !== 'LEAVE'}
+                onClick={confirmLeaveLeague}
+              >
+                Leave
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1355,3 +1355,41 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - RANK vs DENSE_RANK: RANK intentional (gaps after ties = standard sports table). Comment in `services/leaderboard.py`.
 
 **Next:** all R-batches complete — project ready for soak / prod launch
+
+---
+
+## Polish batch U6 — Variable-length PIN, unified everywhere
+**Commits:** c042b15, 436d23c, fe9b004, 2fefc31 · CI ✅
+
+### Key facts for future sessions
+- `PinInput` now accepts `maxLength` (default 4), `label` (default `'PIN'`), and `autoComplete` props. Signup/Join pass `maxLength={8}`, `autoComplete="new-password"`, and confirm gets `label="Confirm PIN"` to disambiguate the two groups.
+- Login updated to `maxLength={8}` so users with longer PINs can sign in.
+- Playwright `getByRole('group', { name: 'PIN' })` substring-matches `'Confirm PIN'` without `exact: true` — always use `exact: true` when scoping PIN group queries in E2E tests.
+- Added `fillPinGroup(group, pin)` helper to `e2e/helpers.ts` for DRY per-cell fills.
+- JoinPage Vitest test gained missing `AuthProvider` wrapper (pre-existing failure now fixed).
+
+**Next:** Polish batch U7 — Invite-flow cleanup + finish issues 🟢 Sonnet
+
+---
+
+## Polish batch U7 — Invite-flow cleanup + finish issues
+**Commits:** 1e5719c · CI ✅
+
+### Key facts for future sessions
+- `LeagueAdminInvitesPage` no longer captures or sends `invitee_email`; backend param left nullable for back-compat — no migration needed.
+- All destructive actions (remove member, leave league, delete player, revoke invite) now use a `ui/dialog` type-to-confirm pattern. Member/player removal requires typing the display name; leave league requires `LEAVE`; revoke invite requires `REVOKE`.
+- `font.display` in `tokens.ts` corrected to `"Outfit"` — Instrument Serif was never loaded; the token was a lie.
+
+**Next:** Polish batch U8 — Partnership lockup polish 🟢 Sonnet
+
+---
+
+## Polish batch U8 — Partnership lockup polish
+**Commits:** 9035327 · CI ✅
+
+### Key facts for future sessions
+- `robinsons-logo.png` (439×227 raster, blue-sky background) replaced by `apps/web/public/robinsons-logo.svg` — hand-authored arch SVG: even-odd filled band (outer r=110, inner r=69), gold border (r=110/67), `<textPath>` for "ROBINSONS" on a radius-85 arc, two-ellipse leaf. Transparent background; renders crisp at any size.
+- Partnership lockup extracted to `PartnershipLockup` component (`apps/web/src/components/PartnershipLockup.tsx`) — imports `brand.tagline`, renders "In partnership with" label + SVG logo + italic tagline.
+- `SignupPage` previously showed only `<Brand variant="splash" />`; now shows the full lockup to match Login. Both pages are now identical in their pre-card splash content.
+
+**Next:** U8 is the last defined polish batch (round 3). Run `/next-batch-prompt polish` to check for further batches or pivot to the next phase.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SignupPage } from '@/pages/SignupPage';
@@ -15,6 +15,14 @@ function renderSignup() {
   );
 }
 
+function fillPin(group: HTMLElement, digits: string) {
+  for (let i = 0; i < digits.length; i++) {
+    fireEvent.change(within(group).getByLabelText(`PIN digit ${i + 1}`), {
+      target: { value: digits[i] },
+    });
+  }
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
@@ -27,6 +35,8 @@ describe('SignupPage', () => {
     expect(screen.getByLabelText(/first name/i)).toBeTruthy();
     expect(screen.getByLabelText(/last name/i)).toBeTruthy();
     expect(screen.getByLabelText(/timezone/i)).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'PIN' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Confirm PIN' })).toBeTruthy();
   });
 
   it('shows pin mismatch error when PINs differ', async () => {
@@ -35,11 +45,10 @@ describe('SignupPage', () => {
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } });
     fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Alice' } });
     fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } });
-    fireEvent.change(screen.getByLabelText('PIN digit 1'), { target: { value: '1' } });
-    fireEvent.change(screen.getByLabelText('PIN digit 2'), { target: { value: '2' } });
-    fireEvent.change(screen.getByLabelText('PIN digit 3'), { target: { value: '3' } });
-    fireEvent.change(screen.getByLabelText('PIN digit 4'), { target: { value: '4' } });
-    fireEvent.change(screen.getByLabelText(/confirm pin/i), { target: { value: '9999' } });
+    const entryGroup = screen.getByRole('group', { name: 'PIN' });
+    const confirmGroup = screen.getByRole('group', { name: 'Confirm PIN' });
+    fillPin(entryGroup, '1234');
+    fillPin(confirmGroup, '9999');
     fireEvent.click(screen.getByRole('button', { name: /create account/i }));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/do not match/i));
   });
@@ -55,12 +64,10 @@ describe('SignupPage', () => {
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } });
     fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Alice' } });
     fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } });
-    // Match PINs
-    fireEvent.change(screen.getByLabelText('PIN digit 1'), { target: { value: '1' } });
-    fireEvent.change(screen.getByLabelText('PIN digit 2'), { target: { value: '2' } });
-    fireEvent.change(screen.getByLabelText('PIN digit 3'), { target: { value: '3' } });
-    fireEvent.change(screen.getByLabelText('PIN digit 4'), { target: { value: '4' } });
-    fireEvent.change(screen.getByLabelText(/confirm pin/i), { target: { value: '1234' } });
+    const entryGroup = screen.getByRole('group', { name: 'PIN' });
+    const confirmGroup = screen.getByRole('group', { name: 'Confirm PIN' });
+    fillPin(entryGroup, '1234');
+    fillPin(confirmGroup, '1234');
     fireEvent.click(screen.getByRole('button', { name: /create account/i }));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/already exists/i));
   });

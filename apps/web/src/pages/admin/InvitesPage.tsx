@@ -12,9 +12,10 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 
 interface Invite {
@@ -52,6 +53,10 @@ export function AdminInvitesPage() {
   const [expiryDays, setExpiryDays] = useState('7');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+
+  // Revoke confirm dialog
+  const [revokeTarget, setRevokeTarget] = useState<Invite | null>(null);
+  const [revokeConfirm, setRevokeConfirm] = useState('');
 
   // Copy feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -94,13 +99,15 @@ export function AdminInvitesPage() {
     }
   }
 
-  async function handleRevoke(id: string) {
-    if (!window.confirm('Revoke this invite?')) return;
+  async function confirmRevoke() {
+    if (!revokeTarget) return;
     try {
-      await apiFetch(`/api/v1/admin/invites/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/v1/admin/invites/${revokeTarget.id}`, { method: 'DELETE' });
       setInvites((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, is_active: false } : i)),
+        prev.map((i) => (i.id === revokeTarget.id ? { ...i, is_active: false } : i)),
       );
+      setRevokeTarget(null);
+      setRevokeConfirm('');
     } catch {
       alert('Failed to revoke invite.');
     }
@@ -178,7 +185,7 @@ export function AdminInvitesPage() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => handleRevoke(invite.id)}
+                          onClick={() => { setRevokeTarget(invite); setRevokeConfirm(''); }}
                         >
                           Revoke
                         </Button>
@@ -196,6 +203,40 @@ export function AdminInvitesPage() {
             />
           )}
         </div>
+
+      {/* Revoke confirm dialog */}
+      <Dialog
+        open={!!revokeTarget}
+        onOpenChange={(open) => { if (!open) { setRevokeTarget(null); setRevokeConfirm(''); } }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Revoke invite</DialogTitle>
+            <DialogDescription>
+              Type <strong>REVOKE</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Input
+              value={revokeConfirm}
+              onChange={(e) => setRevokeConfirm(e.target.value)}
+              placeholder="Type REVOKE to confirm"
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => { setRevokeTarget(null); setRevokeConfirm(''); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={revokeConfirm !== 'REVOKE'}
+                onClick={confirmRevoke}
+              >
+                Revoke
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-sm">
