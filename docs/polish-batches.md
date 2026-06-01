@@ -491,7 +491,7 @@ manual pasting needed.
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
 | ~~U9~~  | ~~🟢 Sonnet~~ | ~~~2.5 h~~ | ~~U9.1–U9.7~~   | ✅ Shipped 2026-06-01 |
-| U10 | 🟢 Sonnet | ~3 h    | U10.1–U10.3 | Pending |
+| ~~U10~~ | ~~🟢 Sonnet~~ | ~~~3 h~~    | ~~U10.1–U10.3~~ | ✅ Shipped 2026-06-01 |
 | U11 | 🟢 Sonnet | ~2.5 h | U11.1–U11.3 | Pending |
 | U12 | 🟢 Sonnet | ~4 h    | U12.1–U12.5 | Pending |
 | U13 | 🔴 Opus (extended thinking ON) | ~5 h | U13.1–U13.5 | Pending |
