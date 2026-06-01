@@ -1312,3 +1312,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - OP4 confirmed N/A: `wc2026.vercel.app` is not owned by this project; canonical prod frontend stays `wc2026-prod.vercel.app`.
 
 **Next:** E2 — Email setup (Resend) whenever Resend account + domain are ready (`/next-batch-prompt env`)
+
+---
+
+## Review batch R11 — Supabase RLS lockdown (C1)
+**Commits:** 47e3b4a, 47ad360 · CI ✅
+
+### Key facts for future sessions
+- Migration `015_r11_rls_lockdown.py`: REVOKES anon/authenticated write grants on all 13 tables and enables RLS; `matches` + `leaderboard_snapshots` get a SELECT-for-all policy (realtime still flows); the 11 other tables are deny-all.
+- Prediction table realtime subscriptions were removed from the frontend — prediction pages now refresh via `matches`/`leaderboard_snapshots` channel events + FastAPI refetch.
+- The backend uses the service role (bypasses RLS), so no API behaviour changed.
+- **Operator follow-up still open:** re-run the Supabase advisor (or `SELECT relname, relrowsecurity FROM pg_class`) on **prod** `kznxjyaanotrejcevngy` to confirm `rls_disabled_in_public` is clear there too.
+- R12/R13 are the next soak-audit batches (tenant isolation + admin hardening) — not soak-blockers.
+
+**Next:** Review batch R12 — Backend tenant isolation 🟢 Sonnet (`/next-batch-prompt review`)
