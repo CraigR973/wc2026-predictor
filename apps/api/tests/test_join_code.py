@@ -19,11 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth import get_current_player
 from src.database import get_db
 from src.main import app
-from src.routers.leagues import require_league_admin
 from src.models.league import League, LeaguePrivacy
 from src.models.league_membership import LeagueMemberRole, LeagueMembership
 from src.models.profile import PlayerRole, Profile, SiteRole
-
+from src.routers.leagues import require_league_admin
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -276,14 +275,15 @@ async def test_join_by_code_invalid_code() -> None:
 async def test_rotate_join_code_success() -> None:
     player = _make_player(is_admin=True)
     league = _make_league(join_code="ABCDE2")
-    membership = _make_membership(league.id, player.id)
 
     mock_db = _stub_db([])
 
     app.dependency_overrides[require_league_admin] = lambda: (player, league)
     try:
         async with _override_db(mock_db):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.post("/api/v1/leagues/test-league/join-code/rotate")
     finally:
         app.dependency_overrides.pop(require_league_admin, None)
