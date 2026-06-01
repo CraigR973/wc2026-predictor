@@ -1369,3 +1369,15 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - JoinPage Vitest test gained missing `AuthProvider` wrapper (pre-existing failure now fixed).
 
 **Next:** Polish batch U7 — Invite-flow cleanup + finish issues 🟢 Sonnet
+
+---
+
+## Polish batch U7 — Invite-flow cleanup + finish issues
+**Commits:** 1e5719c · CI ✅
+
+### Key facts for future sessions
+- `LeagueAdminInvitesPage` no longer captures or sends `invitee_email`; backend param left nullable for back-compat — no migration needed.
+- All destructive actions (remove member, leave league, delete player, revoke invite) now use a `ui/dialog` type-to-confirm pattern. Member/player removal requires typing the display name; leave league requires `LEAVE`; revoke invite requires `REVOKE`.
+- `font.display` in `tokens.ts` corrected to `"Outfit"` — Instrument Serif was never loaded; the token was a lie.
+
+**Next:** Polish batch U8 — Partnership lockup polish 🟢 Sonnet
