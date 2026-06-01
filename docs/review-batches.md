@@ -231,7 +231,7 @@ R12/R13 are isolation/clarity work on an otherwise-healthy backend.
 |---|---|---|---|---|
 | ~~R11~~ | ~~🔴 Opus (extended thinking ON)~~ | ~~~3 h~~ | ~~R11.1–R11.4~~ | ✅ Shipped 2026-06-01 |
 | ~~R12~~ | ~~🟢 Sonnet~~ | ~~R12.1–R12.3~~ | ✅ Shipped 2026-06-01 |
-| R13 | 🟢 Sonnet | ~2 h | R13.1–R13.5 | Pending |
+| ~~R13~~ | ~~🟢 Sonnet~~ | ~~~2 h~~ | ~~R13.1–R13.5~~ | ✅ Shipped 2026-06-01 |
 
 Land **R11 first** — it is the only item that gates the soak.
 
