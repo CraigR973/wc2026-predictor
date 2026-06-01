@@ -1421,3 +1421,16 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - The "ask your league admin" U2.3 copy was never present in the codebase at this point — grep confirmed absent.
 
 **Next:** Polish batch U11 — Home screen rebalance 🟢 Sonnet
+
+---
+
+## Polish batch U11 — Home screen rebalance
+**Commits:** bc755d4 · CI ✅
+
+### Key facts for future sessions
+- `MiniLeaderboard` + `LeagueCard` removed; replaced by `CompactLeagueRow` — uses same `['leaderboard', slug]` queryKey so React Query cache is shared with any other page fetching that endpoint.
+- `LatestResultCard` now renders the 3-way `points_breakdown` (result/goals/exact) inline; falls back to total-only pill if `points_breakdown` is null (pre-tournament or no entry).
+- `SpecialsCTA` is shown unconditionally — no pre/post-tournament toggle; aligns with user's ask to keep specials always reachable from home.
+- DashboardPage test updated: keepPreviousData assertion now checks `42 pts` (Alice's points in compact strip) instead of `Zara` (who no longer appears on dashboard).
+
+**Next:** Polish batch U12 — Multi-use join code + invite UX 🟢 Sonnet
