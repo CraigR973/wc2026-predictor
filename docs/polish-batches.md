@@ -407,7 +407,7 @@ polish` reads this file's `## U<n>` acceptance inline, so no manual pasting need
 |---|---|---|---|---|
 | ~~U6~~ | ~~🟢 Sonnet~~ | ~~~2 h~~ | ~~U6.1–U6.3~~ | ✅ Shipped 2026-06-01 |
 | ~~U7~~ | ~~🟢 Sonnet~~ | ~~~2 h~~ | ~~U7.1–U7.3~~ | ✅ Shipped 2026-06-01 |
-| U8 | 🟢 Sonnet | ~1.5 h | U8.1–U8.2 | Pending |
+| ~~U8~~ | ~~🟢 Sonnet~~ | ~~U8.1–U8.2~~ | ✅ Shipped 2026-06-01 |
 
 ---
 
