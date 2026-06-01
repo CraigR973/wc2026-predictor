@@ -1,16 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { JoinPage } from '@/pages/JoinPage';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 function renderJoin(token: string) {
   return render(
     <MemoryRouter initialEntries={[`/join/${token}`]}>
-      <Routes>
-        <Route path="/join/:token" element={<JoinPage />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/join/:token" element={<JoinPage />} />
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>,
   );
+}
+
+function fillPin(group: HTMLElement, digits: string) {
+  for (let i = 0; i < digits.length; i++) {
+    fireEvent.change(within(group).getByLabelText(`PIN digit ${i + 1}`), {
+      target: { value: digits[i] },
+    });
+  }
 }
 
 beforeEach(() => {
@@ -51,6 +62,9 @@ describe('JoinPage', () => {
     // Pre-fills name hint
     const nameInput = screen.getByLabelText(/display name/i) as HTMLInputElement;
     expect(nameInput.value).toBe('Craig');
+    // PIN entry and confirm groups are present
+    expect(screen.getByRole('group', { name: 'PIN' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Confirm PIN' })).toBeTruthy();
   });
 
   it('shows PIN mismatch error on submit', async () => {
@@ -60,18 +74,16 @@ describe('JoinPage', () => {
         json: () => Promise.resolve({ display_name_hint: null }),
       }),
     );
-    const { getByLabelText, getByRole, getByText } = renderJoin('tok');
-    await waitFor(() => getByLabelText(/display name/i));
+    renderJoin('tok');
+    await waitFor(() => screen.getByLabelText(/display name/i));
 
-    // Fill form with mismatched PINs
-    const { fireEvent } = await import('@testing-library/react');
-    fireEvent.change(getByLabelText(/display name/i), { target: { value: 'Test' } });
-    fireEvent.change(getByLabelText(/choose a pin/i), { target: { value: '1234' } });
-    fireEvent.change(getByLabelText(/confirm pin/i), { target: { value: '5678' } });
-    fireEvent.click(getByRole('button', { name: /join league/i }));
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Test' } });
+    fillPin(screen.getByRole('group', { name: 'PIN' }), '1234');
+    fillPin(screen.getByRole('group', { name: 'Confirm PIN' }), '5678');
+    fireEvent.click(screen.getByRole('button', { name: /join league/i }));
 
     await waitFor(() => {
-      expect(getByText(/pins do not match/i)).toBeTruthy();
+      expect(screen.getByText(/pins do not match/i)).toBeTruthy();
     });
   });
 });

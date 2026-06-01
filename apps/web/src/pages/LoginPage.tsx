@@ -80,7 +80,7 @@ export function LoginPage() {
 
               <div className="space-y-1">
                 <Label>PIN</Label>
-                <PinInput value={pin} onChange={setPin} />
+                <PinInput value={pin} onChange={setPin} maxLength={8} />
               </div>
 
               {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}
