@@ -165,12 +165,14 @@ async def test_by_code_not_found() -> None:
 async def test_join_by_code_success() -> None:
     player = _make_player()
     league = _make_league(join_code="ABCDE2", max_members=10)
-    mock_db = _stub_db([
-        _scalar(league),        # league lookup
-        _scalar(None),          # existing membership check (not a member)
-        _scalar_count(3),       # active_member_count
-        _scalar(None),          # upsert_membership - no existing row
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),  # league lookup
+            _scalar(None),  # existing membership check (not a member)
+            _scalar_count(3),  # active_member_count
+            _scalar(None),  # upsert_membership - no existing row
+        ]
+    )
 
     async with _override_db(mock_db), _override_player(player):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -192,12 +194,14 @@ async def test_join_by_code_multiuse() -> None:
 
     for _ in range(2):
         player = _make_player()
-        mock_db = _stub_db([
-            _scalar(league),
-            _scalar(None),
-            _scalar_count(3),
-            _scalar(None),
-        ])
+        mock_db = _stub_db(
+            [
+                _scalar(league),
+                _scalar(None),
+                _scalar_count(3),
+                _scalar(None),
+            ]
+        )
         async with _override_db(mock_db), _override_player(player):
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -214,10 +218,12 @@ async def test_join_by_code_already_member() -> None:
     player = _make_player()
     league = _make_league(join_code="ABCDE2")
     membership = _make_membership(league.id, player.id)
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar(membership),   # already a member
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar(membership),  # already a member
+        ]
+    )
 
     async with _override_db(mock_db), _override_player(player):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -234,11 +240,13 @@ async def test_join_by_code_already_member() -> None:
 async def test_join_by_code_league_full() -> None:
     player = _make_player()
     league = _make_league(join_code="ABCDE2", max_members=5)
-    mock_db = _stub_db([
-        _scalar(league),
-        _scalar(None),         # not a member
-        _scalar_count(5),      # at capacity
-    ])
+    mock_db = _stub_db(
+        [
+            _scalar(league),
+            _scalar(None),  # not a member
+            _scalar_count(5),  # at capacity
+        ]
+    )
 
     async with _override_db(mock_db), _override_player(player):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
