@@ -456,3 +456,242 @@ polish` reads this file's `## U<n>` acceptance inline, so no manual pasting need
 ## Close-out (round 3)
 
 Per batch: push `feat/premium-polish-3` → `/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if the `U` prefix isn't recognised) → lean `session-log.md` entry → strike the row in the round-3 table above. Round 3 is independent of round 2's "do not merge until U5" rule.
+
+---
+
+# Round 4 (post-soak app review) — batches (U9–U13) — added 2026-06-01
+
+From the 2026-06-01 user app-review (on-device iOS pass). Same batching rationale as
+earlier rounds: user-flagged items + a code-grounded analysis of the current build,
+with `file:line` refs inline. **Independent of rounds 2–3** — own branch
+(`feat/premium-polish-4`), ff-merge per batch once green (don't wait on anything). The
+current `/next-batch-prompt polish` reads this file's `## U<n>` acceptance inline, so no
+manual pasting needed.
+
+**Decisions locked in the review (carry these — a few reverse earlier decisions):**
+- **PIN = exactly 4 digits.** *Reverses the U6 "4–8 digits" decision.* Safe to hard-force
+  everywhere — **no accounts exist yet** (pre-release), so there is no existing-PIN
+  lockout risk and the backend regex can tighten too.
+- **Robinsons = original raster, not the U8.1 SVG.** Keep U8.2's unified lockup; only the
+  asset reverts (user prefers the original look over the rendered SVG).
+- **Knockout picks = per-round placeholder list** (mirrors the schedule), *not* a
+  converging visual bracket (unusable on a phone). Optional read-only mini bracket on the
+  existing Bracket tab for the "whole tree" view.
+- **Invites = multi-use league join code** (Kahoot-style). Code-only — the league name is
+  shown for *confirmation*, never typed; **do not call it a "PIN"** (collides with the
+  login PIN). The shareable link carries the same code as a second door.
+- **PWA deep-linking = not pursued.** iOS PWAs can't intercept `https` links or share
+  storage with the Safari tab, so join is **browser-first + in-app join-by-code**; a
+  generic "get the app" landing replaces all deep-link/universal-link engineering.
+- **Player typeahead = deferred** to its own batch once official 26-man squads drop
+  (~early June 2026). Golden Boot stays free-text until then (see *Deferred* below).
+- **Quick tour = yes** — note this reverses round 2's Q-10 ("first-run coachmark: no,
+  better served by an About page"). User explicitly wants a press-through intro.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~U9~~  | ~~🟢 Sonnet~~ | ~~~2.5 h~~ | ~~U9.1–U9.7~~   | ✅ Shipped 2026-06-01 |
+| U10 | 🟢 Sonnet | ~3 h    | U10.1–U10.3 | Pending |
+| U11 | 🟢 Sonnet | ~2.5 h | U11.1–U11.3 | Pending |
+| U12 | 🟢 Sonnet | ~4 h    | U12.1–U12.5 | Pending |
+| U13 | 🔴 Opus (extended thinking ON) | ~5 h | U13.1–U13.5 | Pending |
+
+**Total ≈ 17 h** across 5 focused sessions. Suggested order = U9 → U13 (quick wins
+first; **U13 is foundational and the heaviest** — it seeds the data both the schedule and
+knockout picks read).
+
+---
+
+## U9 — Login + leagues quick wins 🟢 Sonnet · ~2.5 h
+
+The low-risk, high-visibility surface fixes. All small, no new infra.
+
+- **U9.1** PIN → exactly 4 digits everywhere (*reverses U6*). Frontend: `LoginPage.tsx:69`,
+  `SignupPage.tsx:154` & `:159` — `maxLength={8}` → `maxLength={4}`; `SignupPage.tsx:53-56`
+  client check → require length `=== 4`; reword "4–8 digits" copy to "4-digit PIN". Backend
+  `routers/auth.py` — change `pin` pattern `^\d{4,8}$` → `^\d{4}$` at `:62`, `:68`, `:100`,
+  `:105-106`, `:119`. `PinInput` stays variable-length (U6) but is driven with `maxLength={4}`.
+  Tests: backend rejects 3- and 5-digit PINs (422); 8-cell overflow gone. (~40 min)
+- **U9.2** Robinsons revert (*reverses U8.1, keeps U8.2*). Restore the original raster
+  (`apps/web/public/robinsons-logo.png`, recoverable from commit `dfd7315`) and point
+  `apps/web/src/components/PartnershipLockup.tsx:10-15` back at it; remove the now-unused
+  `robinsons-logo.svg`. Keep the unified Login/Signup lockup from U8.2. (~20 min)
+- **U9.3** Create-account prominence. `LoginPage.tsx:78-85` — promote "Create account" from a
+  muted footer text-link to a **full-width secondary/outline `Button`** directly under the
+  primary "Sign in" submit. Keep "Forgot PIN?" as the small text link. (Chosen over equal-size
+  buttons: returning users sign in far more often than they sign up.) (~25 min)
+- **U9.4** League card fully clickable. `MyLeaguesPage.tsx` `LeagueCard` (`:13-79`) — make the
+  whole card the `Link` to `/leagues/{slug}`; remove the now-redundant "View" button (`:73-75`).
+  Verify no nested-interactive a11y issue (the list card has no other interactive children). (~20 min)
+- **U9.5** League-detail back button. `LeagueHomePage.tsx:46` — pass the `back` prop to
+  `PageHeader` (the prop exists since U2.4) → top-left "← Leagues" chip to `/leagues`. (~10 min)
+- **U9.6** Specials tab first. `PredictionsSubNav.tsx:4-8` — reorder so **Specials is leftmost**
+  (Specials → Group → Knockout). Leave the `/predictions` route still rendering Group as the
+  default landing (only the tab order changes; flag if the user later wants Specials as the
+  default screen too — group predictions are the recurring daily action). (~10 min)
+- **U9.7** Specials dropdown won't scroll (real bug). `components/ui/select.tsx:35-63` — the
+  Radix `SelectContent` is `overflow-hidden` with **no max-height**, so the 48-team
+  "top scoring team" list renders taller than the viewport with nothing to scroll. Add a capped
+  height + scrollable viewport (`max-h-[min(20rem,var(--radix-select-content-available-height))]`
+  + `overflow-y-auto`) and ensure `SelectScrollUpButton`/`DownButton` are present. One fix, every
+  Radix select benefits. Reproduce on the SpecialsPage team picker on a phone-width viewport. (~30 min)
+
+**Acceptance:** PIN inputs render 4 cells and don't overflow `max-w-sm`; backend rejects non-4-digit
+PINs (test); original Robinsons raster renders on Login + Signup, no SVG reference left; "Create account"
+is a visible secondary button on Login, "Forgot PIN?" still a small link; tapping anywhere on a league
+card opens it (no separate View button); league detail shows a "← Leagues" back chip; Specials is the
+leftmost predict sub-tab; the team-picker dropdown scrolls on a narrow viewport; all existing tests green.
+
+---
+
+## U10 — Forgot-PIN + first-run onboarding 🟢 Sonnet · ~3 h
+
+Wires up the dead "Forgot PIN?" link, then adds the two first-run prompts the user asked for.
+
+- **U10.1** Forgot-PIN frontend (backend already exists). The `/forgot-pin` link
+  (`LoginPage.tsx:82-84`) currently dead-ends (no route → catch-all redirect). Build:
+  (a) `/forgot-pin` request page → POST `/api/v1/auth/pin/reset-request` (`routers/auth.py:286-327`
+  — confirm the exact request field: name vs email) → "check your email" confirmation; and
+  (b) a reset-confirm page `/pin/reset/:token` → enter a new 4-digit `PinInput` → POST
+  `/api/v1/auth/pin/reset` (`:330-355`, clears lockout) → success → redirect to `/login`. Add both
+  routes to `App.tsx`. Handle invalid/expired-token + email-not-verified states. This **supersedes
+  U2.3's "ask your league admin" copy** — remove/replace it. Tests for both pages. (~75 min)
+- **U10.2** First-run notifications prompt. After the first successful login/signup, show a prominent
+  modal: "🔔 Match alerts — strongly recommended" with **Enable** (calls the existing
+  `hooks/usePushSubscription.ts` → triggers the OS permission prompt) + a smaller "Maybe later", and
+  default the in-app notification *preferences* to all-on. Gate to once via a localStorage flag
+  (e.g. `sss_notif_prompt_seen`, same pattern as `WelcomeCard`'s `sss_welcome_dismissed`).
+  **iOS caveat (must handle):** push only works in the *installed* PWA — if `display-mode` is not
+  `standalone`, show "Add to Home Screen first" guidance instead of the Enable button, and never claim
+  push is "on" before the OS grants permission. (~50 min)
+- **U10.3** Quick intro tour (*reverses round 2 Q-10*). A lightweight **custom** 3–4 slide
+  press-through intro shown once on first run (localStorage `sss_tour_seen`), skippable: how scoring
+  stacks (reuse `WelcomeCard` copy), predict before kickoff, knockout opens round-by-round, where the
+  leaderboard/leagues live. **No tour library** (react-joyride/driver.js are fragile on mobile) — a
+  simple modal carousel. (~45 min)
+
+**Acceptance:** "Forgot PIN?" leads to a working request → email → reset-confirm flow against the
+existing endpoints (no more dead link; admin-reset copy gone); a first-login notifications modal appears
+once, enables push via the existing hook, defaults prefs on, and degrades to an install nudge when not
+standalone; a once-only press-through intro tour shows on first run and is skippable; localStorage gates
+prevent re-showing; tests green.
+
+---
+
+## U11 — Home screen rebalance 🟢 Sonnet · ~2.5 h
+
+Trims the dashboard to the four things the user wants and surfaces the previous-match breakdown
+(which already exists, just buried). Builds on U3.2's dashboard hierarchy work.
+
+- **U11.1** Remove the 3 quick-link nav cards (Predictions/Knockout/Specials) from
+  `DashboardPage.tsx` (`NAV_CARDS` `:366-369`, render `:474-478`) — pure duplication of the bottom
+  bar. Replace with a **single contextual CTA**: pre-tournament, "Make your specials picks →"
+  (`/predictions/specials`) — this keeps specials reachable from home per the user's ask. (~30 min)
+- **U11.2** Replace the per-league full `LeagueCard`s (`:487-493`) with a **compact rank strip** — one
+  tappable row per league showing the user's rank + points, linking to that league. Keep
+  `CrossLeagueSummaryWidget` (`:457`, total points + avg rank). (~50 min)
+- **U11.3** Promote + enrich the previous-match breakdown. Move `LatestResultCard` (`:501`) up to
+  directly under `NextMatchCard` (`:463`), and enrich it from total-only to the **full breakdown**
+  (Result ✓ +3 · Goal total ✓ +2 · Exact ✗ — → total) using the `points_breakdown`
+  (`goals`/`result`/`exact`/`total`) already returned by `/players/{id}/predictions/recent`
+  (`lib/types.ts:49-55`). **No backend change.** (~40 min)
+
+Resulting home order: greeting → dismissible WelcomeCard → total points → Next Match (with "Predict now")
+→ previous-match breakdown → compact league strip → pre-tournament specials CTA.
+
+**Acceptance:** no Predictions/Knockout/Specials nav cards on home; a pre-tournament "specials picks" CTA
+present; per-league info is a single compact rank strip (not full cards); the previous-match card sits
+under Next Match and shows the 3-way points breakdown; total points still shown; tests green.
+
+---
+
+## U12 — Multi-use join code + invite UX 🟢 Sonnet · ~4 h
+
+Replaces single-use invite tokens (the real cause of the "friends couldn't join" report — invites
+deactivate on first claim at `routers/league_memberships.py:91-93`) with a reusable, human-typable
+league join code, and sidesteps the iOS PWA deep-link problem entirely. Keep the existing single-use
+`invites` table for any future per-person invite need; the join code becomes the everyday share path.
+
+- **U12.1** Migration + generation. Add `join_code` to `leagues` (e.g. `String(8)`, unique, indexed);
+  backfill existing leagues. Add `generate_join_code()` — 6 chars from an unambiguous alphabet
+  (exclude `I/O/0/1`). Generate on league creation. (~40 min)
+- **U12.2** Backend endpoints (all rate-limited; reuse the `claim_invite` membership logic):
+  - `GET /leagues/by-code/{code}` → minimal `{name, member_count, max_members, privacy}` for the
+    confirm step; 404 if not found.
+  - `POST /leagues/join-by-code` `{code}` (authenticated, **multi-use** — does NOT deactivate the
+    code): add membership if not already a member and not at `max_members`.
+  - `POST /leagues/{slug}/join-code/rotate` (admin) → regenerate the code.
+  Tests: multi-use (two players join one code), full-league rejection, already-member 409. (~80 min)
+- **U12.3** "Join a league" screen. Code input → `by-code` lookup → **confirm card showing the league
+  name** ("Join *Robbo's League*?") → Join. Entry points: a button on `MyLeaguesPage` (alongside
+  Discover) + the empty-state CTA. (~50 min)
+- **U12.4** Invite/share UX on `LeagueHomePage` — prominent **Invite** button using `navigator.share`
+  (clipboard fallback) with a message + link `{origin}/join/{code}`. Extend the existing `/join/:token`
+  route (`App.tsx:113`, `JoinPage`) to also accept a **join code** so the link is a working second door
+  (new users sign up then auto-join by code; logged-in users one-tap join). (~50 min)
+- **U12.5** `/welcome` get-app landing — platform-aware "Add to Home Screen" instructions; the generic
+  link you share with friends who don't have the app yet. This + join-by-code is the agreed answer to
+  the PWA deep-link question (no universal-links work). (~30 min)
+
+**Acceptance:** one reusable join code per league (rotatable), backfilled for existing leagues; two
+different players can join the same code; the code lookup shows the league name for confirmation before
+joining; an Invite button opens the native share sheet with the link + code; `/join/<code>` works for
+both new and logged-in users; a `/welcome` install landing exists; single-use `invites` still function;
+tests green.
+
+---
+
+## U13 — Knockout/schedule skeleton + progression 🔴 Opus (extended thinking ON) · ~5 h
+
+The foundational, judgment-heavy batch — seeds the data both the schedule and knockout picks read, and
+resolves placeholders → real teams as the tournament progresses. Run on Opus.
+
+> **Before coding:** grep `wc2026-architecture.md` for any existing knockout-seeding / bracket
+> progression phase. If a numbered phase already owns this, fold this batch into it rather than
+> duplicating. The 2026 format is 48 teams → 12 groups of 4 → **R32 (incl. 8 best third-placed)** → R16
+> → QF → SF → 3rd place → Final. All 104 match dates/venues are published in advance; only the *teams*
+> are TBD.
+
+- **U13.1** Seed the 32 knockout matches (R32 ×16, R16 ×8, QF ×4, SF ×2, 3rd ×1, Final ×1) with real
+  kickoff dates/venues + **positional placeholder source refs** (e.g. `home_source="winner_group_a"`,
+  `away_source="runner_up_group_b"`; later rounds reference prior matches, e.g. `winner_match_73`).
+  Confirm the `matches` table allows null team FKs and add placeholder/source columns if absent
+  (migration). Result: full 104-match calendar (72 group + 32 KO). (~90 min)
+- **U13.2** Schedule tab knockout view. `SchedulePage.tsx:244-252` — instead of the generic
+  "No matches found" `EmptyState`, render the seeded knockout rounds with placeholder labels
+  ("Winner Group A" / "Runner-up Group B"), grouped by round. (~45 min)
+- **U13.3** Knockout picks per-round list. `KnockoutPredictionsPage.tsx` (`KNOCKOUT_STAGES` `:23-30`)
+  — render the seeded rows as a per-round placeholder list (replace the `BracketTeaser` empty state
+  `:583-595`; keep the teaser only if truly zero rows). Picks save against the seeded match ids. (~60 min)
+- **U13.4** Progression logic (**the Opus bit**): resolve placeholders → real teams as group standings
+  finalize (incl. the best-third-placed qualification table and its group-letter mapping into R32) and
+  as knockout results settle. Pure, well-tested resolver. (~90 min)
+- **U13.5** Optional read-only mini bracket on `BracketPage` from the same seeded data — the
+  "see the whole tree" overview (picking still happens in the per-round list). (~30 min)
+
+**Acceptance:** all 104 matches seeded incl. 32 knockout slots with dates + positional placeholders;
+the schedule knockout view shows the round skeleton (no "No matches found"); knockout picks render as a
+per-round placeholder list and save; placeholders resolve to real teams correctly as standings/results
+settle (unit tests for the best-third-placed mapping and round-to-round advancement); optional read-only
+bracket renders; `pytest` + Vitest green.
+
+---
+
+## Deferred (own batch, later)
+
+- **Golden Boot player typeahead** — needs a real squad dataset (~26 × 48 ≈ 1,250 players: new table +
+  search endpoint + combobox UI). Squads finalize ~early June 2026; do it properly then. Golden Boot
+  stays the free-text input (`SpecialsPage.tsx:254-275`) until this lands. Note award-matching is
+  currently case-insensitive string compare (`routers/specials.py:300`).
+- **Public/private league split in the Leagues tab** — considered and declined for now: when viewing
+  leagues you're *in*, membership matters more than visibility, and the privacy badge already
+  distinguishes them. Keep My Leagues + a polished Discover.
+
+---
+
+## Close-out (round 4)
+
+Per batch: push `feat/premium-polish-4` → `/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if
+the `U` prefix isn't recognised) → lean `session-log.md` entry → strike the row in the round-4 table
+above. Independent of rounds 2–3 — ff-merge each batch as it goes green. `/next-batch-prompt polish` will
+surface **U9** as the next un-struck batch.
