@@ -1340,3 +1340,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Existing mock tests for predictions/players/stats/specials patched with `unittest.mock.patch` for `shared_league_player_ids` to avoid stub exhaustion.
 
 **Next:** Review batch R13 — Admin authority + hardening cleanup 🟢 Sonnet (`/next-batch-prompt review`)
+
+---
+
+## Review batch R13 — Admin authority + hardening cleanup
+**Commits:** 19dddc0 · CI ✅
+
+### Key facts for future sessions
+- `require_admin` now checks `site_role == SiteRole.superadmin` (not legacy `PlayerRole.admin`). `PlayerRole` is explicitly docstringed "Legacy" in `models/profile.py`.
+- `Environment(StrEnum)` in `config.py` — unknown env strings raise `ValidationError` at startup. Default unchanged (`development`); fail-closed is the enum rejection, not the default.
+- `main.py` test_helpers guard changed from `!= "production"` to `== Environment.development` — staging no longer mounts test helpers.
+- `prune_leaderboard_snapshots()` in `scheduler.py` runs at 04:00 UTC: keeps latest 50 rows + one daily sample per (league_id, player_id). `rowcount` access uses `# type: ignore[attr-defined]`.
+- Dead `compare.router` (zero routes, never mounted) removed from `compare.py:23`.
+- RANK vs DENSE_RANK: RANK intentional (gaps after ties = standard sports table). Comment in `services/leaderboard.py`.
+
+**Next:** all R-batches complete — project ready for soak / prod launch
