@@ -302,7 +302,13 @@ async def test_get_stats_by_player_id_returns_stats() -> None:
         avg_prediction_timing_mins=240.0,
     )
 
-    with patch("src.routers.stats.get_player_stats", return_value=stats_data):
+    with (
+        patch("src.routers.stats.get_player_stats", return_value=stats_data),
+        patch(
+            "src.routers.stats.shared_league_player_ids",
+            return_value=frozenset({requester.id, target.id}),
+        ),
+    ):
         app.dependency_overrides[get_current_player] = lambda: requester
         app.dependency_overrides[get_db] = _db_with(mock_db)
         try:

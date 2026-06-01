@@ -1312,3 +1312,46 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - OP4 confirmed N/A: `wc2026.vercel.app` is not owned by this project; canonical prod frontend stays `wc2026-prod.vercel.app`.
 
 **Next:** E2 — Email setup (Resend) whenever Resend account + domain are ready (`/next-batch-prompt env`)
+
+---
+
+## Review batch R11 — Supabase RLS lockdown (C1)
+**Commits:** 47e3b4a, 47ad360 · CI ✅
+
+### Key facts for future sessions
+- Migration `015_r11_rls_lockdown.py`: REVOKES anon/authenticated write grants on all 13 tables and enables RLS; `matches` + `leaderboard_snapshots` get a SELECT-for-all policy (realtime still flows); the 11 other tables are deny-all.
+- Prediction table realtime subscriptions were removed from the frontend — prediction pages now refresh via `matches`/`leaderboard_snapshots` channel events + FastAPI refetch.
+- The backend uses the service role (bypasses RLS), so no API behaviour changed.
+- **Operator follow-up still open:** re-run the Supabase advisor (or `SELECT relname, relrowsecurity FROM pg_class`) on **prod** `kznxjyaanotrejcevngy` to confirm `rls_disabled_in_public` is clear there too.
+- R12/R13 are the next soak-audit batches (tenant isolation + admin hardening) — not soak-blockers.
+
+**Next:** Review batch R12 — Backend tenant isolation 🟢 Sonnet (`/next-batch-prompt review`)
+
+---
+
+## Review batch R12 — Backend tenant isolation
+**Commits:** 02a4478, a38a6b8 · CI ✅
+
+### Key facts for future sessions
+- New `src/deps.py` with `shared_league_player_ids(requester_id, db)` — one SQL call (correlated subquery); always includes requester's own ID.
+- Six endpoints now gate on shared-league membership: GET /players/{id}, GET /players/{id}/predictions/recent, GET /stats/{id}, GET /predictions/player/{id} return 403; GET /predictions/match/{id} and GET /specials/all filter rows silently.
+- Leaderboard helpers `_leaderboard_entries` and `_leaderboard_history` now inner-join `league_memberships` (deleted_at IS NULL); `_round_leaderboard` already had this join.
+- `GET /leagues/{slug}`: private league + non-member now returns 404 (not 403); membership check moved before `_active_member_count` — existing tests updated to match new call order.
+- Existing mock tests for predictions/players/stats/specials patched with `unittest.mock.patch` for `shared_league_player_ids` to avoid stub exhaustion.
+
+**Next:** Review batch R13 — Admin authority + hardening cleanup 🟢 Sonnet (`/next-batch-prompt review`)
+
+---
+
+## Review batch R13 — Admin authority + hardening cleanup
+**Commits:** 19dddc0 · CI ✅
+
+### Key facts for future sessions
+- `require_admin` now checks `site_role == SiteRole.superadmin` (not legacy `PlayerRole.admin`). `PlayerRole` is explicitly docstringed "Legacy" in `models/profile.py`.
+- `Environment(StrEnum)` in `config.py` — unknown env strings raise `ValidationError` at startup. Default unchanged (`development`); fail-closed is the enum rejection, not the default.
+- `main.py` test_helpers guard changed from `!= "production"` to `== Environment.development` — staging no longer mounts test helpers.
+- `prune_leaderboard_snapshots()` in `scheduler.py` runs at 04:00 UTC: keeps latest 50 rows + one daily sample per (league_id, player_id). `rowcount` access uses `# type: ignore[attr-defined]`.
+- Dead `compare.router` (zero routes, never mounted) removed from `compare.py:23`.
+- RANK vs DENSE_RANK: RANK intentional (gaps after ties = standard sports table). Comment in `services/leaderboard.py`.
+
+**Next:** all R-batches complete — project ready for soak / prod launch

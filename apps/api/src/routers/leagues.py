@@ -508,13 +508,19 @@ async def get_league(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> LeagueDetailResponse:
     league = await _resolve_league(slug, db)
-    member_count = await _active_member_count(league.id, db)
 
     # Check if caller is a member (or superadmin)
     is_member = _is_superadmin(player)
     if not is_member:
         m = await _resolve_active_membership(league.id, player.id, db)
         is_member = m is not None
+
+    # Private leagues are not enumerable by non-members — return 404 to avoid
+    # confirming the league's existence.
+    if league.privacy == LeaguePrivacy.private and not is_member:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+
+    member_count = await _active_member_count(league.id, db)
 
     members_out: list[MemberInfo] | None = None
     if is_member:

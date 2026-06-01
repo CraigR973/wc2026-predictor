@@ -297,10 +297,10 @@ async def test_get_league_as_member_returns_member_list() -> None:
         [
             # _resolve_league
             _scalar(league),
-            # _active_member_count
-            _scalar_one(2),
             # _resolve_active_membership (is member check)
             _scalar(membership),
+            # _active_member_count
+            _scalar_one(2),
             # member list query
             _rows([(membership, player)]),
         ]
@@ -323,10 +323,12 @@ async def test_get_league_as_non_member_hides_member_list() -> None:
 
     mock_db = _stub_db(
         [
+            # _resolve_league
             _scalar(league),
-            _scalar_one(5),
-            # not a member
+            # _resolve_active_membership (not a member)
             _scalar(None),
+            # _active_member_count
+            _scalar_one(5),
         ]
     )
 

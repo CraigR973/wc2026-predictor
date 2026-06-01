@@ -1,4 +1,4 @@
-# Review batches (R1–R10)
+# Review batches (R1–R13)
 
 Fixes from the 2026-05-18 pre-launch review, grouped to amortize the cold
 system prompt: same-model adjacent, same files / conceptual area together,
@@ -215,6 +215,85 @@ Not R-batches: there is nothing to merge or close out, so they do not run throug
 - [x] **OP3** (audit M3) — `SCHEDULER_ENABLED=false` confirmed on Railway staging env. Done 2026-05-30.
 - [x] **OP4** (audit H2, infra half) — N/A: `wc2026.vercel.app` is not owned by this project. Canonical prod frontend is `wc2026-prod.vercel.app`; no action required.
 - [x] **OP5** (audit L4) — `VERCEL_TOKEN` scoped and rotation confirmed. Done 2026-05-30.
+
+---
+
+## Soak code-audit batches (R11–R13) — added 2026-05-30
+
+Fixes from the 2026-05-30 pre-soak re-audit (`docs/soak-review/code-audit-2026-05-30.md`),
+triggered by multi-league reaching more people (the Lewis soak). Same batching rationale as
+R1–R10; each item notes its audit finding id. **R11 is a hard BLOCKER — it gates handing
+*staging* to Lewis, not just prod launch** (the public anon key is live-exploitable on
+staging today). Empirically confirmed on a local full stack: backend suite 585 green, so
+R12/R13 are isolation/clarity work on an otherwise-healthy backend.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~R11~~ | ~~🔴 Opus (extended thinking ON)~~ | ~~~3 h~~ | ~~R11.1–R11.4~~ | ✅ Shipped 2026-06-01 |
+| ~~R12~~ | ~~🟢 Sonnet~~ | ~~R12.1–R12.3~~ | ✅ Shipped 2026-06-01 |
+| ~~R13~~ | ~~🟢 Sonnet~~ | ~~~2 h~~ | ~~R13.1–R13.5~~ | ✅ Shipped 2026-06-01 |
+
+Land **R11 first** — it is the only item that gates the soak.
+
+---
+
+## R11 — Supabase RLS lockdown (C1) 🔴 Opus (extended thinking ON) · ~3 h
+
+> Why this batch exists: RLS is **disabled on 13 PostgREST-exposed tables** and the public
+> `anon` key (shipped in the JS bundle) holds full `SELECT/INSERT/UPDATE/DELETE/TRUNCATE` on
+> every one of them (confirmed via `information_schema.role_table_grants` + `pg_class` +
+> Supabase advisor on staging, and the prod data API returns HTTP 200 to the anon key).
+> Anyone can read every player's predictions **pre-kickoff** (game-breaking) and rewrite or
+> wipe predictions, leaderboards, memberships, and results — bypassing FastAPI. The frontend
+> uses Supabase **only for realtime** (`.channel()` postgres_changes), never the REST data
+> API, and all real writes go through FastAPI with the **service role** (which bypasses RLS),
+> so this locks down with no loss of function — but realtime needs care.
+
+The 13 exposed tables: `matches`, `predictions`, `knockout_predictions`, `special_predictions`,
+`leaderboard_snapshots`, `leagues`, `league_memberships`, `league_join_requests`,
+`push_subscriptions`, `notification_preferences`, `notification_log`, `audit_log`,
+`alembic_version`. (`profiles`, `refresh_tokens`, `invites`, `groups`, `teams` already have RLS
+— leave them.)
+
+- **R11.1** (audit C1, kills the write vector) New Alembic migration — `REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON <each of the 13> FROM anon, authenticated`. The backend uses the service role (bypasses grants + RLS) so the app is unaffected. This alone removes the tamper/destroy capability. (~30 min)
+- **R11.2** (audit C1, enable RLS) Same migration — `ALTER TABLE … ENABLE ROW LEVEL SECURITY` on all 13. For the realtime-broadcast-safe tables the frontend subscribes to — `matches` and `leaderboard_snapshots` (fixtures + standings, non-secret) — add a minimal `SELECT` policy for `anon` + `authenticated` so realtime keeps flowing. The other 11 get RLS **with no policy** (deny-all). (~45 min)
+- **R11.3** (audit C1, the game-integrity bit) **`predictions` / `knockout_predictions` must NOT be anon-readable pre-lock**, so they get **no** anon SELECT policy (deny-all). That ends their current realtime subscriptions, so update the pages that subscribe to them (the predictions / knockout pages) to drive refresh off the `matches` / `leaderboard_snapshots` channels (which fire when results are entered) + refetch predictions through FastAPI, which enforces the kickoff lock. Remove the direct `.channel()` subscriptions on the two prediction tables. (~60 min)
+- **R11.4** (audit C1, verification — note: the anon-REST, realtime, and advisor checks are **Supabase-specific** and must run against a real Supabase project = **staging**; bare local Postgres has no PostgREST/Realtime). *Local* — `alembic upgrade head` + downgrade clean and `pytest` green (proves the migration applies and the service-role backend is unaffected). *Staging (after deploy)* — (a) with the staging anon key, `curl` the PostgREST endpoint: writes on the 13 tables return 401/permission-denied and pre-lock `predictions` reads return nothing; (b) leaderboard + match views still update live on result entry; (c) the Supabase advisor reports zero `rls_disabled_in_public`. (~30 min)
+
+**Acceptance:**
+- Migration enables RLS on all 13 tables and revokes anon/authenticated write grants; `alembic upgrade head` **and** downgrade run clean.
+- With the public anon key, the PostgREST data API can no longer read pre-lock predictions or write/delete any of the 13 tables (curl evidence in the PR description).
+- Supabase security advisor shows **no** `rls_disabled_in_public` findings.
+- Realtime still works: leaderboard + match views update live on result entry (verified on **staging** — Realtime/PostgREST are Supabase-specific, not testable on bare local Postgres); `e2e`/`smoke` unchanged.
+- `pytest` green (backend uses the service role — no behavioural change expected).
+
+> **Operator follow-up (post-merge, before seeding prod):** the audit MCP was staging-bound, so re-run the Supabase advisor (or the `pg_class.relrowsecurity` query) directly on **prod** `kznxjyaanotrejcevngy` and confirm `rls_disabled_in_public` is clear there too.
+
+---
+
+## R12 — Backend tenant isolation 🟢 Sonnet · ~2.5 h
+
+> Why: legacy single-pool read endpoints now leak across leagues, and players who leave a
+> league linger on its leaderboard. Lower-stakes for a one-friend soak; matters for wider
+> rollout. (H1 is read-only, post-lock only — not a scoring or write breach.)
+
+- **R12.1** (audit H1) Scope the legacy global read endpoints to "requester shares ≥1 active league with target": `GET /predictions/match/{id}` (`routers/predictions.py:173` — filter returned rows to shared-league players), `GET /predictions/player/{id}` (:217), `GET /players/{id}` (`players.py:70`), `GET /players/{id}/predictions/recent` (:110), `GET /stats/{id}` (`stats.py:112`), `GET /specials/all` (`specials.py:223`). Add a shared-league helper dep; tests for the cross-league empty/403 path. (~90 min)
+- **R12.2** (audit M2) `routers/leaderboard.py:83` `_leaderboard_entries` — join the snapshot read to current `league_memberships` (`player_id`, `league_id`, `deleted_at IS NULL`) so departed members drop off the board they left. Same fix for `_leaderboard_history` and the round leaderboard. Test: soft-delete a membership → player disappears from that league's board, keeps others. (~45 min)
+- **R12.3** (audit M3) `GET /leagues/{slug}` — for a **private** league, don't return name/description/member_count to a non-member; return 404 (not 403, to avoid confirming existence). Public leagues unchanged. Test. (~20 min)
+
+**Acceptance:** a member of League A can no longer read display names / stats / post-lock predictions of a player who shares no league with them; departed members vanish from the league board they left (test proves it); private-league metadata is not enumerable by slug; `pytest` green.
+
+---
+
+## R13 — Admin authority + hardening cleanup 🟢 Sonnet · ~2 h
+
+- **R13.1** (audit M1) Unify site-admin authority: route both `require_admin` (`auth.py:181`) and the league `_is_superadmin` bypass (`routers/leagues.py`) through one source of truth (prefer `profiles.site_role`), or add a startup invariant that `role==admin` and `site_role==superadmin` never disagree. (~40 min)
+- **R13.2** (audit M4) Replace the brittle `environment` string-match guard with an enum + fail-closed default (unknown value → behave as production → mount no `test_helpers`). (~30 min)
+- **R13.3** (audit L1) Bound `leaderboard_snapshots` growth (the trigger inserts one row per active membership per result entry — unbounded): a scheduled prune keeping the latest N per (league, player) + dailies, or a documented cap. (~30 min)
+- **R13.4** (audit L2) Delete the dead legacy `compare.router` — only `league_router` is mounted (`compare.py:281`). (~10 min)
+- **R13.5** (audit L3) Confirm RANK vs DENSE_RANK is the intended leaderboard tie semantics; comment it, or switch to DENSE_RANK if gaps-after-ties are unwanted. (~15 min)
+
+**Acceptance:** one admin-authority source of truth (or an invariant test); the `environment` guard fails closed on unknown values (test); snapshot growth is bounded; dead router gone; tie-semantics documented; `pytest` green.
 
 ---
 

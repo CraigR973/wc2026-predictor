@@ -20,7 +20,6 @@ from src.routers.leagues import LeagueMemberDep
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
-router = APIRouter(prefix="/api/v1/compare", tags=["compare"])
 league_router = APIRouter(prefix="/api/v1/leagues", tags=["compare"])
 
 

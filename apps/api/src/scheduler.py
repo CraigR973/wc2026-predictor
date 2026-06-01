@@ -12,7 +12,7 @@ import structlog
 from apscheduler.schedulers.asyncio import (  # type: ignore[import-untyped,unused-ignore]
     AsyncIOScheduler,
 )
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.config import settings
@@ -97,6 +97,47 @@ async def lock_due_matches(
     return locked_count
 
 
+async def prune_leaderboard_snapshots(
+    session_factory: async_sessionmaker[AsyncSession] = AsyncSessionLocal,
+    keep_recent: int = 50,
+) -> int:
+    """Delete old leaderboard_snapshots, keeping the latest `keep_recent` per
+    (league_id, player_id) plus one snapshot per calendar day.
+
+    Without pruning, every result entry inserts one row per active member and
+    the table grows without bound over a 104-match tournament.
+    """
+    async with session_factory() as session:
+        result = await session.execute(
+            text("""
+                DELETE FROM leaderboard_snapshots
+                WHERE id IN (
+                    SELECT id FROM (
+                        SELECT
+                            id,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY league_id, player_id
+                                ORDER BY snapshot_at DESC
+                            ) AS rn,
+                            snapshot_at::date AS snap_date,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY league_id, player_id, snapshot_at::date
+                                ORDER BY snapshot_at DESC
+                            ) AS daily_rn
+                        FROM leaderboard_snapshots
+                    ) ranked
+                    WHERE rn > :keep_recent AND daily_rn > 1
+                )
+            """),
+            {"keep_recent": keep_recent},
+        )
+        deleted: int = result.rowcount  # type: ignore[attr-defined]
+        await session.commit()
+    if deleted:
+        log.info("pruned leaderboard_snapshots", deleted=deleted)
+    return deleted
+
+
 async def run_scheduled_backup() -> None:
     """Daily backup job — runs at 03:00 UTC."""
     try:
@@ -159,6 +200,16 @@ def create_scheduler() -> AsyncIOScheduler:
         hour=3,
         minute=0,
         id="daily_backup",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        prune_leaderboard_snapshots,
+        trigger="cron",
+        hour=4,
+        minute=0,
+        id="prune_leaderboard_snapshots",
         replace_existing=True,
         coalesce=True,
         max_instances=1,

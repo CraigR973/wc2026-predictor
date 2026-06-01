@@ -391,3 +391,68 @@ The `/next-batch-prompt` skill won't auto-recognise `U` batches (it's
 hardcoded for `phase-batches.md` and `wc2026-architecture.md`). At
 batch start, paste the relevant `## U<n> — ...` section into the new
 session as the prompt scope.
+
+---
+
+# Round 3 (soak prep) — batches (U6–U8) — added 2026-05-30
+
+From the 2026-05-30 pre-soak UX re-audit (`docs/soak-review/ux-audit-2026-05-30.md`),
+triggered by multi-league reaching more people (the Lewis soak). Round 2 (U1–U5) is
+shipped; this round picks up the two **user-flagged** items plus finish issues found in
+the live visual pass. **Independent of round 2** — own branch (`feat/premium-polish-3`),
+ff-merge per batch once green (don't wait on anything). The current `/next-batch-prompt
+polish` reads this file's `## U<n>` acceptance inline, so no manual pasting needed.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U6 | 🟢 Sonnet | ~2 h | U6.1–U6.3 | Pending (user-flagged) |
+| U7 | 🟢 Sonnet | ~2 h | U7.1–U7.3 | Pending |
+| U8 | 🟢 Sonnet | ~1.5 h | U8.1–U8.2 | Pending |
+
+---
+
+## U6 — Variable-length PIN, unified everywhere 🟢 Sonnet · ~2 h
+
+> Follow-up to **U2.2**, which built `PinInput` fixed at 4 cells with the note "admin can
+> extend in a future PR if/when 8-digit PINs are wanted." Decision 2026-05-30: PIN range is
+> **4–8 digits**. Today `SignupPage` pairs a 4-cell `PinInput` with a *plain* confirm box
+> (visually inconsistent, confirmed in the live pass), the cell cap silently truncates to 4
+> (contradicting the "4–8 digits" label), and `JoinPage` uses plain inputs for both.
+
+- **U6.1** Make `apps/web/src/components/PinInput.tsx` variable-length: accept a `length`/`maxLength` prop (render N cells up to max, paste up to max, backspace nav across N). Keep the controlled `value`/`onChange` API. Update its Vitest test for N-length + paste. (~50 min)
+- **U6.2** Use `PinInput` for **both** entry and confirm on `SignupPage` and `JoinPage` (and Login already uses it). Remove the plain `<Input type="password">` PIN/confirm fields. Set `autoComplete="new-password"` on signup/join, `current-password` on login (fixes the reused-component bug at `PinInput.tsx:68`). (~45 min)
+- **U6.3** Reconcile copy + validation to 4–8 everywhere; ensure the confirm-match check works across the full range. (~20 min)
+
+**Acceptance:** one `PinInput` used for every PIN entry/confirm on Login, Signup, Join; accepts 4–8 digits (no silent 4-cap); entry and confirm are visually identical; `autoComplete` correct per context; Vitest for variable length + paste green; a11y test green.
+
+---
+
+## U7 — Invite-flow cleanup + finish issues 🟢 Sonnet · ~2 h
+
+- **U7.1** (UX U-FIX-2, user-flagged) Remove the "Invitee email (optional)" capture from `apps/web/src/pages/LeagueAdminInvitesPage.tsx` (state line 17, body field 31/37, field 83–93) — the auto-copied join link makes it dead weight. Post an empty invite body; remove the "For: {invitee_email}" line (122–126). Decide whether to retire the backend `invitee_email` column/param or leave it nullable for back-compat. (~45 min)
+- **U7.2** (UX U3) Route destructive confirms through the design-system `ui/dialog.tsx` instead of native `window.confirm()`: `LeagueMembersPage` (remove member / leave, 56/70), `admin/PlayersPage` (62), `admin/InvitesPage` (98). Reuse the "type-to-confirm" pattern from `LeagueSettingsPage`. (~50 min)
+- **U7.3** (UX U2) Remove/correct the stale `display: '"Instrument Serif", …'` token in `apps/web/src/theme/tokens.ts:75` — no Instrument Serif font is loaded and `font-display` aliases to Outfit; make the "single source of truth" token match reality. (~15 min)
+
+**Acceptance:** no email field in the invite-create flow; no native `window.confirm()` for destructive actions (all styled dialog); the display-font token matches what renders; tests green.
+
+---
+
+## U8 — Partnership lockup polish 🟢 Sonnet · ~1.5 h
+
+> Decision 2026-05-30: the "In partnership with Robinsons" splash joke **stays** — fix the
+> quality. The Robinsons bitmap is low-res and reads as pasted clipart against the crisp
+> vector wordmark, and the lockup differs between Login (full partnership line + "Still
+> Email?" tagline) and Signup (wordmark only).
+
+- **U8.1** Replace the low-res Robinsons raster with a crisp asset (vector if obtainable, else a 2–3× PNG with transparent background); align its sizing/spacing to the splash grid so it reads as an intentional element, not clipart. (~50 min)
+- **U8.2** Unify the splash lockup across `LoginPage` and `SignupPage` (same partnership line + tagline placement). (~30 min)
+
+**Acceptance:** the partnership logo renders crisp at all splash sizes (no visible pixelation); Login and Signup show the same brand lockup; no layout regression; tests green.
+
+> Non-blocking note: embedding a real third-party brand mark carries a small trademark/professionalism consideration if the app ever goes more public — informational only for the private soak.
+
+---
+
+## Close-out (round 3)
+
+Per batch: push `feat/premium-polish-3` → `/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if the `U` prefix isn't recognised) → lean `session-log.md` entry → strike the row in the round-3 table above. Round 3 is independent of round 2's "do not merge until U5" rule.

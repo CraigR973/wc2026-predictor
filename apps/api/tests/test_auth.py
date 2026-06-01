@@ -23,7 +23,7 @@ from src.auth import (
 from src.config import settings
 from src.database import get_db
 from src.main import app
-from src.models.profile import PlayerRole, Profile
+from src.models.profile import PlayerRole, Profile, SiteRole
 from src.models.refresh_token import RefreshToken
 
 # ---------------------------------------------------------------------------
@@ -46,6 +46,8 @@ def _make_player(
     p.email = "testplayer@example.com"
     p.pin_hash = hash_pin("1234")
     p.role = role
+    # Keep site_role consistent with role: admin ↔ superadmin, player ↔ user.
+    p.site_role = SiteRole.superadmin if role == PlayerRole.admin else SiteRole.user
     p.timezone = "UTC"
     p.failed_login_count = failed
     p.locked_until = locked_until
@@ -317,9 +319,9 @@ async def test_require_admin_rejects_player_role() -> None:
 
 
 async def test_require_admin_passes_admin_role() -> None:
-    """require_admin returns the player for admin role."""
+    """require_admin returns the player when site_role is superadmin."""
     from src.auth import require_admin
 
-    player = _make_player(role=PlayerRole.admin)
+    player = _make_player(role=PlayerRole.admin)  # sets site_role=superadmin via _make_player
     result = await require_admin(player)
     assert result is player

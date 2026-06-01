@@ -4,7 +4,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -199,8 +199,12 @@ async def test_get_player_active(client: AsyncClient) -> None:
     target = _make_profile(display_name="Target")
     mock_db = _stub_db([_scalar(target)])
 
-    async with _override_player_and_db(mock_db, caller):
-        resp = await client.get(f"/api/v1/players/{target.id}")
+    with patch(
+        "src.routers.players.shared_league_player_ids",
+        return_value=frozenset({caller.id, target.id}),
+    ):
+        async with _override_player_and_db(mock_db, caller):
+            resp = await client.get(f"/api/v1/players/{target.id}")
 
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -213,8 +217,12 @@ async def test_get_player_soft_deleted(client: AsyncClient) -> None:
     target = _make_profile(display_name="Gone", deleted_at=_now())
     mock_db = _stub_db([_scalar(target)])
 
-    async with _override_player_and_db(mock_db, caller):
-        resp = await client.get(f"/api/v1/players/{target.id}")
+    with patch(
+        "src.routers.players.shared_league_player_ids",
+        return_value=frozenset({caller.id, target.id}),
+    ):
+        async with _override_player_and_db(mock_db, caller):
+            resp = await client.get(f"/api/v1/players/{target.id}")
 
     assert resp.status_code == 200, resp.text
     assert resp.json()["is_deleted"] is True

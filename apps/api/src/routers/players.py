@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
+from src.deps import shared_league_player_ids
 from src.models.league_membership import LeagueMembership
 from src.models.match import Match
 from src.models.prediction import Prediction
@@ -70,13 +71,19 @@ async def list_league_players(
 @router.get("/{player_id}", response_model=PlayerProfileResponse)
 async def get_player(
     player_id: uuid.UUID,
-    _player: CurrentPlayer,
+    requester: CurrentPlayer,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PlayerProfileResponse:
     result = await db.execute(select(Profile).where(Profile.id == player_id))
     player = result.scalar_one_or_none()
     if player is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+    shared = await shared_league_player_ids(requester.id, db)
+    if player_id not in shared:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not share a league with this player",
+        )
     return _to_response(player)
 
 
@@ -110,7 +117,7 @@ class RecentPredictionItem(BaseModel):
 @router.get("/{player_id}/predictions/recent", response_model=list[RecentPredictionItem])
 async def get_recent_predictions(
     player_id: uuid.UUID,
-    _player: CurrentPlayer,
+    requester: CurrentPlayer,
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=5, ge=1, le=20),
 ) -> list[RecentPredictionItem]:
@@ -120,6 +127,12 @@ async def get_recent_predictions(
     )
     if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+    shared = await shared_league_player_ids(requester.id, db)
+    if player_id not in shared:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not share a league with this player",
+        )
 
     pred_stmt = (
         select(Prediction, Match)
