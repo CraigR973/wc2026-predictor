@@ -1,7 +1,15 @@
+from enum import StrEnum
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PLACEHOLDER_SECRETS = {"change-me-access", "change-me-refresh"}
+
+
+class Environment(StrEnum):
+    development = "development"
+    staging = "staging"
+    production = "production"
 
 
 class Settings(BaseSettings):
@@ -29,7 +37,9 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:5173"
     sentry_dsn_backend: str = ""
     log_level: str = "INFO"
-    environment: str = "development"
+    # Unknown strings are rejected by the enum (fail-closed).
+    # Explicit development value required to mount test helpers; staging is treated as production.
+    environment: Environment = Environment.development
     # Railway injects this into the deploy env so /health can expose the running SHA.
     railway_git_commit_sha: str | None = None
 
@@ -45,7 +55,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _reject_weak_secrets_in_prod(self) -> "Settings":
-        if self.environment == "development":
+        if self.environment == Environment.development:
             return self
         errors: list[str] = []
         if self.jwt_access_secret in _PLACEHOLDER_SECRETS:

@@ -12,7 +12,7 @@ from sentry_sdk.types import Event, Hint
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from src.config import settings
+from src.config import Environment, settings
 from src.logging_config import configure_logging
 from src.middleware import CorrelationIdMiddleware, SecurityHeadersMiddleware
 from src.rate_limit import limiter
@@ -58,7 +58,7 @@ if settings.sentry_dsn_backend:
         integrations=[FastApiIntegration(), SqlalchemyIntegration()],
         send_default_pii=False,
         before_send=_scrub_pii,
-        traces_sample_rate=0.0 if settings.environment != "production" else 0.05,
+        traces_sample_rate=0.0 if settings.environment != Environment.production else 0.05,
     )
 
 
@@ -121,7 +121,7 @@ app.include_router(stats.league_router)
 app.include_router(compare.league_router)
 app.include_router(notifications.router)
 
-if settings.environment != "production":
+if settings.environment == Environment.development:
     from src.routers import test_helpers  # noqa: PLC0415
 
     app.include_router(test_helpers.router)

@@ -64,6 +64,10 @@ async def recompute_leaderboard_snapshot(
                 player_totals.match_points,
                 player_totals.knockout_winner_points,
                 player_totals.special_points,
+                -- RANK (not DENSE_RANK): tied players get the same rank and the
+                -- next rank skips (e.g. two players tied 2nd → next is 4th).
+                -- This matches standard sports-table convention where a gap after
+                -- a tie is expected.  Switch to DENSE_RANK if gap-free ranks are wanted.
                 RANK() OVER (
                     PARTITION BY lm.league_id
                     ORDER BY player_totals.total_points DESC

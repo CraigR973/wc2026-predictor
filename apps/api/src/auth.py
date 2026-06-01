@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.database import get_db
-from src.models.profile import PlayerRole, Profile
+from src.models.profile import PlayerRole, Profile, SiteRole
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -178,7 +178,9 @@ async def get_current_player(
 async def require_admin(
     player: Annotated[Profile, Depends(get_current_player)],
 ) -> Profile:
-    if player.role != PlayerRole.admin:
+    # Single source of truth for site-admin authority: site_role (SiteRole.superadmin).
+    # PlayerRole.admin is legacy; prefer site_role for all admin-gate decisions.
+    if player.site_role != SiteRole.superadmin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return player
 
