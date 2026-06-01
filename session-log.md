@@ -1407,3 +1407,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `SelectContent` (Radix) lacked a height cap; all dropdowns (including 48-team specials picker) now scroll via `max-h-[min(20rem,var(--radix-select-content-available-height))]` + `ScrollUpButton`/`ScrollDownButton`.
 
 **Next:** Polish batch U10 — Forgot-PIN + first-run onboarding 🟢 Sonnet
+
+---
+
+## Polish batch U10 — Forgot-PIN + first-run onboarding
+**Commits:** 73f064a, 26c0d22 · CI ✅
+
+### Key facts for future sessions
+- `FirstRunController` renders tour-then-notifications modals when authenticated and localStorage flags unset; lives inside `AuthProvider` in `App.tsx` alongside `InstallPromptController`.
+- E2E `seedAuth` helper must pre-seed `sss_tour_seen` and `sss_notif_prompt_seen` (added in `26c0d22`) — any future E2E test that calls `seedAuth` gets this automatically.
+- `NotificationsPromptModal` checks `window.matchMedia('(display-mode: standalone)')` at render time — iOS non-standalone shows install nudge only, never the Enable button.
+- `/pin/reset/:token` route (not `/pin-reset/`) — backend email template must link to this exact path.
+- The "ask your league admin" U2.3 copy was never present in the codebase at this point — grep confirmed absent.
+
+**Next:** Polish batch U11 — Home screen rebalance 🟢 Sonnet
