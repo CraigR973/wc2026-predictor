@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Share2, ChevronDown } from 'lucide-react';
+import { Share2, ChevronDown, RefreshCw } from 'lucide-react';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { LeagueDetail, LeagueInvite } from '@/lib/types';
 import { buildInviteMessage, shareInvite } from '@/lib/invite';
+import { getAccessToken } from '@/lib/tokens';
+
+const BASE = import.meta.env.VITE_API_URL ?? '';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +18,7 @@ export function LeagueAdminInvitesPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
   const [isSharing, setIsSharing] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
@@ -43,6 +47,27 @@ export function LeagueAdminInvitesPage() {
       toast.error('Could not share invite');
     } finally {
       setIsSharing(false);
+    }
+  }
+
+  async function handleRotate() {
+    if (!window.confirm('Generate a new join code? The old link will stop working immediately.')) return;
+    setIsRotating(true);
+    try {
+      const resp = await fetch(`${BASE}/api/v1/leagues/${slug}/join-code/rotate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (resp.ok) {
+        queryClient.invalidateQueries({ queryKey: ['league', slug] });
+        toast.success('New join code generated');
+      } else {
+        toast.error('Failed to rotate join code');
+      }
+    } catch {
+      toast.error('Failed to rotate join code');
+    } finally {
+      setIsRotating(false);
     }
   }
 
@@ -103,20 +128,30 @@ export function LeagueAdminInvitesPage() {
             Share the league join code so anyone can join from the link or the app.
           </p>
           {league?.join_code ? (
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-lg font-semibold text-primary tracking-widest">
-                {league.join_code}
-              </span>
-              <Button
-                variant="accent"
-                size="sm"
-                className="gap-1.5"
-                onClick={handleShare}
-                disabled={isSharing}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-mono text-lg font-semibold text-primary tracking-widest">
+                  {league.join_code}
+                </span>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={handleShare}
+                  disabled={isSharing}
+                >
+                  <Share2 className="h-3.5 w-3.5" aria-hidden />
+                  {isSharing ? 'Sharing…' : 'Share invite'}
+                </Button>
+              </div>
+              <button
+                onClick={handleRotate}
+                disabled={isRotating}
+                className="flex items-center gap-1.5 text-xs text-text-muted hover:text-error transition-colors disabled:opacity-50"
               >
-                <Share2 className="h-3.5 w-3.5" aria-hidden />
-                {isSharing ? 'Sharing…' : 'Share invite'}
-              </Button>
+                <RefreshCw className="h-3 w-3" aria-hidden />
+                {isRotating ? 'Rotating…' : 'Generate new code — old links stop working'}
+              </button>
             </div>
           ) : (
             <Skeleton className="h-9 w-48" />

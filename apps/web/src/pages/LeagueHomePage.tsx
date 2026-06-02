@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
@@ -13,16 +13,11 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAccessToken } from '@/lib/tokens';
-
-const BASE = import.meta.env.VITE_API_URL ?? '';
 
 export function LeagueHomePage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   const { player } = useAuth();
-  const queryClient = useQueryClient();
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle');
-  const [rotating, setRotating] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   const { data: league, isLoading: leagueLoading } = useQuery<LeagueDetail>({
     queryKey: ['league', slug],
@@ -54,26 +49,9 @@ export function LeagueHomePage() {
         setShareStatus('copied');
         setTimeout(() => setShareStatus('idle'), 2000);
       }
+      // 'shared' and 'cancelled' both just return to idle — no state change needed
     } catch {
       toast.error('Could not share invite');
-      setShareStatus('error');
-      setTimeout(() => setShareStatus('idle'), 2000);
-    }
-  }
-
-  async function handleRotate() {
-    if (!window.confirm('Generate a new join code? The old link will stop working.')) return;
-    setRotating(true);
-    try {
-      const resp = await fetch(`${BASE}/api/v1/leagues/${slug}/join-code/rotate`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
-      if (resp.ok) {
-        void queryClient.invalidateQueries({ queryKey: ['league', slug] });
-      }
-    } finally {
-      setRotating(false);
     }
   }
 
@@ -99,7 +77,7 @@ export function LeagueHomePage() {
           {league?.join_code && (
             <Button size="sm" variant="accent" onClick={handleShare} className="gap-1.5">
               <Share2 className="h-3.5 w-3.5" aria-hidden />
-              {shareStatus === 'copied' ? 'Copied!' : shareStatus === 'error' ? 'Error' : 'Invite'}
+              {shareStatus === 'copied' ? 'Copied!' : 'Invite'}
             </Button>
           )}
           <Button asChild size="sm" variant="outline">
@@ -112,16 +90,6 @@ export function LeagueHomePage() {
               </Button>
               <Button asChild size="sm" variant="outline">
                 <Link to={`/leagues/${slug}/admin/settings`}>Settings</Link>
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-xs text-text-muted"
-                onClick={handleRotate}
-                disabled={rotating}
-                title="Rotate join code"
-              >
-                {rotating ? '…' : '↻ Code'}
               </Button>
             </>
           )}

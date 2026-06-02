@@ -72,4 +72,17 @@ describe('shareInvite — navigator.share present', () => {
       url: 'https://x.com',
     });
   });
+
+  it('returns "cancelled" (not error) when user dismisses the share sheet', async () => {
+    const abortErr = Object.assign(new Error('share cancelled'), { name: 'AbortError' });
+    vi.mocked(navigator.share).mockRejectedValueOnce(abortErr);
+    const result = await shareInvite({ message: 'hello', url: 'https://x.com' });
+    expect(result).toBe('cancelled');
+  });
+
+  it('re-throws non-abort errors', async () => {
+    const networkErr = new Error('network failure');
+    vi.mocked(navigator.share).mockRejectedValueOnce(networkErr);
+    await expect(shareInvite({ message: 'hello', url: 'https://x.com' })).rejects.toThrow('network failure');
+  });
 });
