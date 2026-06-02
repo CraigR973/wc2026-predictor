@@ -495,10 +495,11 @@ manual pasting needed.
 | ~~U11~~ | ~~🟢 Sonnet~~ | ~~~2.5 h~~ | ~~U11.1–U11.3~~ | ✅ Shipped 2026-06-01 |
 | ~~U12~~ | ~~🟢 Sonnet~~ | ~~~4 h~~    | ~~U12.1–U12.5~~ | ✅ Shipped 2026-06-01 |
 | ~~U13~~ | ~~🔴 Opus (extended thinking ON)~~ | ~~~5 h~~ | ~~U13.1–U13.5~~ | ✅ Shipped 2026-06-02 |
+| ~~U14~~ | ~~🟢 Sonnet~~ | ~~~6 h~~ | ~~U14.1–U14.6~~ | ✅ Shipped 2026-06-02 |
 
-**Total ≈ 17 h** across 5 focused sessions. Suggested order = U9 → U13 (quick wins
-first; **U13 is foundational and the heaviest** — it seeds the data both the schedule and
-knockout picks read).
+**U9–U13 shipped 2026-06-02** (~17 h across 5 sessions). **U14** was promoted from the
+Deferred list once official squads published — it's the one remaining round-4 batch (~6 h,
+gated on sourcing the squad dataset; see U14.1).
 
 ---
 
@@ -677,12 +678,64 @@ bracket renders; `pytest` + Vitest green.
 
 ---
 
+## U14 — Golden Boot player typeahead (real squad data) 🟢 Sonnet · ~6 h
+
+Promoted from the round-4 Deferred list now that official WC2026 26-man squads have published.
+Replaces the free-text Golden Boot input with a searchable combobox constrained to real squad
+players, so predictions **and** admin awards match by player **id** instead of the current fragile
+case-insensitive string compare.
+
+> **Watch-outs before coding:**
+> - **Naming collision:** the app already has `routers/players.py` + a `profiles`/players concept for
+>   *league participants*. Name the footballer table/router **`squad` / `squad_players`** — do NOT
+>   overload "players".
+> - **No combobox exists.** Web deps are Radix dialog/label/select/slot only — no `cmdk`, no
+>   `@radix-ui/react-popover`. U14.6 must add the shadcn Combobox stack (`cmdk` +
+>   `@radix-ui/react-popover`) or build a lightweight custom typeahead on the existing input.
+> - **RLS (carry R11):** a new PostgREST-exposed table must follow the R11 lockdown pattern (enable
+>   RLS, revoke anon/authenticated writes) or the Supabase advisor flags `rls_disabled_in_public`. The
+>   squad list is non-secret, so add an anon/authenticated SELECT policy. Use the R11 migration as the
+>   template.
+> - Depends on the existing `teams` table being populated (it is — all 48 known post-qualification). FK
+>   squad players to it.
+
+- **U14.1** Squad dataset + idempotent loader. Source the official 48 × 26 ≈ 1,250-player squads into a
+  committed `apps/api/src/data/squads_2026.json` (full name, known-as, team, position, shirt number) and
+  a re-runnable seed/loader (data migration or `seed_squads.py` run on deploy). Cover all 48 teams.
+  **Data sourcing is the long pole** — if it can't be done cleanly in one sitting, split this into a prep
+  data-task and keep U14.2–U14.6 as the batch. (~120 min)
+- **U14.2** `squad_players` table + migration + RLS. uuid id, full_name, known_as, team_id FK→`teams`,
+  position, shirt_number (nullable), is_active (default true). Name index for search. Enable RLS +
+  revoke anon/authenticated writes + add an anon/authenticated SELECT policy, mirroring the R11
+  migration. (~45 min)
+- **U14.3** Search endpoint. New `routers/squad.py` — `GET /api/v1/squad/search?q=&limit=20`,
+  case-insensitive prefix/substring match on full_name/known_as over `is_active` rows, ranked, returns
+  id + name + team + flag + position. Rate-limited per the §8.3 pattern. (~45 min)
+- **U14.4** Prediction stores player id. `special_predictions` — add `predicted_player_id` (nullable
+  FK→squad_players); keep `predicted_player_name` denormalised for display. Update the golden_boot upsert
+  (`routers/specials.py:177-182`) to accept + store the id and resolve the name from it. Migration. (~45 min)
+- **U14.5** Award by id. Replace the case-insensitive string compare at `routers/specials.py:300` (and
+  the `winner_player_name` award field) with a `winner_player_id` id-match; admin picks the winner from
+  the same squad list. Verify re-scoring credits exactly the players who picked the winner. (~45 min)
+- **U14.6** Frontend combobox. Add the shadcn Combobox stack (`cmdk` + `@radix-ui/react-popover` — none
+  exists today) and replace the free-text input (`SpecialsPage.tsx:254-275`) with a debounced typeahead
+  querying `/squad/search`, showing name + team flag + position, selecting → stores the id.
+  Loading/empty/error states. Reuse the same combobox in the admin award UI (U14.5). Vitest. (~60 min)
+
+**Acceptance:** seeded `squad_players` covers all 48 teams (~26 each — test asserts counts);
+`/squad/search` returns ranked matches and is rate-limited; the Golden Boot prediction stores a
+`predicted_player_id` and the free-text path is gone from the UI; admin awards by selecting the winning
+player (id match, not string); re-scoring credits exactly the players who picked the winner (test); the
+new table has RLS enabled + anon writes revoked + anon SELECT allowed (no `rls_disabled_in_public`
+advisor finding); the SpecialsPage combobox searches and selects a real player with team + flag;
+`pytest` + Vitest + a11y green.
+
+---
+
 ## Deferred (own batch, later)
 
-- **Golden Boot player typeahead** — needs a real squad dataset (~26 × 48 ≈ 1,250 players: new table +
-  search endpoint + combobox UI). Squads finalize ~early June 2026; do it properly then. Golden Boot
-  stays the free-text input (`SpecialsPage.tsx:254-275`) until this lands. Note award-matching is
-  currently case-insensitive string compare (`routers/specials.py:300`).
+- **Golden Boot player typeahead** — now scoped as **U14** above (official squads have published). Until
+  U14 ships, Golden Boot stays the free-text input (`SpecialsPage.tsx:254-275`).
 - **Public/private league split in the Leagues tab** — considered and declined for now: when viewing
   leagues you're *in*, membership matters more than visibility, and the privacy badge already
   distinguishes them. Keep My Leagues + a polished Discover.
@@ -694,4 +747,4 @@ bracket renders; `pytest` + Vitest green.
 Per batch: push `feat/premium-polish-4` → `/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if
 the `U` prefix isn't recognised) → lean `session-log.md` entry → strike the row in the round-4 table
 above. Independent of rounds 2–3 — ff-merge each batch as it goes green. `/next-batch-prompt polish` will
-surface **U9** as the next un-struck batch.
+surface **U14** as the next un-struck batch.
