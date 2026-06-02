@@ -1744,7 +1744,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Lighthouse scores ≥ 90
 - **Acceptance:** No blank states; Lighthouse verified
 
-**Phase 12.1: Knockout Scoring Cleanup** 🟢 Sonnet 4.6
+**Phase 12.1: Knockout Scoring Cleanup** 🟢 Sonnet 4.6 ✅ 2026-06-02
 - Grade the 90-minute knockout score identically to a group score: a 90-min draw is a valid result, since the advance (knockout-winner) pick now owns "who goes through"
 - New migration: `CREATE OR REPLACE FUNCTION calculate_match_points` dropping the `is_knockout` draw-void branch; downgrade restores it
 - Mirror the change in `packages/shared/src/scoring.ts` (remove the `isKnockout` clauses) — the SQL and TS scorers must stay in parity
@@ -1752,7 +1752,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Update scoring tests (`test_scoring_function.py`, `test_scoring_trigger.py`, `scoring.test.ts`): exact 1-1 knockout 7→10; correctly calling a knockout draw direction earns the +3 result
 - **Acceptance:** SQL and TS produce identical breakdowns for every stage; exact knockout draw scores 10; no knockout-specific result suppression remains; all scoring tests green
 
-**Phase 12.2: Specials Expansion — Player of the Tournament, Young Player, Golden Glove** 🟢 Sonnet 4.6
+**Phase 12.2: Specials Expansion — Player of the Tournament, Young Player, Golden Glove** 🟢 Sonnet 4.6 ✅ 2026-06-02
 - Add three player specials: Player of the Tournament (15), Young Player of the Tournament (10), Golden Glove (10)
 - Migration: `ALTER TYPE special_prediction_type ADD VALUE` ×3 (values-only migration; respect the enum-add-value transaction rule)
 - `SpecialPredictionType` enum gains 3 members; no `special_predictions` table change (`predicted_player_id` / `winner_player_id` already exist from migration 020)

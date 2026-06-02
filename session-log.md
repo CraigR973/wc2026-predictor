@@ -1480,3 +1480,19 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Admin award endpoint now requires `winner_player_id` (UUID) — old `winner_player_name` field removed from `AwardSpecialsRequest`. Any admin UI must send the id.
 
 **Next:** U14 is the last defined round-4 polish batch — no further U-batch queued.
+
+---
+
+## Phase 12.1, 12.2 — Knockout Scoring Cleanup + Specials Expansion
+**Commits:** 6b2a469, 5b12cca, 94eea60 · CI ✅
+
+### Key facts for future sessions
+- Migration 021 redefines `calculate_match_points` without the `is_knockout` draw-void branch; downgrade recreates the old version. Both SQL and TS scorers now treat all stages identically — knockout draws earn the full +3 result pts.
+- `_stage` param kept in `scoring.ts` for API compatibility but is now unused (prefixed with `_` to avoid lint warnings).
+- Migration 022 adds 3 enum values via `ALTER TYPE ... ADD VALUE IF NOT EXISTS` — Postgres ≥ 12 allows this inside a transaction so no AUTOCOMMIT workaround needed (matches existing pattern in migrations 010, 013, 016).
+- `PLAYER_SPECIALS` frozenset in `specials.py` centralises the golden_boot / player_of_tournament / young_player_of_tournament / golden_glove branches — any new player special only needs to be added to that set.
+- Golden Glove picker passes `position=GK` to `/squad/search`; `PlayerCombobox` now accepts an optional `position` prop threaded to the API call.
+- `test_models.py::test_special_prediction_type_values` had the old 3-value hardcoded set — updated to 6; caught by CI on first push.
+- No further architecture phases defined past 12.2 — check with user before starting a new planning session.
+
+**Next:** No further batches defined — architecture complete.
