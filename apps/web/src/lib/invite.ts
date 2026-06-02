@@ -22,10 +22,16 @@ export interface ShareInviteParams {
   url: string;
 }
 
-export async function shareInvite({ message, url }: ShareInviteParams): Promise<'shared' | 'copied'> {
+export async function shareInvite({ message, url }: ShareInviteParams): Promise<'shared' | 'copied' | 'cancelled'> {
   if (typeof navigator !== 'undefined' && navigator.share) {
-    await navigator.share({ text: message, url });
-    return 'shared';
+    try {
+      await navigator.share({ text: message, url });
+      return 'shared';
+    } catch (err) {
+      // AbortError = user dismissed/swiped the share sheet — not an error, stay silent
+      if (err instanceof Error && err.name === 'AbortError') return 'cancelled';
+      throw err;
+    }
   }
   await navigator.clipboard.writeText(`${message}`);
   toast.success('Invite link copied to clipboard');
