@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { KNOCKOUT_STAGES, STAGE_LONG } from '../lib/stages';
 import { cn } from '../lib/utils';
 
 type StatusVariant = 'default' | 'success' | 'error' | 'muted' | 'accent' | 'warning' | 'live';
@@ -172,27 +173,17 @@ function ScheduleSection({
   );
 }
 
+// Filter pills: All + Group, then the knockout rounds from the shared stage
+// table so the chips match the Knockout Picks round scroller exactly.
 const STAGES = [
   { value: '', label: 'All' },
   { value: 'group', label: 'Group' },
-  { value: 'r32', label: 'R32' },
-  { value: 'r16', label: 'R16' },
-  { value: 'qf', label: 'QF' },
-  { value: 'sf', label: 'SF' },
-  { value: 'third_place', label: '3rd place' },
-  { value: 'final', label: 'Final' },
+  ...KNOCKOUT_STAGES.map((s) => ({ value: s.key, label: s.short })),
 ];
 
-// Knockout matches are grouped under a round heading instead of a date — a
-// round spans several days, so the per-match date is shown on each card.
-const ROUND_LABELS: Record<string, string> = {
-  r32: 'Round of 32',
-  r16: 'Round of 16',
-  qf: 'Quarter-Finals',
-  sf: 'Semi-Finals',
-  third_place: 'Third-Place Play-off',
-  final: 'Final',
-};
+// Knockout matches are grouped under a round heading (the long stage label)
+// instead of a date — a round spans several days, so the per-match date is
+// shown on each card.
 
 function StageFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -241,7 +232,7 @@ export function SchedulePage() {
   for (const m of matches) {
     const isRound = m.stage !== 'group';
     const key = isRound
-      ? (ROUND_LABELS[m.stage] ?? m.stage)
+      ? (STAGE_LONG[m.stage] ?? m.stage)
       : formatInTimeZone(new Date(m.kickoff_utc), timezone, 'EEE d MMM yyyy');
     const bucket = sections.get(key) ?? { matches: [], isRound };
     bucket.matches.push(m);

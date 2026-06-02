@@ -14,20 +14,37 @@ import { BracketTeaser } from '../components/BracketTeaser';
 import { PageHeader } from '../components/PageHeader';
 import { PredictionsSubNav } from '../components/PredictionsSubNav';
 import { useCountdown } from '../hooks/useCountdown';
+import { KNOCKOUT_STAGES, type KnockoutStage } from '../lib/stages';
 import { cn } from '../lib/utils';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const KNOCKOUT_STAGES: { key: string; label: string }[] = [
-  { key: 'r32', label: 'Round of 32' },
-  { key: 'r16', label: 'Round of 16' },
-  { key: 'qf', label: 'Quarter-Finals' },
-  { key: 'sf', label: 'Semi-Finals' },
-  { key: 'third_place', label: 'Third Place' },
-  { key: 'final', label: 'Final' },
-];
+// Round labels come from the shared stage table (../lib/stages) so the round
+// pills here match the Schedule filter chips exactly.
+
+/**
+ * Index of the round to open by default — the earliest round the player can
+ * actually act on: still open (every match scheduled) and with at least one
+ * real-team tie. Pre-tournament (all placeholders) falls back to the first
+ * round; a finished bracket falls back to the last (the Final).
+ */
+function defaultStageIndex(
+  stages: readonly KnockoutStage[],
+  knockoutMatches: MatchResponse[],
+): number {
+  for (let i = 0; i < stages.length; i++) {
+    const roundMatches = knockoutMatches.filter((m) => m.stage === stages[i].key);
+    const open = roundMatches.every((m) => m.status === 'scheduled');
+    const hasRealTeams = roundMatches.some((m) => m.home_team && m.away_team);
+    if (open && hasRealTeams) return i;
+  }
+  const allDone = knockoutMatches.every(
+    (m) => m.status === 'completed' || m.status === 'cancelled',
+  );
+  return allDone ? Math.max(0, stages.length - 1) : 0;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -442,7 +459,9 @@ export function KnockoutPredictionsPage() {
   const timezone = player?.timezone ?? 'UTC';
   const queryClient = useQueryClient();
 
-  const [activeStage, setActiveStage] = useState(0);
+  // null until the player taps a round pill — until then we follow the
+  // smart default (earliest actionable round) computed from the data.
+  const [userStage, setUserStage] = useState<number | null>(null);
   const [localWinners, setLocalWinners] = useState<Record<string, string | null>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -471,7 +490,9 @@ export function KnockoutPredictionsPage() {
     knockoutMatches.some((m) => m.stage === s.key),
   );
 
-  // Clamp activeStage if stages change
+  // Follow the smart default until the player picks a round, then honour their
+  // choice. Clamp so a shrinking stage list can never select out of range.
+  const activeStage = userStage ?? defaultStageIndex(stagesWithMatches, knockoutMatches);
   const clampedStage = Math.min(activeStage, Math.max(0, stagesWithMatches.length - 1));
 
   // Track null scores for realtime result detection
@@ -619,7 +640,8 @@ export function KnockoutPredictionsPage() {
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => setActiveStage(idx)}
+                aria-label={stage.long}
+                onClick={() => setUserStage(idx)}
                 className={cn(
                   'inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium font-sans whitespace-nowrap transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow',
                   active
@@ -627,7 +649,7 @@ export function KnockoutPredictionsPage() {
                     : 'bg-surface text-text-secondary hover:bg-surface-elevated border border-border',
                 )}
               >
-                {stage.label}
+                {stage.short}
               </button>
             );
           })}
