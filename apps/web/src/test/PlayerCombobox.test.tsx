@@ -71,16 +71,19 @@ vi.mock('@radix-ui/react-popover', async () => {
     sideOffset?: number;
     align?: string;
     side?: string;
+    onInteractOutside?: (e: Event) => void;
+    onEscapeKeyDown?: (e: KeyboardEvent) => void;
   }
-  function Content({ children, sideOffset: _so, align: _a, side: _s, ...rest }: ContentProps) {
+  const Content = React.forwardRef<HTMLDivElement, ContentProps>(
+    ({ children, sideOffset: _so, align: _a, side: _s, onInteractOutside: _oio, onEscapeKeyDown: _oek, ...rest }, ref) => {
     const { open } = React.useContext(Ctx);
     if (!open) return null;
     return (
-      <div role="dialog" {...rest}>
+      <div role="dialog" ref={ref} {...rest}>
         {children}
       </div>
     );
-  }
+  });
 
   return { Root, Trigger, Portal, Content };
 });
