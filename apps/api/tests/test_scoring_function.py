@@ -156,17 +156,17 @@ async def test_knockout_exact_scoreline_full_points(db_conn: AsyncConnection, st
 
 
 @pytest.mark.parametrize("stage", KNOCKOUT_STAGES)
-async def test_knockout_exact_draw_no_result_points(db_conn: AsyncConnection, stage: str) -> None:
-    """Exact 1-1 in a knockout: goals + exact, but no result points (no draws)."""
+async def test_knockout_exact_draw_scores_full_10(db_conn: AsyncConnection, stage: str) -> None:
+    """Exact 1-1 in a knockout now scores full 10pts — draws are valid results."""
     out = await _calc(db_conn, 1, 1, 1, 1, stage)
-    assert out == _expected(2, 0, 5)
-    assert out["total"] == 7
+    assert out == _expected(2, 3, 5)
+    assert out["total"] == 10
 
 
 async def test_knockout_predicted_draw_actual_home_win(
     db_conn: AsyncConnection,
 ) -> None:
-    """Predicting a draw should never earn result points in knockouts."""
+    """Predicting a draw when the result is a home win earns no result points."""
     out = await _calc(db_conn, 1, 1, 2, 1, "r16")
     # goals: pred 2 vs actual 3 -> 0; result: draw vs home win -> 0; exact: 0
     assert out == _expected(0, 0, 0)
@@ -175,7 +175,7 @@ async def test_knockout_predicted_draw_actual_home_win(
 async def test_knockout_actual_draw_predicted_home_win(
     db_conn: AsyncConnection,
 ) -> None:
-    """If the 90-min score is a draw, no one earns result points (knockout)."""
+    """Predicting a home win when the 90-min result is a draw earns no result points."""
     out = await _calc(db_conn, 2, 1, 1, 1, "qf")
     # goals: 3 vs 2 -> 0; result: home vs draw mismatch -> 0; exact: 0
     assert out == _expected(0, 0, 0)
@@ -189,13 +189,21 @@ async def test_knockout_actual_draw_predicted_away_win(
     assert out == _expected(0, 0, 0)
 
 
+async def test_knockout_correctly_calling_draw_direction_earns_result_points(
+    db_conn: AsyncConnection,
+) -> None:
+    """Predicting a draw when actual is also a draw earns the +3 result points."""
+    out = await _calc(db_conn, 2, 2, 1, 1, "r16")
+    # goals: 4 vs 2 -> 0; result: both draw -> 3; exact: 0
+    assert out == _expected(0, 3, 0)
+
+
 async def test_knockout_zero_zero_actual_draw_zero_zero_predicted(
     db_conn: AsyncConnection,
 ) -> None:
-    """0-0 actual at 90 (knockout decided on pens). Exact 0-0 prediction:
-    goals + exact, but draws don't earn result points in knockouts."""
+    """0-0 actual at 90 (knockout decided on pens). Exact 0-0 prediction scores 10."""
     out = await _calc(db_conn, 0, 0, 0, 0, "final")
-    assert out == _expected(2, 0, 5)
+    assert out == _expected(2, 3, 5)
 
 
 async def test_knockout_goals_and_result_correct_not_exact(
@@ -214,39 +222,32 @@ async def test_knockout_same_total_opposite_winner(
     assert out == _expected(2, 0, 0)
 
 
-async def test_knockout_third_place_treated_as_knockout(
+async def test_knockout_third_place_exact_draw_scores_10(
     db_conn: AsyncConnection,
 ) -> None:
-    """The third-place play-off must follow knockout rules (no draw points)."""
+    """The third-place play-off scores draws identically to the group stage."""
     out = await _calc(db_conn, 1, 1, 1, 1, "third_place")
-    assert out == _expected(2, 0, 5)
+    assert out == _expected(2, 3, 5)
 
 
-async def test_knockout_final_treated_as_knockout(
+async def test_knockout_final_exact_draw_scores_10(
     db_conn: AsyncConnection,
 ) -> None:
     out = await _calc(db_conn, 0, 0, 0, 0, "final")
-    assert out == _expected(2, 0, 5)
+    assert out == _expected(2, 3, 5)
 
 
-async def test_group_vs_knockout_diverge_only_on_draws(
+async def test_group_and_knockout_identical_across_all_results(
     db_conn: AsyncConnection,
 ) -> None:
-    """Group and knockout return identical breakdowns except for draws.
+    """Group and knockout return identical breakdowns for every result type.
 
-    1-1 vs 1-1: group gets 10, knockout gets 7 (no result points).
-    2-1 vs 2-1 (a non-draw): both stages return 10.
+    Draws, home wins, and away wins all score identically across stages.
     """
-    group_draw = await _calc(db_conn, 1, 1, 1, 1, "group")
-    knockout_draw = await _calc(db_conn, 1, 1, 1, 1, "r16")
-    assert group_draw["result"] == 3
-    assert knockout_draw["result"] == 0
-    assert group_draw["total"] == 10
-    assert knockout_draw["total"] == 7
-
-    group_win = await _calc(db_conn, 2, 1, 2, 1, "group")
-    knockout_win = await _calc(db_conn, 2, 1, 2, 1, "r16")
-    assert group_win == knockout_win
+    for ph, pa, ah, aw in [(1, 1, 1, 1), (2, 1, 2, 1), (0, 1, 0, 1)]:
+        group_out = await _calc(db_conn, ph, pa, ah, aw, "group")
+        knockout_out = await _calc(db_conn, ph, pa, ah, aw, "r16")
+        assert group_out == knockout_out, f"Diverged for {ph}-{pa} vs {ah}-{aw}"
 
 
 async def test_total_is_sum_of_components(db_conn: AsyncConnection) -> None:

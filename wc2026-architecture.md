@@ -524,9 +524,9 @@ Points are awarded per prediction automatically when a result is detected (auto 
 
 **No prediction submitted:** 0 points awarded with `no_prediction: true` in the breakdown. No row may exist, or the row may have NULL scores.
 
-**Knockout match scoring (same rules, applied to 90-minute result):**
+**Knockout match scoring (identical rules to group, applied to 90-minute result):**
 
-Extra time and penalties determine advancement but do not affect score-based prediction points. A match that ends 1-1 after 90 minutes (then decided on penalties) is scored as a 1-1 draw for prediction purposes. Knockout winner predictions use a separate points system.
+Extra time and penalties determine advancement but do not affect score-based prediction points. A match that ends 1-1 after 90 minutes (then decided on penalties) is scored as a 1-1 draw for prediction purposes — a correctly predicted draw earns the full +3 result points. Knockout winner predictions (who advances) use a separate points system.
 
 **Knockout winner predictions (per round):**
 
@@ -1736,6 +1736,25 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 - Lighthouse scores ≥ 90
 - **Acceptance:** No blank states; Lighthouse verified
 
+**Phase 12.1: Knockout Scoring Cleanup** 🟢 Sonnet 4.6
+- Grade the 90-minute knockout score identically to a group score: a 90-min draw is a valid result, since the advance (knockout-winner) pick now owns "who goes through"
+- New migration: `CREATE OR REPLACE FUNCTION calculate_match_points` dropping the `is_knockout` draw-void branch; downgrade restores it
+- Mirror the change in `packages/shared/src/scoring.ts` (remove the `isKnockout` clauses) — the SQL and TS scorers must stay in parity
+- Update §6.1 wording (remove the "scored as a draw / no result points" description)
+- Update scoring tests (`test_scoring_function.py`, `test_scoring_trigger.py`, `scoring.test.ts`): exact 1-1 knockout 7→10; correctly calling a knockout draw direction earns the +3 result
+- **Acceptance:** SQL and TS produce identical breakdowns for every stage; exact knockout draw scores 10; no knockout-specific result suppression remains; all scoring tests green
+
+**Phase 12.2: Specials Expansion — Player of the Tournament, Young Player, Golden Glove** 🟢 Sonnet 4.6
+- Add three player specials: Player of the Tournament (15), Young Player of the Tournament (10), Golden Glove (10)
+- Migration: `ALTER TYPE special_prediction_type ADD VALUE` ×3 (values-only migration; respect the enum-add-value transaction rule)
+- `SpecialPredictionType` enum gains 3 members; no `special_predictions` table change (`predicted_player_id` / `winner_player_id` already exist from migration 020)
+- `routers/specials.py`: extend `SPECIAL_POINTS`; introduce a `PLAYER_SPECIALS` set and generalize the `== golden_boot` branches (upsert + award) to set membership
+- `routers/squad.py`: add an optional `position` filter to `/squad/search` so Golden Glove restricts to GK; Young Player stays unfiltered (roster carries no date of birth) with the admin adjudicating the actual winner
+- Frontend `SpecialsPage.tsx`: three player-typeahead inputs reusing the U14 Golden Boot combobox; admin specials-award UI gains the three new player-winner controls
+- Update §3.9, §6.1, §6.5 (specials total → 80; grand total → ≈1,415)
+- Tests: `test_specials.py` (3 new types via the generalized player path) and `SpecialsPage.test.tsx`
+- **Acceptance:** players can submit/update all three before the opening-match lock; the Golden Glove picker is GK-only; admin award writes 15/10/10 into `special_points` and the leaderboard; all players' picks visible post-lock; tests green
+
 ---
 
 ### Phase Count & Summary
@@ -1754,7 +1773,8 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 | 9 — Stats & Comparison | 4 | Stats API, player profiles, head-to-head |
 | 10 — Notifications & PWA | 4 | PWA, Web Push (with preferences/quiet hours), all 10 triggers, preferences UI |
 | 11 — Polish & Resilience | 8 | Dashboard, offline, optimistic UI, backup, runbooks, accessibility, E2E, polish |
-| **Total** | **59** | |
+| 12 — Scoring & Specials Refresh | 2 | Knockout draw-void cleanup; three new player specials (POTT, Young Player, Golden Glove) |
+| **Total** | **61** | |
 
 **Recommended pace:** 1–2 phases per session. Tournament starts 11 June 2026 — build should complete by early June with 2 weeks buffer for real-world testing.
 

@@ -90,20 +90,20 @@ describe('scoreMatchPrediction', () => {
     });
   });
 
-  describe('knockout stage — correctResult excluded when either side is a draw', () => {
-    it('knockout: predicted draw, actual draw, exact score → 7 not 10', () => {
+  describe('knockout stage — identical to group (draws now earn result points)', () => {
+    it('knockout: exact 1-1 draw → 10 pts (goals + result + exact)', () => {
       const result = scoreMatchPrediction(
         { homeScore: 1, awayScore: 1 },
         { homeScore: 1, awayScore: 1 },
         'r16',
       );
       expect(result.totalGoals).toBe(2);
-      expect(result.correctResult).toBe(0);
+      expect(result.correctResult).toBe(3);
       expect(result.exactScore).toBe(5);
-      expect(result.total).toBe(7);
+      expect(result.total).toBe(10);
     });
 
-    it('knockout: predicted draw, actual win → no result points', () => {
+    it('knockout: predicted draw, actual win → no result points (different direction)', () => {
       const result = scoreMatchPrediction(
         { homeScore: 1, awayScore: 1 },
         { homeScore: 2, awayScore: 1 },
@@ -115,7 +115,7 @@ describe('scoreMatchPrediction', () => {
       expect(result.total).toBe(0);
     });
 
-    it('knockout: predicted win, actual draw → no result points (still might score goals/exact)', () => {
+    it('knockout: predicted win, actual draw → no result points (different direction)', () => {
       const result = scoreMatchPrediction(
         { homeScore: 2, awayScore: 1 },
         { homeScore: 1, awayScore: 1 },
@@ -125,7 +125,20 @@ describe('scoreMatchPrediction', () => {
       expect(result.total).toBe(0);
     });
 
-    it('knockout: win-on-win unchanged (exact) → 10 same as group', () => {
+    it('knockout: correctly calling a draw direction earns +3 result points', () => {
+      const result = scoreMatchPrediction(
+        { homeScore: 2, awayScore: 2 },
+        { homeScore: 1, awayScore: 1 },
+        'r16',
+      );
+      // goals: 4 vs 2 → 0; result: both draw → 3; exact: 0
+      expect(result.totalGoals).toBe(0);
+      expect(result.correctResult).toBe(3);
+      expect(result.exactScore).toBe(0);
+      expect(result.total).toBe(3);
+    });
+
+    it('knockout: win-on-win unchanged (exact) → 10', () => {
       const result = scoreMatchPrediction(
         { homeScore: 2, awayScore: 1 },
         { homeScore: 2, awayScore: 1 },
@@ -137,7 +150,7 @@ describe('scoreMatchPrediction', () => {
       expect(result.total).toBe(10);
     });
 
-    it('knockout: win-on-win correct result, wrong scoreline → 5 same as group', () => {
+    it('knockout: win-on-win correct result, wrong scoreline → 5', () => {
       const result = scoreMatchPrediction(
         { homeScore: 3, awayScore: 0 },
         { homeScore: 2, awayScore: 1 },

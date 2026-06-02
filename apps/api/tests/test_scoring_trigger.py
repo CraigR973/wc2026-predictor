@@ -529,6 +529,44 @@ async def test_knockout_draw_winner_is_penalty_winner(
     assert by_name["bob"]["points_awarded"] == 15
 
 
+async def test_knockout_exact_draw_scores_10_via_trigger(
+    db_conn: AsyncConnection,
+) -> None:
+    """Exact 1-1 at 90 minutes in a knockout now scores 10 via the trigger.
+
+    The knockout-winner pick owns who goes through, so the 90-min score
+    prediction is graded the same as a group prediction — draws are valid.
+    """
+    g = await _insert_group(db_conn, "A")
+    home = await _insert_team(db_conn, g, "Home A", "HMA")
+    away = await _insert_team(db_conn, g, "Away A", "AWA")
+    alice = await _insert_profile(db_conn, "alice")
+    match = await _insert_match(
+        db_conn,
+        stage="r16",
+        match_number=999,
+        home_team_id=home,
+        away_team_id=away,
+    )
+    await _insert_prediction(db_conn, player_id=alice, match_id=match, home=1, away=1)
+
+    # 1-1 at 90, then decided on pens — score prediction is based on 90-min score
+    await _enter_result(db_conn, match, 1, 1, penalty_winner_id=away)
+
+    row = await _fetchall(
+        db_conn,
+        """
+        SELECT points_awarded, points_breakdown::text AS breakdown
+        FROM predictions WHERE match_id = :m AND player_id = :p
+        """,
+        m=match,
+        p=alice,
+    )
+    assert row[0]["points_awarded"] == 10
+    breakdown = json.loads(row[0]["breakdown"])
+    assert breakdown == {"goals": 2, "result": 3, "exact": 5, "total": 10, "no_prediction": False}
+
+
 async def test_group_match_does_not_touch_knockout_predictions(
     db_conn: AsyncConnection,
 ) -> None:
