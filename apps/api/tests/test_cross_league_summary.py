@@ -97,9 +97,9 @@ async def test_summary_averages_rank_across_leagues() -> None:
         SimpleNamespace(league_id=l3, member_count=3),
     ]
     snapshots = [
-        SimpleNamespace(league_id=l1, rank=2, total_points=100),
-        SimpleNamespace(league_id=l2, rank=1, total_points=100),
-        SimpleNamespace(league_id=l3, rank=3, total_points=100),
+        SimpleNamespace(league_id=l1, rank=2, total_points=100, triggered_by_match_id=None),
+        SimpleNamespace(league_id=l2, rank=1, total_points=100, triggered_by_match_id=None),
+        SimpleNamespace(league_id=l3, rank=3, total_points=100, triggered_by_match_id=None),
     ]
 
     data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
@@ -124,8 +124,8 @@ async def test_summary_excludes_small_leagues_from_average() -> None:
         SimpleNamespace(league_id=tiny, member_count=1),
     ]
     snapshots = [
-        SimpleNamespace(league_id=big, rank=4, total_points=42),
-        SimpleNamespace(league_id=tiny, rank=1, total_points=42),
+        SimpleNamespace(league_id=big, rank=4, total_points=42, triggered_by_match_id=None),
+        SimpleNamespace(league_id=tiny, rank=1, total_points=42, triggered_by_match_id=None),
     ]
 
     data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
@@ -144,7 +144,9 @@ async def test_summary_avg_null_when_no_qualifying_league() -> None:
     only = uuid.uuid4()
     memberships = [SimpleNamespace(id=only, slug="duo", name="Duo")]
     counts = [SimpleNamespace(league_id=only, member_count=2)]
-    snapshots = [SimpleNamespace(league_id=only, rank=1, total_points=7)]
+    snapshots = [
+        SimpleNamespace(league_id=only, rank=1, total_points=7, triggered_by_match_id=None)
+    ]
 
     data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
 
@@ -181,7 +183,9 @@ async def test_summary_rank_null_when_no_snapshot_yet() -> None:
         SimpleNamespace(league_id=scored, member_count=4),
         SimpleNamespace(league_id=fresh, member_count=4),
     ]
-    snapshots = [SimpleNamespace(league_id=scored, rank=2, total_points=30)]
+    snapshots = [
+        SimpleNamespace(league_id=scored, rank=2, total_points=30, triggered_by_match_id=None)
+    ]
 
     data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
 
@@ -367,3 +371,123 @@ async def test_cross_league_summary_db_excludes_solo_league(db_conn: AsyncConnec
     per = {pl["slug"]: pl for pl in data["per_league"]}
     assert per["solo-only"]["member_count"] == 1
     assert per["solo-only"]["rank"] == 1
+
+
+# ---------------------------------------------------------------------------
+# rank_delta: U16.3 acceptance criteria
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_rank_delta_moved_up() -> None:
+    """Two snapshots: prior rank 5, latest rank 3 → delta = +2 (positive = moved up)."""
+    lg = uuid.uuid4()
+    memberships = [SimpleNamespace(id=lg, slug="up", name="Up")]
+    counts = [SimpleNamespace(league_id=lg, member_count=5)]
+    snapshots = [
+        # rn=1 (latest): rank 3
+        SimpleNamespace(league_id=lg, rank=3, total_points=50, triggered_by_match_id=None),
+        # rn=2 (prior): rank 5
+        SimpleNamespace(league_id=lg, rank=5, total_points=40, triggered_by_match_id=None),
+    ]
+    data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
+    entry = data["per_league"][0]
+    assert entry["rank"] == 3
+    assert entry["rank_delta"] == 2  # prior(5) - latest(3) = +2
+
+
+@pytest.mark.asyncio
+async def test_rank_delta_moved_down() -> None:
+    """Two snapshots: prior rank 2, latest rank 4 → delta = -2 (negative = slipped)."""
+    lg = uuid.uuid4()
+    memberships = [SimpleNamespace(id=lg, slug="down", name="Down")]
+    counts = [SimpleNamespace(league_id=lg, member_count=5)]
+    snapshots = [
+        SimpleNamespace(league_id=lg, rank=4, total_points=50, triggered_by_match_id=None),
+        SimpleNamespace(league_id=lg, rank=2, total_points=40, triggered_by_match_id=None),
+    ]
+    data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
+    assert data["per_league"][0]["rank_delta"] == -2
+
+
+@pytest.mark.asyncio
+async def test_rank_delta_null_on_single_snapshot() -> None:
+    """One snapshot → rank_delta is null (not enough history)."""
+    lg = uuid.uuid4()
+    memberships = [SimpleNamespace(id=lg, slug="new", name="New")]
+    counts = [SimpleNamespace(league_id=lg, member_count=5)]
+    snapshots = [
+        SimpleNamespace(league_id=lg, rank=2, total_points=30, triggered_by_match_id=None),
+    ]
+    data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
+    assert data["per_league"][0]["rank_delta"] is None
+
+
+@pytest.mark.asyncio
+async def test_rank_delta_zero_same_rank() -> None:
+    """Same rank in both snapshots → delta = 0."""
+    lg = uuid.uuid4()
+    memberships = [SimpleNamespace(id=lg, slug="same", name="Same")]
+    counts = [SimpleNamespace(league_id=lg, member_count=5)]
+    snapshots = [
+        SimpleNamespace(league_id=lg, rank=3, total_points=50, triggered_by_match_id=None),
+        SimpleNamespace(league_id=lg, rank=3, total_points=40, triggered_by_match_id=None),
+    ]
+    data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
+    assert data["per_league"][0]["rank_delta"] == 0
+
+
+@pytest.mark.asyncio
+async def test_rank_delta_triggered_by_match_id_carried() -> None:
+    """triggered_by_match_id from the latest snapshot is surfaced in per_league."""
+    lg = uuid.uuid4()
+    match_id = uuid.uuid4()
+    memberships = [SimpleNamespace(id=lg, slug="m", name="M")]
+    counts = [SimpleNamespace(league_id=lg, member_count=5)]
+    snapshots = [
+        SimpleNamespace(league_id=lg, rank=2, total_points=50, triggered_by_match_id=match_id),
+        SimpleNamespace(league_id=lg, rank=4, total_points=40, triggered_by_match_id=uuid.uuid4()),
+    ]
+    data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
+    entry = data["per_league"][0]
+    assert entry["triggered_by_match_id"] == str(match_id)
+    assert entry["rank_delta"] == 2
+
+
+@pytest.mark.asyncio
+async def test_rank_delta_avg_rank_still_present() -> None:
+    """avg_rank is still present in the response (back-compat)."""
+    lg = uuid.uuid4()
+    memberships = [SimpleNamespace(id=lg, slug="compat", name="Compat")]
+    counts = [SimpleNamespace(league_id=lg, member_count=5)]
+    snapshots = [
+        SimpleNamespace(league_id=lg, rank=2, total_points=80, triggered_by_match_id=None),
+        SimpleNamespace(league_id=lg, rank=3, total_points=60, triggered_by_match_id=None),
+    ]
+    data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
+    assert "avg_rank" in data
+    assert data["avg_rank"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_rank_delta_deterministic_two_leagues() -> None:
+    """Delta is computed independently per league with correct rn ordering."""
+    l1, l2 = uuid.uuid4(), uuid.uuid4()
+    memberships = [
+        SimpleNamespace(id=l1, slug="alpha", name="Alpha"),
+        SimpleNamespace(id=l2, slug="beta", name="Beta"),
+    ]
+    counts = [
+        SimpleNamespace(league_id=l1, member_count=5),
+        SimpleNamespace(league_id=l2, member_count=4),
+    ]
+    # l1: moved up 2 (5→3); l2: single snapshot → null
+    snapshots = [
+        SimpleNamespace(league_id=l1, rank=3, total_points=60, triggered_by_match_id=None),
+        SimpleNamespace(league_id=l1, rank=5, total_points=50, triggered_by_match_id=None),
+        SimpleNamespace(league_id=l2, rank=1, total_points=60, triggered_by_match_id=None),
+    ]
+    data = await _get_summary(_mock_db_for(memberships, counts, snapshots))
+    per = {pl["slug"]: pl for pl in data["per_league"]}
+    assert per["alpha"]["rank_delta"] == 2
+    assert per["beta"]["rank_delta"] is None
