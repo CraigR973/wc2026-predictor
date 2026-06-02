@@ -23,6 +23,9 @@ class SpecialPredictionType(StrEnum):
     tournament_winner = "tournament_winner"
     golden_boot = "golden_boot"
     top_scoring_team = "top_scoring_team"
+    player_of_tournament = "player_of_tournament"
+    young_player_of_tournament = "young_player_of_tournament"
+    golden_glove = "golden_glove"
 
 
 class Prediction(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):

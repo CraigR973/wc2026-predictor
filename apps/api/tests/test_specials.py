@@ -132,7 +132,7 @@ async def _override(mock_db: AsyncMock, player: Profile) -> AsyncGenerator[None,
 
 @pytest.mark.asyncio
 async def test_get_my_specials_empty() -> None:
-    """Returns all 3 types with nulls when no predictions submitted yet."""
+    """Returns all 6 types with nulls when no predictions submitted yet."""
     player = _make_player()
     opening = _make_match(locked=False)
     db = _stub_db([_scalar_one(opening), _scalars([])])
@@ -145,7 +145,7 @@ async def test_get_my_specials_empty() -> None:
     data = resp.json()
     assert data["is_locked"] is False
     assert data["lock_at"] is not None
-    assert len(data["predictions"]) == 3
+    assert len(data["predictions"]) == 6
     assert all(p["submitted_at"] is None for p in data["predictions"])
 
 
@@ -520,6 +520,92 @@ def _patch_special(obj: object, template: SpecialPrediction) -> None:
         "updated_at",
     ):
         setattr(obj, attr, getattr(template, attr))
+
+
+# ---------------------------------------------------------------------------
+# 12.2 — new player special types use the generalised player path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "ptype, expected_pts",
+    [
+        (SpecialPredictionType.player_of_tournament, 15),
+        (SpecialPredictionType.young_player_of_tournament, 10),
+        (SpecialPredictionType.golden_glove, 10),
+    ],
+)
+async def test_new_player_specials_upsert(ptype: SpecialPredictionType, expected_pts: int) -> None:
+    """player_of_tournament, young_player_of_tournament, golden_glove use the player path."""
+    from src.models.squad import SquadPlayer
+
+    player = _make_player()
+    squad_player = MagicMock(spec=SquadPlayer)
+    squad_player.id = uuid.uuid4()
+    squad_player.full_name = "Test Player"
+    opening = _make_match(locked=False)
+    pred = _make_special(player.id, ptype, player_name="Test Player")
+    pred.predicted_player_id = squad_player.id
+    db = _stub_db([_scalar_one(opening), _scalar_one(squad_player), _scalar_one(None)])
+    db.refresh = AsyncMock(side_effect=lambda obj: _patch_special(obj, pred))
+
+    async with _override(db, player):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.put(
+                f"/api/v1/specials/{ptype}",
+                json={"predicted_player_id": str(squad_player.id)},
+                headers={"Authorization": "Bearer x"},
+            )
+
+    assert resp.status_code == 200
+    assert resp.json()["prediction_type"] == ptype
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "ptype, expected_pts",
+    [
+        (SpecialPredictionType.player_of_tournament, 15),
+        (SpecialPredictionType.young_player_of_tournament, 10),
+        (SpecialPredictionType.golden_glove, 10),
+    ],
+)
+async def test_new_player_specials_award(ptype: SpecialPredictionType, expected_pts: int) -> None:
+    """Award endpoint grants correct points for the three new player specials."""
+    from src.models.squad import SquadPlayer
+
+    admin = _make_admin()
+    winner_id = uuid.uuid4()
+    winner_squad = MagicMock(spec=SquadPlayer)
+    winner_squad.id = winner_id
+
+    correct_pred = _make_special(uuid.uuid4(), ptype, player_name="Test Player")
+    correct_pred.predicted_player_id = winner_id
+    correct_pred.winner_player_id = None
+    correct_pred.points_awarded = None
+
+    wrong_pred = _make_special(uuid.uuid4(), ptype, player_name="Other Player")
+    wrong_pred.predicted_player_id = uuid.uuid4()
+    wrong_pred.winner_player_id = None
+    wrong_pred.points_awarded = None
+
+    db = _stub_db([_scalar_one(winner_squad), _scalars([correct_pred, wrong_pred])])
+
+    async with _override(db, admin):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/api/v1/admin/specials/award",
+                json={"prediction_type": ptype, "winner_player_id": str(winner_id)},
+                headers={"Authorization": "Bearer x"},
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["awarded_count"] == 1
+    assert data["points_each"] == expected_pts
+    assert correct_pred.points_awarded == expected_pts
+    assert wrong_pred.points_awarded == 0
 
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ Use this table to pick the next batch at close-out. Update as phases land.
 | ~~10~~ | ~~🔴 Opus~~ | ~~11.2~~ | ✅ Shipped 2026-05-16 |
 | ~~11~~ | ~~🟢 Sonnet~~ | ~~11.6, 11.7~~ | ✅ Shipped 2026-05-16 |
 | ~~12~~ | ~~🔴 Opus~~ | ~~11.8~~ | ✅ Shipped 2026-05-17 |
+| ~~13~~ | ~~🟢 Sonnet~~ | ~~12.1, 12.2~~ | ✅ Shipped 2026-06-02 |
 
 Mark batches complete by striking through the row or removing it.
 

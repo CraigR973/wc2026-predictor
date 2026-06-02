@@ -16,7 +16,8 @@ export interface ScoreBreakdown {
 export function scoreMatchPrediction(
   prediction: MatchResult | null,
   actual: MatchResult,
-  stage: Stage,
+  // stage is kept for API compatibility; scoring is now identical across all stages
+  _stage: Stage,
 ): ScoreBreakdown {
   if (!prediction) {
     return { totalGoals: 0, correctResult: 0, exactScore: 0, total: 0, noPrediction: true };
@@ -29,13 +30,7 @@ export function scoreMatchPrediction(
 
   const actualResult = Math.sign(actual.homeScore - actual.awayScore);
   const predResult = Math.sign(prediction.homeScore - prediction.awayScore);
-  const isKnockout = stage !== 'group';
-  const correctResult =
-    predResult === actualResult &&
-    !(isKnockout && predResult === 0) &&
-    !(isKnockout && actualResult === 0)
-      ? 3
-      : 0;
+  const correctResult = predResult === actualResult ? 3 : 0;
 
   const exactScore =
     prediction.homeScore === actual.homeScore && prediction.awayScore === actual.awayScore ? 5 : 0;
