@@ -174,10 +174,10 @@ describe('KnockoutPredictionsPage', () => {
     );
   });
 
-  it('renders Round of 32 tab when R32 matches exist', async () => {
+  it('renders the R32 round pill when R32 matches exist', async () => {
     vi.stubGlobal('fetch', makeFetch());
     renderPage();
-    await waitFor(() => expect(screen.getByText('Round of 32')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('R32')).toBeTruthy());
   });
 
   it('shows team names as clickable buttons', async () => {
@@ -240,7 +240,7 @@ describe('KnockoutPredictionsPage', () => {
       }),
     );
     renderPage();
-    await waitFor(() => expect(screen.getByText(/Round of 32/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('R32')).toBeTruthy());
     // Points badge should appear (5 pts) — round total + per-match both show now
     await waitFor(() => expect(screen.getAllByText(/pts?/i).length).toBeGreaterThan(0), { timeout: 2000 });
   });
@@ -248,7 +248,7 @@ describe('KnockoutPredictionsPage', () => {
   it('filters out group-stage matches — no group match cards shown', async () => {
     vi.stubGlobal('fetch', makeFetch());
     renderPage();
-    await waitFor(() => expect(screen.getByText('Round of 32')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('R32')).toBeTruthy());
     // The group match teams (Brazil/Germany) appear only from the knockout match
     // — but the group match itself should not create a second card
     const brazilEls = screen.getAllByText(/Brazil/);
@@ -260,8 +260,35 @@ describe('KnockoutPredictionsPage', () => {
     const qfMatch = { ...R32_MATCH_SCHEDULED, id: 'mqf1', match_number: 95, stage: 'qf' };
     vi.stubGlobal('fetch', makeFetch({ matches: [GROUP_MATCH, R32_MATCH_SCHEDULED, qfMatch] }));
     renderPage();
-    await waitFor(() => expect(screen.getByText('Round of 32')).toBeTruthy());
-    expect(screen.getByText('Quarter-Finals')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('R32')).toBeTruthy());
+    expect(screen.getByText('QF')).toBeTruthy();
+  });
+
+  it('auto-selects the earliest open round — skips a finished R32 to land on R16', async () => {
+    const r16Open = {
+      ...R32_MATCH_SCHEDULED,
+      id: 'm89',
+      match_number: 89,
+      stage: 'r16',
+      home_team: { id: 't7', name: 'Italy', code: 'ITA', flag_emoji: '🇮🇹' },
+      away_team: { id: 't8', name: 'Netherlands', code: 'NED', flag_emoji: '🇳🇱' },
+      status: 'scheduled',
+    };
+    // R32 is completed (round locked); R16 is open with real teams → R16 is the
+    // round that needs attention, so it should be active without any click.
+    vi.stubGlobal(
+      'fetch',
+      makeFetch({
+        matches: [GROUP_MATCH, R32_MATCH_COMPLETED, r16Open],
+        knockoutPredictions: [],
+      }),
+    );
+    renderPage();
+
+    // Lands on R16: its teams are visible…
+    await waitFor(() => expect(screen.getByText(/Italy/)).toBeTruthy());
+    // …and the finished R32 panel (Argentina/Portugal) is not the active one.
+    expect(screen.queryByText(/Argentina/)).toBeNull();
   });
 
   it('renders a per-round placeholder list (not the teaser) when teams are TBD', async () => {
@@ -280,7 +307,7 @@ describe('KnockoutPredictionsPage', () => {
     );
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('Round of 32')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('R32')).toBeTruthy());
     // The bracket teaser must NOT show — there are seeded rows.
     expect(screen.queryByText(/Knockout picks open after group stage/i)).toBeNull();
     // Placeholder labels are rendered as the (disabled) team buttons.
