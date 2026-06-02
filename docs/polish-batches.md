@@ -748,3 +748,126 @@ Per batch: push `feat/premium-polish-4` → `/phase-closeout U<n>` (CI poll + ff
 the `U` prefix isn't recognised) → lean `session-log.md` entry → strike the row in the round-4 table
 above. Independent of rounds 2–3 — ff-merge each batch as it goes green. `/next-batch-prompt polish` will
 surface **U14** as the next un-struck batch.
+
+---
+
+# Round 5 — batches (U15–U16) — added 2026-06-02
+
+**U15 (invite/share polish)** shipped ahead of being written up here — an ad-hoc batch taken after
+round 4's U14, recorded below as a struck row for ledger completeness (commits `87aa800` +
+`95a8aa9`). **U16 (home points-hero)** is the active batch, from a 2026-06-02 home-screen design
+pass with the user: round 4's U11 rebalanced the dashboard but kept the `CrossLeagueSummaryWidget`,
+which leads with **average rank** and buries total points as a tail fragment of a sentence. U16
+flips the lead metric: **total points is the hero**, and per-league **rank movement** ("this result
+moved you ↑2") is surfaced inline. **Independent of prior rounds** — U16 gets its own fresh branch
+(`feat/premium-polish-8`; pick the next free number if taken), ff-merge once green.
+`/next-batch-prompt polish` reads this file's `## U<n>` acceptance inline, so no manual pasting
+needed.
+
+**Decisions locked in the pass (a couple revise U11):**
+- **Points hero = pure number.** The dashboard header is the global `total_points` (the one true
+  cross-league number — predictions are scored once and count in every league, MD-1), large, with
+  the player name as a subline. No secondary rank/breakdown on the hero.
+- **Cross-league average-rank widget = removed.** *Reverses U11.2's "Keep
+  CrossLeagueSummaryWidget".* Average rank is a per-league concept flattened into one mushy number
+  (and meaningless for single-league players); per-league rank lives on the league rows instead.
+- **"Recent activity" = inline, not a separate feed.** Movement shows as (a) a rank-delta badge on
+  each league row and (b) a one-line impact on the Latest Result card — never a standalone feed
+  (empty between matches, duplicates the rows).
+- **Tapping a league = navigate to its leaderboard** (current behaviour; no inline expand).
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~U15~~ | ~~🟢 Sonnet~~ | ~~—~~ | ~~invite/share polish~~ | ✅ Shipped 2026-06-02 (87aa800, 95a8aa9) |
+| ~~U16~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U16.1–U16.5~~ | ✅ Shipped 2026-06-02 (1efeb85, 98c3730) |
+
+---
+
+## ~~U15 — Invite/share polish~~ 🟢 Sonnet · ✅ shipped 2026-06-02
+
+Shipped ahead of being written up here (ad-hoc, after round 4's U14); recorded for ledger
+completeness — full detail in the commits + session-log.
+
+- Rich invite share message + native share sheet (`navigator.share`) with clipboard fallback, plus
+  a join-page lift. New `apps/web/src/lib/invite.ts`; edits to `JoinPage.tsx`,
+  `LeagueAdminInvitesPage.tsx`, `LeagueHomePage.tsx`; tests `invite.test.ts` + `e2e/join.spec.ts`.
+- **Commits:** `87aa800` (feat) + `95a8aa9` (e2e fix). **Close-out status:** CI/merge not captured
+  at write-up time — confirm before relying on it as merged.
+
+---
+
+## U16 — Home points-hero + inline rank movement 🟢 Sonnet · ~3 h
+
+Flips the dashboard's lead metric to total points and surfaces per-league rank movement inline,
+reusing data the home page already fetches. Builds on U11 (dashboard order) and U11.3 (Latest
+Result full breakdown — keep it, add the impact line beneath).
+
+> **Watch-outs before coding:**
+> - **Snapshot timestamp ties.** `LeaderboardSnapshot.snapshot_at` can tie across rows written in
+>   the same scoring transaction — order each player's snapshots by `snapshot_at DESC` **with a
+>   deterministic secondary key** (a monotonic snapshot id/sequence if one exists, otherwise the
+>   triggering match's `kickoff_utc`), never `snapshot_at` alone, or the "latest two" — and hence
+>   the delta — is non-deterministic.
+> - **`per_league` already carries `rank`, `member_count`, `name`, `slug`** (see
+>   `routers/me.py` `cross-league-summary`). The compact rows can read rank from there and **drop
+>   their own `/leagues/{slug}/leaderboard` fetch** — which also sidesteps the C-2 duplicate-rows
+>   bug on the dashboard. Verify the summary's rank source is snapshot-based and dedup-safe.
+> - **Keep `avg_rank` in the response** (back-compat) even though the UI stops rendering it; a
+>   later cleanup can drop it if no other consumer exists. Don't break the response shape.
+
+- **U16.1** Points hero. Remove `CrossLeagueSummaryWidget` (`DashboardPage.tsx:27-76` def, `:368`
+  render) and the plain `<h1>` greeting (`:360-363`). Add a `PointsHero` at the very top of the
+  page: large `total_points` (mono, `text-4xl`+, primary) with a "POINTS" eyebrow and a smaller
+  "Welcome back, {displayName}" subline. Pure number — no avg-rank, no breakdown. Reads
+  `total_points` from the existing cross-league-summary query. (~30 min)
+
+- **U16.2** Hero zero / pre-tournament state. Before any result is scored (`total_points === 0`),
+  don't render a deflating bare "0" — keep the hero but swap the subline to a gentle nudge (e.g.
+  "Your tally starts when the first results land · WC kicks off 11 Jun"). The tournament starts
+  ~2026-06-11, so this is the launch-day state for every player. (~15 min)
+
+- **U16.3** Backend — rank delta on the summary. Extend each `per_league` entry of
+  `GET /api/v1/me/cross-league-summary` (`routers/me.py:42-132`) with `rank_delta: int | null` and
+  `triggered_by_match_id: str | null`. For each (player, league): take the two most recent
+  `LeaderboardSnapshot` rows (ordered per the tie-safe rule in the watch-out); `rank_delta =
+  prior.rank − latest.rank` (positive = moved up); `triggered_by_match_id =
+  latest.triggered_by_match_id`. `null` when fewer than 2 snapshots. Update the `CrossLeagueSummary`
+  response model and the frontend `lib/types.ts` shape. Pytest: two snapshots → correct signed
+  delta; single snapshot → null; equal ranks → 0; deterministic under tied `snapshot_at`. (~75 min)
+
+- **U16.4** League rows from one call + delta badge. Repoint `CompactLeagueRow`
+  (`DashboardPage.tsx:151-192`) to read `rank` / `member_count` / `rank_delta` from the
+  cross-league-summary `per_league` array instead of issuing a per-league
+  `/api/v1/leagues/{slug}/leaderboard` query each (N+1 → 1). Render a compact delta badge next to
+  the rank: `↑2` (success), `↓1` (danger/muted), `▬` or hidden for 0/null. Tap still routes to
+  `/leagues/{slug}/leaderboard`. (~45 min)
+
+- **U16.5** Impact line on Latest Result. In `LatestResultCard` (`DashboardPage.tsx:198-276`),
+  under the existing points breakdown, render a one-line movement summary when the card's
+  `match_id` equals a `per_league` entry's `triggered_by_match_id`: e.g. "↑2 in The Steele Sheet ·
+  ↑1 in Office League". Build the league→delta list from the per_league array filtered to that
+  match; omit the line entirely when nothing traces to this result (no snapshot, deltas all 0, or
+  match mismatch). This is the "score → consequence" narrative, attached to its cause. (~30 min)
+
+**Acceptance:**
+- No `CrossLeagueSummaryWidget` and no average-rank number anywhere on the dashboard.
+- Dashboard top is the points hero: global `total_points`, pure number + "POINTS" + name; the
+  zero / pre-tournament state is a gentle nudge, not a bare "0".
+- `cross-league-summary` `per_league` entries return `rank_delta` + `triggered_by_match_id`; delta
+  is signed correctly (up = positive), `null` below 2 snapshots, deterministic under tied
+  `snapshot_at`; `avg_rank` still present (back-compat); pytest green.
+- League rows render from the single summary call (no per-league leaderboard fetches remain on the
+  dashboard) and show a ↑/↓/▬ delta badge; tapping a row opens that league's leaderboard.
+- Latest Result shows the per-league movement impact line when the deltas trace to that match, and
+  omits it otherwise.
+- Home page issues one request for hero + rows + impact (the N+1 fetch is gone).
+- Vitest covers the hero zero state, the delta-badge rendering, and the impact-line match/omit
+  logic; all existing Vitest + a11y tests green.
+
+---
+
+## Close-out (round 5)
+
+Push the U16 branch (`feat/premium-polish-8`, or the next free number) → `/phase-closeout U16` (CI
+poll + ff-merge; manual fallback if the `U` prefix isn't recognised) → lean `session-log.md` entry
+→ strike the U16 row in the round-5 table above. Independent of rounds 2–4 — ff-merge once green.

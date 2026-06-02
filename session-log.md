@@ -1496,3 +1496,35 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - No further architecture phases defined past 12.2 — check with user before starting a new planning session.
 
 **Next:** No further batches defined — architecture complete.
+
+---
+
+## Polish batch U15 — Invite/share polish
+**Commits:** 87aa800, 95a8aa9 · CI/merge status not captured (backfilled 2026-06-02)
+
+> Backfilled retroactively: this ad-hoc batch (taken after U14) shipped without a session-log entry
+> or a `docs/polish-batches.md` row. Recorded here from the commits — the bullets below are derived
+> from the diff, not from the implementing session, and close-out (CI green / merge to main) was not
+> confirmed at write-up time.
+
+### Key facts for future sessions
+- New `apps/web/src/lib/invite.ts` holds the share-message builder; covered by `src/test/invite.test.ts`. `src/test/setup.ts` gained 18 lines of test setup (API mocks) to support those tests.
+- Invite/share UX lives in `JoinPage.tsx`, `LeagueAdminInvitesPage.tsx`, `LeagueHomePage.tsx`; native share via `navigator.share` with a clipboard fallback.
+- e2e gotcha (from 95a8aa9): the join spec must open the **Advanced** disclosure before clicking "Generate invite link" — keep that step if you touch `e2e/join.spec.ts` / `e2e/helpers.ts`.
+
+**Next:** Polish batch U16 — Home points-hero + inline rank movement 🟢 Sonnet
+
+---
+
+## Polish batch U16 — Home points-hero + inline rank movement
+**Commits:** 1efeb85, 98c3730 · CI ✅
+
+### Key facts for future sessions
+- `CrossLeagueSummaryWidget` and the `<h1>` greeting are gone; `PointsHero` is the new top-of-page component with `text-5xl/6xl` primary mono for `total_points`.
+- Zero/pre-tournament subline ("Your tally starts…") triggers when `total_points === 0` — expected state for all players on launch day.
+- `per_league` entries now carry `rank_delta` (signed int, positive = moved up; `null` below 2 snapshots) and `triggered_by_match_id` via a window-function top-2 query with `(snapshot_at DESC, id DESC)` tie-break. `avg_rank` preserved for back-compat.
+- `CompactLeagueRow` reads rank/member_count/rank_delta from the single summary call — no per-league `/leaderboard` fetch on the dashboard any more (N+1 → 1).
+- Impact line on `LatestResultCard` filters `per_league` by `triggered_by_match_id === match_id` and non-zero delta; omits the line when nothing matches or all deltas are 0.
+- mypy `[type-arg]` error on `dict[uuid.UUID, list]` (bare `list`) — fix was `list[Any]` in `me.py`; CI caught it on first push.
+
+**Next:** No further U-batches defined — check with user.
