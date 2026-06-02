@@ -1463,4 +1463,6 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `SchedulePage.tsx` renders knockout rounds with placeholder labels ("Winner Group A" / "Runner-up Group B") grouped by round; no "No matches found" empty state for KO rounds.
 - `KnockoutPredictionsPage.tsx` renders the per-round placeholder list against seeded match IDs; picks save as normal.
 
-**Next:** All polish batches complete — see "Deferred" section in docs/polish-batches.md for future work.
+**Follow-up commit:** eba3679 — knockout view consistency (round label unification + smart default stage).
+
+**Next:** Polish batch U14 — Golden Boot player typeahead 🟢 Sonnet
