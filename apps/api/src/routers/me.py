@@ -1,7 +1,7 @@
 """Cross-league endpoints scoped to the authenticated player (``/api/v1/me``)."""
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, Request
@@ -128,7 +128,7 @@ async def cross_league_summary(
     ).all()
 
     # Group into per-league lists; rn=1 is always the latest row.
-    snapshots_by_league: dict[uuid.UUID, list] = {}
+    snapshots_by_league: dict[uuid.UUID, list[Any]] = {}
     for row in snapshot_rows:
         snapshots_by_league.setdefault(row.league_id, []).append(row)
 
