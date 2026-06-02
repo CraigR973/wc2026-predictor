@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Share, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,8 +10,10 @@ import { PinInput } from '@/components/PinInput';
 import { brand } from '@/theme/tokens';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAccessToken } from '@/lib/tokens';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
+const INSTALL_DISMISS_KEY = 'sss_join_install_dismissed';
 
 const TIMEZONES = [
   'Europe/London',
@@ -53,6 +56,7 @@ export function JoinPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { player } = useAuth();
+  const { isInstalled, isIosSafari, canInstall, prompt: triggerInstall } = useInstallPrompt();
 
   const useCode = !!token && isJoinCode(token);
 
@@ -60,6 +64,10 @@ export function JoinPage() {
   const [inviteError, setInviteError] = useState('');
   const [leagueHint, setLeagueHint] = useState('');
   const [leaguePreview, setLeaguePreview] = useState<LeaguePreview | null>(null);
+
+  const [installDismissed, setInstallDismissed] = useState(
+    () => !!localStorage.getItem(INSTALL_DISMISS_KEY),
+  );
 
   // Unauthenticated create-account form state
   const [displayName, setDisplayName] = useState('');
@@ -116,6 +124,11 @@ export function JoinPage() {
       });
   }, [token, useCode]);
 
+  function dismissInstall() {
+    localStorage.setItem(INSTALL_DISMISS_KEY, '1');
+    setInstallDismissed(true);
+  }
+
   // Authenticated path — join by code or claim single-use invite
   async function handleAuthenticatedClaim() {
     setError('');
@@ -167,8 +180,8 @@ export function JoinPage() {
     e.preventDefault();
     setError('');
 
-    if (pin.length < 4 || pin.length > 8) {
-      setError('PIN must be 4–8 digits.');
+    if (pin.length !== 4) {
+      setError('PIN must be exactly 4 digits.');
       return;
     }
     if (pin !== pinConfirm) {
@@ -207,13 +220,18 @@ export function JoinPage() {
     }
   }
 
+  const showInstallNudge = !isInstalled && !installDismissed && (canInstall || isIosSafari);
+
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4 pt-safe pb-safe">
-      <div className="w-full max-w-sm">
-        <div className="mb-10">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="mb-2">
           <Brand variant="splash" />
-          <p className="text-center text-text-primary mt-8 font-sans text-base sm:text-lg italic">
+          <p className="text-center text-text-primary mt-6 font-sans text-base sm:text-lg italic">
             {brand.tagline}
+          </p>
+          <p className="text-center text-text-secondary font-sans text-sm mt-2">
+            World Cup 2026 prediction league — pick scores, climb the table.
           </p>
         </div>
 
@@ -226,7 +244,7 @@ export function JoinPage() {
             <CardContent className="pt-6">
               <p role="alert" className="text-center text-error font-sans text-sm">{inviteError}</p>
               <p className="text-center text-text-muted font-sans text-xs mt-2">
-                Ask the admin for a new invite link.
+                Ask the league admin to share a new join code or invite link.
               </p>
             </CardContent>
           </Card>
@@ -259,9 +277,16 @@ export function JoinPage() {
         {inviteState === 'valid' && !player && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-center text-text-primary">Join the league</CardTitle>
+              <CardTitle className="text-center text-text-primary">
+                {leagueHint ? `Join ${leagueHint}` : 'Join the league'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
+              {leaguePreview && (
+                <p className="text-sm text-text-muted font-sans text-center mb-4">
+                  {leaguePreview.member_count} / {leaguePreview.max_members} members
+                </p>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1">
                   <Label htmlFor="displayName">Display name</Label>
@@ -277,13 +302,13 @@ export function JoinPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Choose a PIN (4–8 digits)</Label>
-                  <PinInput value={pin} onChange={setPin} maxLength={8} autoComplete="new-password" />
+                  <Label>Choose a 4-digit PIN</Label>
+                  <PinInput value={pin} onChange={setPin} maxLength={4} autoComplete="new-password" />
                 </div>
 
                 <div className="space-y-1">
                   <Label>Confirm PIN</Label>
-                  <PinInput value={pinConfirm} onChange={setPinConfirm} maxLength={8} autoComplete="new-password" label="Confirm PIN" />
+                  <PinInput value={pinConfirm} onChange={setPinConfirm} maxLength={4} autoComplete="new-password" label="Confirm PIN" />
                 </div>
 
                 <div className="space-y-1">
@@ -310,6 +335,53 @@ export function JoinPage() {
               </form>
             </CardContent>
           </Card>
+        )}
+
+        {/* "Already have the app?" hint for code path */}
+        {inviteState === 'valid' && useCode && !player && (
+          <p className="text-center text-text-muted font-sans text-xs">
+            Already have the app? Open it and enter code{' '}
+            <span className="font-mono font-semibold text-text-secondary">{token?.toUpperCase()}</span>.
+          </p>
+        )}
+
+        {/* Install affordance — only when not standalone and not dismissed */}
+        {showInstallNudge && (
+          <div className="rounded-xl border border-border bg-surface px-4 py-3 relative">
+            <button
+              onClick={dismissInstall}
+              aria-label="Dismiss install prompt"
+              className="absolute top-2 right-2 p-1 rounded text-text-muted hover:text-text-secondary transition-colors"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </button>
+
+            {canInstall && (
+              <div className="pr-6 space-y-2">
+                <p className="text-sm font-sans font-medium text-text-primary">Add to home screen</p>
+                <p className="text-xs text-text-muted font-sans">
+                  Install the app for the best experience — offline support, push notifications, and fast access.
+                </p>
+                <Button size="sm" variant="outline" className="gap-1.5 mt-1" onClick={triggerInstall}>
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Add to home screen
+                </Button>
+              </div>
+            )}
+
+            {isIosSafari && !canInstall && (
+              <div className="pr-6 space-y-2">
+                <p className="text-sm font-sans font-medium text-text-primary">Add to home screen</p>
+                <p className="text-xs text-text-muted font-sans">
+                  In Safari, tap{' '}
+                  <span className="inline-flex items-center gap-0.5 align-middle">
+                    <Share className="h-3 w-3 text-[#007AFF]" aria-hidden />
+                  </span>{' '}
+                  Share → <strong>Add to Home Screen</strong>.
+                </p>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
