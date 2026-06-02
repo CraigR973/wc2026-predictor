@@ -20,9 +20,7 @@ class SquadPosition(StrEnum):
 
 class SquadPlayer(Base):
     __tablename__ = "squad_players"
-    __table_args__ = (
-        Index("ix_squad_players_team_id", "team_id"),
-    )
+    __table_args__ = (Index("ix_squad_players_team_id", "team_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     team_id: Mapped[uuid.UUID] = mapped_column(

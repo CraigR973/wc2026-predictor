@@ -34,9 +34,7 @@ async def seed_squads() -> None:
             print(f"WARNING: unknown team codes (not in teams table): {missing_codes}")
 
         # Existing players keyed by (team_id, full_name)
-        existing_result = await session.execute(
-            select(SquadPlayer.team_id, SquadPlayer.full_name)
-        )
+        existing_result = await session.execute(select(SquadPlayer.team_id, SquadPlayer.full_name))
         existing: set[tuple[uuid.UUID, str]] = {
             (row.team_id, row.full_name) for row in existing_result
         }

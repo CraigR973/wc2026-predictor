@@ -122,9 +122,7 @@ def test_squad_json_covers_all_48_teams() -> None:
     import json
     import pathlib
 
-    data_path = (
-        pathlib.Path(__file__).parent.parent / "src" / "data" / "squads_2026.json"
-    )
+    data_path = pathlib.Path(__file__).parent.parent / "src" / "data" / "squads_2026.json"
     assert data_path.exists(), "squads_2026.json missing"
     data = json.loads(data_path.read_text())
 
@@ -159,9 +157,7 @@ async def test_squad_search_empty_query_returns_empty() -> None:
     mock_db = AsyncMock()
     app.dependency_overrides[get_db] = lambda: mock_db
     try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/squad/search?q=")
         assert resp.status_code == 200
         assert resp.json() == []
@@ -192,9 +188,7 @@ async def test_squad_search_returns_results() -> None:
 
     app.dependency_overrides[get_db] = lambda: mock_db
     try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/squad/search?q=haaland")
         assert resp.status_code == 200
         results = resp.json()
@@ -253,9 +247,7 @@ async def test_put_golden_boot_with_player_id_stores_resolved_name() -> None:
     mock_db.refresh = AsyncMock(side_effect=_refresh)
 
     async with _override(mock_db, player):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.put(
                 "/api/v1/specials/golden_boot",
                 json={"predicted_player_id": str(squad_player.id)},
@@ -275,9 +267,7 @@ async def test_put_golden_boot_without_player_id_rejects() -> None:
     mock_db = _stub_db([_scalar_one(match)])
 
     async with _override(mock_db, player):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.put(
                 "/api/v1/specials/golden_boot",
                 json={},
@@ -319,7 +309,7 @@ async def test_award_golden_boot_by_id_credits_correct_predictions() -> None:
 
         mock_db = _stub_db(
             [
-                _scalar_one(winner_player),   # verify winner exists
+                _scalar_one(winner_player),  # verify winner exists
                 _scalars([pred_correct, pred_wrong]),  # fetch all preds
             ]
         )

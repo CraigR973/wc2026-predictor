@@ -1,6 +1,6 @@
 """Generate squads_2026.json — run once, commit the output.
 
-    python -m src.data.generate_squads
+python -m src.data.generate_squads
 """
 
 import json
