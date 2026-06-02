@@ -41,6 +41,7 @@ export function PlayerCombobox({
   const [error, setError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Scroll trigger into view when the virtual keyboard resizes the viewport.
   // Without this the trigger (and the popover above it) can end up behind the keyboard.
@@ -83,6 +84,23 @@ export function PlayerCombobox({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query]);
+
+  // Capture-phase pointerdown listener — fires before any stopPropagation and
+  // works on iOS Safari where Radix's dismissal layer may not detect outside taps.
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node;
+      if (
+        (contentRef.current && contentRef.current.contains(target)) ||
+        (triggerRef.current && triggerRef.current.contains(target))
+      ) return;
+      setOpen(false);
+      setQuery('');
+    }
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [open]);
 
   function handleSelect(player: SquadPlayerResult) {
     onChange(player.id, player.full_name);
@@ -134,6 +152,7 @@ export function PlayerCombobox({
           side="top"
           align="start"
           sideOffset={4}
+          ref={contentRef}
           onInteractOutside={handleDismiss}
           onEscapeKeyDown={handleDismiss}
           className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-md border border-border bg-surface shadow-lg outline-none"
