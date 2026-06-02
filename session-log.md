@@ -1449,3 +1449,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - `/welcome` route is public (outside `<ProtectedRoute>`) — share it with friends who don't have the app yet.
 
 **Next:** Polish batch U13 — Knockout/schedule skeleton + progression 🔴 Opus (extended thinking ON)
+
+---
+
+## Polish batch U13 — Knockout/schedule skeleton + progression
+**Commits:** 19e9db9 · CI ✅
+
+### Key facts for future sessions
+- Migration 018 adds `home_source` / `away_source` nullable `VARCHAR(50)` columns to `matches`; knockout matches carry positional placeholders like `winner_group_a`, `runner_up_group_b`, `winner_match_73`.
+- `seed.py` now seeds all 32 knockout slots (R32×16, R16×8, QF×4, SF×2, 3rd×1, Final×1) with real kickoff dates/venues; total calendar is 104 matches.
+- `knockout_progression.py` is a pure resolver (no DB side-effects): resolves placeholders → real team IDs using group standings + best-third-placed qualification table. Call `resolve_all_knockouts(db)` from the admin or scheduler layer.
+- Best-third-placed logic uses the 2026 fixed mapping of which 4 of the 8 third-placed qualify into R32 slots — the 12-group mapping table is in `knockout_progression.py:~L50`.
+- `SchedulePage.tsx` renders knockout rounds with placeholder labels ("Winner Group A" / "Runner-up Group B") grouped by round; no "No matches found" empty state for KO rounds.
+- `KnockoutPredictionsPage.tsx` renders the per-round placeholder list against seeded match IDs; picks save as normal.
+
+**Next:** All polish batches complete — see "Deferred" section in docs/polish-batches.md for future work.
