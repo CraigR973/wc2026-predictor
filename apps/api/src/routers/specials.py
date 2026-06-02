@@ -17,6 +17,7 @@ from src.models.match import Match
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import SpecialPrediction, SpecialPredictionType
 from src.models.profile import Profile
+from src.models.squad import SquadPlayer
 from src.models.team import TournamentStage
 from src.services.leaderboard import recompute_leaderboard_snapshot
 from src.services.notification_triggers import notify_special_results_awarded
@@ -47,6 +48,7 @@ class SpecialPredictionItem(BaseModel):
     prediction_type: str
     predicted_team_id: str | None
     predicted_player_name: str | None
+    predicted_player_id: str | None
     submitted_at: str | None
     points_awarded: int | None
 
@@ -59,6 +61,8 @@ class MySpecialsResponse(BaseModel):
 
 class PutSpecialRequest(BaseModel):
     predicted_team_id: uuid.UUID | None = None
+    # Golden Boot: provide either the squad player id (preferred) or a raw name
+    predicted_player_id: uuid.UUID | None = None
     predicted_player_name: str | None = None
 
 
@@ -71,7 +75,8 @@ class PlayerSpecialsItem(BaseModel):
 class AwardSpecialsRequest(BaseModel):
     prediction_type: SpecialPredictionType
     winner_team_id: uuid.UUID | None = None
-    winner_player_name: str | None = None
+    # Golden Boot award: use squad player id
+    winner_player_id: uuid.UUID | None = None
 
 
 class AwardSpecialsResponse(BaseModel):
@@ -107,6 +112,7 @@ def _to_item(pred: SpecialPrediction) -> SpecialPredictionItem:
         prediction_type=pred.prediction_type,
         predicted_team_id=str(pred.predicted_team_id) if pred.predicted_team_id else None,
         predicted_player_name=pred.predicted_player_name,
+        predicted_player_id=str(pred.predicted_player_id) if pred.predicted_player_id else None,
         submitted_at=pred.submitted_at.isoformat() + "Z" if pred.submitted_at else None,
         points_awarded=pred.points_awarded,
     )
@@ -143,6 +149,7 @@ async def get_my_specials(
                     prediction_type=ptype,
                     predicted_team_id=None,
                     predicted_player_name=None,
+                    predicted_player_id=None,
                     submitted_at=None,
                     points_awarded=None,
                 )
@@ -175,10 +182,10 @@ async def upsert_special(
 
     # Validate payload for prediction type
     if prediction_type == SpecialPredictionType.golden_boot:
-        if not body.predicted_player_name:
+        if body.predicted_player_id is None and not body.predicted_player_name:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="predicted_player_name is required for golden_boot",
+                detail="predicted_player_id is required for golden_boot",
             )
     else:
         if body.predicted_team_id is None:
@@ -186,6 +193,20 @@ async def upsert_special(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="predicted_team_id is required for this prediction type",
             )
+
+    # Resolve player name from squad when an id is supplied (U14.4)
+    resolved_player_name = body.predicted_player_name
+    if prediction_type == SpecialPredictionType.golden_boot and body.predicted_player_id:
+        sp_result = await db.execute(
+            select(SquadPlayer).where(SquadPlayer.id == body.predicted_player_id)
+        )
+        squad_player = sp_result.scalar_one_or_none()
+        if squad_player is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="predicted_player_id not found in squad",
+            )
+        resolved_player_name = squad_player.full_name
 
     result = await db.execute(
         select(SpecialPrediction).where(
@@ -202,13 +223,15 @@ async def upsert_special(
             player_id=player.id,
             prediction_type=prediction_type,
             predicted_team_id=body.predicted_team_id,
-            predicted_player_name=body.predicted_player_name,
+            predicted_player_id=body.predicted_player_id,
+            predicted_player_name=resolved_player_name,
             submitted_at=now,
         )
         db.add(pred)
     else:
         pred.predicted_team_id = body.predicted_team_id
-        pred.predicted_player_name = body.predicted_player_name
+        pred.predicted_player_id = body.predicted_player_id
+        pred.predicted_player_name = resolved_player_name
 
     await db.commit()
     await db.refresh(pred)
@@ -273,10 +296,20 @@ async def award_specials(
 
     # Validate award payload
     if ptype == SpecialPredictionType.golden_boot:
-        if not body.winner_player_name:
+        if body.winner_player_id is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="winner_player_name is required for golden_boot",
+                detail="winner_player_id is required for golden_boot",
+            )
+        # Verify the winner player exists
+        sp_result = await db.execute(
+            select(SquadPlayer).where(SquadPlayer.id == body.winner_player_id)
+        )
+        winner_player = sp_result.scalar_one_or_none()
+        if winner_player is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="winner_player_id not found in squad",
             )
     else:
         if body.winner_team_id is None:
@@ -285,7 +318,7 @@ async def award_specials(
                 detail="winner_team_id is required for this prediction type",
             )
 
-    # Fetch all predictions of this type
+    # Fetch all predictions of this type, storing winner_player_id on each
     result = await db.execute(
         select(SpecialPrediction).where(SpecialPrediction.prediction_type == ptype)
     )
@@ -294,12 +327,13 @@ async def award_specials(
     awarded_count = 0
     for pred in all_preds:
         if ptype == SpecialPredictionType.golden_boot:
+            # Id-based match (U14.5): compare predicted_player_id
             correct = (
-                pred.predicted_player_name is not None
-                and body.winner_player_name is not None
-                and pred.predicted_player_name.strip().lower()
-                == body.winner_player_name.strip().lower()
+                pred.predicted_player_id is not None
+                and pred.predicted_player_id == body.winner_player_id
             )
+            # Stamp the winning player id on every prediction row for auditability
+            pred.winner_player_id = body.winner_player_id
         else:
             correct = pred.predicted_team_id == body.winner_team_id
 
@@ -318,7 +352,7 @@ async def award_specials(
             changes={
                 "prediction_type": ptype,
                 "winner_team_id": str(body.winner_team_id) if body.winner_team_id else None,
-                "winner_player_name": body.winner_player_name,
+                "winner_player_id": str(body.winner_player_id) if body.winner_player_id else None,
                 "awarded_count": awarded_count,
                 "points_each": points,
             },

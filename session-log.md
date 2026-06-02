@@ -1466,3 +1466,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 **Follow-up commit:** eba3679 — knockout view consistency (round label unification + smart default stage).
 
 **Next:** Polish batch U14 — Golden Boot player typeahead 🟢 Sonnet
+
+---
+
+## Polish batch U14 — Golden Boot player typeahead (real squad data)
+**Commits:** 08d1d59, ac2f559, 1bac23d · CI ✅
+
+### Key facts for future sessions
+- Footballers are `squad_players` / `routers/squad.py` — never "players" (league participants). Naming enforced by migration 019 + model `src/models/squad.py`.
+- `vi.mock('@radix-ui/react-popover', ...)` in `PlayerCombobox.test.tsx` must use async `await import('react')` factory — the CI's ESLint bans `require()` in test files.
+- `ruff format --check` runs on CI; local `ruff check` alone is not enough — always run `ruff format` before pushing new Python files.
+- `special_predictions.predicted_player_id` (migration 020) has `server_default=None` so existing raw-SQL tests that INSERT without naming the column keep working.
+- Admin award endpoint now requires `winner_player_id` (UUID) — old `winner_player_name` field removed from `AwardSpecialsRequest`. Any admin UI must send the id.
+
+**Next:** U14 is the last defined round-4 polish batch — no further U-batch queued.

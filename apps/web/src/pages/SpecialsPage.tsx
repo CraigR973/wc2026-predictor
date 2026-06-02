@@ -17,6 +17,7 @@ import { Badge } from '../components/ui/badge';
 import { SaveButton, type SaveButtonState } from '../components/ui/save-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { PlayerCombobox } from '../components/PlayerCombobox';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { PredictionsSubNav } from '../components/PredictionsSubNav';
@@ -139,41 +140,59 @@ function SpecialCard({
   prediction: SpecialPredictionItem | null;
   teams: TeamOption[];
   isLocked: boolean;
-  onSave: (ptype: SpecialType, teamId: string | null, playerName: string | null) => Promise<void>;
+  onSave: (
+    ptype: SpecialType,
+    teamId: string | null,
+    playerId: string | null,
+    playerName: string | null,
+  ) => Promise<void>;
 }) {
   const meta = SPECIAL_META[ptype];
   const isTeamPick = ptype !== 'golden_boot';
 
   const [teamId, setTeamId] = useState<string>(prediction?.predicted_team_id ?? '');
-  const [playerName, setPlayerName] = useState<string>(prediction?.predicted_player_name ?? '');
+  // Golden Boot: track both the squad player id and display name
+  const [playerId, setPlayerId] = useState<string>(prediction?.predicted_player_id ?? '');
+  const [playerDisplayName, setPlayerDisplayName] = useState<string>(
+    prediction?.predicted_player_name ?? '',
+  );
   const [saveState, setSaveState] = useState<SaveButtonState>('idle');
 
   const isDirty = isTeamPick
     ? teamId !== (prediction?.predicted_team_id ?? '')
-    : playerName !== (prediction?.predicted_player_name ?? '');
+    : playerId !== (prediction?.predicted_player_id ?? '');
 
   const isSubmitted = prediction?.submitted_at != null;
 
-  // Auto-reset `saved` → `idle` after the 1.2 s hold so the button returns
-  // to its resting state.
+  // Auto-reset `saved` → `idle` after the 1.2 s hold.
   useEffect(() => {
     if (saveState !== 'saved') return;
     const id = setTimeout(() => setSaveState('idle'), 1200);
     return () => clearTimeout(id);
   }, [saveState]);
 
+  function handlePlayerSelect(id: string, name: string) {
+    setPlayerId(id);
+    setPlayerDisplayName(name);
+  }
+
   async function handleSave() {
     if (isTeamPick && !teamId) {
       toast.error('Please select a team.');
       return;
     }
-    if (!isTeamPick && !playerName.trim()) {
-      toast.error('Please enter a player name.');
+    if (!isTeamPick && !playerId) {
+      toast.error('Please select a player.');
       return;
     }
     setSaveState('saving');
     try {
-      await onSave(ptype, isTeamPick ? teamId : null, isTeamPick ? null : playerName.trim());
+      await onSave(
+        ptype,
+        isTeamPick ? teamId : null,
+        isTeamPick ? null : playerId,
+        isTeamPick ? null : playerDisplayName,
+      );
       toast.success(`${meta.label} saved!`);
       setSaveState('saved');
     } catch {
@@ -207,8 +226,8 @@ function SpecialCard({
                 ) : (
                   <span className="text-text-muted">—</span>
                 )
-              ) : playerName ? (
-                <span>{playerName}</span>
+              ) : playerDisplayName ? (
+                <span>{playerDisplayName}</span>
               ) : (
                 <span className="text-text-muted">—</span>
               )}
@@ -253,16 +272,16 @@ function SpecialCard({
         </div>
       ) : (
         <div className="flex gap-2 items-end flex-wrap">
-          <input
-            type="text"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            placeholder="e.g. Kylian Mbappé"
-            disabled={saveState === 'saving'}
-            maxLength={100}
-            className="flex-1 min-w-0 rounded-md border border-border bg-background text-text-primary font-sans text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            aria-label="Golden Boot player name"
-          />
+          <div className="flex-1 min-w-0">
+            <PlayerCombobox
+              value={playerId}
+              onChange={handlePlayerSelect}
+              displayName={playerDisplayName}
+              disabled={saveState === 'saving'}
+              placeholder="Search for a player…"
+              aria-label="Golden Boot player"
+            />
+          </div>
           <SaveButton
             type="button"
             onClick={handleSave}
@@ -398,17 +417,17 @@ export function SpecialsPage() {
     mutationFn: ({
       ptype,
       teamId,
-      playerName,
+      playerId,
     }: {
       ptype: SpecialType;
       teamId: string | null;
-      playerName: string | null;
+      playerId: string | null;
     }) =>
       apiFetch(`/api/v1/specials/${ptype}`, {
         method: 'PUT',
         body: JSON.stringify({
           predicted_team_id: teamId ?? undefined,
-          predicted_player_name: playerName ?? undefined,
+          predicted_player_id: playerId ?? undefined,
         }),
       }),
     onSuccess: () => {
@@ -421,9 +440,10 @@ export function SpecialsPage() {
   async function handleSave(
     ptype: SpecialType,
     teamId: string | null,
-    playerName: string | null,
+    playerId: string | null,
+    _playerName: string | null,
   ): Promise<void> {
-    await saveMutation.mutateAsync({ ptype, teamId, playerName });
+    await saveMutation.mutateAsync({ ptype, teamId, playerId });
   }
 
   if (loadingSpecials) {

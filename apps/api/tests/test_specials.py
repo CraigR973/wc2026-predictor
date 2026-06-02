@@ -79,6 +79,8 @@ def _make_special(
     p.prediction_type = ptype
     p.predicted_team_id = team_id
     p.predicted_player_name = player_name
+    p.predicted_player_id = None
+    p.winner_player_id = None
     p.submitted_at = _now()
     p.points_awarded = points
     p.updated_at = _now()
@@ -408,19 +410,34 @@ async def test_award_specials_tournament_winner() -> None:
 
 
 @pytest.mark.asyncio
-async def test_award_specials_golden_boot_case_insensitive() -> None:
-    """Awards 15 pts for golden boot, case-insensitive match."""
+async def test_award_specials_golden_boot_by_id() -> None:
+    """Awards 15 pts for golden boot using winner_player_id (id-match, U14.5)."""
+    from unittest.mock import MagicMock
+
+    from src.models.squad import SquadPlayer
+
     admin = _make_admin()
+    winner_id = uuid.uuid4()
+
+    winner_squad = MagicMock(spec=SquadPlayer)
+    winner_squad.id = winner_id
+    winner_squad.full_name = "Kylian Mbappé"
+
     correct_pred = _make_special(
-        uuid.uuid4(), SpecialPredictionType.golden_boot, player_name="kylian mbappé"
+        uuid.uuid4(), SpecialPredictionType.golden_boot, player_name="Kylian Mbappé"
     )
+    correct_pred.predicted_player_id = winner_id
+    correct_pred.winner_player_id = None
     correct_pred.points_awarded = None
+
     wrong_pred = _make_special(
         uuid.uuid4(), SpecialPredictionType.golden_boot, player_name="Erling Haaland"
     )
+    wrong_pred.predicted_player_id = uuid.uuid4()
+    wrong_pred.winner_player_id = None
     wrong_pred.points_awarded = None
 
-    db = _stub_db([_scalars([correct_pred, wrong_pred])])
+    db = _stub_db([_scalar_one(winner_squad), _scalars([correct_pred, wrong_pred])])
 
     async with _override(db, admin):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -428,7 +445,7 @@ async def test_award_specials_golden_boot_case_insensitive() -> None:
                 "/api/v1/admin/specials/award",
                 json={
                     "prediction_type": "golden_boot",
-                    "winner_player_name": "Kylian Mbappé",
+                    "winner_player_id": str(winner_id),
                 },
                 headers={"Authorization": "Bearer x"},
             )
@@ -442,8 +459,8 @@ async def test_award_specials_golden_boot_case_insensitive() -> None:
 
 
 @pytest.mark.asyncio
-async def test_award_specials_golden_boot_missing_name_returns_422() -> None:
-    """Returns 422 if winner_player_name missing for golden_boot award."""
+async def test_award_specials_golden_boot_missing_player_id_returns_422() -> None:
+    """Returns 422 if winner_player_id missing for golden_boot award (U14.5)."""
     admin = _make_admin()
     db = _stub_db([])
 
