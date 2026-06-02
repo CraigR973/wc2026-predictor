@@ -33,8 +33,8 @@ test.describe('Join flow', () => {
     // Name pre-filled from hint
     await expect(page.getByLabel(/display name/i)).toHaveValue('Test Player');
 
-    await fillPinGroup(page.getByRole('group', { name: 'PIN', exact: true }), '12345');
-    await fillPinGroup(page.getByRole('group', { name: 'Confirm PIN', exact: true }), '12345');
+    await fillPinGroup(page.getByRole('group', { name: 'PIN', exact: true }), '1234');
+    await fillPinGroup(page.getByRole('group', { name: 'Confirm PIN', exact: true }), '1234');
     await page.getByRole('button', { name: /join league/i }).click();
 
     // window.location.href = '/' is called on success

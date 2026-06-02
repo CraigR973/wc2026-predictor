@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Share2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { LeaderboardEntry, LeagueDetail } from '@/lib/types';
 import { dedupedLeaderboard } from '@/lib/leaderboard';
+import { buildInviteMessage, shareInvite } from '@/lib/invite';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,18 +16,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getAccessToken } from '@/lib/tokens';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
-
-function buildShareMessage(leagueName: string, joinCode: string, origin: string): string {
-  return `Join my World Cup prediction league "${leagueName}"!\n\nCode: ${joinCode}\nLink: ${origin}/join/${joinCode}`;
-}
-
-async function shareOrCopy(text: string, url: string): Promise<void> {
-  if (navigator.share) {
-    await navigator.share({ text, url });
-  } else {
-    await navigator.clipboard.writeText(`${text}\n${url}`);
-  }
-}
 
 export function LeagueHomePage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
@@ -51,15 +42,20 @@ export function LeagueHomePage() {
 
   async function handleShare() {
     if (!league?.join_code) return;
-    const msg = buildShareMessage(league.name, league.join_code, window.location.origin);
+    const message = buildInviteMessage({
+      leagueName: league.name,
+      joinCode: league.join_code,
+      origin: window.location.origin,
+    });
     const url = `${window.location.origin}/join/${league.join_code}`;
     try {
-      await shareOrCopy(msg, url);
-      if (!navigator.share) {
+      const result = await shareInvite({ message, url });
+      if (result === 'copied') {
         setShareStatus('copied');
         setTimeout(() => setShareStatus('idle'), 2000);
       }
     } catch {
+      toast.error('Could not share invite');
       setShareStatus('error');
       setTimeout(() => setShareStatus('idle'), 2000);
     }
@@ -101,7 +97,8 @@ export function LeagueHomePage() {
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
           {league?.join_code && (
-            <Button size="sm" variant="default" onClick={handleShare}>
+            <Button size="sm" variant="accent" onClick={handleShare} className="gap-1.5">
+              <Share2 className="h-3.5 w-3.5" aria-hidden />
               {shareStatus === 'copied' ? 'Copied!' : shareStatus === 'error' ? 'Error' : 'Invite'}
             </Button>
           )}

@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Share2, ChevronDown } from 'lucide-react';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
-import type { LeagueInvite } from '@/lib/types';
+import type { LeagueDetail, LeagueInvite } from '@/lib/types';
+import { buildInviteMessage, shareInvite } from '@/lib/invite';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,13 +14,37 @@ import { PageHeader } from '@/components/PageHeader';
 export function LeagueAdminInvitesPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
+  const [isSharing, setIsSharing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  const { data: league } = useQuery<LeagueDetail>({
+    queryKey: ['league', slug],
+    queryFn: () => apiFetch<LeagueDetail>(`/api/v1/leagues/${slug}`),
+  });
 
   const { data: invites, isLoading } = useQuery<LeagueInvite[]>({
     queryKey: ['league-invites', slug],
     queryFn: () => apiFetch<LeagueInvite[]>(`/api/v1/leagues/${slug}/invites`),
   });
+
+  async function handleShare() {
+    if (!league?.join_code) return;
+    setIsSharing(true);
+    try {
+      const message = buildInviteMessage({
+        leagueName: league.name,
+        joinCode: league.join_code,
+        origin: window.location.origin,
+      });
+      const url = `${window.location.origin}/join/${league.join_code}`;
+      await shareInvite({ message, url });
+    } catch {
+      toast.error('Could not share invite');
+    } finally {
+      setIsSharing(false);
+    }
+  }
 
   async function createInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -67,64 +93,105 @@ export function LeagueAdminInvitesPage() {
     <div className="space-y-6">
       <PageHeader title="Invites" />
 
+      {/* Primary action — join code share */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Create invite</CardTitle>
+          <CardTitle className="text-base">Invite friends</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={createInvite}>
-            <Button type="submit" disabled={isCreating} className="w-full">
-              {isCreating ? 'Creating…' : 'Generate invite link'}
-            </Button>
-          </form>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-text-secondary font-sans">
+            Share the league join code so anyone can join from the link or the app.
+          </p>
+          {league?.join_code ? (
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-lg font-semibold text-primary tracking-widest">
+                {league.join_code}
+              </span>
+              <Button
+                variant="accent"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleShare}
+                disabled={isSharing}
+              >
+                <Share2 className="h-3.5 w-3.5" aria-hidden />
+                {isSharing ? 'Sharing…' : 'Share invite'}
+              </Button>
+            </div>
+          ) : (
+            <Skeleton className="h-9 w-48" />
+          )}
         </CardContent>
       </Card>
 
-      {isLoading && (
-        <div className="space-y-2">
-          {[1, 2].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
-        </div>
-      )}
+      {/* Advanced — one-time private link (collapsed by default) */}
+      <details className="group">
+        <summary className="flex cursor-pointer select-none items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-sm font-sans text-text-secondary hover:text-text-primary transition-colors">
+          <span>Advanced: one-time private link</span>
+          <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
 
-      {!isLoading && activeInvites.length === 0 && (
-        <p className="text-text-muted font-sans text-sm text-center py-4">No active invites.</p>
-      )}
+        <div className="mt-2 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Create invite</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={createInvite}>
+                <Button type="submit" disabled={isCreating} className="w-full">
+                  {isCreating ? 'Creating…' : 'Generate invite link'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-      {activeInvites.length > 0 && (
-        <div className="space-y-2">
-          {activeInvites.map((invite) => (
-            <Card key={invite.id}>
-              <CardContent className="pt-3 pb-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-mono truncate text-text-secondary">
-                      {`${window.location.origin}/join/${invite.token}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => copyLink(invite.token)}
-                    >
-                      Copy
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-error hover:bg-error/10"
-                      disabled={revokingId === invite.id}
-                      onClick={() => revokeInvite(invite.id)}
-                    >
-                      Revoke
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {isLoading && (
+            <div className="space-y-2">
+              {[1, 2].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+            </div>
+          )}
+
+          {!isLoading && activeInvites.length === 0 && (
+            <p className="text-text-muted font-sans text-sm text-center py-4">No active one-time links.</p>
+          )}
+
+          {activeInvites.length > 0 && (
+            <div className="space-y-2">
+              {activeInvites.map((invite) => (
+                <Card key={invite.id}>
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-mono truncate text-text-secondary">
+                          {`${window.location.origin}/join/${invite.token}`}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyLink(invite.token)}
+                        >
+                          Copy
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-error hover:bg-error/10"
+                          disabled={revokingId === invite.id}
+                          onClick={() => revokeInvite(invite.id)}
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </details>
     </div>
   );
 }
