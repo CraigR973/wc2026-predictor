@@ -173,7 +173,8 @@ test.describe('create invite', () => {
     await page.goto(`/leagues/${MOCK_LEAGUE.slug}/admin/invites`);
     await expect(page.getByRole('heading', { name: 'Invites', exact: true })).toBeVisible();
 
-    // Button label is "Generate invite link" (create form is always visible)
+    // "Generate invite link" is inside the collapsed "Advanced" disclosure — open it first
+    await page.getByText('Advanced: one-time private link').click();
     await page.getByRole('button', { name: /generate invite link/i }).click();
 
     // After creation the invite link (containing the token) should appear on the page
