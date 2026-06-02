@@ -494,7 +494,7 @@ manual pasting needed.
 | ~~U10~~ | ~~🟢 Sonnet~~ | ~~~3 h~~    | ~~U10.1–U10.3~~ | ✅ Shipped 2026-06-01 |
 | ~~U11~~ | ~~🟢 Sonnet~~ | ~~~2.5 h~~ | ~~U11.1–U11.3~~ | ✅ Shipped 2026-06-01 |
 | ~~U12~~ | ~~🟢 Sonnet~~ | ~~~4 h~~    | ~~U12.1–U12.5~~ | ✅ Shipped 2026-06-01 |
-| U13 | 🔴 Opus (extended thinking ON) | ~5 h | U13.1–U13.5 | Pending |
+| ~~U13~~ | ~~🔴 Opus (extended thinking ON)~~ | ~~~5 h~~ | ~~U13.1–U13.5~~ | ✅ Shipped 2026-06-02 |
 
 **Total ≈ 17 h** across 5 focused sessions. Suggested order = U9 → U13 (quick wins
 first; **U13 is foundational and the heaviest** — it seeds the data both the schedule and
