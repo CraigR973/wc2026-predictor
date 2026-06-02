@@ -279,6 +279,8 @@ export interface CrossLeagueSummary {
     name: string;
     rank: number | null;
     member_count: number;
+    rank_delta: number | null;
+    triggered_by_match_id: string | null;
   }>;
 }
 

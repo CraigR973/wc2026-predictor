@@ -4,16 +4,12 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { useLeague } from '../contexts/LeagueContext';
 import { WelcomeCard } from '../components/WelcomeCard';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
-import { dedupedLeaderboard } from '../lib/leaderboard';
 import type {
   CrossLeagueSummary,
-  LeaderboardEntry,
-  LeagueSummary,
   MatchResponse,
   RecentPrediction,
 } from '../lib/types';
@@ -21,56 +17,44 @@ import type {
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 // ---------------------------------------------------------------------------
-// Cross-league summary hero
+// Points hero (U16.1 + U16.2)
 // ---------------------------------------------------------------------------
 
-function CrossLeagueSummaryWidget({
+function PointsHero({
   summary,
   isLoading,
+  displayName,
 }: {
   summary: CrossLeagueSummary | undefined;
   isLoading: boolean;
+  displayName: string | undefined;
 }) {
   if (isLoading) {
     return (
       <div className="rounded-lg border border-border bg-surface p-4 sm:p-5 space-y-3">
-        <Skeleton className="h-3 w-36" />
-        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-12 w-40" />
         <Skeleton className="h-3 w-56" />
       </div>
     );
   }
 
-  if (!summary || summary.leagues_count === 0) return null;
-
-  const rankText =
-    summary.avg_rank !== null
-      ? `Average position ${summary.avg_rank.toFixed(1)}`
-      : 'No average available yet';
-
-  const leagueCount =
-    summary.leagues_count === 1 ? '1 league' : `${summary.leagues_count} leagues`;
+  const pts = summary?.total_points ?? 0;
+  const hasPoints = pts > 0;
 
   return (
     <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-        Cross-League
+        Points
       </p>
-      <p className="font-mono text-3xl sm:text-4xl text-primary tabular-nums font-medium leading-none mb-2">
-        {summary.avg_rank !== null ? summary.avg_rank.toFixed(1) : '—'}
+      <p className="font-mono text-5xl sm:text-6xl text-primary tabular-nums font-semibold leading-none mb-2">
+        {pts}
       </p>
       <p className="font-sans text-sm text-text-secondary">
-        {rankText} across{' '}
-        <span className="text-text-primary font-medium">{leagueCount}</span>
-        {' · '}
-        <span className="font-mono text-primary font-semibold">{summary.total_points}</span>
-        {' pts'}
+        {hasPoints
+          ? `Welcome back, ${displayName}`
+          : 'Your tally starts when the first results land · WC kicks off 11 Jun'}
       </p>
-      {summary.avg_rank === null && summary.leagues_count > 0 && (
-        <p className="text-xs text-text-muted mt-1 font-sans">
-          Average shown once a league has 3+ members and a result.
-        </p>
-      )}
     </div>
   );
 }
@@ -145,43 +129,45 @@ function NextMatchCard({
 }
 
 // ---------------------------------------------------------------------------
-// Compact league rank strip
+// Compact league rank strip (U16.4) — reads from per_league, no leaderboard fetch
 // ---------------------------------------------------------------------------
 
-function CompactLeagueRow({
-  league,
-  currentPlayerId,
-}: {
-  league: LeagueSummary;
-  currentPlayerId: string | undefined;
-}) {
-  const { data: leaderboard = [], isLoading } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard', league.slug],
-    queryFn: () => apiFetch<LeaderboardEntry[]>(`/api/v1/leagues/${league.slug}/leaderboard`),
-    staleTime: 30_000,
-  });
+type PerLeagueEntry = CrossLeagueSummary['per_league'][number];
 
-  const myEntry = currentPlayerId
-    ? dedupedLeaderboard(leaderboard, league.slug).find((e) => e.player_id === currentPlayerId)
-    : undefined;
+function DeltaBadge({ delta }: { delta: number | null }) {
+  if (delta === null) return null;
+  if (delta === 0) return <span className="font-mono text-xs text-text-muted tabular-nums">▬</span>;
+  if (delta > 0)
+    return (
+      <span className="font-mono text-xs text-success tabular-nums" aria-label={`up ${delta}`}>
+        ↑{delta}
+      </span>
+    );
+  return (
+    <span className="font-mono text-xs text-text-muted tabular-nums" aria-label={`down ${Math.abs(delta)}`}>
+      ↓{Math.abs(delta)}
+    </span>
+  );
+}
+
+function CompactLeagueRow({ entry }: { entry: PerLeagueEntry }) {
+  const { rank, member_count, name, slug, rank_delta } = entry;
 
   return (
     <Link
-      to={`/leagues/${league.slug}/leaderboard`}
+      to={`/leagues/${slug}/leaderboard`}
       className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-border/50 last:border-b-0 hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:shadow-glow"
     >
       <span className="flex-1 min-w-0 font-sans text-sm font-medium text-text-primary truncate">
-        {league.name}
+        {name}
       </span>
-      {isLoading ? (
-        <Skeleton className="h-4 w-20" />
-      ) : myEntry ? (
+      {rank !== null ? (
         <span className="shrink-0 flex items-center gap-2 font-mono text-xs tabular-nums">
           <span className="text-text-muted">
-            {MEDAL[myEntry.rank] ?? `#${myEntry.rank}`}
-            <span className="font-sans opacity-60"> of {league.member_count}</span>
+            {MEDAL[rank] ?? `#${rank}`}
+            <span className="font-sans opacity-60"> of {member_count}</span>
           </span>
-          <span className="text-primary font-semibold">{myEntry.total_points} pts</span>
+          <DeltaBadge delta={rank_delta} />
         </span>
       ) : (
         <span className="shrink-0 text-xs font-sans text-text-muted">—</span>
@@ -192,21 +178,36 @@ function CompactLeagueRow({
 }
 
 // ---------------------------------------------------------------------------
-// Latest result
+// Latest result (U16.5) — with per-league movement impact line
 // ---------------------------------------------------------------------------
 
 function LatestResultCard({
   prediction,
   timezone,
+  perLeague,
 }: {
   prediction: RecentPrediction;
   timezone: string;
+  perLeague: CrossLeagueSummary['per_league'];
 }) {
   const kickoffLocal = formatInTimeZone(new Date(prediction.kickoff_utc), timezone, 'EEE d MMM');
   const homeLabel = prediction.home_team_name ?? '?';
   const awayLabel = prediction.away_team_name ?? '?';
   const pts = prediction.points_awarded;
   const bd = prediction.points_breakdown;
+
+  // Build impact line: per_league entries whose latest result triggered by this match
+  const impactParts = perLeague
+    .filter(
+      (e) =>
+        e.triggered_by_match_id === prediction.match_id &&
+        e.rank_delta !== null &&
+        e.rank_delta !== 0,
+    )
+    .map((e) => {
+      const dir = e.rank_delta! > 0 ? '↑' : '↓';
+      return `${dir}${Math.abs(e.rank_delta!)} in ${e.name}`;
+    });
 
   return (
     <Link
@@ -271,6 +272,9 @@ function LatestResultCard({
           </span>
         )
       )}
+      {impactParts.length > 0 && (
+        <p className="text-xs font-sans text-text-muted mt-2">{impactParts.join(' · ')}</p>
+      )}
     </Link>
   );
 }
@@ -313,7 +317,6 @@ function SpecialsCTA() {
 
 export function DashboardPage() {
   const { player } = useAuth();
-  const { leagues, isLoading: leaguesLoading } = useLeague();
   const timezone = player?.timezone ?? 'UTC';
 
   const { data: summary, isLoading: summaryLoading } = useQuery<CrossLeagueSummary>({
@@ -353,19 +356,14 @@ export function DashboardPage() {
 
   const latestPred = recentPreds[0] ?? null;
   const hasPrediction = nextMatchPrediction !== null && nextMatchPrediction !== undefined;
+  const perLeague = summary?.per_league ?? [];
 
   return (
     <div className="space-y-5">
-      {/* Welcome */}
-      <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight leading-tight">
-        Welcome back,{' '}
-        <span className="font-semibold text-text-primary">{player?.displayName}</span>
-      </h1>
+      {/* Points hero — replaces h1 greeting + CrossLeagueSummaryWidget */}
+      <PointsHero summary={summary} isLoading={summaryLoading} displayName={player?.displayName} />
 
       <WelcomeCard />
-
-      {/* Cross-league summary hero */}
-      <CrossLeagueSummaryWidget summary={summary} isLoading={summaryLoading} />
 
       {/* Next match */}
       {upcomingLoading ? (
@@ -381,24 +379,20 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Latest result — directly under Next Match */}
+      {/* Latest result — with per-league movement impact line */}
       {recentLoading ? (
         <Skeleton className="h-[140px] rounded-lg" />
       ) : latestPred ? (
-        <LatestResultCard prediction={latestPred} timezone={timezone} />
+        <LatestResultCard prediction={latestPred} timezone={timezone} perLeague={perLeague} />
       ) : null}
 
-      {/* Compact league rank strip */}
-      {leaguesLoading ? (
+      {/* Compact league rank strip — sourced from cross-league summary (no N+1 fetch) */}
+      {summaryLoading ? (
         <Skeleton className="h-[80px] rounded-lg" />
-      ) : leagues.length > 0 ? (
+      ) : perLeague.length > 0 ? (
         <div className="rounded-lg border border-border bg-surface overflow-hidden">
-          {leagues.map((league) => (
-            <CompactLeagueRow
-              key={league.slug}
-              league={league}
-              currentPlayerId={player?.id}
-            />
+          {perLeague.map((entry) => (
+            <CompactLeagueRow key={entry.slug} entry={entry} />
           ))}
         </div>
       ) : null}
