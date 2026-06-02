@@ -88,6 +88,16 @@ class SpecialPrediction(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
         UUID(as_uuid=True), ForeignKey("teams.id", ondelete="SET NULL"), nullable=True
     )
     predicted_player_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    predicted_player_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("squad_players.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    winner_player_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("squad_players.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     points_awarded: Mapped[int | None] = mapped_column(Integer, nullable=True)
 

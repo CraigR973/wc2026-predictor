@@ -129,8 +129,20 @@ export interface SpecialPredictionItem {
   prediction_type: SpecialType;
   predicted_team_id: string | null;
   predicted_player_name: string | null;
+  predicted_player_id: string | null;
   submitted_at: string | null;
   points_awarded: number | null;
+}
+
+export interface SquadPlayerResult {
+  id: string;
+  full_name: string;
+  known_as: string;
+  position: 'GK' | 'DEF' | 'MID' | 'FWD';
+  shirt_number: number | null;
+  team_code: string;
+  team_name: string;
+  flag_emoji: string;
 }
 
 export interface MySpecialsResponse {

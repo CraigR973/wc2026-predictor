@@ -55,6 +55,7 @@ def test_metadata_has_expected_tables() -> None:
         "leagues",
         "league_memberships",
         "league_join_requests",
+        "squad_players",
     }
 
 

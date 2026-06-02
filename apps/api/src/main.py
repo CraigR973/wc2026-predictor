@@ -33,6 +33,7 @@ from src.routers import (
     players,
     predictions,
     specials,
+    squad,
     stats,
 )
 from src.scheduler import create_scheduler
@@ -116,6 +117,7 @@ app.include_router(knockout_predictions.router)
 app.include_router(leaderboard.league_router)
 app.include_router(specials.router)
 app.include_router(specials.admin_router)
+app.include_router(squad.router)
 app.include_router(stats.router)
 app.include_router(stats.league_router)
 app.include_router(compare.league_router)
