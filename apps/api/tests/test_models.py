@@ -433,6 +433,9 @@ def test_special_prediction_type_values() -> None:
         "tournament_winner",
         "golden_boot",
         "top_scoring_team",
+        "player_of_tournament",
+        "young_player_of_tournament",
+        "golden_glove",
     }
 
 
