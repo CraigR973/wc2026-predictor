@@ -33,6 +33,9 @@ const EMPTY_SPECIALS = {
     { id: '', prediction_type: 'tournament_winner', predicted_team_id: null, predicted_player_name: null, predicted_player_id: null, submitted_at: null, points_awarded: null },
     { id: '', prediction_type: 'golden_boot', predicted_team_id: null, predicted_player_name: null, predicted_player_id: null, submitted_at: null, points_awarded: null },
     { id: '', prediction_type: 'top_scoring_team', predicted_team_id: null, predicted_player_name: null, predicted_player_id: null, submitted_at: null, points_awarded: null },
+    { id: '', prediction_type: 'player_of_tournament', predicted_team_id: null, predicted_player_name: null, predicted_player_id: null, submitted_at: null, points_awarded: null },
+    { id: '', prediction_type: 'young_player_of_tournament', predicted_team_id: null, predicted_player_name: null, predicted_player_id: null, submitted_at: null, points_awarded: null },
+    { id: '', prediction_type: 'golden_glove', predicted_team_id: null, predicted_player_name: null, predicted_player_id: null, submitted_at: null, points_awarded: null },
   ],
 };
 
@@ -43,6 +46,9 @@ const SUBMITTED_SPECIALS = {
     { id: 'sp1', prediction_type: 'tournament_winner', predicted_team_id: TEAM_A.id, predicted_player_name: null, predicted_player_id: null, submitted_at: '2026-06-01T10:00:00Z', points_awarded: null },
     { id: 'sp2', prediction_type: 'golden_boot', predicted_team_id: null, predicted_player_name: 'Kylian Mbappé', predicted_player_id: 'uuid-mbappe', submitted_at: '2026-06-01T10:00:00Z', points_awarded: null },
     { id: 'sp3', prediction_type: 'top_scoring_team', predicted_team_id: TEAM_B.id, predicted_player_name: null, predicted_player_id: null, submitted_at: '2026-06-01T10:00:00Z', points_awarded: null },
+    { id: 'sp4', prediction_type: 'player_of_tournament', predicted_team_id: null, predicted_player_name: 'Lionel Messi', predicted_player_id: 'uuid-messi', submitted_at: '2026-06-01T10:00:00Z', points_awarded: null },
+    { id: 'sp5', prediction_type: 'young_player_of_tournament', predicted_team_id: null, predicted_player_name: 'Lamine Yamal', predicted_player_id: 'uuid-yamal', submitted_at: '2026-06-01T10:00:00Z', points_awarded: null },
+    { id: 'sp6', prediction_type: 'golden_glove', predicted_team_id: null, predicted_player_name: 'Emiliano Martínez', predicted_player_id: 'uuid-dibu', submitted_at: '2026-06-01T10:00:00Z', points_awarded: null },
   ],
 };
 
@@ -149,21 +155,24 @@ describe('SpecialsPage — pre-lock', () => {
     });
   });
 
-  it('shows 3 special prediction cards', async () => {
+  it('shows 6 special prediction cards', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Tournament Winner')).toBeInTheDocument();
       expect(screen.getByText('Golden Boot')).toBeInTheDocument();
       expect(screen.getByText('Top Scoring Team')).toBeInTheDocument();
+      expect(screen.getByText('Player of the Tournament')).toBeInTheDocument();
+      expect(screen.getByText('Young Player of the Tournament')).toBeInTheDocument();
+      expect(screen.getByText('Golden Glove')).toBeInTheDocument();
     });
   });
 
   it('shows submitted count', async () => {
     renderPage(makeFetch({ specials: SUBMITTED_SPECIALS }));
-    // The header chip shows just `3/3` (the word "submitted" is implied by the
+    // The header chip shows just `6/6` (the word "submitted" is implied by the
     // "Pre-tournament bonus" eyebrow + the sub-copy underneath the header).
     await waitFor(() => {
-      expect(screen.getByText('3/3')).toBeInTheDocument();
+      expect(screen.getByText('6/6')).toBeInTheDocument();
     });
   });
 
@@ -182,21 +191,24 @@ describe('SpecialsPage — pre-lock', () => {
     });
   });
 
-  it('renders combobox trigger for golden boot (not a text input)', async () => {
+  it('renders combobox triggers for all player specials', async () => {
     renderPage();
     await waitFor(() => {
-      // PlayerCombobox renders a combobox role button — verify it's present
+      // PlayerCombobox renders a combobox role button — verify multiple are present
+      // 2 team selects + 4 player comboboxes (golden_boot, player_of_tournament,
+      // young_player_of_tournament, golden_glove)
       const comboboxes = screen.getAllByRole('combobox');
-      // At least 2: team selects + the golden boot player combobox
-      expect(comboboxes.length).toBeGreaterThanOrEqual(2);
+      expect(comboboxes.length).toBeGreaterThanOrEqual(5);
     });
   });
 
-  it('shows submitted player name in golden boot combobox trigger after save', async () => {
+  it('shows submitted player names in player special combobox triggers', async () => {
     renderPage(makeFetch({ specials: SUBMITTED_SPECIALS }));
     await waitFor(() => {
-      // The submitted golden boot prediction name should appear in the trigger
       expect(screen.getByText('Kylian Mbappé')).toBeInTheDocument();
+      expect(screen.getByText('Lionel Messi')).toBeInTheDocument();
+      expect(screen.getByText('Lamine Yamal')).toBeInTheDocument();
+      expect(screen.getByText('Emiliano Martínez')).toBeInTheDocument();
     });
   });
 

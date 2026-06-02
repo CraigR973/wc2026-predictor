@@ -21,6 +21,8 @@ interface PlayerComboboxProps {
   disabled?: boolean;
   placeholder?: string;
   'aria-label'?: string;
+  /** Optional position filter passed to the API (e.g. "GK" for Golden Glove) */
+  position?: string;
 }
 
 export function PlayerCombobox({
@@ -30,6 +32,7 @@ export function PlayerCombobox({
   disabled = false,
   placeholder = 'Search for a player…',
   'aria-label': ariaLabel,
+  position,
 }: PlayerComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -64,8 +67,9 @@ export function PlayerCombobox({
     setError(false);
     debounceRef.current = setTimeout(async () => {
       try {
+        const positionParam = position ? `&position=${encodeURIComponent(position)}` : '';
         const data = await apiFetch<SquadPlayerResult[]>(
-          `/api/v1/squad/search?q=${encodeURIComponent(query)}&limit=20`,
+          `/api/v1/squad/search?q=${encodeURIComponent(query)}&limit=20${positionParam}`,
         );
         setResults(data);
       } catch {

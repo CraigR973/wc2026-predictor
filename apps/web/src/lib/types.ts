@@ -122,7 +122,13 @@ export interface KnockoutPredictionResponse {
   updated_at: string;
 }
 
-export type SpecialType = 'tournament_winner' | 'golden_boot' | 'top_scoring_team';
+export type SpecialType =
+  | 'tournament_winner'
+  | 'golden_boot'
+  | 'top_scoring_team'
+  | 'player_of_tournament'
+  | 'young_player_of_tournament'
+  | 'golden_glove';
 
 export interface SpecialPredictionItem {
   id: string;

@@ -31,7 +31,20 @@ SPECIAL_POINTS: dict[SpecialPredictionType, int] = {
     SpecialPredictionType.tournament_winner: 20,
     SpecialPredictionType.golden_boot: 15,
     SpecialPredictionType.top_scoring_team: 10,
+    SpecialPredictionType.player_of_tournament: 15,
+    SpecialPredictionType.young_player_of_tournament: 10,
+    SpecialPredictionType.golden_glove: 10,
 }
+
+# Prediction types that target a squad player (predicted_player_id / winner_player_id).
+PLAYER_SPECIALS: frozenset[SpecialPredictionType] = frozenset(
+    {
+        SpecialPredictionType.golden_boot,
+        SpecialPredictionType.player_of_tournament,
+        SpecialPredictionType.young_player_of_tournament,
+        SpecialPredictionType.golden_glove,
+    }
+)
 
 
 def _now() -> datetime:
@@ -181,11 +194,11 @@ async def upsert_special(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="PREDICTION_LOCKED")
 
     # Validate payload for prediction type
-    if prediction_type == SpecialPredictionType.golden_boot:
+    if prediction_type in PLAYER_SPECIALS:
         if body.predicted_player_id is None and not body.predicted_player_name:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="predicted_player_id is required for golden_boot",
+                detail="predicted_player_id is required for this prediction type",
             )
     else:
         if body.predicted_team_id is None:
@@ -194,9 +207,9 @@ async def upsert_special(
                 detail="predicted_team_id is required for this prediction type",
             )
 
-    # Resolve player name from squad when an id is supplied (U14.4)
+    # Resolve player name from squad when an id is supplied
     resolved_player_name = body.predicted_player_name
-    if prediction_type == SpecialPredictionType.golden_boot and body.predicted_player_id:
+    if prediction_type in PLAYER_SPECIALS and body.predicted_player_id:
         sp_result = await db.execute(
             select(SquadPlayer).where(SquadPlayer.id == body.predicted_player_id)
         )
@@ -295,11 +308,11 @@ async def award_specials(
     points = SPECIAL_POINTS[ptype]
 
     # Validate award payload
-    if ptype == SpecialPredictionType.golden_boot:
+    if ptype in PLAYER_SPECIALS:
         if body.winner_player_id is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="winner_player_id is required for golden_boot",
+                detail="winner_player_id is required for this prediction type",
             )
         # Verify the winner player exists
         sp_result = await db.execute(
@@ -326,8 +339,8 @@ async def award_specials(
 
     awarded_count = 0
     for pred in all_preds:
-        if ptype == SpecialPredictionType.golden_boot:
-            # Id-based match (U14.5): compare predicted_player_id
+        if ptype in PLAYER_SPECIALS:
+            # Id-based match: compare predicted_player_id
             correct = (
                 pred.predicted_player_id is not None
                 and pred.predicted_player_id == body.winner_player_id

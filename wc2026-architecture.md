@@ -254,15 +254,17 @@ Pre-tournament bonus predictions. All locked at the opening match kickoff.
 |---|---|---|
 | id | UUID (PK) | Internal identifier |
 | player_id | UUID (FK → profiles) | Who made the prediction |
-| prediction_type | ENUM(tournament_winner, golden_boot, top_scoring_team) | Which special |
+| prediction_type | ENUM(tournament_winner, golden_boot, top_scoring_team, player_of_tournament, young_player_of_tournament, golden_glove) | Which special |
 | predicted_team_id | UUID (FK → teams) | For tournament_winner and top_scoring_team |
-| predicted_player_name | VARCHAR(100) | For golden_boot (free text — no player DB) |
+| predicted_player_name | VARCHAR(100) | Display name for player specials |
+| predicted_player_id | UUID (FK → squad_players) | For golden_boot, player_of_tournament, young_player_of_tournament, golden_glove |
+| winner_player_id | UUID (FK → squad_players) | Stamped at award time for player specials |
 | submitted_at | TIMESTAMP | Audit trail |
 | points_awarded | INTEGER | NULL until tournament end |
 | created_at | TIMESTAMP | Auto-set |
 | updated_at | TIMESTAMP | Auto-updated |
 
-*Unique constraint on `(player_id, prediction_type)`. Points: tournament_winner = 20, golden_boot = 15, top_scoring_team = 10.*
+*Unique constraint on `(player_id, prediction_type)`. Points: tournament_winner = 20, golden_boot = 15, top_scoring_team = 10, player_of_tournament = 15, young_player_of_tournament = 10, golden_glove = 10.*
 
 ### 3.10 leaderboard_snapshots
 
@@ -545,16 +547,19 @@ Extra time and penalties determine advancement but do not affect score-based pre
 | Prediction | Points |
 |---|---|
 | Tournament Winner (pre-tournament) | 20 |
-| Golden Boot (top scorer — free text) | 15 |
+| Golden Boot (top scorer) | 15 |
+| Player of the Tournament (Golden Ball) | 15 |
 | Top Scoring Team | 10 |
-| **Total specials** | **45** |
+| Young Player of the Tournament | 10 |
+| Golden Glove (best goalkeeper) | 10 |
+| **Total specials** | **80** |
 
 **Maximum possible points (theoretical):**
 - Group stage: 72 matches × 10pts = **720**
 - Knockout matches (score predictions): 32 matches × 10pts = **320**
 - Knockout winner predictions: **295**
-- Special predictions: **45**
-- **Grand total: 1,380 points**
+- Special predictions: **80**
+- **Grand total: ≈1,415 points**
 
 ### 6.2 Per-Match Prediction Locking
 
@@ -602,13 +607,16 @@ The bracket is displayed as an interactive visual tree showing all rounds from R
 
 ### 6.5 Special Predictions
 
-Three pre-tournament predictions available to all players, submitted and locked before the opening match:
+Six pre-tournament predictions available to all players, submitted and locked before the opening match:
 
-- **Tournament Winner** — which of the 48 teams wins the World Cup
-- **Top Scoring Team** — which team scores the most goals across the tournament
-- **Golden Boot** — free-text name of the player who scores the most goals
+- **Tournament Winner** (20 pts) — which of the 48 teams wins the World Cup
+- **Golden Boot** (15 pts) — which player scores the most goals
+- **Player of the Tournament** (15 pts) — which player wins the Golden Ball award
+- **Top Scoring Team** (10 pts) — which team scores the most goals across the tournament
+- **Young Player of the Tournament** (10 pts) — which U21 player wins the Best Young Player award
+- **Golden Glove** (10 pts) — which goalkeeper wins the best goalkeeper award (GK-only picker)
 
-All three are visible to all players after the tournament starts (no hiding predictions from others post-lock). Points are manually awarded by admin at tournament end via `POST /admin/specials/award`.
+Player specials (Golden Boot, Player of the Tournament, Young Player, Golden Glove) use a squad player typeahead that resolves to `predicted_player_id`; the Golden Glove picker is filtered to GK position. All six are visible to all players after the tournament starts. Points are manually awarded by admin at tournament end via `POST /admin/specials/award`.
 
 ### 6.6 Live Leaderboard
 

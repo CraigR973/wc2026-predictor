@@ -33,11 +33,15 @@ async def search_squad(
     db: Annotated[AsyncSession, Depends(get_db)],
     q: str = Query(default="", max_length=100),
     limit: int = Query(default=20, ge=1, le=_MAX_LIMIT),
+    position: str | None = Query(default=None, max_length=10),
 ) -> list[dict[str, Any]]:
     """Case-insensitive substring search across full_name and known_as.
 
     Returns players ranked: exact known_as prefix first, then full_name prefix,
     then any substring match — all alphabetical within each tier.
+
+    Optional ``position`` filter (e.g. ``GK``) restricts results to that
+    position — used by the Golden Glove picker.
     """
     q = q.strip()
     if not q:
@@ -45,6 +49,16 @@ async def search_squad(
 
     q_lower = q.lower()
     like_pat = f"%{q_lower}%"
+
+    conditions = [
+        SquadPlayer.is_active.is_(True),
+        or_(
+            func.lower(SquadPlayer.full_name).like(like_pat),
+            func.lower(SquadPlayer.known_as).like(like_pat),
+        ),
+    ]
+    if position is not None:
+        conditions.append(SquadPlayer.position == position.upper())
 
     stmt = (
         select(
@@ -58,13 +72,7 @@ async def search_squad(
             Team.flag_emoji,
         )
         .join(Team, SquadPlayer.team_id == Team.id)
-        .where(
-            SquadPlayer.is_active.is_(True),
-            or_(
-                func.lower(SquadPlayer.full_name).like(like_pat),
-                func.lower(SquadPlayer.known_as).like(like_pat),
-            ),
-        )
+        .where(*conditions)
         # Rank: known_as prefix match → full_name prefix match → other
         .order_by(
             # 0 = known_as starts with query (best), 1 = full_name prefix, 2 = substring

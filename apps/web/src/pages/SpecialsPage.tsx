@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trophy, Star, Zap, Lock } from 'lucide-react';
+import { Trophy, Star, Zap, Lock, Award, UserCheck, Handshake } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '../lib/api';
@@ -42,12 +42,43 @@ const SPECIAL_META: Record<SpecialType, { label: string; description: string; ic
     description: 'Which team scores the most goals overall?',
     icon: <Zap size={18} />,
   },
+  player_of_tournament: {
+    label: 'Player of the Tournament',
+    description: 'Which player wins the Golden Ball?',
+    icon: <Award size={18} />,
+  },
+  young_player_of_tournament: {
+    label: 'Young Player of the Tournament',
+    description: 'Which U21 player wins the Best Young Player award?',
+    icon: <UserCheck size={18} />,
+  },
+  golden_glove: {
+    label: 'Golden Glove',
+    description: 'Which goalkeeper wins the best goalkeeper award?',
+    icon: <Handshake size={18} />,
+  },
 };
 
 const SPECIAL_POINTS: Record<SpecialType, number> = {
   tournament_winner: 20,
   golden_boot: 15,
   top_scoring_team: 10,
+  player_of_tournament: 15,
+  young_player_of_tournament: 10,
+  golden_glove: 10,
+};
+
+// Types where the pick is a squad player (not a team).
+const PLAYER_SPECIALS: ReadonlySet<SpecialType> = new Set<SpecialType>([
+  'golden_boot',
+  'player_of_tournament',
+  'young_player_of_tournament',
+  'golden_glove',
+]);
+
+// Position filter for the squad search (GK-only for Golden Glove).
+const SPECIAL_POSITION_FILTER: Partial<Record<SpecialType, string>> = {
+  golden_glove: 'GK',
 };
 
 // ---------------------------------------------------------------------------
@@ -148,7 +179,8 @@ function SpecialCard({
   ) => Promise<void>;
 }) {
   const meta = SPECIAL_META[ptype];
-  const isTeamPick = ptype !== 'golden_boot';
+  const isTeamPick = !PLAYER_SPECIALS.has(ptype);
+  const positionFilter = SPECIAL_POSITION_FILTER[ptype];
 
   const [teamId, setTeamId] = useState<string>(prediction?.predicted_team_id ?? '');
   // Golden Boot: track both the squad player id and display name
@@ -279,7 +311,8 @@ function SpecialCard({
               displayName={playerDisplayName}
               disabled={saveState === 'saving'}
               placeholder="Search for a player…"
-              aria-label="Golden Boot player"
+              aria-label={`${meta.label} player`}
+              position={positionFilter}
             />
           </div>
           <SaveButton
@@ -313,14 +346,21 @@ function ComparisonView({
   const teamMap = new Map(teams.map((t) => [t.id, t]));
 
   function pickLabel(pred: SpecialPredictionItem): string {
-    if (pred.prediction_type === 'golden_boot') {
+    if (PLAYER_SPECIALS.has(pred.prediction_type)) {
       return pred.predicted_player_name ?? '—';
     }
     const t = pred.predicted_team_id ? teamMap.get(pred.predicted_team_id) : null;
     return t ? `${t.flag_emoji} ${t.name}` : '—';
   }
 
-  const ptypes: SpecialType[] = ['tournament_winner', 'golden_boot', 'top_scoring_team'];
+  const ptypes: SpecialType[] = [
+    'tournament_winner',
+    'golden_boot',
+    'top_scoring_team',
+    'player_of_tournament',
+    'young_player_of_tournament',
+    'golden_glove',
+  ];
 
   return (
     <div className="mt-8">
@@ -390,7 +430,155 @@ function ComparisonView({
 // SpecialsPage
 // ---------------------------------------------------------------------------
 
-const ORDER: SpecialType[] = ['tournament_winner', 'golden_boot', 'top_scoring_team'];
+const ORDER: SpecialType[] = [
+  'tournament_winner',
+  'golden_boot',
+  'top_scoring_team',
+  'player_of_tournament',
+  'young_player_of_tournament',
+  'golden_glove',
+];
+
+// ---------------------------------------------------------------------------
+// Admin award panel (visible to admin role only, post-lock)
+// ---------------------------------------------------------------------------
+
+const TEAM_SPECIALS: ReadonlySet<SpecialType> = new Set<SpecialType>([
+  'tournament_winner',
+  'top_scoring_team',
+]);
+
+function AdminAwardPanel({ teams }: { teams: TeamOption[] }) {
+  const [awardingType, setAwardingType] = useState<SpecialType | null>(null);
+  const [winnerTeamId, setWinnerTeamId] = useState<string>('');
+  const [winnerPlayerId, setWinnerPlayerId] = useState<string>('');
+  const [winnerPlayerName, setWinnerPlayerName] = useState<string>('');
+  const queryClient = useQueryClient();
+
+  const awardMutation = useMutation({
+    mutationFn: ({
+      ptype,
+      teamId,
+      playerId,
+    }: {
+      ptype: SpecialType;
+      teamId: string | null;
+      playerId: string | null;
+    }) =>
+      apiFetch('/api/v1/admin/specials/award', {
+        method: 'POST',
+        body: JSON.stringify({
+          prediction_type: ptype,
+          winner_team_id: teamId ?? undefined,
+          winner_player_id: playerId ?? undefined,
+        }),
+      }),
+    onSuccess: (_data, vars) => {
+      toast.success(`${SPECIAL_META[vars.ptype].label} awarded!`);
+      queryClient.invalidateQueries({ queryKey: ['specials'] });
+      setAwardingType(null);
+      setWinnerTeamId('');
+      setWinnerPlayerId('');
+      setWinnerPlayerName('');
+    },
+    onError: () => {
+      toast.error('Award failed. Check the console.');
+    },
+  });
+
+  async function handleAward(ptype: SpecialType) {
+    const isTeam = TEAM_SPECIALS.has(ptype);
+    if (isTeam && !winnerTeamId) {
+      toast.error('Select a winning team first.');
+      return;
+    }
+    if (!isTeam && !winnerPlayerId) {
+      toast.error('Select a winning player first.');
+      return;
+    }
+    await awardMutation.mutateAsync({
+      ptype,
+      teamId: isTeam ? winnerTeamId : null,
+      playerId: isTeam ? null : winnerPlayerId,
+    });
+  }
+
+  return (
+    <div className="mt-10 border-t border-border pt-6">
+      <h2 className="font-sans font-semibold text-lg text-text-primary tracking-tight mb-1">Award Specials</h2>
+      <p className="text-text-muted text-sm font-sans mb-4">Admin only — award points at tournament end.</p>
+      <div className="flex flex-col gap-3">
+        {ORDER.map((ptype) => {
+          const isTeam = TEAM_SPECIALS.has(ptype);
+          const isActive = awardingType === ptype;
+          const positionFilter = SPECIAL_POSITION_FILTER[ptype];
+          return (
+            <div key={ptype} className="rounded-lg border border-border bg-surface p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-primary">{SPECIAL_META[ptype].icon}</span>
+                <span className="font-sans font-semibold text-sm text-text-primary">{SPECIAL_META[ptype].label}</span>
+                <Badge variant="muted" className="ml-auto">{SPECIAL_POINTS[ptype]} pts</Badge>
+              </div>
+              {isActive ? (
+                <div className="flex gap-2 items-end flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    {isTeam ? (
+                      <Select value={winnerTeamId} onValueChange={setWinnerTeamId} disabled={awardMutation.isPending}>
+                        <SelectTrigger aria-label={`Winning team for ${SPECIAL_META[ptype].label}`}>
+                          <SelectValue placeholder="— Select winning team —" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teams.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.flag_emoji} {t.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <PlayerCombobox
+                        value={winnerPlayerId}
+                        onChange={(id, name) => { setWinnerPlayerId(id); setWinnerPlayerName(name); }}
+                        displayName={winnerPlayerName}
+                        disabled={awardMutation.isPending}
+                        placeholder="Search for the winner…"
+                        aria-label={`Winner for ${SPECIAL_META[ptype].label}`}
+                        position={positionFilter}
+                      />
+                    )}
+                  </div>
+                  <SaveButton
+                    type="button"
+                    onClick={() => handleAward(ptype)}
+                    state={awardMutation.isPending ? 'saving' : 'idle'}
+                    idleLabel="Award"
+                    savedLabel="Awarded"
+                    className="whitespace-nowrap"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setAwardingType(null); setWinnerTeamId(''); setWinnerPlayerId(''); setWinnerPlayerName(''); }}
+                    className="text-sm text-text-muted underline"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setAwardingType(ptype); setWinnerTeamId(''); setWinnerPlayerId(''); setWinnerPlayerName(''); }}
+                  className="text-sm font-sans text-primary underline"
+                >
+                  Set winner & award
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function SpecialsPage() {
   const { player } = useAuth();
@@ -478,13 +666,13 @@ export function SpecialsPage() {
         eyebrow="Pre-tournament bonus"
         action={
           <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-elevated border border-border font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary tabular-nums">
-            {submittedCount}/3
+            {submittedCount}/{ORDER.length}
           </span>
         }
       />
       <PredictionsSubNav />
       <p className="text-text-secondary font-sans text-sm mb-5">
-        Pre-tournament bonus predictions. Worth up to 45 extra points.
+        Pre-tournament bonus predictions. Worth up to 80 extra points.
       </p>
 
       <LockBanner lockAt={mySpecials.lock_at} isLocked={mySpecials.is_locked} />
@@ -508,6 +696,10 @@ export function SpecialsPage() {
 
       {mySpecials.is_locked && allPicks && allPicks.length > 0 && (
         <ComparisonView allPicks={allPicks} teams={teams} timezone={timezone} />
+      )}
+
+      {player?.role === 'admin' && (
+        <AdminAwardPanel teams={teams} />
       )}
     </div>
   );
