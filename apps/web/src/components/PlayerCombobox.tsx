@@ -90,8 +90,13 @@ export function PlayerCombobox({
     setQuery('');
   }
 
+  function handleDismiss() {
+    setOpen(false);
+    setQuery('');
+  }
+
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={open} onOpenChange={(next) => { setOpen(next); if (!next) setQuery(''); }}>
       <Popover.Trigger asChild>
         <button
           ref={triggerRef}
@@ -129,6 +134,8 @@ export function PlayerCombobox({
           side="top"
           align="start"
           sideOffset={4}
+          onInteractOutside={handleDismiss}
+          onEscapeKeyDown={handleDismiss}
           className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-md border border-border bg-surface shadow-lg outline-none"
         >
           <Command shouldFilter={false}>
