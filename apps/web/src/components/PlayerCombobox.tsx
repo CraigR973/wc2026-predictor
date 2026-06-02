@@ -119,7 +119,7 @@ export function PlayerCombobox({
                 onValueChange={setQuery}
                 placeholder={placeholder}
                 autoFocus
-                className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
+                className="w-full bg-transparent text-base md:text-sm text-text-primary placeholder:text-text-muted outline-none"
                 aria-label="Search player name"
               />
             </div>
