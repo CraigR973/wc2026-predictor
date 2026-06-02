@@ -30,26 +30,24 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
   };
 
   return (
-    <Card className="hover:border-primary/40 transition-colors">
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base">
-            <Link to={`/leagues/${league.slug}`} className="hover:text-primary transition-colors">
+    <Link to={`/leagues/${league.slug}`} className="block group">
+      <Card className="hover:border-primary/40 transition-colors group-hover:border-primary/40">
+        <CardHeader className="pb-2">
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="text-base group-hover:text-primary transition-colors">
               {league.name}
-            </Link>
-          </CardTitle>
-          <Badge variant="muted" className="shrink-0 text-xs">
-            {privacyLabel[league.privacy]}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {league.description && (
-          <p className="text-sm text-text-secondary font-sans mb-3 line-clamp-2">
-            {league.description}
-          </p>
-        )}
-        <div className="flex items-center justify-between">
+            </CardTitle>
+            <Badge variant="muted" className="shrink-0 text-xs">
+              {privacyLabel[league.privacy]}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {league.description && (
+            <p className="text-sm text-text-secondary font-sans mb-3 line-clamp-2">
+              {league.description}
+            </p>
+          )}
           <div className="flex items-center gap-3 text-xs font-sans text-text-muted">
             <span>
               {league.member_count}
@@ -70,12 +68,9 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
               </>
             ) : null}
           </div>
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/leagues/${league.slug}`}>View</Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -92,6 +87,9 @@ export function MyLeaguesPage() {
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
             <Link to="/leagues/discover">Discover</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/leagues/join">Join</Link>
           </Button>
           <Button asChild size="sm">
             <Link to="/leagues/new">+ New</Link>
@@ -113,9 +111,12 @@ export function MyLeaguesPage() {
             <p className="text-text-secondary font-sans text-sm mb-4">
               You&apos;re not in any leagues yet.
             </p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center flex-wrap">
               <Button asChild size="sm">
                 <Link to="/leagues/new">Create league</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/leagues/join">Join by code</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
                 <Link to="/leagues/discover">Browse leagues</Link>

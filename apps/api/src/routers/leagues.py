@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth import CurrentPlayer
+from src.auth import CurrentPlayer, generate_join_code
 from src.database import get_db
 from src.models.league import League, LeaguePrivacy
 from src.models.league_join_request import JoinRequestStatus, LeagueJoinRequest
@@ -169,6 +169,7 @@ class LeagueResponse(BaseModel):
     member_count: int
     created_by: str
     created_at: datetime
+    join_code: str | None = None
 
 
 class LeagueSummaryResponse(BaseModel):
@@ -317,6 +318,7 @@ async def create_league(
         max_members=body.max_members,
         created_by=player.id,
         created_at=_now(),
+        join_code=generate_join_code(),
     )
     db.add(league)
     await db.flush()  # populate league.id before FK reference
@@ -354,6 +356,7 @@ async def create_league(
         member_count=1,
         created_by=str(league.created_by),
         created_at=league.created_at,
+        join_code=league.join_code,
     )
 
 
@@ -475,6 +478,43 @@ async def discover_leagues(
 
 
 # ---------------------------------------------------------------------------
+# GET /api/v1/leagues/by-code/{code}  — public, no auth required
+# ---------------------------------------------------------------------------
+
+
+class LeagueByCodeResponse(BaseModel):
+    name: str
+    member_count: int
+    max_members: int
+    privacy: str
+
+
+@router.get("/by-code/{code}", response_model=LeagueByCodeResponse)
+@limiter.limit("60/minute")
+async def get_league_by_code(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> LeagueByCodeResponse:
+    result = await db.execute(
+        select(League).where(
+            League.join_code == code.upper(),
+            League.deleted_at.is_(None),
+        )
+    )
+    league = result.scalar_one_or_none()
+    if league is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+    count = await _active_member_count(league.id, db)
+    return LeagueByCodeResponse(
+        name=league.name,
+        member_count=count,
+        max_members=league.max_members,
+        privacy=league.privacy.value,
+    )
+
+
+# ---------------------------------------------------------------------------
 # GET /api/v1/leagues/{slug}
 # ---------------------------------------------------------------------------
 
@@ -496,6 +536,7 @@ class LeagueDetailResponse(BaseModel):
     member_count: int
     created_by: str
     created_at: datetime
+    join_code: str | None = None
     members: list[MemberInfo] | None  # None when caller is not a member
 
 
@@ -554,6 +595,7 @@ async def get_league(
         member_count=member_count,
         created_by=str(league.created_by),
         created_at=league.created_at,
+        join_code=league.join_code if is_member else None,
         members=members_out,
     )
 
@@ -633,6 +675,7 @@ async def update_league(
         member_count=member_count,
         created_by=str(league.created_by),
         created_at=league.created_at,
+        join_code=league.join_code,
     )
 
 

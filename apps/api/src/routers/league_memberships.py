@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth import CurrentPlayer, generate_opaque_token, hash_pin
+from src.auth import CurrentPlayer, generate_join_code, generate_opaque_token, hash_pin
 from src.database import get_db
 from src.models.invite import Invite
 from src.models.league import League
@@ -95,6 +95,54 @@ async def claim_invite_authenticated(
     await db.commit()
     log.info("invite claimed", league_id=str(league.id), player_id=str(player.id))
     return ClaimInviteResponse(league_slug=league.slug, league_name=league.name)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/leagues/join-by-code
+# Authenticated player joins a league using its reusable join code.
+# Must be registered before /{slug} routes to avoid slug-capture.
+# ---------------------------------------------------------------------------
+
+
+class JoinByCodeBody(BaseModel):
+    code: str
+
+
+class JoinByCodeResponse(BaseModel):
+    league_slug: str
+    league_name: str
+
+
+@router.post("/join-by-code", response_model=JoinByCodeResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("20/hour", key_func=per_player_key)
+async def join_league_by_code(
+    request: Request,
+    body: JoinByCodeBody,
+    player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> JoinByCodeResponse:
+    result = await db.execute(
+        select(League).where(
+            League.join_code == body.code.upper(),
+            League.deleted_at.is_(None),
+        )
+    )
+    league = result.scalar_one_or_none()
+    if league is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid join code")
+
+    existing = await _resolve_active_membership(league.id, player.id, db)
+    if existing is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="ALREADY_MEMBER")
+
+    if await _active_member_count(league.id, db) >= league.max_members:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="LEAGUE_FULL")
+
+    await _upsert_membership(league.id, player.id, db)
+    db.add(_audit(player, ActionType.member_joined, "league_memberships", league.id))
+    await db.commit()
+    log.info("joined by code", league_id=str(league.id), player_id=str(player.id))
+    return JoinByCodeResponse(league_slug=league.slug, league_name=league.name)
 
 
 # ---------------------------------------------------------------------------
@@ -454,6 +502,37 @@ async def reset_member_pin(
     await db.commit()
     log.info("pin reset by league admin", target=str(target_player_id), league=slug)
     return LeagueResetPinResponse(temp_pin=str(temp_pin))
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/leagues/{slug}/join-code/rotate  — admin: regenerate join code
+# ---------------------------------------------------------------------------
+
+
+class RotateJoinCodeResponse(BaseModel):
+    join_code: str
+
+
+@router.post(
+    "/{slug}/join-code/rotate",
+    response_model=RotateJoinCodeResponse,
+    status_code=status.HTTP_200_OK,
+)
+@limiter.limit("10/hour", key_func=per_player_key)
+async def rotate_join_code(
+    request: Request,
+    slug: str,
+    admin_ctx: LeagueAdminDep,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> RotateJoinCodeResponse:
+    player, league = admin_ctx
+    new_code = generate_join_code()
+    league.join_code = new_code
+    league.updated_at = _now()
+    db.add(_audit(player, ActionType.league_join_code_rotated, "leagues", league.id))
+    await db.commit()
+    log.info("join code rotated", league_id=str(league.id))
+    return RotateJoinCodeResponse(join_code=new_code)
 
 
 # ---------------------------------------------------------------------------

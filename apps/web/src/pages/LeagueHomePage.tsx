@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { LeaderboardEntry, LeagueDetail } from '@/lib/types';
 import { dedupedLeaderboard } from '@/lib/leaderboard';
@@ -9,10 +10,28 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAccessToken } from '@/lib/tokens';
+
+const BASE = import.meta.env.VITE_API_URL ?? '';
+
+function buildShareMessage(leagueName: string, joinCode: string, origin: string): string {
+  return `Join my World Cup prediction league "${leagueName}"!\n\nCode: ${joinCode}\nLink: ${origin}/join/${joinCode}`;
+}
+
+async function shareOrCopy(text: string, url: string): Promise<void> {
+  if (navigator.share) {
+    await navigator.share({ text, url });
+  } else {
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+  }
+}
 
 export function LeagueHomePage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   const { player } = useAuth();
+  const queryClient = useQueryClient();
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [rotating, setRotating] = useState(false);
 
   const { data: league, isLoading: leagueLoading } = useQuery<LeagueDetail>({
     queryKey: ['league', slug],
@@ -30,6 +49,38 @@ export function LeagueHomePage() {
   const displayData = dedupedLeaderboard(leaderboard ?? [], slug);
   const myEntry = displayData.find((e) => e.player_id === player?.id);
 
+  async function handleShare() {
+    if (!league?.join_code) return;
+    const msg = buildShareMessage(league.name, league.join_code, window.location.origin);
+    const url = `${window.location.origin}/join/${league.join_code}`;
+    try {
+      await shareOrCopy(msg, url);
+      if (!navigator.share) {
+        setShareStatus('copied');
+        setTimeout(() => setShareStatus('idle'), 2000);
+      }
+    } catch {
+      setShareStatus('error');
+      setTimeout(() => setShareStatus('idle'), 2000);
+    }
+  }
+
+  async function handleRotate() {
+    if (!window.confirm('Generate a new join code? The old link will stop working.')) return;
+    setRotating(true);
+    try {
+      const resp = await fetch(`${BASE}/api/v1/leagues/${slug}/join-code/rotate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (resp.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['league', slug] });
+      }
+    } finally {
+      setRotating(false);
+    }
+  }
+
   if (leagueLoading) {
     return (
       <div className="space-y-4">
@@ -43,12 +94,17 @@ export function LeagueHomePage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <PageHeader title={league?.name ?? slug} />
+          <PageHeader title={league?.name ?? slug} back={{ to: '/leagues', label: 'Leagues' }} />
           {league?.description && (
             <p className="text-text-secondary font-sans text-sm mt-1">{league.description}</p>
           )}
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+          {league?.join_code && (
+            <Button size="sm" variant="default" onClick={handleShare}>
+              {shareStatus === 'copied' ? 'Copied!' : shareStatus === 'error' ? 'Error' : 'Invite'}
+            </Button>
+          )}
           <Button asChild size="sm" variant="outline">
             <Link to={`/leagues/${slug}/admin/members`}>Members</Link>
           </Button>
@@ -59,6 +115,16 @@ export function LeagueHomePage() {
               </Button>
               <Button asChild size="sm" variant="outline">
                 <Link to={`/leagues/${slug}/admin/settings`}>Settings</Link>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs text-text-muted"
+                onClick={handleRotate}
+                disabled={rotating}
+                title="Rotate join code"
+              >
+                {rotating ? '…' : '↻ Code'}
               </Button>
             </>
           )}

@@ -630,6 +630,7 @@ def test_action_type_values() -> None:
         "league_invite_created",
         "league_invite_revoked",
         "league_member_pin_reset",
+        "league_join_code_rotated",
     }
 
 

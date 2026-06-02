@@ -32,14 +32,19 @@ Public surface:
   the groups router, fetches kickoff times from football-data.org,
   persists 16 ``Match`` rows + one ``AuditLog`` entry per match.
 
-A future phase may extend this module with R32→R16, R16→QF, etc.
+Since U13 the full 32-match knockout bracket is seeded up front (see
+:mod:`src.seed`) and the per-round progression — R32 from final standings,
+then R16→Final from settled results — is resolved by the pure
+:mod:`src.services.knockout_progression` module. :func:`sync_knockout_bracket`
+below is the thin DB layer that loads state, calls that resolver, and writes
+resolved teams onto the seeded rows. ``advance_to_r32`` predates the seeded
+skeleton and is retained for backward compatibility.
 """
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import structlog
@@ -52,6 +57,14 @@ from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.team import Team, TournamentStage
 from src.routers.groups import TeamStanding, _compute_standings
 from src.services.football_data import FDMatch
+from src.services.knockout_progression import (
+    BRACKET_R32,
+    R32_FIRST_MATCH_NUMBER,
+    MatchOutcome,
+    assign_r32_slots,
+    rank_third_place_teams,
+    resolve_bracket,
+)
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -59,38 +72,6 @@ log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Bracket constants
 # ---------------------------------------------------------------------------
-
-_GROUP_LETTERS = tuple("ABCDEFGHIJKL")  # A..L
-
-# 16 R32 pairings — every slot label appears exactly once across the 32
-# entries. The pairing strategy is "winner-heavy bracket":
-#   * each group winner (1A..1L) opens the round,
-#   * the first 8 winners face the 8 best third-placed teams (T1..T8),
-#   * the remaining 4 winners face four runners-up,
-#   * the other 8 runners-up are paired among themselves.
-# This avoids any winner-vs-winner first-round collision.
-BRACKET_R32: list[tuple[str, str]] = [
-    ("1A", "T1"),
-    ("1B", "T2"),
-    ("1C", "T3"),
-    ("1D", "T4"),
-    ("1E", "T5"),
-    ("1F", "T6"),
-    ("1G", "T7"),
-    ("1H", "T8"),
-    ("1I", "2A"),
-    ("1J", "2B"),
-    ("1K", "2C"),
-    ("1L", "2D"),
-    ("2E", "2F"),
-    ("2G", "2H"),
-    ("2I", "2J"),
-    ("2K", "2L"),
-]
-
-# Match numbers reserved for R32 in the seed plan (after the 72 group
-# matches). Matches are written in BRACKET_R32 order.
-_R32_FIRST_MATCH_NUMBER = 73
 
 # football-data.org may report Round of 32 under several labels depending on
 # competition layout (48-team tournament had no official label before 2026).
@@ -103,67 +84,11 @@ _FD_R32_STAGE_LABELS = frozenset(
     }
 )
 
-
-# ---------------------------------------------------------------------------
-# Pure functions
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _ThirdPlace:
-    """Lightweight view of a third-placed team for cross-group ranking."""
-
-    group: str
-    standing: TeamStanding
-
-
-def rank_third_place_teams(
-    group_standings: dict[str, list[TeamStanding]],
-) -> list[TeamStanding]:
-    """Return the top eight third-placed teams across all twelve groups.
-
-    Ranking applies FIFA tiebreakers in order: points → goal difference →
-    goals for → team code (deterministic last-resort).
-    """
-    thirds: list[_ThirdPlace] = []
-    for group_name, standings in group_standings.items():
-        if len(standings) < 3:
-            continue
-        thirds.append(_ThirdPlace(group=group_name, standing=standings[2]))
-
-    def _key(t: _ThirdPlace) -> tuple[int, int, int, str]:
-        s = t.standing
-        return (-s.points, -s.gd, -s.gf, s.team_code)
-
-    thirds.sort(key=_key)
-    return [t.standing for t in thirds[:8]]
-
-
-def assign_r32_slots(
-    group_standings: dict[str, list[TeamStanding]],
-    third_place_ranked: list[TeamStanding],
-) -> dict[str, TeamStanding]:
-    """Build a slot-label → standing map covering all 32 advancing teams.
-
-    Raises ``ValueError`` if any expected slot is unfillable — meaning
-    either a group has fewer than two finished standings or fewer than
-    eight third-placed teams were supplied.
-    """
-    if len(third_place_ranked) < 8:
-        raise ValueError(f"Expected 8 ranked third-place teams; got {len(third_place_ranked)}")
-
-    out: dict[str, TeamStanding] = {}
-    for letter in _GROUP_LETTERS:
-        standings = group_standings.get(letter)
-        if standings is None or len(standings) < 2:
-            raise ValueError(f"Group {letter} missing 1st/2nd-place standings")
-        out[f"1{letter}"] = standings[0]
-        out[f"2{letter}"] = standings[1]
-
-    for idx, standing in enumerate(third_place_ranked[:8], start=1):
-        out[f"T{idx}"] = standing
-
-    return out
+# The R32 bracket template (``BRACKET_R32``), the third-place ranking
+# (``rank_third_place_teams``) and the slot assignment (``assign_r32_slots``)
+# now live in :mod:`src.services.knockout_progression` and are imported above.
+# They remain importable from this module for backward compatibility with
+# Phase 7.1 callers and tests.
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +230,7 @@ async def advance_to_r32(
         match = Match(
             stage=TournamentStage.r32,
             group_id=None,
-            match_number=_R32_FIRST_MATCH_NUMBER + idx,
+            match_number=R32_FIRST_MATCH_NUMBER + idx,
             home_team_id=home_team.id,
             away_team_id=away_team.id,
             home_team_placeholder=home_slot,
@@ -351,3 +276,76 @@ async def advance_to_r32(
         first_kickoff=created[0].kickoff_utc.isoformat(),
     )
     return created
+
+
+# ---------------------------------------------------------------------------
+# Seeded-skeleton resolution (U13)
+# ---------------------------------------------------------------------------
+
+
+async def _load_ko_outcomes(db: AsyncSession) -> dict[int, MatchOutcome]:
+    """Map ``match_number`` → :class:`MatchOutcome` for completed KO matches."""
+    rows = await db.execute(
+        select(Match).where(
+            Match.stage != TournamentStage.group,
+            Match.status == MatchStatus.completed,
+            Match.deleted_at.is_(None),
+        )
+    )
+    outcomes: dict[int, MatchOutcome] = {}
+    for m in rows.scalars().all():
+        outcomes[m.match_number] = MatchOutcome(
+            home_team_id=m.home_team_id,
+            away_team_id=m.away_team_id,
+            home_score=m.actual_home_score,
+            away_score=m.actual_away_score,
+            penalty_winner_id=m.penalty_winner_id,
+        )
+    return outcomes
+
+
+async def sync_knockout_bracket(db: AsyncSession) -> int:
+    """Resolve seeded knockout placeholders into real teams and persist them.
+
+    Loads the current group standings and every settled knockout result, runs
+    the pure :func:`resolve_bracket`, and writes any newly-known home/away team
+    ids back onto the pre-seeded knockout match rows. Returns the number of
+    rows updated.
+
+    Idempotent and monotonic: a slot is only ever filled (never cleared) and is
+    re-written only when the resolved team differs from the stored one, so
+    re-running with unchanged state is a no-op. Safe to call after any result
+    settles — group results resolve the R32, knockout results cascade to the
+    next round.
+    """
+    group_standings = await _load_group_standings(db)
+    outcomes = await _load_ko_outcomes(db)
+    resolved = resolve_bracket(group_standings, outcomes)
+
+    rows = await db.execute(
+        select(Match).where(
+            Match.stage != TournamentStage.group,
+            Match.deleted_at.is_(None),
+        )
+    )
+    matches_by_number = {m.match_number: m for m in rows.scalars().all()}
+
+    updated = 0
+    for match_number, slots in resolved.items():
+        match = matches_by_number.get(match_number)
+        if match is None:
+            continue
+        changed = False
+        if slots.home_team_id is not None and match.home_team_id != slots.home_team_id:
+            match.home_team_id = slots.home_team_id
+            changed = True
+        if slots.away_team_id is not None and match.away_team_id != slots.away_team_id:
+            match.away_team_id = slots.away_team_id
+            changed = True
+        if changed:
+            updated += 1
+
+    if updated:
+        await db.commit()
+        log.info("knockout bracket resolved", rows_updated=updated)
+    return updated

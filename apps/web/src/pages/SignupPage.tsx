@@ -50,8 +50,8 @@ export function SignupPage() {
     e.preventDefault();
     setError('');
 
-    if (pin.length < 4 || pin.length > 8) {
-      setError('PIN must be 4–8 digits.');
+    if (pin.length !== 4) {
+      setError('PIN must be exactly 4 digits.');
       return;
     }
     if (pin !== pinConfirm) {
@@ -150,13 +150,13 @@ export function SignupPage() {
               </div>
 
               <div className="space-y-1">
-                <Label>Choose a PIN (4–8 digits)</Label>
-                <PinInput value={pin} onChange={setPin} maxLength={8} autoComplete="new-password" />
+                <Label>Choose a 4-digit PIN</Label>
+                <PinInput value={pin} onChange={setPin} maxLength={4} autoComplete="new-password" />
               </div>
 
               <div className="space-y-1">
                 <Label>Confirm PIN</Label>
-                <PinInput value={pinConfirm} onChange={setPinConfirm} maxLength={8} autoComplete="new-password" label="Confirm PIN" />
+                <PinInput value={pinConfirm} onChange={setPinConfirm} maxLength={4} autoComplete="new-password" label="Confirm PIN" />
               </div>
 
               {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}

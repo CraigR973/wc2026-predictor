@@ -13,7 +13,7 @@ import { blockSupabase } from './helpers';
 
 const API_URL = 'http://localhost:8000';
 const PLAYER_NAME = 'SmokePlayer';
-const PLAYER_PIN = '22222222';
+const PLAYER_PIN = '2222';
 // The seed makes the admin an admin of the default Steele league; M5 moved
 // invite creation under /leagues/{slug}/.
 const LEAGUE_SLUG = 'steele-spreadsheet';

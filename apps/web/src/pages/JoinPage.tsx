@@ -34,14 +34,32 @@ const TIMEZONES = [
 
 type InviteState = 'loading' | 'valid' | 'error';
 
+// A join code is exactly 6 uppercase alphanumeric chars.
+// Invite tokens from generate_opaque_token() are 43-char base64url strings.
+// The length difference makes them trivially distinguishable.
+const JOIN_CODE_RE = /^[A-Z0-9]{6}$/;
+function isJoinCode(token: string): boolean {
+  return JOIN_CODE_RE.test(token.toUpperCase());
+}
+
+interface LeaguePreview {
+  name: string;
+  member_count: number;
+  max_members: number;
+  privacy: string;
+}
+
 export function JoinPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { player } = useAuth();
 
+  const useCode = !!token && isJoinCode(token);
+
   const [inviteState, setInviteState] = useState<InviteState>('loading');
   const [inviteError, setInviteError] = useState('');
   const [leagueHint, setLeagueHint] = useState('');
+  const [leaguePreview, setLeaguePreview] = useState<LeaguePreview | null>(null);
 
   // Unauthenticated create-account form state
   const [displayName, setDisplayName] = useState('');
@@ -59,6 +77,27 @@ export function JoinPage() {
       setInviteError('No invite token provided.');
       return;
     }
+
+    if (useCode) {
+      // Join-by-code path: look up league preview (public endpoint, no auth needed)
+      fetch(`${BASE}/api/v1/leagues/by-code/${encodeURIComponent(token.toUpperCase())}`)
+        .then(async (r) => {
+          if (!r.ok) throw new Error('Invalid join code');
+          return r.json() as Promise<LeaguePreview>;
+        })
+        .then((data) => {
+          setLeaguePreview(data);
+          setLeagueHint(data.name);
+          setInviteState('valid');
+        })
+        .catch(() => {
+          setInviteState('error');
+          setInviteError('This join code is invalid or the league no longer exists.');
+        });
+      return;
+    }
+
+    // Original invite-token path
     fetch(`${BASE}/api/v1/auth/invite/${token}`)
       .then(async (r) => {
         if (!r.ok) {
@@ -75,20 +114,36 @@ export function JoinPage() {
         setInviteState('error');
         setInviteError(err.message);
       });
-  }, [token]);
+  }, [token, useCode]);
 
-  // Authenticated path — claim the invite directly
+  // Authenticated path — join by code or claim single-use invite
   async function handleAuthenticatedClaim() {
     setError('');
     setIsSubmitting(true);
     try {
       const accessToken = getAccessToken();
+
+      if (useCode) {
+        const resp = await fetch(`${BASE}/api/v1/leagues/join-by-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ code: token!.toUpperCase() }),
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          const detail = body.detail ?? 'Failed to join league';
+          if (detail === 'ALREADY_MEMBER') throw new Error('You are already a member of this league.');
+          if (detail === 'LEAGUE_FULL') throw new Error('This league is full.');
+          throw new Error(detail);
+        }
+        const data = await resp.json() as { league_slug: string; league_name: string };
+        navigate(`/leagues/${data.league_slug}`, { replace: true });
+        return;
+      }
+
       const resp = await fetch(`${BASE}/api/v1/leagues/claim-invite`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ token }),
       });
       if (!resp.ok) {
@@ -107,7 +162,7 @@ export function JoinPage() {
     }
   }
 
-  // Unauthenticated path — create account via invite
+  // Unauthenticated path — create account then join
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -123,15 +178,15 @@ export function JoinPage() {
 
     setIsSubmitting(true);
     try {
-      const resp = await fetch(`${BASE}/api/v1/auth/join`, {
+      const endpoint = useCode ? `${BASE}/api/v1/auth/join-by-code` : `${BASE}/api/v1/auth/join`;
+      const payload = useCode
+        ? { code: token!.toUpperCase(), display_name: displayName.trim(), pin, timezone }
+        : { token, display_name: displayName.trim(), pin, timezone };
+
+      const resp = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          display_name: displayName.trim(),
-          pin,
-          timezone,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
@@ -180,12 +235,18 @@ export function JoinPage() {
         {inviteState === 'valid' && player && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-center text-text-primary">Join the league</CardTitle>
+              <CardTitle className="text-center text-text-primary">
+                {leagueHint ? `Join ${leagueHint}?` : 'Join the league'}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {leaguePreview && (
+                <p className="text-sm text-text-muted font-sans text-center">
+                  {leaguePreview.member_count} / {leaguePreview.max_members} members
+                </p>
+              )}
               <p className="text-sm text-text-secondary font-sans text-center">
                 You&apos;re signed in as <strong>{player.displayName}</strong>.
-                {leagueHint && ` Click below to join ${leagueHint}.`}
               </p>
               {error && <p role="alert" className="text-xs text-error font-sans">{error}</p>}
               <Button className="w-full" onClick={handleAuthenticatedClaim} disabled={isSubmitting}>

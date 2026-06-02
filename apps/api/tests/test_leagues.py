@@ -83,6 +83,7 @@ def _make_league(
     lg.created_by = uuid.uuid4()
     lg.created_at = _now()
     lg.updated_at = _now()
+    lg.join_code = "ABCDE2"
     lg.deleted_at = _now() if deleted else None
     return lg
 

@@ -32,8 +32,17 @@ const STATUS_VARIANT: Record<MatchResponse['status'], StatusVariant> = {
   cancelled: 'error',
 };
 
-function MatchCard({ match, timezone }: { match: MatchResponse; timezone: string }) {
+function MatchCard({
+  match,
+  timezone,
+  showDate = false,
+}: {
+  match: MatchResponse;
+  timezone: string;
+  showDate?: boolean;
+}) {
   const kickoffLocal = formatInTimeZone(new Date(match.kickoff_utc), timezone, 'HH:mm');
+  const kickoffDate = formatInTimeZone(new Date(match.kickoff_utc), timezone, 'd MMM');
 
   const homeLabel = match.home_team
     ? `${match.home_team.flag_emoji} ${match.home_team.code}`
@@ -63,6 +72,11 @@ function MatchCard({ match, timezone }: { match: MatchResponse; timezone: string
       )}
     >
       <div className="w-12 text-center shrink-0">
+        {showDate && (
+          <p className="text-[10px] font-mono text-text-muted tabular-nums leading-tight">
+            {kickoffDate}
+          </p>
+        )}
         <p className="text-sm font-mono text-text-primary font-medium tabular-nums tracking-tight">
           {kickoffLocal}
         </p>
@@ -126,25 +140,32 @@ function MatchCard({ match, timezone }: { match: MatchResponse; timezone: string
   );
 }
 
-function DateSection({
-  dateLabel,
+function ScheduleSection({
+  label,
   matches,
   timezone,
+  isRound = false,
 }: {
-  dateLabel: string;
+  label: string;
   matches: MatchResponse[];
   timezone: string;
+  isRound?: boolean;
 }) {
   return (
     <section>
       <div className="sticky top-14 z-10 -mx-4 sm:-mx-0 px-4 sm:px-0 py-2 bg-surface-elevated/95 backdrop-blur-sm mb-2 first:pt-0">
-        <h2 className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em]">
-          {dateLabel}
+        <h2
+          className={cn(
+            'text-[10px] font-mono uppercase tracking-[0.25em]',
+            isRound ? 'text-primary' : 'text-text-muted',
+          )}
+        >
+          {label}
         </h2>
       </div>
       <div className="flex flex-col gap-2">
         {matches.map((m) => (
-          <MatchCard key={m.id} match={m} timezone={timezone} />
+          <MatchCard key={m.id} match={m} timezone={timezone} showDate={isRound} />
         ))}
       </div>
     </section>
@@ -161,6 +182,17 @@ const STAGES = [
   { value: 'third_place', label: '3rd place' },
   { value: 'final', label: 'Final' },
 ];
+
+// Knockout matches are grouped under a round heading instead of a date — a
+// round spans several days, so the per-match date is shown on each card.
+const ROUND_LABELS: Record<string, string> = {
+  r32: 'Round of 32',
+  r16: 'Round of 16',
+  qf: 'Quarter-Finals',
+  sf: 'Semi-Finals',
+  third_place: 'Third-Place Play-off',
+  final: 'Final',
+};
 
 function StageFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -202,12 +234,18 @@ export function SchedulePage() {
 
   const matches = data ?? [];
 
-  const byDate = new Map<string, MatchResponse[]>();
+  // Group-stage matches are bucketed by date; knockout matches by round.
+  // The API returns matches in kickoff order, so group dates appear first and
+  // knockout rounds follow in bracket order (R32 → … → Final).
+  const sections = new Map<string, { matches: MatchResponse[]; isRound: boolean }>();
   for (const m of matches) {
-    const dateKey = formatInTimeZone(new Date(m.kickoff_utc), timezone, 'EEE d MMM yyyy');
-    const bucket = byDate.get(dateKey) ?? [];
-    bucket.push(m);
-    byDate.set(dateKey, bucket);
+    const isRound = m.stage !== 'group';
+    const key = isRound
+      ? (ROUND_LABELS[m.stage] ?? m.stage)
+      : formatInTimeZone(new Date(m.kickoff_utc), timezone, 'EEE d MMM yyyy');
+    const bucket = sections.get(key) ?? { matches: [], isRound };
+    bucket.matches.push(m);
+    sections.set(key, bucket);
   }
 
   return (
@@ -241,7 +279,7 @@ export function SchedulePage() {
         />
       )}
 
-      {!isLoading && !error && byDate.size === 0 && (
+      {!isLoading && !error && sections.size === 0 && (
         <EmptyState
           title="No matches found"
           description={
@@ -253,12 +291,13 @@ export function SchedulePage() {
       )}
 
       <div className="flex flex-col gap-6">
-        {Array.from(byDate.entries()).map(([dateLabel, dayMatches]) => (
-          <DateSection
-            key={dateLabel}
-            dateLabel={dateLabel}
-            matches={dayMatches}
+        {Array.from(sections.entries()).map(([label, { matches: sectionMatches, isRound }]) => (
+          <ScheduleSection
+            key={label}
+            label={label}
+            matches={sectionMatches}
             timezone={timezone}
+            isRound={isRound}
           />
         ))}
       </div>

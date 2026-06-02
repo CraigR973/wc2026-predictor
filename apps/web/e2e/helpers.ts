@@ -45,6 +45,9 @@ export async function seedAuth(
       localStorage.setItem('wc2026_access', jwt);
       localStorage.setItem('wc2026_refresh', refresh);
       localStorage.setItem('wc2026_player', JSON.stringify(p));
+      // Suppress first-run modals (intro tour + notifications prompt) in E2E tests
+      localStorage.setItem('sss_tour_seen', '1');
+      localStorage.setItem('sss_notif_prompt_seen', '1');
     },
     { jwt: FAKE_JWT, refresh: FAKE_REFRESH, p: player },
   );

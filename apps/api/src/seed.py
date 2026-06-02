@@ -19,6 +19,11 @@ from typing import Any
 from sqlalchemy import text
 
 from src.database import AsyncSessionLocal
+from src.services.knockout_progression import (
+    KNOCKOUT_BRACKET,
+    placeholder_label,
+    stage_for_match_number,
+)
 
 GROUPS = list("ABCDEFGHIJKL")
 
@@ -729,6 +734,76 @@ MATCHES: list[dict[str, Any]] = [
 ]
 
 
+# 32 knockout matches (73–104). Teams are TBD — each slot's source ref lives in
+# KNOCKOUT_BRACKET (src.services.knockout_progression) and is resolved into a
+# real team as the tournament progresses. Only the kickoff + venue are fixed in
+# advance; both are real 2026 venues within FIFA's published KO date windows.
+# match_number → (kickoff_utc, venue)
+KNOCKOUT_SCHEDULE: dict[int, tuple[datetime, str]] = {
+    # ---- Round of 32 (28 Jun – 3 Jul) ----
+    73: (datetime(2026, 6, 28, 19, 0), "Estadio Azteca, Mexico City"),
+    74: (datetime(2026, 6, 28, 22, 0), "SoFi Stadium, Inglewood"),
+    75: (datetime(2026, 6, 29, 1, 0), "Levi's Stadium, Santa Clara"),
+    76: (datetime(2026, 6, 29, 19, 0), "AT&T Stadium, Arlington"),
+    77: (datetime(2026, 6, 29, 22, 0), "NRG Stadium, Houston"),
+    78: (datetime(2026, 6, 30, 1, 0), "Lumen Field, Seattle"),
+    79: (datetime(2026, 6, 30, 19, 0), "MetLife Stadium, East Rutherford"),
+    80: (datetime(2026, 6, 30, 23, 0), "Mercedes-Benz Stadium, Atlanta"),
+    81: (datetime(2026, 7, 1, 18, 0), "Gillette Stadium, Foxborough"),
+    82: (datetime(2026, 7, 1, 21, 0), "BMO Field, Toronto"),
+    83: (datetime(2026, 7, 2, 0, 0), "BC Place, Vancouver"),
+    84: (datetime(2026, 7, 2, 18, 0), "Lincoln Financial Field, Philadelphia"),
+    85: (datetime(2026, 7, 2, 21, 0), "Hard Rock Stadium, Miami Gardens"),
+    86: (datetime(2026, 7, 3, 1, 0), "Estadio BBVA, Guadalupe"),
+    87: (datetime(2026, 7, 3, 19, 0), "Arrowhead Stadium, Kansas City"),
+    88: (datetime(2026, 7, 3, 23, 0), "Estadio Akron, Guadalajara"),
+    # ---- Round of 16 (4 Jul – 7 Jul) ----
+    89: (datetime(2026, 7, 4, 18, 0), "MetLife Stadium, East Rutherford"),
+    90: (datetime(2026, 7, 4, 22, 0), "AT&T Stadium, Arlington"),
+    91: (datetime(2026, 7, 5, 18, 0), "Mercedes-Benz Stadium, Atlanta"),
+    92: (datetime(2026, 7, 5, 22, 0), "SoFi Stadium, Inglewood"),
+    93: (datetime(2026, 7, 6, 18, 0), "NRG Stadium, Houston"),
+    94: (datetime(2026, 7, 6, 22, 0), "Levi's Stadium, Santa Clara"),
+    95: (datetime(2026, 7, 7, 18, 0), "Gillette Stadium, Foxborough"),
+    96: (datetime(2026, 7, 7, 22, 0), "Lumen Field, Seattle"),
+    # ---- Quarter-Finals (9 Jul – 11 Jul) ----
+    97: (datetime(2026, 7, 9, 22, 0), "AT&T Stadium, Arlington"),
+    98: (datetime(2026, 7, 10, 22, 0), "Mercedes-Benz Stadium, Atlanta"),
+    99: (datetime(2026, 7, 11, 18, 0), "SoFi Stadium, Inglewood"),
+    100: (datetime(2026, 7, 11, 22, 0), "Hard Rock Stadium, Miami Gardens"),
+    # ---- Semi-Finals (14 Jul – 15 Jul) ----
+    101: (datetime(2026, 7, 14, 23, 0), "AT&T Stadium, Arlington"),
+    102: (datetime(2026, 7, 15, 23, 0), "Mercedes-Benz Stadium, Atlanta"),
+    # ---- Third-Place Play-off (18 Jul) ----
+    103: (datetime(2026, 7, 18, 19, 0), "Hard Rock Stadium, Miami Gardens"),
+    # ---- Final (19 Jul) ----
+    104: (datetime(2026, 7, 19, 19, 0), "MetLife Stadium, East Rutherford"),
+}
+
+
+def _knockout_match_rows() -> list[dict[str, Any]]:
+    """Build the 32 knockout seed rows from the canonical bracket + schedule."""
+    rows: list[dict[str, Any]] = []
+    for match_number, (home_source, away_source) in sorted(KNOCKOUT_BRACKET.items()):
+        kickoff_utc, venue = KNOCKOUT_SCHEDULE[match_number]
+        rows.append(
+            {
+                "match_number": match_number,
+                "stage": stage_for_match_number(match_number).value,
+                "home_source": home_source,
+                "away_source": away_source,
+                "home_placeholder": placeholder_label(home_source),
+                "away_placeholder": placeholder_label(away_source),
+                "kickoff_utc": kickoff_utc,
+                "venue": venue,
+            }
+        )
+    return rows
+
+
+KNOCKOUT_MATCHES: list[dict[str, Any]] = _knockout_match_rows()
+
+
 async def seed() -> None:
     async with AsyncSessionLocal() as session:
         # --- Groups (idempotent by name) ---
@@ -803,9 +878,45 @@ async def seed() -> None:
                     },
                 )
 
+        # --- Knockout matches (idempotent by match_number) ---
+        # Teams are TBD; only the positional source refs + display placeholders
+        # + kickoff/venue are seeded. home_team_id / away_team_id stay NULL until
+        # knockout_progression resolves them.
+        for km in KNOCKOUT_MATCHES:
+            exists = (
+                await session.execute(
+                    text("SELECT 1 FROM matches WHERE match_number = :mn"),
+                    {"mn": km["match_number"]},
+                )
+            ).first()
+            if not exists:
+                await session.execute(
+                    text(
+                        "INSERT INTO matches "
+                        "(id, stage, match_number, kickoff_utc, venue, status, "
+                        " home_source, away_source, home_team_placeholder, away_team_placeholder) "
+                        "VALUES (:id, CAST(:stage AS tournament_stage), :match_number, "
+                        "        :kickoff_utc, :venue, 'scheduled', :home_source, :away_source, "
+                        "        :home_placeholder, :away_placeholder)"
+                    ),
+                    {
+                        "id": uuid.uuid4(),
+                        "stage": km["stage"],
+                        "match_number": km["match_number"],
+                        "kickoff_utc": km["kickoff_utc"],
+                        "venue": km["venue"],
+                        "home_source": km["home_source"],
+                        "away_source": km["away_source"],
+                        "home_placeholder": km["home_placeholder"],
+                        "away_placeholder": km["away_placeholder"],
+                    },
+                )
+
         await session.commit()
         print(
-            f"Seeded {len(GROUPS)} groups, {len(TEAMS)} teams, {len(MATCHES)} group stage matches."
+            f"Seeded {len(GROUPS)} groups, {len(TEAMS)} teams, "
+            f"{len(MATCHES)} group stage + {len(KNOCKOUT_MATCHES)} knockout matches "
+            f"({len(MATCHES) + len(KNOCKOUT_MATCHES)} total)."
         )
 
 

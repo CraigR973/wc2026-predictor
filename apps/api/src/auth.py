@@ -82,6 +82,14 @@ def generate_opaque_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+_JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no I, O, 0, 1
+
+
+def generate_join_code() -> str:
+    """6-character human-typable league join code (unambiguous alphabet)."""
+    return "".join(secrets.choice(_JOIN_CODE_ALPHABET) for _ in range(6))
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.jwt_access_secret, algorithms=["HS256"])
