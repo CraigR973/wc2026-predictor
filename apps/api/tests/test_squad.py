@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src.auth import get_current_player, require_admin
 from src.database import get_db
 from src.main import app
 from src.models.prediction import SpecialPrediction, SpecialPredictionType
@@ -102,8 +103,6 @@ def _stub_db(execute_results: list) -> AsyncMock:
 
 @asynccontextmanager
 async def _override(mock_db: AsyncMock, player: Profile) -> AsyncGenerator[None, None]:
-    from src.auth import get_current_player, require_admin
-
     app.dependency_overrides[get_db] = lambda: mock_db
     app.dependency_overrides[get_current_player] = lambda: player
     app.dependency_overrides[require_admin] = lambda: player
@@ -253,8 +252,6 @@ async def test_put_golden_boot_with_player_id_stores_resolved_name() -> None:
 
     mock_db.refresh = AsyncMock(side_effect=_refresh)
 
-    from src.auth import get_current_player
-
     async with _override(mock_db, player):
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
@@ -276,8 +273,6 @@ async def test_put_golden_boot_without_player_id_rejects() -> None:
     player = _make_player()
     match = _make_match(locked=False)
     mock_db = _stub_db([_scalar_one(match)])
-
-    from src.auth import get_current_player
 
     async with _override(mock_db, player):
         async with AsyncClient(

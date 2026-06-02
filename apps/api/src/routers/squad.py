@@ -6,7 +6,7 @@ Public (no auth required) — same precedent as GET /leagues/by-code/{code}.
 Rate-limited to 120/minute per IP.
 """
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import case, func, or_, select
@@ -33,7 +33,7 @@ async def search_squad(
     db: Annotated[AsyncSession, Depends(get_db)],
     q: str = Query(default="", max_length=100),
     limit: int = Query(default=20, ge=1, le=_MAX_LIMIT),
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Case-insensitive substring search across full_name and known_as.
 
     Returns players ranked: exact known_as prefix first, then full_name prefix,

@@ -5,6 +5,7 @@
 
 import json
 import pathlib
+from typing import Any
 
 # fmt: off
 # Each team: list of (full_name, known_as, position, shirt_number|None)
@@ -1384,7 +1385,7 @@ SQUADS: dict[str, list[tuple[str, str, str, int | None]]] = {
 # fmt: on
 
 
-def build_records() -> list[dict]:
+def build_records() -> list[dict[str, Any]]:
     records = []
     for team_code, players in SQUADS.items():
         seen_numbers: set[int | None] = set()

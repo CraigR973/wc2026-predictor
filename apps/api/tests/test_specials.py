@@ -412,8 +412,9 @@ async def test_award_specials_tournament_winner() -> None:
 @pytest.mark.asyncio
 async def test_award_specials_golden_boot_by_id() -> None:
     """Awards 15 pts for golden boot using winner_player_id (id-match, U14.5)."""
-    from src.models.squad import SquadPlayer, SquadPosition
     from unittest.mock import MagicMock
+
+    from src.models.squad import SquadPlayer
 
     admin = _make_admin()
     winner_id = uuid.uuid4()

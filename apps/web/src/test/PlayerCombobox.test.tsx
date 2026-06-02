@@ -1,68 +1,88 @@
 /**
  * U14.6 — PlayerCombobox unit tests
  *
- * @radix-ui/react-popover uses portal + animation APIs that don't exist in
- * jsdom, so we mock it to render children inline. The cmdk Command/Input/List
- * components work fine in jsdom.
+ * @radix-ui/react-popover uses portal + animation APIs unavailable in jsdom,
+ * so we mock it via an async vi.mock factory (Vitest ESM-safe pattern).
+ * The cmdk Command/Input/List components work fine in jsdom.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { HTMLAttributes, PropsWithChildren, ReactNode, ReactElement, Ref } from 'react';
 import { PlayerCombobox } from '@/components/PlayerCombobox';
 import * as api from '@/lib/api';
 
 // ---------------------------------------------------------------------------
-// Mock @radix-ui/react-popover — render children inline in jsdom
+// Mock @radix-ui/react-popover — renders children inline without portals
 // ---------------------------------------------------------------------------
-vi.mock('@radix-ui/react-popover', () => {
-  const { useState, forwardRef } = require('react');
-  const Root = ({ children, open: controlledOpen, onOpenChange }: any) => {
-    const [internalOpen, setInternalOpen] = useState(false);
-    const open = controlledOpen ?? internalOpen;
-    const handleOpenChange = (v: boolean) => {
-      setInternalOpen(v);
-      onOpenChange?.(v);
-    };
-    return children({ open, onOpenChange: handleOpenChange });
-  };
-  // Trigger: passes open/onOpenChange down via render prop approach won't work
-  // with the actual JSX. Use Context instead.
-  const PopoverContext = require('react').createContext<any>({});
-  const ActualRoot = ({ children, open: controlledOpen, onOpenChange }: any) => {
-    const [internalOpen, setInternalOpen] = useState(false);
-    const open = controlledOpen ?? internalOpen;
+vi.mock('@radix-ui/react-popover', async () => {
+  const React = await import('react');
+
+  interface CtxValue {
+    open: boolean;
+    setOpen: (v: boolean) => void;
+  }
+  const Ctx = React.createContext<CtxValue>({ open: false, setOpen: () => {} });
+
+  function Root({
+    children,
+    open: ctrl,
+    onOpenChange,
+  }: PropsWithChildren<{ open?: boolean; onOpenChange?: (v: boolean) => void }>) {
+    const [local, setLocal] = React.useState(false);
+    const open = ctrl ?? local;
     const setOpen = (v: boolean) => {
-      setInternalOpen(v);
+      setLocal(v);
       onOpenChange?.(v);
     };
-    return (
-      <PopoverContext.Provider value={{ open, setOpen }}>
-        {children}
-      </PopoverContext.Provider>
-    );
-  };
-  const Trigger = forwardRef(({ children, asChild, ...rest }: any, ref: any) => {
-    const { setOpen, open } = require('react').useContext(PopoverContext);
-    const child = asChild ? children : <button {...rest} ref={ref}>{children}</button>;
-    if (asChild) {
-      return require('react').cloneElement(children, {
-        onClick: (e: any) => {
-          children.props.onClick?.(e);
-          setOpen(!open);
-        },
-        ref,
-      });
-    }
-    return <button {...rest} ref={ref} onClick={() => setOpen(!open)}>{children}</button>;
-  });
-  const Portal = ({ children }: any) => children;
-  const Content = ({ children, ...rest }: any) => {
-    const { open } = require('react').useContext(PopoverContext);
+    return <Ctx.Provider value={{ open, setOpen }}>{children}</Ctx.Provider>;
+  }
+
+  interface TriggerProps extends HTMLAttributes<HTMLElement> {
+    asChild?: boolean;
+    children: ReactNode;
+  }
+  const Trigger = React.forwardRef<HTMLElement, TriggerProps>(
+    ({ children, asChild, ...rest }, ref) => {
+      const { open, setOpen } = React.useContext(Ctx);
+      const toggle = () => setOpen(!open);
+      if (asChild && React.isValidElement(children)) {
+        const child = children as ReactElement<HTMLAttributes<HTMLElement>>;
+        return React.cloneElement(child, {
+          onClick: toggle,
+          ref: ref as Ref<HTMLElement>,
+        } as HTMLAttributes<HTMLElement>);
+      }
+      return (
+        <button {...(rest as HTMLAttributes<HTMLButtonElement>)} ref={ref as Ref<HTMLButtonElement>} onClick={toggle}>
+          {children}
+        </button>
+      );
+    },
+  );
+
+  function Portal({ children }: PropsWithChildren) {
+    return <>{children}</>;
+  }
+
+  interface ContentProps extends HTMLAttributes<HTMLDivElement> {
+    children: ReactNode;
+    sideOffset?: number;
+    align?: string;
+    side?: string;
+  }
+  function Content({ children, sideOffset: _so, align: _a, side: _s, ...rest }: ContentProps) {
+    const { open } = React.useContext(Ctx);
     if (!open) return null;
-    return <div role="dialog" {...rest}>{children}</div>;
-  };
-  return { Root: ActualRoot, Trigger, Portal, Content };
+    return (
+      <div role="dialog" {...rest}>
+        {children}
+      </div>
+    );
+  }
+
+  return { Root, Trigger, Portal, Content };
 });
 
 // ---------------------------------------------------------------------------
@@ -233,9 +253,7 @@ describe('PlayerCombobox', () => {
     vi.useRealTimers();
     renderCombobox();
 
-    // Open popover but don't type anything
     await user.click(screen.getByRole('combobox'));
-    // Wait a moment to ensure no fetch fired
     await new Promise((r) => setTimeout(r, 400));
 
     expect(fetchSpy).not.toHaveBeenCalled();

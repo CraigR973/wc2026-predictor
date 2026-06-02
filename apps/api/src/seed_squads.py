@@ -37,7 +37,9 @@ async def seed_squads() -> None:
         existing_result = await session.execute(
             select(SquadPlayer.team_id, SquadPlayer.full_name)
         )
-        existing: set[tuple] = {(row.team_id, row.full_name) for row in existing_result}
+        existing: set[tuple[uuid.UUID, str]] = {
+            (row.team_id, row.full_name) for row in existing_result
+        }
 
         inserted = 0
         skipped = 0
