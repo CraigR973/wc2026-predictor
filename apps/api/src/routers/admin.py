@@ -24,6 +24,7 @@ from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
+from src.models.team import TournamentStage
 from src.rate_limit import limiter, per_player_key
 from src.services.backup import BackupInfo, create_backup, list_backups, resolve_backup_path
 from src.services.football_data import FDMatch, FootballDataClient, FootballDataError
@@ -32,6 +33,7 @@ from src.services.knockout_advancement import (
     GroupStageIncompleteError,
     MissingKickoffsError,
     advance_to_r32,
+    sync_knockout_bracket,
 )
 from src.services.leaderboard import recompute_leaderboard_snapshot
 from src.services.notification_triggers import (
@@ -558,6 +560,22 @@ async def cancel_match(
 # ---------------------------------------------------------------------------
 
 
+async def _maybe_resync_knockout(db: AsyncSession, match: Match) -> None:
+    """Best-effort: propagate a settled result into the seeded knockout bracket.
+
+    Filling placeholder slots with real teams must never block result entry, so
+    any failure is logged and swallowed. Guarded on a real ``TournamentStage``
+    so HTTP unit tests whose mocked ``Match.stage`` is a ``MagicMock`` skip the
+    call (and never touch the mocked session's fixed execute queue).
+    """
+    if not isinstance(match.stage, TournamentStage):
+        return
+    try:
+        await sync_knockout_bracket(db)
+    except Exception:  # noqa: BLE001 — knockout resolution is advisory, never fatal
+        log.warning("knockout resync failed", match_id=str(match.id), exc_info=True)
+
+
 @router.post(
     "/results/{match_id}",
     response_model=ResultResponse,
@@ -625,9 +643,12 @@ async def enter_result(
 
     await db.commit()
     await db.refresh(match)
+    response = _to_result_response(match)
+
+    await _maybe_resync_knockout(db, match)
 
     log.info("result entered manually", match_id=str(match_id), admin_id=str(admin.id))
-    return _to_result_response(match)
+    return response
 
 
 @router.put(
@@ -696,9 +717,12 @@ async def override_result(
 
     await db.commit()
     await db.refresh(match)
+    response = _to_result_response(match)
+
+    await _maybe_resync_knockout(db, match)
 
     log.info("result overridden", match_id=str(match_id), admin_id=str(admin.id))
-    return _to_result_response(match)
+    return response
 
 
 # ---------------------------------------------------------------------------

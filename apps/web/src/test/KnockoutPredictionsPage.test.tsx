@@ -263,4 +263,29 @@ describe('KnockoutPredictionsPage', () => {
     await waitFor(() => expect(screen.getByText('Round of 32')).toBeTruthy());
     expect(screen.getByText('Quarter-Finals')).toBeTruthy();
   });
+
+  it('renders a per-round placeholder list (not the teaser) when teams are TBD', async () => {
+    // Seeded R32 row with no resolved teams — only positional placeholders.
+    const r32Placeholder = {
+      ...R32_MATCH_SCHEDULED,
+      id: 'm73p',
+      home_team: null,
+      away_team: null,
+      home_team_placeholder: 'Winner Group A',
+      away_team_placeholder: 'Best 3rd #1',
+    };
+    vi.stubGlobal(
+      'fetch',
+      makeFetch({ matches: [GROUP_MATCH, r32Placeholder], knockoutPredictions: [] }),
+    );
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Round of 32')).toBeTruthy());
+    // The bracket teaser must NOT show — there are seeded rows.
+    expect(screen.queryByText(/Knockout picks open after group stage/i)).toBeNull();
+    // Placeholder labels are rendered as the (disabled) team buttons.
+    expect(screen.getByText('Winner Group A')).toBeTruthy();
+    const placeholderBtn = screen.getByText('Winner Group A').closest('button')!;
+    expect(placeholderBtn.disabled).toBe(true);
+  });
 });

@@ -61,6 +61,11 @@ class Match(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
     )
     home_team_placeholder: Mapped[str | None] = mapped_column(String(50), nullable=True)
     away_team_placeholder: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Positional source refs for the seeded knockout skeleton (U13). NULL for
+    # group-stage rows. Resolved into real teams by knockout_progression as the
+    # tournament advances. See that module for the source-ref grammar.
+    home_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    away_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
     kickoff_utc: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
     original_kickoff_utc: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=False), nullable=True

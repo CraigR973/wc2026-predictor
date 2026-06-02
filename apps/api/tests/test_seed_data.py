@@ -7,7 +7,8 @@ complete and internally consistent before any database is touched.
 from collections import Counter
 from datetime import datetime
 
-from src.seed import GROUPS, MATCHES, TEAMS
+from src.seed import GROUPS, KNOCKOUT_MATCHES, MATCHES, TEAMS
+from src.services.knockout_progression import placeholder_label, stage_for_match_number
 
 
 def test_twelve_groups() -> None:
@@ -125,3 +126,60 @@ def test_matchday3_simultaneous_within_group() -> None:
         assert len(ms) == 2, f"Group {g} has {len(ms)} final matchday games, expected 2"
         t0, t1 = ms[0]["kickoff_utc"], ms[1]["kickoff_utc"]
         assert t0 == t1, f"Group {g} final matches not simultaneous: {t0} vs {t1}"
+
+
+# ---------------------------------------------------------------------------
+# Knockout skeleton (U13.1) — 32 seeded matches, teams TBD
+# ---------------------------------------------------------------------------
+
+
+def test_thirty_two_knockout_matches() -> None:
+    assert len(KNOCKOUT_MATCHES) == 32
+
+
+def test_full_104_match_calendar() -> None:
+    assert len(MATCHES) + len(KNOCKOUT_MATCHES) == 104
+
+
+def test_knockout_match_numbers_sequential_73_to_104() -> None:
+    numbers = sorted(m["match_number"] for m in KNOCKOUT_MATCHES)
+    assert numbers == list(range(73, 105))
+
+
+def test_knockout_round_counts() -> None:
+    counts = Counter(m["stage"] for m in KNOCKOUT_MATCHES)
+    assert counts == {
+        "r32": 16,
+        "r16": 8,
+        "qf": 4,
+        "sf": 2,
+        "third_place": 1,
+        "final": 1,
+    }
+
+
+def test_each_knockout_match_has_sources_placeholders_and_schedule() -> None:
+    ko_venues = {m["venue"] for m in MATCHES}  # KO reuses the group venue pool
+    for m in KNOCKOUT_MATCHES:
+        mn = m["match_number"]
+        assert m["stage"] == stage_for_match_number(mn).value
+        assert m["home_source"], f"Match {mn}: missing home_source"
+        assert m["away_source"], f"Match {mn}: missing away_source"
+        assert m["home_source"] != m["away_source"], f"Match {mn}: home_source == away_source"
+        # Display placeholder is derived from the source ref.
+        assert m["home_placeholder"] == placeholder_label(m["home_source"])
+        assert m["away_placeholder"] == placeholder_label(m["away_source"])
+        assert len(m["home_placeholder"]) <= 50 and len(m["away_placeholder"]) <= 50
+        assert len(m["home_source"]) <= 32 and len(m["away_source"]) <= 32
+        assert isinstance(m["kickoff_utc"], datetime)
+        assert m["venue"] in ko_venues, f"Match {mn}: venue {m['venue']!r} not a real 2026 venue"
+
+
+def test_knockout_window_follows_group_stage() -> None:
+    kickoffs = [m["kickoff_utc"] for m in KNOCKOUT_MATCHES]
+    # KO starts as the group stage ends (28 Jun) and finishes with the final.
+    assert min(kickoffs) >= datetime(2026, 6, 28)
+    assert max(kickoffs) <= datetime(2026, 7, 19, 23, 59)
+    # The final (104) is the very last match on the calendar.
+    final = next(m for m in KNOCKOUT_MATCHES if m["match_number"] == 104)
+    assert final["kickoff_utc"] == max(kickoffs)
