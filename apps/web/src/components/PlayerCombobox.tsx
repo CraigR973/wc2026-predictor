@@ -37,6 +37,20 @@ export function PlayerCombobox({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Scroll trigger into view when the virtual keyboard resizes the viewport.
+  // Without this the trigger (and the popover above it) can end up behind the keyboard.
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      triggerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, [open]);
 
   // Debounced search
   useEffect(() => {
@@ -76,6 +90,7 @@ export function PlayerCombobox({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           role="combobox"
           aria-expanded={open}
@@ -107,7 +122,7 @@ export function PlayerCombobox({
 
       <Popover.Portal>
         <Popover.Content
-          side="bottom"
+          side="top"
           align="start"
           sideOffset={4}
           className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-md border border-border bg-surface shadow-lg outline-none"
