@@ -1500,17 +1500,15 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 ---
 
 ## Polish batch U15 — Invite/share polish
-**Commits:** 87aa800, 95a8aa9 · CI/merge status not captured (backfilled 2026-06-02)
-
-> Backfilled retroactively: this ad-hoc batch (taken after U14) shipped without a session-log entry
-> or a `docs/polish-batches.md` row. Recorded here from the commits — the bullets below are derived
-> from the diff, not from the implementing session, and close-out (CI green / merge to main) was not
-> confirmed at write-up time.
+**Commits:** 7362ff6, ad059d1, 40bab3e, 4a169b9, dd0f860, 667eada, b9fa0dc, f500097, c8f74d5, 96b2c8d · CI ✅
 
 ### Key facts for future sessions
-- New `apps/web/src/lib/invite.ts` holds the share-message builder; covered by `src/test/invite.test.ts`. `src/test/setup.ts` gained 18 lines of test setup (API mocks) to support those tests.
-- Invite/share UX lives in `JoinPage.tsx`, `LeagueAdminInvitesPage.tsx`, `LeagueHomePage.tsx`; native share via `navigator.share` with a clipboard fallback.
-- e2e gotcha (from 95a8aa9): the join spec must open the **Advanced** disclosure before clicking "Generate invite link" — keep that step if you touch `e2e/join.spec.ts` / `e2e/helpers.ts`.
+- `apps/web/src/lib/invite.ts` — `buildInviteMessage` (Lewis Steele / Robinson's Fruit Juice backstory, match-by-match copy, Predict → Specials callout) + `shareInvite` (text-only navigator.share, no url param — iOS renders the url param as a separate link cluttering the preview). AbortError = silent cancel, not an error.
+- `BrowserOnboarding.tsx` — shared full-page onboarding for uninstalled mobile browser users. Used by both `InstallPromptController` (all routes including `/`) and `JoinPage`. Safari gets 5-step install card (•••→Share→View More→Add to Home Screen→Add); Chrome on iOS gets 4-step card (share in address bar).
+- `InstallPromptController` now renders `BrowserOnboarding` instead of IosSafariOverlay/InstallGate variants. SELF_MANAGED list exempts `/join/` and `/welcome` from double-rendering.
+- SW `skipWaiting()` is now unconditional — was prompt-only before, which created a deadlock where the IosSafariOverlay blocked the UpdateBanner so users could never receive fixes.
+- `JoinPage` splits on `isMobile && !isInstalled`: mobile browser → `BrowserOnboarding`; installed PWA / desktop → `AppJoinFlow` (functional join form). PIN is 4 digits exactly.
+- e2e: multi-league create-invite spec must open the Advanced `<details>` disclosure before clicking "Generate invite link" (ad059d1). E2E join spec uses 4-digit PINs.
 
 **Next:** Polish batch U16 — Home points-hero + inline rank movement 🟢 Sonnet
 
