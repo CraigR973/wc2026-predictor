@@ -1554,3 +1554,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - Fixed page order: hero → how-it-works → urgent → results → specials → leagues (U19 carousel inserts between urgent and results).
 
 **Next:** Polish batch U19 — Upcoming-matches carousel + shared prediction editor 🔴 Opus
+
+---
+
+## Polish batch U19 — Upcoming-matches carousel + shared prediction editor
+**Commits:** 397e56b, f3673ea, c985ca9 · CI ✅
+
+### Key facts for future sessions
+- `PredictionCard` (shared), `usePredictionEditor` (hook), `matchStatus.ts` (helpers) are now separate modules — `PredictionsPage` consumes them; parity confirmed by its unchanged test suite.
+- Carousel filter: `stage='group' && status='scheduled'` (locked/live/completed excluded in v1). U20 extends this to `scheduled|locked|live`.
+- `compact` prop on `PredictionCard` renders team codes ("MEX") instead of full names — prevents truncation at 300px card width. Predictions page passes `compact=false` (default); full names unchanged there.
+- `usePredictionEditor`'s `useEffect([predictions])` requires a referentially stable array — pass `useQuery` data, never inline literals (causes infinite re-render loop). Test fixtures use module-level constants for this reason.
+- Home now issues 2 extra requests: `/api/v1/matches?stage=group` + `/api/v1/predictions/me` — shared via React Query with Predictions page (no per-card N+1).
+- U20 batch (home screen v2) agreed in this session: hero redesign, pre-tournament checklist, remove How-it-Works + Specials strip, slimmed urgent zone, locked/live carousel states, countdown polish, bolder headers.
+
+**Next:** Polish batch U20 — Home screen v2 🔴 Opus
