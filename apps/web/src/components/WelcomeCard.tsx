@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { X, Lock, Trophy, RefreshCw } from 'lucide-react';
+import { Lock, Trophy, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const STORAGE_KEY = 'sss_welcome_dismissed';
+const STORAGE_KEY = 'sss_howitworks_collapsed';
 
-function isDismissed(): boolean {
+function isCollapsed(): boolean {
   try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; }
 }
 
-function dismiss(): void {
-  try { localStorage.setItem(STORAGE_KEY, '1'); } catch { /* ignore */ }
+function persistCollapsed(v: boolean): void {
+  try { localStorage.setItem(STORAGE_KEY, v ? '1' : '0'); } catch { /* ignore */ }
 }
 
 interface Fact {
@@ -34,63 +34,57 @@ const FACTS: Fact[] = [
 ];
 
 export function WelcomeCard() {
-  const [visible, setVisible] = useState(() => !isDismissed());
+  const [collapsed, setCollapsedState] = useState<boolean>(() => isCollapsed());
 
-  if (!visible) return null;
-
-  function handleDismiss() {
-    dismiss();
-    setVisible(false);
+  function toggle() {
+    const next = !collapsed;
+    setCollapsedState(next);
+    persistCollapsed(next);
   }
 
   return (
-    <div
-      role="region"
-      aria-label="Quick guide"
-      className={cn(
-        'relative rounded-lg border border-primary/30 bg-primary/5 px-4 py-4',
-        'animate-in fade-in slide-in-from-top-2 duration-300',
-      )}
-    >
-      {/* Dismiss */}
+    <div className={cn('rounded-lg border border-primary/30 bg-primary/5')}>
       <button
-        onClick={handleDismiss}
-        aria-label="Dismiss quick guide"
-        className="absolute top-3 right-3 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+        id="how-it-works-btn"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+        aria-controls="how-it-works-content"
+        className="flex w-full items-center gap-2 rounded-lg px-4 py-3 text-left transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:shadow-glow"
       >
-        <X className="h-4 w-4" aria-hidden />
+        <span className="flex-1 font-mono text-[10px] uppercase tracking-[0.25em] text-primary">
+          How it works
+        </span>
+        {collapsed ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+        ) : (
+          <ChevronUp className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+        )}
       </button>
 
-      <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-primary mb-2">
-        Before you start
-      </p>
-      <h2 className="text-sm font-semibold text-text-primary font-sans mb-3">
-        Three things worth knowing
-      </h2>
-
-      <ul className="space-y-2.5 mb-4">
-        {FACTS.map(({ Icon, text }, i) => (
-          <li key={i} className="flex items-start gap-2.5">
-            <Icon className="h-4 w-4 text-primary shrink-0 mt-[1px]" aria-hidden />
-            <span className="text-sm font-sans text-text-secondary leading-snug">{text}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="flex items-center gap-3">
-        <Link
-          to="/about"
-          className="text-xs font-sans text-primary hover:underline underline-offset-2 focus-visible:outline-none"
+      {!collapsed && (
+        <div
+          id="how-it-works-content"
+          role="region"
+          aria-labelledby="how-it-works-btn"
+          className="border-t border-primary/20 px-4 pb-4 pt-3"
         >
-          Full rules &amp; how it works →
-        </Link>
-        <button
-          onClick={handleDismiss}
-          className="ml-auto px-3 py-1.5 rounded-md bg-primary text-white text-xs font-sans font-semibold hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:shadow-glow"
-        >
-          Got it
-        </button>
-      </div>
+          <ul className="mb-4 space-y-2.5">
+            {FACTS.map(({ Icon, text }, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <Icon className="mt-[1px] h-4 w-4 shrink-0 text-primary" aria-hidden />
+                <span className="font-sans text-sm leading-snug text-text-secondary">{text}</span>
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            to="/about"
+            className="font-sans text-xs text-primary underline-offset-2 hover:underline focus-visible:outline-none"
+          >
+            Full rules &amp; how it works →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
