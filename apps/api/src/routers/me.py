@@ -1,19 +1,22 @@
 """Cross-league endpoints scoped to the authenticated player (``/api/v1/me``)."""
 
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
 from src.models.league import League
 from src.models.league_membership import LeagueMembership
-from src.models.prediction import LeaderboardSnapshot
+from src.models.match import Match, MatchStatus
+from src.models.prediction import LeaderboardSnapshot, Prediction, SpecialPrediction
+from src.models.team import Team
 from src.rate_limit import limiter, per_player_key
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -171,3 +174,264 @@ async def cross_league_summary(
         leagues_count=len(membership_rows),
         per_league=per_league,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /me/home — to-do + results roll-up (U17.1)
+# ---------------------------------------------------------------------------
+
+
+def _now_utc() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+class NextMatchTodo(BaseModel):
+    id: str
+    kickoff_utc: str
+    home_label: str
+    away_label: str
+    predicted: bool
+
+
+class HomeTodoBlock(BaseModel):
+    specials_submitted: bool
+    specials_lock_at: str | None
+    upcoming_unpredicted: int
+    next_match: NextMatchTodo | None
+
+
+class RollupMatch(BaseModel):
+    match_id: str
+    home_label: str
+    away_label: str
+    home_flag: str | None
+    away_flag: str | None
+    actual_home: int | None
+    actual_away: int | None
+    predicted_home: int | None
+    predicted_away: int | None
+    points_breakdown: dict[str, Any] | None
+
+
+class HomeRollupBlock(BaseModel):
+    matchday: str
+    points_gained: int
+    match_count: int
+    matches: list[RollupMatch]
+
+
+class HomeResponse(BaseModel):
+    todo: HomeTodoBlock
+    rollup: HomeRollupBlock | None
+
+
+@router.get("/home", response_model=HomeResponse)
+@limiter.limit("120/minute", key_func=per_player_key)
+async def me_home(
+    request: Request,
+    player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> HomeResponse:
+    """To-do block + results roll-up for the home page (U17.1).
+
+    Two logical halves:
+    - ``todo``: what the caller needs to do next (specials + upcoming unpredicted)
+    - ``rollup``: the most recent completed matchday the caller predicted; null pre-tournament
+    """
+    now = _now_utc()
+
+    # --- specials lock (opening group match) ---
+    opening = (
+        await db.execute(
+            select(Match)
+            .where(
+                Match.stage == "group",
+                Match.deleted_at.is_(None),
+            )
+            .order_by(Match.kickoff_utc.asc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    specials_lock_at = opening.kickoff_utc.isoformat() + "Z" if opening is not None else None
+    specials_locked = opening is not None and now >= opening.kickoff_utc
+
+    # --- specials submitted? ---
+    specials_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(SpecialPrediction)
+            .where(
+                SpecialPrediction.player_id == player.id,
+                SpecialPrediction.submitted_at.is_not(None),
+            )
+        )
+    ).scalar_one()
+    specials_submitted = specials_count > 0
+
+    # --- predicted match ids (for exclusion) ---
+    predicted_match_ids_subq = (
+        select(Prediction.match_id)
+        .where(
+            Prediction.player_id == player.id,
+            Prediction.deleted_at.is_(None),
+        )
+        .scalar_subquery()
+    )
+
+    # --- upcoming unpredicted count (status=scheduled, kickoff > now, no prediction) ---
+    upcoming_unpredicted = (
+        await db.execute(
+            select(func.count())
+            .select_from(Match)
+            .where(
+                Match.status == MatchStatus.scheduled,
+                Match.kickoff_utc > now,
+                Match.deleted_at.is_(None),
+                Match.id.not_in(predicted_match_ids_subq),
+            )
+        )
+    ).scalar_one()
+
+    # --- next upcoming scheduled match ---
+    next_match_row = (
+        await db.execute(
+            select(Match)
+            .where(
+                Match.status == MatchStatus.scheduled,
+                Match.kickoff_utc > now,
+                Match.deleted_at.is_(None),
+            )
+            .order_by(Match.kickoff_utc.asc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    next_match_todo: NextMatchTodo | None = None
+    if next_match_row is not None:
+        # Fetch team labels for next match
+        nm_team_ids = [
+            tid
+            for tid in [next_match_row.home_team_id, next_match_row.away_team_id]
+            if tid is not None
+        ]
+        nm_teams: dict[str, Team] = {}
+        if nm_team_ids:
+            tr = await db.execute(select(Team).where(Team.id.in_(nm_team_ids)))
+            nm_teams = {str(t.id): t for t in tr.scalars().all()}
+
+        def _label(team_id: uuid.UUID | None, placeholder: str | None) -> str:
+            if team_id is not None and str(team_id) in nm_teams:
+                t = nm_teams[str(team_id)]
+                return f"{t.flag_emoji} {t.name}"
+            return placeholder or "?"
+
+        # Check if caller has predicted this match
+        has_pred = (
+            await db.execute(
+                select(func.count())
+                .select_from(Prediction)
+                .where(
+                    Prediction.player_id == player.id,
+                    Prediction.match_id == next_match_row.id,
+                    Prediction.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one()
+        next_match_todo = NextMatchTodo(
+            id=str(next_match_row.id),
+            kickoff_utc=next_match_row.kickoff_utc.isoformat() + "Z",
+            home_label=_label(next_match_row.home_team_id, next_match_row.home_team_placeholder),
+            away_label=_label(next_match_row.away_team_id, next_match_row.away_team_placeholder),
+            predicted=has_pred > 0,
+        )
+
+    todo = HomeTodoBlock(
+        specials_submitted=specials_submitted,
+        specials_lock_at=specials_lock_at if not specials_locked else None,
+        upcoming_unpredicted=upcoming_unpredicted,
+        next_match=next_match_todo,
+    )
+
+    # --- rollup: most recent completed matchday the caller predicted ---
+    # Group by UTC date of kickoff, find the latest date with scored predictions.
+    matchday_subq = (
+        select(cast(Match.kickoff_utc, Date).label("matchday"))
+        .join(Prediction, Prediction.match_id == Match.id)
+        .where(
+            Prediction.player_id == player.id,
+            Prediction.deleted_at.is_(None),
+            Prediction.points_awarded.is_not(None),
+            Match.deleted_at.is_(None),
+        )
+        .order_by(cast(Match.kickoff_utc, Date).desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
+    rollup_rows = (
+        await db.execute(
+            select(Prediction, Match)
+            .join(Match, Match.id == Prediction.match_id)
+            .where(
+                Prediction.player_id == player.id,
+                Prediction.deleted_at.is_(None),
+                Prediction.points_awarded.is_not(None),
+                Match.deleted_at.is_(None),
+                cast(Match.kickoff_utc, Date) == matchday_subq,
+            )
+            .order_by(Match.kickoff_utc.asc(), Match.id.asc())
+        )
+    ).all()
+
+    rollup: HomeRollupBlock | None = None
+    if rollup_rows:
+        # Batch-fetch teams for rollup matches
+        rollup_team_ids: set[uuid.UUID] = set()
+        for _, m in rollup_rows:
+            if m.home_team_id is not None:
+                rollup_team_ids.add(m.home_team_id)
+            if m.away_team_id is not None:
+                rollup_team_ids.add(m.away_team_id)
+
+        rollup_teams: dict[str, Team] = {}
+        if rollup_team_ids:
+            tr2 = await db.execute(select(Team).where(Team.id.in_(rollup_team_ids)))
+            rollup_teams = {str(t.id): t for t in tr2.scalars().all()}
+
+        first_match = rollup_rows[0][1]
+        matchday_str = first_match.kickoff_utc.date().isoformat()
+        total_pts = sum(p.points_awarded or 0 for p, _ in rollup_rows)
+
+        rollup_matches: list[RollupMatch] = []
+        for pred, match in rollup_rows:
+            ht = rollup_teams.get(str(match.home_team_id)) if match.home_team_id else None
+            at = rollup_teams.get(str(match.away_team_id)) if match.away_team_id else None
+            home_label = (
+                f"{ht.flag_emoji} {ht.name}" if ht else (match.home_team_placeholder or "?")
+            )
+            away_label = (
+                f"{at.flag_emoji} {at.name}" if at else (match.away_team_placeholder or "?")
+            )
+            rollup_matches.append(
+                RollupMatch(
+                    match_id=str(match.id),
+                    home_label=home_label,
+                    away_label=away_label,
+                    home_flag=ht.flag_emoji if ht else None,
+                    away_flag=at.flag_emoji if at else None,
+                    actual_home=match.actual_home_score,
+                    actual_away=match.actual_away_score,
+                    predicted_home=pred.predicted_home,
+                    predicted_away=pred.predicted_away,
+                    points_breakdown=pred.points_breakdown,
+                )
+            )
+
+        rollup = HomeRollupBlock(
+            matchday=matchday_str,
+            points_gained=total_pts,
+            match_count=len(rollup_rows),
+            matches=rollup_matches,
+        )
+
+    return HomeResponse(todo=todo, rollup=rollup)

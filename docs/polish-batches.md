@@ -748,3 +748,248 @@ Per batch: push `feat/premium-polish-4` → `/phase-closeout U<n>` (CI poll + ff
 the `U` prefix isn't recognised) → lean `session-log.md` entry → strike the row in the round-4 table
 above. Independent of rounds 2–3 — ff-merge each batch as it goes green. `/next-batch-prompt polish` will
 surface **U14** as the next un-struck batch.
+
+---
+
+# Round 5 — batches (U15–U17) — added 2026-06-02
+
+**U15 (invite/share polish)** shipped ahead of being written up here — an ad-hoc batch taken after
+round 4's U14, recorded below as a struck row for ledger completeness (commits `87aa800` +
+`95a8aa9`). **U16 (home points-hero)** is the active batch, from a 2026-06-02 home-screen design
+pass with the user: round 4's U11 rebalanced the dashboard but kept the `CrossLeagueSummaryWidget`,
+which leads with **average rank** and buries total points as a tail fragment of a sentence. U16
+flips the lead metric: **total points is the hero**, and per-league **rank movement** ("this result
+moved you ↑2") is surfaced inline. **Independent of prior rounds** — U16 gets its own fresh branch
+(`feat/premium-polish-8`; pick the next free number if taken), ff-merge once green.
+`/next-batch-prompt polish` reads this file's `## U<n>` acceptance inline, so no manual pasting
+needed.
+
+**Decisions locked in the pass (a couple revise U11):**
+- **Points hero = pure number.** The dashboard header is the global `total_points` (the one true
+  cross-league number — predictions are scored once and count in every league, MD-1), large, with
+  the player name as a subline. No secondary rank/breakdown on the hero.
+- **Cross-league average-rank widget = removed.** *Reverses U11.2's "Keep
+  CrossLeagueSummaryWidget".* Average rank is a per-league concept flattened into one mushy number
+  (and meaningless for single-league players); per-league rank lives on the league rows instead.
+- **"Recent activity" = inline, not a separate feed.** Movement shows as (a) a rank-delta badge on
+  each league row and (b) a one-line impact on the Latest Result card — never a standalone feed
+  (empty between matches, duplicates the rows).
+- **Tapping a league = navigate to its leaderboard** (current behaviour; no inline expand).
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~U15~~ | ~~🟢 Sonnet~~ | ~~—~~ | ~~invite/share polish~~ | ✅ Shipped 2026-06-02 (87aa800, 95a8aa9) |
+| ~~U16~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U16.1–U16.5~~ | ✅ Shipped 2026-06-02 (1efeb85, 98c3730) |
+| U17 | 🟢 Sonnet | ~5.5 h | U17.1–U17.6 | |
+
+---
+
+## ~~U15 — Invite/share polish~~ 🟢 Sonnet · ✅ shipped 2026-06-02
+
+Shipped ahead of being written up here (ad-hoc, after round 4's U14); recorded for ledger
+completeness — full detail in the commits + session-log.
+
+- Rich invite share message + native share sheet (`navigator.share`) with clipboard fallback, plus
+  a join-page lift. New `apps/web/src/lib/invite.ts`; edits to `JoinPage.tsx`,
+  `LeagueAdminInvitesPage.tsx`, `LeagueHomePage.tsx`; tests `invite.test.ts` + `e2e/join.spec.ts`.
+- **Commits:** `87aa800` (feat) + `95a8aa9` (e2e fix). **Close-out status:** CI/merge not captured
+  at write-up time — confirm before relying on it as merged.
+
+---
+
+## U16 — Home points-hero + inline rank movement 🟢 Sonnet · ~3 h
+
+Flips the dashboard's lead metric to total points and surfaces per-league rank movement inline,
+reusing data the home page already fetches. Builds on U11 (dashboard order) and U11.3 (Latest
+Result full breakdown — keep it, add the impact line beneath).
+
+> **Watch-outs before coding:**
+> - **Snapshot timestamp ties.** `LeaderboardSnapshot.snapshot_at` can tie across rows written in
+>   the same scoring transaction — order each player's snapshots by `snapshot_at DESC` **with a
+>   deterministic secondary key** (a monotonic snapshot id/sequence if one exists, otherwise the
+>   triggering match's `kickoff_utc`), never `snapshot_at` alone, or the "latest two" — and hence
+>   the delta — is non-deterministic.
+> - **`per_league` already carries `rank`, `member_count`, `name`, `slug`** (see
+>   `routers/me.py` `cross-league-summary`). The compact rows can read rank from there and **drop
+>   their own `/leagues/{slug}/leaderboard` fetch** — which also sidesteps the C-2 duplicate-rows
+>   bug on the dashboard. Verify the summary's rank source is snapshot-based and dedup-safe.
+> - **Keep `avg_rank` in the response** (back-compat) even though the UI stops rendering it; a
+>   later cleanup can drop it if no other consumer exists. Don't break the response shape.
+
+- **U16.1** Points hero. Remove `CrossLeagueSummaryWidget` (`DashboardPage.tsx:27-76` def, `:368`
+  render) and the plain `<h1>` greeting (`:360-363`). Add a `PointsHero` at the very top of the
+  page: large `total_points` (mono, `text-4xl`+, primary) with a "POINTS" eyebrow and a smaller
+  "Welcome back, {displayName}" subline. Pure number — no avg-rank, no breakdown. Reads
+  `total_points` from the existing cross-league-summary query. (~30 min)
+
+- **U16.2** Hero zero / pre-tournament state. Before any result is scored (`total_points === 0`),
+  don't render a deflating bare "0" — keep the hero but swap the subline to a gentle nudge (e.g.
+  "Your tally starts when the first results land · WC kicks off 11 Jun"). The tournament starts
+  ~2026-06-11, so this is the launch-day state for every player. (~15 min)
+
+- **U16.3** Backend — rank delta on the summary. Extend each `per_league` entry of
+  `GET /api/v1/me/cross-league-summary` (`routers/me.py:42-132`) with `rank_delta: int | null` and
+  `triggered_by_match_id: str | null`. For each (player, league): take the two most recent
+  `LeaderboardSnapshot` rows (ordered per the tie-safe rule in the watch-out); `rank_delta =
+  prior.rank − latest.rank` (positive = moved up); `triggered_by_match_id =
+  latest.triggered_by_match_id`. `null` when fewer than 2 snapshots. Update the `CrossLeagueSummary`
+  response model and the frontend `lib/types.ts` shape. Pytest: two snapshots → correct signed
+  delta; single snapshot → null; equal ranks → 0; deterministic under tied `snapshot_at`. (~75 min)
+
+- **U16.4** League rows from one call + delta badge. Repoint `CompactLeagueRow`
+  (`DashboardPage.tsx:151-192`) to read `rank` / `member_count` / `rank_delta` from the
+  cross-league-summary `per_league` array instead of issuing a per-league
+  `/api/v1/leagues/{slug}/leaderboard` query each (N+1 → 1). Render a compact delta badge next to
+  the rank: `↑2` (success), `↓1` (danger/muted), `▬` or hidden for 0/null. Tap still routes to
+  `/leagues/{slug}/leaderboard`. (~45 min)
+
+- **U16.5** Impact line on Latest Result. In `LatestResultCard` (`DashboardPage.tsx:198-276`),
+  under the existing points breakdown, render a one-line movement summary when the card's
+  `match_id` equals a `per_league` entry's `triggered_by_match_id`: e.g. "↑2 in The Steele Sheet ·
+  ↑1 in Office League". Build the league→delta list from the per_league array filtered to that
+  match; omit the line entirely when nothing traces to this result (no snapshot, deltas all 0, or
+  match mismatch). This is the "score → consequence" narrative, attached to its cause. (~30 min)
+
+**Acceptance:**
+- No `CrossLeagueSummaryWidget` and no average-rank number anywhere on the dashboard.
+- Dashboard top is the points hero: global `total_points`, pure number + "POINTS" + name; the
+  zero / pre-tournament state is a gentle nudge, not a bare "0".
+- `cross-league-summary` `per_league` entries return `rank_delta` + `triggered_by_match_id`; delta
+  is signed correctly (up = positive), `null` below 2 snapshots, deterministic under tied
+  `snapshot_at`; `avg_rank` still present (back-compat); pytest green.
+- League rows render from the single summary call (no per-league leaderboard fetches remain on the
+  dashboard) and show a ↑/↓/▬ delta badge; tapping a row opens that league's leaderboard.
+- Latest Result shows the per-league movement impact line when the deltas trace to that match, and
+  omits it otherwise.
+- Home page issues one request for hero + rows + impact (the N+1 fetch is gone).
+- Vitest covers the hero zero state, the delta-badge rendering, and the impact-line match/omit
+  logic; all existing Vitest + a11y tests green.
+
+---
+
+## U17 — Home page redesign: stat strip + smart to-do + results roll-up 🟢 Sonnet · ~5.5 h
+
+From a 2026-06-03 home-screen design pass with the user. U16 fixed the *lead metric* (points hero)
+but left the page as six equal-weight full-width cards with no hierarchy, a single-match results card
+that's invisible pre-tournament and thin on heavy match days, and three scattered "do something"
+prompts (NextMatch "Predict now", `SpecialsCTA`, `WelcomeCard`). U17 restructures the home page into
+**hierarchical zones** with an **adaptive top** that answers the two questions a player actually opens
+the app with — *"what do I need to do?"* and *"how did I just do?"* — reusing the U16 backend. Own
+fresh branch (`feat/premium-polish-9`; next free number if taken), ff-merge once green.
+
+**Design decisions locked in the pass (a couple revise U16):**
+- **Stat strip replaces the full-width hero.** Two compact tiles — `POINTS` + best-league `RANK`
+  (with ↑/↓) — pinned at the very top. *Revises U16.1's full-width PointsHero* (the giant number ate
+  the viewport for two glanceable facts; the user asked for points + next-match to stop being
+  full-width).
+- **Adaptive top zone.** Pre-tournament (nothing scored) the home leads with the "next up" to-do;
+  once any result is scored it leads with the results roll-up. One page, two modes — the launch-day
+  state (pre-11-Jun) is the to-do, not an empty results void.
+- **One action surface, not three.** A single priority-ranked "Next up" card subsumes the NextMatch
+  predict CTA and the standalone `SpecialsCTA`; `WelcomeCard` drops below it. Pick the single most
+  important next action and make it the anchor.
+- **Results = daily roll-up, not one match.** "Yesterday: +14 · 6 matches", tap to expand per-match
+  breakdowns. *Revises U16.5's single `LatestResultCard`* (one match badly undersells a heavy day).
+- **Cross-league movement = one summary line, ≥2 leagues only.** Single-league players are already
+  served by the per-row badge (U16.4); a consolidated "↑2 Steele · ↓1 Office" line only appears at
+  2+ leagues.
+
+> **Watch-outs before coding:**
+> - **Build on U16, don't undo it.** `cross-league-summary` (`routers/me.py`) already returns
+>   `total_points`, per-league `rank` + `rank_delta` + `triggered_by_match_id`. The stat strip,
+>   league rows, and movement composition all read from it — do **not** add new rank/delta queries.
+>   The new `/me/home` endpoint is only for the *to-do* + *results roll-up* that the summary doesn't
+>   carry.
+> - **Snapshot timestamp ties (again).** Any snapshot ordering reuses the U16 tie-safe key
+>   `(snapshot_at DESC, id DESC)`, never `snapshot_at` alone.
+> - **Matchday clustering is by the match's UTC date, not the player's tz.** Group the roll-up on
+>   `kickoff_utc::date` so it's deterministic server-side; the frontend renders each kickoff in
+>   player-tz via `formatInTimeZone` as everywhere else (CLAUDE.md time rules). Never group on
+>   `snapshot_at`.
+> - **"Predicted?" must respect lock, not just existence.** A match past kickoff with no prediction
+>   is a *missed* match, not an actionable to-do — exclude locked/kicked-off matches from
+>   `upcoming_unpredicted` so the to-do never tells a player to predict a match they can no longer
+>   enter.
+> - **Reuse the breakdown chip markup.** Extract U16's Result/Goals/Exact chip row from
+>   `DashboardPage.tsx` into a shared `PointsBreakdownRow` rather than duplicating it in the roll-up's
+>   expanded rows.
+
+- **U17.1** Backend — `GET /api/v1/me/home` (to-do + results roll-up). New endpoint in
+  `routers/me.py`, returning two blocks:
+  - `todo`: `specials_submitted` (bool — has the caller a submitted special prediction?),
+    `specials_lock_at` (str|null), `upcoming_unpredicted` (int — scheduled, **not-yet-locked**
+    matches with no prediction by the caller), `next_match`
+    (`{ id, kickoff_utc, home_label, away_label, predicted }` | null).
+  - `rollup`: the most recent completed **matchday** the caller predicted — `matchday` (UTC date
+    str | null), `points_gained` (int), `match_count` (int), `matches` (list of
+    `{ match_id, home_label, away_label, home_flag, away_flag, actual_home, actual_away,
+    predicted_home, predicted_away, points_breakdown }`). `null`/empty before any result lands.
+  Pydantic response models; reuse the tie-safe ordering. Pytest: to-do counts unpredicted upcoming
+  and **excludes locked matches**; `specials_submitted` true/false; roll-up groups the latest UTC
+  matchday and sums points; empty pre-tournament. (~90 min)
+
+- **U17.2** Stat strip (replaces full-width hero). Replace `PointsHero` (U16.1) with a `StatStrip`:
+  a 2-col row of compact tiles — `POINTS {total_points}` and `RANK #{best} {↑/↓ delta}`. "Best" =
+  the caller's lowest rank number across `per_league` (append "best of {leagues_count}" when
+  `leagues_count > 1`). Preserve the U16.2 zero/pre-tournament state (nudge subline under the strip,
+  no bare "0"; rank tile shows "—"). Reads cross-league-summary only. (~45 min)
+
+- **U17.3** "Next up" to-do card. New `NextUpCard` driven by `/me/home` `todo`. Priority ladder,
+  top match wins:
+  1. specials open + not submitted → "Make your Specials picks" → `/predictions/specials`
+  2. `next_match` unpredicted + not locked → "Predict {home} vs {away} · locks in {countdown}" →
+     `/predictions` (reuse `useCountdown`)
+  3. `upcoming_unpredicted > 1` → "{n} matches open to predict" → `/predictions`
+  4. all done → calm "You're all set · next lock in {countdown}" (no alarm colour, reassuring)
+  Remove the standalone `SpecialsCTA` (`DashboardPage.tsx:282-308` def, `:407` render) and the
+  duplicate "Predict now" button inside `NextMatchCard` (`:137-141`) — this card is now the single
+  action surface. (~75 min)
+
+- **U17.4** Results roll-up card. New `ResultsRollupCard` driven by `/me/home` `rollup`, replacing
+  `LatestResultCard` (`DashboardPage.tsx:198-276`). Collapsed header:
+  "{matchday}: +{points_gained} · {match_count} matches". Expand → per-match rows using the shared
+  `PointsBreakdownRow` (extracted from U16's chip markup). Beneath, the cross-league movement impact
+  line composed from cross-league-summary `per_league` filtered to the roll-up's match ids (reuse
+  U16.5 logic, now over the whole cluster). Omit the entire card pre-tournament (`rollup` null).
+  (~75 min)
+
+- **U17.5** Cross-league movement summary + leagues. Keep U16's `CompactLeagueRow` rows. Above them,
+  when `leagues_count >= 2` and any `rank_delta` is non-null/non-zero, render a one-line summary:
+  "Across your leagues: ↑2 Steele · ↓1 Office" (same ↑/↓ glyph vocabulary as the row badges and the
+  roll-up impact line). Omit at 1 league (the row badge covers it) or when there's no movement.
+  (~30 min)
+
+- **U17.6** Adaptive composition + WelcomeCard reposition. Assemble the page: `StatStrip` pinned at
+  top; then **if `rollup` is present** (results exist) order = roll-up → next-up → leagues, **else**
+  (pre-tournament) order = next-up → leagues (no roll-up zone). Move `WelcomeCard` below the next-up
+  card (still dismissible). Net: ~3 hierarchical zones replacing today's six flat cards. (~30 min)
+
+**Acceptance:**
+- Home top is a 2-tile stat strip (Points + best Rank with ↑/↓), not a full-width hero; U16's
+  zero/pre-tournament nudge is preserved (no bare "0").
+- `GET /api/v1/me/home` returns `todo` (specials_submitted, specials_lock_at, upcoming_unpredicted
+  **excluding locked**, next_match) and `rollup` (latest UTC matchday, points_gained, match_count,
+  matches[]); empty/null pre-tournament; pytest green incl. the locked-match exclusion and matchday
+  grouping.
+- One "Next up" card drives all actions via the priority ladder; the standalone `SpecialsCTA` and the
+  NextMatch "Predict now" button are gone (single action surface).
+- Results show as an expandable daily roll-up (header sum + per-match breakdowns) reusing a shared
+  `PointsBreakdownRow`; the card is omitted pre-tournament.
+- A cross-league movement summary line appears only at ≥2 leagues with real movement; single-league
+  relies on the row badge; U16 `CompactLeagueRow` rows + `rank_delta` badges unchanged.
+- Top zone is adaptive: to-do leads pre-tournament, roll-up leads once results exist; `WelcomeCard`
+  sits below the to-do.
+- Home page issues at most two requests (cross-league-summary + `/me/home`); no per-league N+1
+  reintroduced.
+- Vitest covers the stat-strip tiles + zero state, the to-do priority ladder
+  (specials-first / match-next / all-done), the roll-up expand + pre-tournament omit, the ≥2-league
+  movement summary gate, and the adaptive ordering; all existing Vitest + a11y + pytest green.
+
+---
+
+## Close-out (round 5)
+
+Per batch: push the batch branch (`feat/premium-polish-8` for U16, `feat/premium-polish-9` for U17,
+or the next free number) → `/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if the `U`
+prefix isn't recognised) → lean `session-log.md` entry → strike the batch's row in the round-5 table
+above. Independent of rounds 2–4 — ff-merge once green.

@@ -1,66 +1,113 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Sparkles, ChevronRight } from 'lucide-react';
+import { Sparkles, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { WelcomeCard } from '../components/WelcomeCard';
+import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import type {
   CrossLeagueSummary,
-  MatchResponse,
-  RecentPrediction,
+  HomeResponse,
 } from '../lib/types';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 // ---------------------------------------------------------------------------
-// Points hero (U16.1 + U16.2)
+// Stat strip — 2-tile compact row (U17.2 replaces U16 PointsHero)
 // ---------------------------------------------------------------------------
 
-function PointsHero({
+function StatStrip({
   summary,
   isLoading,
-  displayName,
 }: {
   summary: CrossLeagueSummary | undefined;
   isLoading: boolean;
-  displayName: string | undefined;
 }) {
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-4 sm:p-5 space-y-3">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-12 w-40" />
-        <Skeleton className="h-3 w-56" />
+      <div className="grid grid-cols-2 gap-3">
+        <Skeleton className="h-[76px] rounded-lg" />
+        <Skeleton className="h-[76px] rounded-lg" />
       </div>
     );
   }
 
   const pts = summary?.total_points ?? 0;
-  const hasPoints = pts > 0;
+  const hasActivity = pts > 0;
+
+  // Best rank = lowest rank number across per_league
+  const leagueRanks = summary?.per_league.filter((e) => e.rank !== null) ?? [];
+  const bestEntry =
+    leagueRanks.length > 0
+      ? leagueRanks.reduce((best, e) => (e.rank! < best.rank! ? e : best))
+      : null;
+  const bestRank = bestEntry?.rank ?? null;
+  const leaguesCount = summary?.leagues_count ?? 0;
+
+  // Pick rank_delta for the best-rank entry
+  const bestDelta = bestEntry?.rank_delta ?? null;
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-      <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-        Points
-      </p>
-      <p className="font-mono text-5xl sm:text-6xl text-primary tabular-nums font-semibold leading-none mb-2">
-        {pts}
-      </p>
-      <p className="font-sans text-sm text-text-secondary">
-        {hasPoints
-          ? `Welcome back, ${displayName}`
-          : 'Your tally starts when the first results land · WC kicks off 11 Jun'}
-      </p>
+    <div>
+      <div className="grid grid-cols-2 gap-3">
+        {/* Points tile */}
+        <div className="rounded-lg border border-border bg-surface p-3 sm:p-4">
+          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-2">
+            Points
+          </p>
+          <p className="font-mono text-4xl sm:text-5xl text-primary tabular-nums font-semibold leading-none">
+            {pts}
+          </p>
+        </div>
+
+        {/* Rank tile */}
+        <div className="rounded-lg border border-border bg-surface p-3 sm:p-4">
+          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-2">
+            Rank
+          </p>
+          {bestRank !== null ? (
+            <div className="flex items-baseline gap-2">
+              <p className="font-mono text-4xl sm:text-5xl text-primary tabular-nums font-semibold leading-none">
+                #{bestRank}
+              </p>
+              {bestDelta !== null && bestDelta !== 0 && (
+                <span
+                  className={`font-mono text-sm tabular-nums ${bestDelta > 0 ? 'text-success' : 'text-text-muted'}`}
+                  aria-label={bestDelta > 0 ? `up ${bestDelta}` : `down ${Math.abs(bestDelta)}`}
+                >
+                  {bestDelta > 0 ? '↑' : '↓'}
+                  {Math.abs(bestDelta)}
+                </span>
+              )}
+              {leaguesCount > 1 && (
+                <span className="text-[10px] font-sans text-text-muted">
+                  best of {leaguesCount}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="font-mono text-4xl sm:text-5xl text-text-muted tabular-nums font-semibold leading-none">
+              —
+            </p>
+          )}
+        </div>
+      </div>
+      {!hasActivity && (
+        <p className="mt-2 font-sans text-xs text-text-muted text-center">
+          Your tally starts when the first results land · WC kicks off 11 Jun
+        </p>
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Next match card
+// Next-up to-do card (U17.3 — single action surface)
 // ---------------------------------------------------------------------------
 
 function formatCountdown(cd: {
@@ -76,60 +123,227 @@ function formatCountdown(cd: {
   return `${cd.minutes}m ${cd.seconds}s`;
 }
 
-function NextMatchCard({
-  match,
-  timezone,
-  hasPrediction,
-}: {
-  match: MatchResponse;
-  timezone: string;
-  hasPrediction: boolean;
-}) {
-  const cd = useCountdown(match.kickoff_utc);
-  const kickoffLocal = formatInTimeZone(new Date(match.kickoff_utc), timezone, 'EEE d MMM, HH:mm');
-  const homeLabel = match.home_team
-    ? `${match.home_team.flag_emoji} ${match.home_team.name}`
-    : (match.home_team_placeholder ?? '?');
-  const awayLabel = match.away_team
-    ? `${match.away_team.flag_emoji} ${match.away_team.name}`
-    : (match.away_team_placeholder ?? '?');
+function NextMatchCountdown({ kickoffUtc }: { kickoffUtc: string }) {
+  const cd = useCountdown(kickoffUtc);
   const isUrgent = !cd.expired && cd.days === 0 && cd.hours === 0;
-
   return (
-    <div className="block rounded-lg border border-border bg-surface-elevated p-4 sm:p-5 transition-colors">
-      <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-        Next Match
-      </p>
-      <p className="font-sans text-xs text-text-muted mb-1">{kickoffLocal}</p>
-      <p className="font-sans text-base text-text-primary mb-3 truncate font-medium">
-        {homeLabel} <span className="text-text-muted font-normal">vs</span> {awayLabel}
-      </p>
-      <p
-        className={`font-mono text-4xl tabular-nums font-medium leading-none mb-4 ${
-          isUrgent ? 'text-warning' : 'text-primary'
-        }`}
+    <span className={`font-mono tabular-nums ${isUrgent ? 'text-warning' : 'text-primary'}`}>
+      {formatCountdown(cd)}
+    </span>
+  );
+}
+
+function NextUpCard({ todo, isLoading }: { todo: HomeResponse['todo'] | undefined; isLoading: boolean }) {
+  if (isLoading) {
+    return <Skeleton className="h-[88px] rounded-lg" />;
+  }
+  if (!todo) return null;
+
+  const { specials_submitted, specials_lock_at, upcoming_unpredicted, next_match } = todo;
+
+  // Priority 1: specials open + not submitted
+  const specialsOpen = specials_lock_at !== null && !specials_submitted;
+
+  if (specialsOpen) {
+    return (
+      <Link
+        to="/predictions/specials"
+        className="group flex items-center gap-3 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
       >
-        {formatCountdown(cd)}
-      </p>
-      <div className="flex items-center gap-2">
-        <Link
-          to={`/matches/${match.id}`}
-          className="text-xs font-sans text-text-muted hover:text-primary transition-colors"
+        <span
+          className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-md bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors"
+          aria-hidden
         >
-          Match details →
-        </Link>
-        {!hasPrediction && !cd.expired && (
+          <Sparkles className="h-4 w-4" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block font-sans text-sm font-semibold text-text-primary">
+            Make your Specials picks
+          </span>
+          <span className="block text-text-muted text-xs font-sans mt-0.5">
+            Tournament winner, Golden Boot, top scorer
+          </span>
+        </span>
+        <ChevronRight
+          className="h-4 w-4 text-text-muted shrink-0 transition-transform group-hover:translate-x-0.5"
+          aria-hidden
+        />
+      </Link>
+    );
+  }
+
+  // Priority 2: next match unpredicted + not locked
+  if (next_match && !next_match.predicted) {
+    return (
+      <div className="rounded-lg border border-border bg-surface-elevated p-4 sm:p-5">
+        <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-2">
+          Next up
+        </p>
+        <p className="font-sans text-sm font-medium text-text-primary mb-1 truncate">
+          {next_match.home_label}{' '}
+          <span className="text-text-muted font-normal">vs</span>{' '}
+          {next_match.away_label}
+        </p>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-text-muted font-sans">
+            locks in <NextMatchCountdown kickoffUtc={next_match.kickoff_utc} />
+          </span>
           <Button asChild size="sm" variant="default" className="ml-auto">
             <Link to="/predictions">Predict now</Link>
           </Button>
-        )}
+        </div>
       </div>
+    );
+  }
+
+  // Priority 3: more upcoming matches to predict
+  if (upcoming_unpredicted > 1) {
+    return (
+      <Link
+        to="/predictions"
+        className="flex items-center gap-3 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
+      >
+        <span className="flex-1 font-sans text-sm font-medium text-text-primary">
+          {upcoming_unpredicted} matches open to predict
+        </span>
+        <ChevronRight className="h-4 w-4 text-text-muted shrink-0" aria-hidden />
+      </Link>
+    );
+  }
+
+  // Priority 4: all done — calm state
+  return (
+    <div className="flex items-center gap-3 p-4 sm:p-5 rounded-lg border border-border bg-surface">
+      <span className="flex-1 font-sans text-sm text-text-secondary">
+        You&apos;re all set
+        {next_match && (
+          <>
+            {' · next lock in '}
+            <NextMatchCountdown kickoffUtc={next_match.kickoff_utc} />
+          </>
+        )}
+      </span>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Compact league rank strip (U16.4) — reads from per_league, no leaderboard fetch
+// Results roll-up card (U17.4 — replaces LatestResultCard)
+// ---------------------------------------------------------------------------
+
+function ResultsRollupCard({
+  rollup,
+  perLeague,
+  timezone,
+}: {
+  rollup: HomeResponse['rollup'];
+  perLeague: CrossLeagueSummary['per_league'];
+  timezone: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!rollup) return null;
+
+  const { matchday, points_gained, match_count, matches } = rollup;
+
+  // Format the matchday date string for display
+  const matchdayLabel = formatInTimeZone(
+    new Date(matchday + 'T00:00:00Z'),
+    timezone,
+    'EEE d MMM',
+  );
+
+  // Cross-league impact: per_league entries whose triggered_by is one of the rollup match ids
+  const rollupMatchIds = new Set(matches.map((m) => m.match_id));
+  const impactParts = perLeague
+    .filter(
+      (e) =>
+        e.triggered_by_match_id !== null &&
+        rollupMatchIds.has(e.triggered_by_match_id) &&
+        e.rank_delta !== null &&
+        e.rank_delta !== 0,
+    )
+    .map((e) => {
+      const dir = e.rank_delta! > 0 ? '↑' : '↓';
+      return `${dir}${Math.abs(e.rank_delta!)} ${e.name}`;
+    });
+
+  return (
+    <div className="rounded-lg border border-border bg-surface overflow-hidden">
+      {/* Collapsed header */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-3 p-4 sm:p-5 text-left hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+        aria-expanded={expanded}
+      >
+        <span className="flex-1 min-w-0">
+          <span className="block text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-1">
+            Latest Results
+          </span>
+          <span className="font-sans text-sm font-medium text-text-primary">
+            {matchdayLabel}:{' '}
+            <span className="text-primary font-mono tabular-nums">
+              +{points_gained}
+            </span>{' '}
+            <span className="text-text-muted font-normal">
+              · {match_count} {match_count === 1 ? 'match' : 'matches'}
+            </span>
+          </span>
+        </span>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-text-muted shrink-0" aria-hidden />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-text-muted shrink-0" aria-hidden />
+        )}
+      </button>
+
+      {/* Expanded per-match rows */}
+      {expanded && (
+        <div className="border-t border-border/50">
+          {matches.map((m) => {
+            const hasScore = m.actual_home !== null && m.actual_away !== null;
+            return (
+              <Link
+                key={m.match_id}
+                to={`/matches/${m.match_id}`}
+                className="block px-4 sm:px-5 py-3 border-b border-border/50 last:border-b-0 hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+              >
+                <p className="font-sans text-xs font-medium text-text-primary mb-1 truncate">
+                  {m.home_label}{' '}
+                  <span className="text-text-muted font-normal">vs</span>{' '}
+                  {m.away_label}
+                </p>
+                {hasScore && (
+                  <p className="font-mono text-xs text-text-muted tabular-nums mb-2">
+                    {m.actual_home}–{m.actual_away}
+                    {m.predicted_home !== null && m.predicted_away !== null && (
+                      <span className="ml-2 text-text-muted/70">
+                        (you: {m.predicted_home}–{m.predicted_away})
+                      </span>
+                    )}
+                  </p>
+                )}
+                {m.points_breakdown && (
+                  <PointsBreakdownRow breakdown={m.points_breakdown} />
+                )}
+              </Link>
+            );
+          })}
+
+          {/* Movement impact across leagues */}
+          {impactParts.length > 0 && (
+            <p className="px-4 sm:px-5 py-3 text-xs font-sans text-text-muted">
+              {impactParts.join(' · ')}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Compact league rank strip (U16.4) + cross-league movement summary (U17.5)
 // ---------------------------------------------------------------------------
 
 type PerLeagueEntry = CrossLeagueSummary['per_league'][number];
@@ -177,142 +391,30 @@ function CompactLeagueRow({ entry }: { entry: PerLeagueEntry }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Latest result (U16.5) — with per-league movement impact line
-// ---------------------------------------------------------------------------
-
-function LatestResultCard({
-  prediction,
-  timezone,
+function CrossLeagueMovementSummary({
   perLeague,
 }: {
-  prediction: RecentPrediction;
-  timezone: string;
   perLeague: CrossLeagueSummary['per_league'];
 }) {
-  const kickoffLocal = formatInTimeZone(new Date(prediction.kickoff_utc), timezone, 'EEE d MMM');
-  const homeLabel = prediction.home_team_name ?? '?';
-  const awayLabel = prediction.away_team_name ?? '?';
-  const pts = prediction.points_awarded;
-  const bd = prediction.points_breakdown;
+  if (perLeague.length < 2) return null;
 
-  // Build impact line: per_league entries whose latest result triggered by this match
-  const impactParts = perLeague
-    .filter(
-      (e) =>
-        e.triggered_by_match_id === prediction.match_id &&
-        e.rank_delta !== null &&
-        e.rank_delta !== 0,
-    )
-    .map((e) => {
-      const dir = e.rank_delta! > 0 ? '↑' : '↓';
-      return `${dir}${Math.abs(e.rank_delta!)} in ${e.name}`;
-    });
+  const movers = perLeague.filter((e) => e.rank_delta !== null && e.rank_delta !== 0);
+  if (movers.length === 0) return null;
+
+  const parts = movers.map((e) => {
+    const dir = e.rank_delta! > 0 ? '↑' : '↓';
+    return `${dir}${Math.abs(e.rank_delta!)} ${e.name}`;
+  });
 
   return (
-    <Link
-      to={`/matches/${prediction.match_id}`}
-      className="block rounded-lg border border-border bg-surface p-4 sm:p-5 hover:bg-surface-elevated press-down transition-colors focus-visible:outline-none focus-visible:shadow-glow"
-    >
-      <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-        Latest Result
-      </p>
-      <p className="font-sans text-xs text-text-muted mb-1">{kickoffLocal}</p>
-      <p className="font-sans text-sm text-text-primary mb-2 truncate">
-        {prediction.home_team_flag} {homeLabel}{' '}
-        <span className="text-text-muted">vs</span>{' '}
-        {prediction.away_team_flag} {awayLabel}
-      </p>
-      {prediction.actual_home !== null && prediction.actual_away !== null && (
-        <p className="font-mono text-xs text-text-muted tabular-nums mb-3">
-          {prediction.actual_home}–{prediction.actual_away}
-          {prediction.predicted_home !== null && prediction.predicted_away !== null && (
-            <span className="ml-2 text-text-muted/70">
-              (you: {prediction.predicted_home}–{prediction.predicted_away})
-            </span>
-          )}
-        </p>
-      )}
-      {bd ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
-          {(
-            [
-              { label: 'Result', val: bd.result },
-              { label: 'Goals', val: bd.goals },
-              { label: 'Exact', val: bd.exact },
-            ] as const
-          ).map(({ label, val }) => (
-            <span key={label} className="flex items-center gap-1 font-sans text-xs">
-              <span className={val > 0 ? 'text-success' : 'text-text-muted'}>
-                {val > 0 ? '✓' : '✗'}
-              </span>
-              <span className="text-text-muted">{label}</span>
-              <span
-                className={`font-mono tabular-nums font-medium ${val > 0 ? 'text-primary' : 'text-text-muted'}`}
-              >
-                {val > 0 ? `+${val}` : '—'}
-              </span>
-            </span>
-          ))}
-          <span className="font-mono text-xs font-semibold text-primary tabular-nums ml-auto">
-            {bd.total} pts
-          </span>
-        </div>
-      ) : (
-        pts !== null && (
-          <span
-            className={`inline-flex items-baseline gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium mb-2 ${
-              pts > 0
-                ? 'bg-primary/15 text-primary border border-primary/25'
-                : 'bg-surface-elevated text-text-muted border border-border'
-            }`}
-          >
-            <span className="tabular-nums">{pts}</span>
-            <span className="opacity-70">pt{pts !== 1 ? 's' : ''}</span>
-          </span>
-        )
-      )}
-      {impactParts.length > 0 && (
-        <p className="text-xs font-sans text-text-muted mt-2">{impactParts.join(' · ')}</p>
-      )}
-    </Link>
+    <p className="px-4 sm:px-5 pt-3 pb-0 text-xs font-sans text-text-muted">
+      Across your leagues: {parts.join(' · ')}
+    </p>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Specials CTA
-// ---------------------------------------------------------------------------
-
-function SpecialsCTA() {
-  return (
-    <Link
-      to="/predictions/specials"
-      className="group flex items-center gap-3 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
-    >
-      <span
-        className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-md bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors"
-        aria-hidden
-      >
-        <Sparkles className="h-4 w-4" />
-      </span>
-      <span className="flex-1 min-w-0">
-        <span className="block font-sans text-sm font-semibold text-text-primary">
-          Make your specials picks
-        </span>
-        <span className="block text-text-muted text-xs font-sans mt-0.5">
-          Tournament winner, Golden Boot, top scorer
-        </span>
-      </span>
-      <ChevronRight
-        className="h-4 w-4 text-text-muted shrink-0 transition-transform group-hover:translate-x-0.5"
-        aria-hidden
-      />
-    </Link>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Page
+// Page (U17.6 — adaptive composition)
 // ---------------------------------------------------------------------------
 
 export function DashboardPage() {
@@ -325,80 +427,46 @@ export function DashboardPage() {
     staleTime: 30_000,
   });
 
-  const { data: upcoming = [], isLoading: upcomingLoading } = useQuery<MatchResponse[]>({
-    queryKey: ['matches', 'upcoming', 1],
-    queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches/upcoming?n=1'),
-    staleTime: 60_000,
-  });
-
-  const { data: recentPreds = [], isLoading: recentLoading } = useQuery<RecentPrediction[]>({
-    queryKey: ['predictions', 'recent', player?.id],
-    queryFn: () =>
-      apiFetch<RecentPrediction[]>(`/api/v1/players/${player!.id}/predictions/recent?limit=1`),
-    enabled: !!player?.id,
+  const { data: home, isLoading: homeLoading } = useQuery<HomeResponse>({
+    queryKey: ['me-home'],
+    queryFn: () => apiFetch<HomeResponse>('/api/v1/me/home'),
     staleTime: 30_000,
   });
 
-  const nextMatch = upcoming[0] ?? null;
-
-  const { data: nextMatchPrediction } = useQuery({
-    queryKey: ['prediction', nextMatch?.id, player?.id],
-    queryFn: async () => {
-      try {
-        return await apiFetch(`/api/v1/predictions/${nextMatch!.id}`);
-      } catch {
-        return null;
-      }
-    },
-    enabled: !!nextMatch?.id && !!player?.id,
-    staleTime: 30_000,
-  });
-
-  const latestPred = recentPreds[0] ?? null;
-  const hasPrediction = nextMatchPrediction !== null && nextMatchPrediction !== undefined;
   const perLeague = summary?.per_league ?? [];
+  const hasRollup = home?.rollup != null;
 
   return (
     <div className="space-y-5">
-      {/* Points hero — replaces h1 greeting + CrossLeagueSummaryWidget */}
-      <PointsHero summary={summary} isLoading={summaryLoading} displayName={player?.displayName} />
+      {/* Stat strip — POINTS + best RANK (U17.2) */}
+      <StatStrip summary={summary} isLoading={summaryLoading} />
 
-      <WelcomeCard />
-
-      {/* Next match */}
-      {upcomingLoading ? (
-        <Skeleton className="h-[160px] rounded-lg" />
-      ) : nextMatch ? (
-        <NextMatchCard match={nextMatch} timezone={timezone} hasPrediction={hasPrediction} />
+      {/* Adaptive top zone (U17.6) */}
+      {hasRollup ? (
+        <>
+          {/* Results lead when scores exist */}
+          <ResultsRollupCard rollup={home!.rollup} perLeague={perLeague} timezone={timezone} />
+          <NextUpCard todo={home?.todo} isLoading={homeLoading} />
+        </>
       ) : (
-        <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
-            Next Match
-          </p>
-          <p className="text-text-muted font-sans text-sm">No upcoming matches</p>
-        </div>
+        /* Next-up leads pre-tournament */
+        <NextUpCard todo={home?.todo} isLoading={homeLoading} />
       )}
 
-      {/* Latest result — with per-league movement impact line */}
-      {recentLoading ? (
-        <Skeleton className="h-[140px] rounded-lg" />
-      ) : latestPred ? (
-        <LatestResultCard prediction={latestPred} timezone={timezone} perLeague={perLeague} />
-      ) : null}
+      {/* WelcomeCard below the to-do (U17.6) */}
+      <WelcomeCard />
 
-      {/* Compact league rank strip — sourced from cross-league summary (no N+1 fetch) */}
+      {/* Compact league rank strip (U16.4) with cross-league summary (U17.5) */}
       {summaryLoading ? (
         <Skeleton className="h-[80px] rounded-lg" />
       ) : perLeague.length > 0 ? (
         <div className="rounded-lg border border-border bg-surface overflow-hidden">
+          <CrossLeagueMovementSummary perLeague={perLeague} />
           {perLeague.map((entry) => (
             <CompactLeagueRow key={entry.slug} entry={entry} />
           ))}
         </div>
       ) : null}
-
-      {/* Specials CTA */}
-      <SpecialsCTA />
     </div>
   );
 }

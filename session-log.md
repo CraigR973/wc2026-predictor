@@ -1496,3 +1496,33 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - No further architecture phases defined past 12.2 — check with user before starting a new planning session.
 
 **Next:** No further batches defined — architecture complete.
+
+---
+
+## Polish batch U15 — Invite/share polish
+**Commits:** 7362ff6, ad059d1, 40bab3e, 4a169b9, dd0f860, 667eada, b9fa0dc, f500097, c8f74d5, 96b2c8d · CI ✅
+
+### Key facts for future sessions
+- `apps/web/src/lib/invite.ts` — `buildInviteMessage` (Lewis Steele / Robinson's Fruit Juice backstory, match-by-match copy, Predict → Specials callout) + `shareInvite` (text-only navigator.share, no url param — iOS renders the url param as a separate link cluttering the preview). AbortError = silent cancel, not an error.
+- `BrowserOnboarding.tsx` — shared full-page onboarding for uninstalled mobile browser users. Used by both `InstallPromptController` (all routes including `/`) and `JoinPage`. Safari gets 5-step install card (•••→Share→View More→Add to Home Screen→Add); Chrome on iOS gets 4-step card (share in address bar).
+- `InstallPromptController` now renders `BrowserOnboarding` instead of IosSafariOverlay/InstallGate variants. SELF_MANAGED list exempts `/join/` and `/welcome` from double-rendering.
+- SW `skipWaiting()` is now unconditional — was prompt-only before, which created a deadlock where the IosSafariOverlay blocked the UpdateBanner so users could never receive fixes.
+- `JoinPage` splits on `isMobile && !isInstalled`: mobile browser → `BrowserOnboarding`; installed PWA / desktop → `AppJoinFlow` (functional join form). PIN is 4 digits exactly.
+- e2e: multi-league create-invite spec must open the Advanced `<details>` disclosure before clicking "Generate invite link" (ad059d1). E2E join spec uses 4-digit PINs.
+
+**Next:** Polish batch U16 — Home points-hero + inline rank movement 🟢 Sonnet
+
+---
+
+## Polish batch U16 — Home points-hero + inline rank movement
+**Commits:** 1efeb85, 98c3730 · CI ✅
+
+### Key facts for future sessions
+- `CrossLeagueSummaryWidget` and the `<h1>` greeting are gone; `PointsHero` is the new top-of-page component with `text-5xl/6xl` primary mono for `total_points`.
+- Zero/pre-tournament subline ("Your tally starts…") triggers when `total_points === 0` — expected state for all players on launch day.
+- `per_league` entries now carry `rank_delta` (signed int, positive = moved up; `null` below 2 snapshots) and `triggered_by_match_id` via a window-function top-2 query with `(snapshot_at DESC, id DESC)` tie-break. `avg_rank` preserved for back-compat.
+- `CompactLeagueRow` reads rank/member_count/rank_delta from the single summary call — no per-league `/leaderboard` fetch on the dashboard any more (N+1 → 1).
+- Impact line on `LatestResultCard` filters `per_league` by `triggered_by_match_id === match_id` and non-zero delta; omits the line when nothing matches or all deltas are 0.
+- mypy `[type-arg]` error on `dict[uuid.UUID, list]` (bare `list`) — fix was `list[Any]` in `me.py`; CI caught it on first push.
+
+**Next:** No further U-batches defined — check with user.

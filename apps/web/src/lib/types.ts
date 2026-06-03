@@ -284,6 +284,46 @@ export interface CrossLeagueSummary {
   }>;
 }
 
+export interface HomeNextMatch {
+  id: string;
+  kickoff_utc: string;
+  home_label: string;
+  away_label: string;
+  predicted: boolean;
+}
+
+export interface HomeTodo {
+  specials_submitted: boolean;
+  specials_lock_at: string | null;
+  upcoming_unpredicted: number;
+  next_match: HomeNextMatch | null;
+}
+
+export interface HomeRollupMatch {
+  match_id: string;
+  home_label: string;
+  away_label: string;
+  home_flag: string | null;
+  away_flag: string | null;
+  actual_home: number | null;
+  actual_away: number | null;
+  predicted_home: number | null;
+  predicted_away: number | null;
+  points_breakdown: PointsBreakdown | null;
+}
+
+export interface HomeRollup {
+  matchday: string;
+  points_gained: number;
+  match_count: number;
+  matches: HomeRollupMatch[];
+}
+
+export interface HomeResponse {
+  todo: HomeTodo;
+  rollup: HomeRollup | null;
+}
+
 export interface RecentPrediction {
   match_id: string;
   stage: string;
