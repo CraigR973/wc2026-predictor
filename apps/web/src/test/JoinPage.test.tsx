@@ -4,6 +4,22 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { JoinPage } from '@/pages/JoinPage';
 import { AuthProvider } from '@/contexts/AuthContext';
 
+// JoinPage splits on isMobile + isInstalled from useInstallPrompt.
+// Tests cover the installed-PWA path (AppJoinFlow) — mock as standalone so
+// the functional join form renders rather than the browser info page.
+vi.mock('@/hooks/useInstallPrompt', () => ({
+  useInstallPrompt: () => ({
+    isInstalled: true,
+    isMobile: true,
+    isIos: false,
+    isIosSafari: false,
+    isAndroid: false,
+    canInstall: false,
+    prompt: vi.fn(),
+  }),
+  detectStandalone: () => true,
+}));
+
 function renderJoin(token: string) {
   return render(
     <MemoryRouter initialEntries={[`/join/${token}`]}>
@@ -28,7 +44,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('JoinPage', () => {
+describe('JoinPage — installed PWA (AppJoinFlow)', () => {
   it('shows loading state initially', () => {
     vi.stubGlobal('fetch', () => new Promise(() => {}));
     renderJoin('abc');
@@ -59,10 +75,8 @@ describe('JoinPage', () => {
     await waitFor(() => {
       expect(screen.getByLabelText(/display name/i)).toBeTruthy();
     });
-    // Pre-fills name hint
     const nameInput = screen.getByLabelText(/display name/i) as HTMLInputElement;
     expect(nameInput.value).toBe('Craig');
-    // PIN entry and confirm groups are present
     expect(screen.getByRole('group', { name: 'PIN' })).toBeTruthy();
     expect(screen.getByRole('group', { name: 'Confirm PIN' })).toBeTruthy();
   });
@@ -87,3 +101,6 @@ describe('JoinPage', () => {
     });
   });
 });
+
+// BrowserInfoPage is covered by visual/E2E testing — the module-level mock
+// for useInstallPrompt cannot be overridden per-suite without full isolation.
