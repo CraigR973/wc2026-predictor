@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Lock } from 'lucide-react';
+import { Clock, Lock } from 'lucide-react';
 import type { MatchResponse, PredictionResponse, PointsBreakdown } from '../lib/types';
 import { Badge } from './ui/badge';
 import { PointsBreakdownPopover } from './PointsBreakdownPopover';
@@ -123,11 +123,8 @@ export function PredictionCard({
   const points = prediction?.points_awarded ?? null;
   const noSubmission = isCompleted && !prediction;
 
-  // Not-predicted warning: editable match with no saved or local values
-  const notPredicted =
-    editable &&
-    homeVal === '' &&
-    awayVal === '';
+  // A complete prediction has both scores entered (locally or saved).
+  const hasPrediction = homeVal !== '' && awayVal !== '';
 
   return (
     <motion.div
@@ -144,21 +141,25 @@ export function PredictionCard({
       animate={highlighted && !prefersReducedMotion ? { scale: [1, 1.02, 1] } : {}}
       transition={{ duration: 0.4 }}
     >
-      {/* Eyebrow row: caps-mono kickoff time + status pills */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <span
-          className={cn(
-            'font-mono text-[10px] uppercase tracking-[0.25em]',
-            isDeadlineWarning ? 'text-warning font-semibold' : 'text-text-muted',
-          )}
-        >
-          {kickoffLocal}
-          {isDeadlineWarning && (
-            <span className="ml-2 normal-case tracking-normal" data-testid="deadline-warning">
-              · {formatCountdown(countdown)} left
+      {/* Eyebrow row: kickoff time with countdown beneath it + status pills */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="min-w-0">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
+            {kickoffLocal}
+          </span>
+          {editable && !countdown.expired && (
+            <span
+              className={cn(
+                'mt-1 flex items-center gap-1 font-mono text-sm tabular-nums',
+                isDeadlineWarning ? 'text-warning font-semibold' : 'text-text-secondary',
+              )}
+              data-testid={isDeadlineWarning ? 'deadline-warning' : undefined}
+            >
+              <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {formatCountdown(countdown)}
             </span>
           )}
-        </span>
+        </div>
         <div className="flex items-center gap-2 shrink-0">
           {isCompleted && points !== null && !noSubmission && (
             <PointsBadge points={points} breakdown={prediction?.points_breakdown} />
@@ -202,12 +203,25 @@ export function PredictionCard({
         </div>
       )}
 
-      {notPredicted && (
-        <div
-          className="mt-3 text-center text-xs font-mono uppercase tracking-[0.2em] text-warning"
-          data-testid="not-predicted-warning"
-        >
-          Not predicted yet
+      {/* Uniform scheduled footer: prediction status, centered. A single
+          always-present row keeps every open card the same height. */}
+      {editable && (
+        <div className="mt-3 text-center">
+          {hasPrediction ? (
+            <span
+              className="font-mono text-xs uppercase tracking-[0.2em] text-success"
+              data-testid="predicted-indicator"
+            >
+              Predicted
+            </span>
+          ) : (
+            <span
+              className="font-mono text-xs uppercase tracking-[0.2em] text-warning"
+              data-testid="not-predicted-warning"
+            >
+              Not predicted yet
+            </span>
+          )}
         </div>
       )}
 

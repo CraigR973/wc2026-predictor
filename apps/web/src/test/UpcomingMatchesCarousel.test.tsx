@@ -136,6 +136,17 @@ describe('UpcomingMatchesCarousel', () => {
     expect(screen.getAllByTestId('not-predicted-warning').length).toBe(1);
   });
 
+  it('shows the Predicted indicator on a predicted card (uniform footer)', async () => {
+    const matches = [baseMatch(1), baseMatch(2)];
+    const predictions = [{ match_id: 'm1', predicted_home: 1, predicted_away: 0, points_awarded: null }];
+    renderCarousel(makeFetch(matches, predictions));
+
+    // m1 is predicted → exactly one "Predicted" indicator; m2 stays "not predicted"
+    await waitFor(() => expect(screen.queryByTestId('predicted-indicator')).toBeTruthy());
+    expect(screen.getAllByTestId('predicted-indicator').length).toBe(1);
+    expect(screen.getByTestId('predicted-indicator').textContent).toMatch(/Predicted/i);
+  });
+
   it('autosaves an inline edit via the shared hook (debounced PUT)', async () => {
     const matches = [baseMatch(1)];
     const predictions = [{ match_id: 'm1', predicted_home: 1, predicted_away: 0, points_awarded: null }];

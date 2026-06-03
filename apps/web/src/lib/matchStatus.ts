@@ -27,7 +27,7 @@ export type StatusVariant = 'default' | 'success' | 'error' | 'muted' | 'warning
 
 export function statusVariant(status: MatchResponse['status']): StatusVariant {
   const map: Record<MatchResponse['status'], StatusVariant> = {
-    scheduled: 'muted',
+    scheduled: 'success',
     locked: 'warning',
     live: 'live',
     completed: 'success',

@@ -103,7 +103,7 @@ export function UpcomingMatchesCarousel() {
         role="list"
         aria-label="Upcoming matches"
         tabIndex={0}
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-4 pb-2 focus-visible:outline-none focus-visible:shadow-glow motion-safe:scroll-smooth sm:mx-0 sm:px-0"
+        className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-none focus-visible:shadow-glow motion-safe:scroll-smooth"
       >
         {upcoming.map((m) => {
           const label = `${teamName(m.home_team, m.home_team_placeholder)} versus ${teamName(
