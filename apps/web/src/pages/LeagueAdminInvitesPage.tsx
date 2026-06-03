@@ -41,8 +41,7 @@ export function LeagueAdminInvitesPage() {
         joinCode: league.join_code,
         origin: window.location.origin,
       });
-      const url = window.location.origin; // share the app home — /join/ links always open in browser
-      await shareInvite({ message, url });
+      await shareInvite({ message });
     } catch {
       toast.error('Could not share invite');
     } finally {

@@ -63,7 +63,7 @@ describe('shareInvite — navigator.share absent', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('falls back to clipboard and returns "copied"', async () => {
-    const result = await shareInvite({ message: 'hello', url: 'https://x.com' });
+    const result = await shareInvite({ message: 'hello' });
     expect(result).toBe('copied');
     expect(navigator.clipboard.writeText).toHaveBeenCalled();
   });
@@ -78,25 +78,22 @@ describe('shareInvite — navigator.share present', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('calls navigator.share and returns "shared"', async () => {
-    const result = await shareInvite({ message: 'hello', url: 'https://x.com' });
+  it('calls navigator.share with text only (no url param) and returns "shared"', async () => {
+    const result = await shareInvite({ message: 'hello' });
     expect(result).toBe('shared');
-    expect(navigator.share).toHaveBeenCalledWith({
-      text: 'hello',
-      url: 'https://x.com',
-    });
+    expect(navigator.share).toHaveBeenCalledWith({ text: 'hello' });
   });
 
   it('returns "cancelled" (not error) when user dismisses the share sheet', async () => {
     const abortErr = Object.assign(new Error('share cancelled'), { name: 'AbortError' });
     vi.mocked(navigator.share).mockRejectedValueOnce(abortErr);
-    const result = await shareInvite({ message: 'hello', url: 'https://x.com' });
+    const result = await shareInvite({ message: 'hello' });
     expect(result).toBe('cancelled');
   });
 
   it('re-throws non-abort errors', async () => {
     const networkErr = new Error('network failure');
     vi.mocked(navigator.share).mockRejectedValueOnce(networkErr);
-    await expect(shareInvite({ message: 'hello', url: 'https://x.com' })).rejects.toThrow('network failure');
+    await expect(shareInvite({ message: 'hello' })).rejects.toThrow('network failure');
   });
 });
