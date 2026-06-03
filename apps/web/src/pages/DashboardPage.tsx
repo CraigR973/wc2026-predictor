@@ -9,7 +9,6 @@ import {
   ChevronUp,
   Clock,
   ListChecks,
-  Check,
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,9 +20,13 @@ import { Button } from '../components/ui/button';
 import type {
   CrossLeagueSummary,
   HomeResponse,
+  HomeTodo,
 } from '../lib/types';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+// Far-future sentinel used as a no-op target for conditional countdown hooks.
+const FAR_FUTURE = '2099-01-01T00:00:00Z';
 
 // ---------------------------------------------------------------------------
 // Section header — consistent zone label that gives each zone its own identity
@@ -41,92 +44,7 @@ function SectionHeader({ id, children }: { id: string; children: ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
-// Hero stat panel — points + best rank, unified dashboard metric (U17.2)
-// ---------------------------------------------------------------------------
-
-function StatStrip({
-  summary,
-  isLoading,
-}: {
-  summary: CrossLeagueSummary | undefined;
-  isLoading: boolean;
-}) {
-  if (isLoading) {
-    return <Skeleton className="h-[88px] sm:h-[108px] rounded-xl" />;
-  }
-
-  const pts = summary?.total_points ?? 0;
-  const hasActivity = pts > 0;
-
-  // Best rank = lowest rank number across per_league
-  const leagueRanks = summary?.per_league.filter((e) => e.rank !== null) ?? [];
-  const bestEntry =
-    leagueRanks.length > 0
-      ? leagueRanks.reduce((best, e) => (e.rank! < best.rank! ? e : best))
-      : null;
-  const bestRank = bestEntry?.rank ?? null;
-  const leaguesCount = summary?.leagues_count ?? 0;
-
-  // Pick rank_delta for the best-rank entry
-  const bestDelta = bestEntry?.rank_delta ?? null;
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-surface-elevated to-surface shadow-sm">
-      <div className="grid grid-cols-2 divide-x divide-border/60">
-        {/* Points — the hero metric */}
-        <div className="p-4 sm:p-5">
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
-            Points
-          </p>
-          <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-primary sm:text-5xl">
-            {pts}
-          </p>
-        </div>
-
-        {/* Best rank across leagues */}
-        <div className="p-4 sm:p-5">
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
-            Rank
-          </p>
-          {bestRank !== null ? (
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-text-primary sm:text-5xl">
-                #{bestRank}
-              </p>
-              {bestDelta !== null && bestDelta !== 0 && (
-                <span
-                  className={`font-mono text-sm tabular-nums ${bestDelta > 0 ? 'text-success' : 'text-text-muted'}`}
-                  aria-label={bestDelta > 0 ? `up ${bestDelta}` : `down ${Math.abs(bestDelta)}`}
-                >
-                  {bestDelta > 0 ? '↑' : '↓'}
-                  {Math.abs(bestDelta)}
-                </span>
-              )}
-              {leaguesCount > 1 && (
-                <span className="font-sans text-[10px] text-text-muted">
-                  best of {leaguesCount}
-                </span>
-              )}
-            </div>
-          ) : (
-            <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-text-muted sm:text-5xl">
-              —
-            </p>
-          )}
-        </div>
-      </div>
-
-      {!hasActivity && (
-        <p className="border-t border-border/60 px-4 py-2.5 text-center font-sans text-xs text-text-muted sm:px-5">
-          Your tally starts when the first results land · WC kicks off 11 Jun
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Next-up to-do card (U17.3 — single, clearly-actionable surface)
+// Shared countdown formatter
 // ---------------------------------------------------------------------------
 
 function formatCountdown(cd: {
@@ -142,6 +60,88 @@ function formatCountdown(cd: {
   return `${cd.minutes}m ${cd.seconds}s`;
 }
 
+// ---------------------------------------------------------------------------
+// Greeting + points hero (U18.1)
+// ---------------------------------------------------------------------------
+
+// Returns the ISO string for the soonest upcoming lock, or null if none.
+function nearestLockTarget(todo: HomeTodo | undefined): string | null {
+  if (!todo) return null;
+  const candidates: string[] = [];
+  if (todo.specials_lock_at && !todo.specials_submitted) {
+    candidates.push(todo.specials_lock_at);
+  }
+  if (todo.next_match?.kickoff_utc) {
+    candidates.push(todo.next_match.kickoff_utc);
+  }
+  if (candidates.length === 0) return null;
+  return candidates.sort()[0];
+}
+
+function HeroCountdownLine({ target }: { target: string | null }) {
+  const cd = useCountdown(target ?? FAR_FUTURE);
+  if (!target || cd.expired) return null;
+  const isUrgent = cd.days === 0 && cd.hours === 0;
+  return (
+    <p className="mt-2 font-sans text-xs text-text-muted">
+      next lock in{' '}
+      <span
+        className={`font-mono tabular-nums ${isUrgent ? 'text-warning' : 'text-primary'}`}
+      >
+        {formatCountdown(cd)}
+      </span>
+    </p>
+  );
+}
+
+function GreetingHero({
+  summary,
+  todo,
+  displayName,
+  isLoading,
+}: {
+  summary: CrossLeagueSummary | undefined;
+  todo: HomeTodo | undefined;
+  displayName: string;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return <Skeleton className="h-[110px] rounded-xl sm:h-[130px]" />;
+  }
+
+  const pts = summary?.total_points ?? 0;
+  const hasActivity = pts > 0;
+  const lockTarget = nearestLockTarget(todo);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-surface-elevated to-surface shadow-sm">
+      <div className="px-4 py-4 sm:px-5 sm:py-5">
+        <p className="mb-3 font-sans text-sm text-text-muted">
+          Welcome back,{' '}
+          <span className="font-semibold text-text-primary">{displayName}</span>
+        </p>
+        <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
+          Points
+        </p>
+        <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-primary sm:text-5xl">
+          {pts}
+        </p>
+        <HeroCountdownLine target={lockTarget} />
+      </div>
+
+      {!hasActivity && (
+        <p className="border-t border-border/60 px-4 py-2.5 text-center font-sans text-xs text-text-muted sm:px-5">
+          Your tally starts when the first results land · WC kicks off 11 Jun
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Urgent zone (U18.3 — self-hiding when nothing time-pressured)
+// ---------------------------------------------------------------------------
+
 function NextMatchCountdown({ kickoffUtc }: { kickoffUtc: string }) {
   const cd = useCountdown(kickoffUtc);
   const isUrgent = !cd.expired && cd.days === 0 && cd.hours === 0;
@@ -152,19 +152,13 @@ function NextMatchCountdown({ kickoffUtc }: { kickoffUtc: string }) {
   );
 }
 
-// Shared shell for the actionable to-do states — raised + interactive.
 const ACTION_CARD =
   'group flex items-center gap-3 rounded-lg border border-border bg-surface-elevated p-4 shadow-sm transition-colors hover:border-border-strong hover:bg-surface-overlay press-down focus-visible:outline-none focus-visible:shadow-glow sm:p-5';
 
-// Leading icon chip used across to-do states for a consistent visual anchor.
-function ActionIcon({ children, tone = 'primary' }: { children: ReactNode; tone?: 'primary' | 'success' }) {
-  const toneClass =
-    tone === 'success'
-      ? 'bg-surface-elevated text-success'
-      : 'bg-primary/10 text-primary group-hover:bg-primary/15';
+function ActionIcon({ children }: { children: ReactNode }) {
   return (
     <span
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors ${toneClass}`}
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary transition-colors group-hover:bg-primary/15"
       aria-hidden
     >
       {children}
@@ -172,17 +166,16 @@ function ActionIcon({ children, tone = 'primary' }: { children: ReactNode; tone?
   );
 }
 
-function NextUpCard({ todo, isLoading }: { todo: HomeResponse['todo'] | undefined; isLoading: boolean }) {
+function UrgentZone({ todo, isLoading }: { todo: HomeTodo | undefined; isLoading: boolean }) {
   if (isLoading) {
-    return <Skeleton className="h-[72px] sm:h-[80px] rounded-lg" />;
+    return <Skeleton className="h-[72px] rounded-lg sm:h-[80px]" />;
   }
   if (!todo) return null;
 
   const { specials_submitted, specials_lock_at, upcoming_unpredicted, next_match } = todo;
-
-  // Priority 1: specials open + not submitted
   const specialsOpen = specials_lock_at !== null && !specials_submitted;
 
+  // Priority 1: specials open + not submitted
   if (specialsOpen) {
     return (
       <Link to="/predictions/specials" className={ACTION_CARD}>
@@ -229,7 +222,7 @@ function NextUpCard({ todo, isLoading }: { todo: HomeResponse['todo'] | undefine
     );
   }
 
-  // Priority 3: more upcoming matches to predict
+  // Priority 3: multiple upcoming matches to predict
   if (upcoming_unpredicted > 1) {
     return (
       <Link to="/predictions" className={ACTION_CARD}>
@@ -247,22 +240,52 @@ function NextUpCard({ todo, isLoading }: { todo: HomeResponse['todo'] | undefine
     );
   }
 
-  // Priority 4: all done — calm, recessed state
+  // Nothing time-pressured — self-hide
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Specials read-only strip (U18.4)
+// ---------------------------------------------------------------------------
+
+function SpecialsLockCountdown({ lockAt }: { lockAt: string }) {
+  const cd = useCountdown(lockAt);
+  if (cd.expired) return <>Locked</>;
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4 sm:p-5">
-      <ActionIcon tone="success">
-        <Check className="h-4 w-4" />
-      </ActionIcon>
-      <span className="flex-1 font-sans text-sm text-text-secondary">
-        You&apos;re all set
-        {next_match && (
-          <>
-            {' · next lock in '}
-            <NextMatchCountdown kickoffUtc={next_match.kickoff_utc} />
-          </>
-        )}
+    <>
+      locks in{' '}
+      <span className="font-mono tabular-nums text-primary">{formatCountdown(cd)}</span>
+    </>
+  );
+}
+
+function SpecialsStrip({ todo, isLoading }: { todo: HomeTodo | undefined; isLoading: boolean }) {
+  if (isLoading) return <Skeleton className="h-[56px] rounded-lg" />;
+  // Show only when picks are submitted — unsubmitted+open state is handled by UrgentZone.
+  if (!todo?.specials_submitted) return null;
+
+  const { specials_lock_at } = todo;
+
+  return (
+    <Link
+      to="/predictions/specials"
+      className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm transition-colors hover:border-border-strong hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow sm:px-5"
+    >
+      <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block font-sans text-sm font-medium text-text-primary">
+          Specials picks submitted
+        </span>
+        <span className="mt-0.5 block font-sans text-xs text-text-muted">
+          {specials_lock_at ? (
+            <SpecialsLockCountdown lockAt={specials_lock_at} />
+          ) : (
+            <>Locked</>
+          )}
+        </span>
       </span>
-    </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
+    </Link>
   );
 }
 
@@ -284,7 +307,7 @@ function ResultsRollupCard({
   const [expanded, setExpanded] = useState(false);
 
   if (isLoading) {
-    return <Skeleton className="h-[64px] sm:h-[72px] rounded-lg" />;
+    return <Skeleton className="h-[64px] rounded-lg sm:h-[72px]" />;
   }
 
   if (!rollup) {
@@ -300,14 +323,12 @@ function ResultsRollupCard({
   const { matchday, points_gained, match_count, matches } = rollup;
   const matchLabel = `${match_count} ${match_count === 1 ? 'match' : 'matches'}`;
 
-  // Format the matchday date string for display
   const matchdayLabel = formatInTimeZone(
     new Date(matchday + 'T00:00:00Z'),
     timezone,
     'EEE d MMM',
   );
 
-  // Cross-league impact: per_league entries whose triggered_by is one of the rollup match ids
   const rollupMatchIds = new Set(matches.map((m) => m.match_id));
   const impactParts = perLeague
     .filter(
@@ -324,7 +345,6 @@ function ResultsRollupCard({
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
-      {/* Collapsed header */}
       <button
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow sm:p-5"
@@ -345,7 +365,6 @@ function ResultsRollupCard({
         )}
       </button>
 
-      {/* Expanded per-match rows */}
       {expanded && (
         <div className="border-t border-border/50">
           {matches.map((m) => {
@@ -378,7 +397,6 @@ function ResultsRollupCard({
             );
           })}
 
-          {/* Movement impact across leagues */}
           {impactParts.length > 0 && (
             <p className="px-4 py-3 font-sans text-xs text-text-muted sm:px-5">
               {impactParts.join(' · ')}
@@ -462,12 +480,13 @@ function CrossLeagueMovementSummary({
 }
 
 // ---------------------------------------------------------------------------
-// Page
+// Page — fixed order: hero → how-it-works → urgent → results → specials → leagues
 // ---------------------------------------------------------------------------
 
 export function DashboardPage() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
+  const displayName = player?.displayName ?? 'there';
 
   const { data: summary, isLoading: summaryLoading } = useQuery<CrossLeagueSummary>({
     queryKey: ['cross-league-summary'],
@@ -482,13 +501,41 @@ export function DashboardPage() {
   });
 
   const perLeague = summary?.per_league ?? [];
+  const todo = home?.todo;
+
+  // Urgent zone is visible while loading (shows skeleton) or when there's a pressured action.
+  const hasUrgent =
+    todo !== undefined &&
+    ((todo.specials_lock_at !== null && !todo.specials_submitted) ||
+      (todo.next_match !== null && !todo.next_match.predicted) ||
+      todo.upcoming_unpredicted > 1);
+  const showUrgent = homeLoading || hasUrgent;
+
+  // Specials strip shows when picks are submitted (unsubmitted+open handled by UrgentZone).
+  const showSpecials = homeLoading || todo?.specials_submitted === true;
 
   return (
     <div className="space-y-6">
-      {/* Hero — points + best rank at a glance */}
-      <StatStrip summary={summary} isLoading={summaryLoading} />
+      {/* Hero — greeting + points + next-lock countdown */}
+      <GreetingHero
+        summary={summary}
+        todo={todo}
+        displayName={displayName}
+        isLoading={summaryLoading || homeLoading}
+      />
 
-      {/* Results */}
+      {/* How it works — persistent collapsible (U18.2) */}
+      <WelcomeCard />
+
+      {/* Urgent zone — self-hides when nothing time-pressured (U18.3) */}
+      {showUrgent && (
+        <section aria-labelledby="home-urgent-label">
+          <SectionHeader id="home-urgent-label">To-do</SectionHeader>
+          <UrgentZone todo={todo} isLoading={homeLoading} />
+        </section>
+      )}
+
+      {/* Results roll-up */}
       <section aria-labelledby="home-results-label">
         <SectionHeader id="home-results-label">Results</SectionHeader>
         <ResultsRollupCard
@@ -499,15 +546,13 @@ export function DashboardPage() {
         />
       </section>
 
-      {/* To-do — the single action surface */}
-      {(homeLoading || home?.todo) && (
-        <section aria-labelledby="home-todo-label">
-          <SectionHeader id="home-todo-label">To-do</SectionHeader>
-          <NextUpCard todo={home?.todo} isLoading={homeLoading} />
+      {/* Specials strip — read-only steady-state summary (U18.4) */}
+      {showSpecials && (
+        <section aria-labelledby="home-specials-label">
+          <SectionHeader id="home-specials-label">Specials</SectionHeader>
+          <SpecialsStrip todo={todo} isLoading={homeLoading} />
         </section>
       )}
-
-      <WelcomeCard />
 
       {/* Leagues */}
       {summaryLoading ? (

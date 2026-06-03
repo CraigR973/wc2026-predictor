@@ -780,7 +780,7 @@ needed.
 |---|---|---|---|---|
 | ~~U15~~ | ~~🟢 Sonnet~~ | ~~—~~ | ~~invite/share polish~~ | ✅ Shipped 2026-06-02 (87aa800, 95a8aa9) |
 | ~~U16~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U16.1–U16.5~~ | ✅ Shipped 2026-06-02 (1efeb85, 98c3730) |
-| U17 | 🟢 Sonnet | ~5.5 h | U17.1–U17.6 | |
+| ~~U17~~ | ~~🟢 Sonnet~~ | ~~~5.5 h~~ | ~~U17.1–U17.6~~ | ✅ Shipped 2026-06-03 (21afe57, b06bf61, 706c0c4) |
 
 ---
 
@@ -993,3 +993,173 @@ Per batch: push the batch branch (`feat/premium-polish-8` for U16, `feat/premium
 or the next free number) → `/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if the `U`
 prefix isn't recognised) → lean `session-log.md` entry → strike the batch's row in the round-5 table
 above. Independent of rounds 2–4 — ff-merge once green.
+
+---
+
+# Round 6 — home hub redesign — batches (U18–U19) — added 2026-06-03
+
+From a 2026-06-03 home-screen design pass with the user (and a world-class UX review of the build).
+U17 gave the home page hierarchical zones, but the user wants the home to become the daily **hub**:
+a warmer top, the rank stat retired (it duplicates the Leagues strip), the time-critical to-do split
+out from a browse-everything surface, an **upcoming-matches carousel** you can predict/update from
+inline, and a read-only **specials** summary. The UX review converged the proposals on three points:
+(1) **merge the greeting into the hero** so the top says something instead of stacking decorative
+rows; (2) **cap the carousel** (~5–8) and link to Schedule so it stays a shortcut, not a 104-match
+scroller; (3) **keep the bottom nav as-is** — make the home a *hub* whose sections deep-link to the
+existing tabs (spokes) rather than re-tabbing. **Independent of prior rounds** — own fresh branch
+per batch (`feat/premium-polish-10` for U18, next free number if taken), ff-merge once green.
+`/next-batch-prompt polish` reads this file's `## U<n>` acceptance inline, so no manual pasting needed.
+
+**Design decisions locked in the pass (some revise U17):**
+- **Greeting merged into the hero.** One block — "Welcome back, {name}" subline + large
+  `total_points` + a "next lock in {countdown}" line — not two stacked rows.
+- **Rank retired from the hero.** *Revises U17.2's POINTS+RANK stat strip.* Per-league rank already
+  lives on the Leagues rows (U16.4), which becomes the single home for rank.
+- **Hero = Points + next-lock countdown.** Countdown is the soonest of `next_match.kickoff_utc` /
+  `specials_lock_at` (when unsubmitted) — both already in `/me/home`; reuse `useCountdown`.
+- **"How it works" = persistent collapsible, just below the hero.** *Revises U17.6's dismiss-forever
+  `WelcomeCard`.* Default expanded; once collapsed it stays as a re-openable "How it works ▸" row
+  (persisted), never gone forever.
+- **Urgent vs. browse split.** A self-hiding **Urgent** zone carries only genuinely time-pressured
+  actions (specials closing + unsubmitted; a not-yet-locked match unpredicted and locking soon); the
+  browse/manage-ahead job moves to the carousel. No always-on "you're all set" card.
+- **Upcoming-matches carousel (read + edit inline).** Horizontally scroll-snapped cards for the next
+  ~5–8 upcoming matches; each shows your saved prediction or "not predicted," editable in place;
+  ends with a **"See full schedule →"** card → `/schedule`. Group-stage scores **v1** (knockouts are
+  winner-picks — a different mode — and open round-by-round later).
+- **Specials = read-only summary strip.** Pick state + lock countdown, links out to the Specials page
+  to edit. No inline editing / no dropdowns-in-a-carousel.
+- **Bottom nav unchanged.** Keep Home · Schedule · Predict · Leagues · More (see `TabBar.tsx`). The
+  home is a hub; its sections deep-link to those tabs. **Do not re-tab or drop Schedule** — the
+  capped carousel + "See full schedule →" *strengthens* Schedule's distinct job rather than replacing
+  it. Keep iconography consistent (Pencil = edit a prediction on both home cards and the Predict tab).
+- **Phased.** U18 = home refresh on existing data (🟢 Sonnet). U19 = carousel + the shared
+  prediction-editor extraction it depends on (🔴 Opus — stateful refactor of a core, well-tested page
+  with offline/optimistic/realtime logic).
+
+**Target home IA (after both batches):**
+1. greeting + points hero (+ next-lock countdown)
+2. how it works (collapsible, collapsed-by-default for returning users)
+3. urgent (self-hiding)
+4. upcoming-matches carousel  *(U19)*
+5. results roll-up
+6. specials strip (read-only)
+7. leagues
+
+> **Watch-outs before coding:**
+> - **Builds on U17.** Close out / merge U17 first and branch from its tip; U18 revises the U17 stat
+>   strip + WelcomeCard, it doesn't start from U16.
+> - **Extract, don't fork the editor.** The match-prediction UX already exists as `PredictionCard`
+>   (a *private* fn in `PredictionsPage.tsx`) wired to ~150 lines of editing logic (debounced
+>   autosave `PUT /predictions/{matchId}`, **offline write-queue** via `enqueuePrediction`, optimistic
+>   local state, error rollback, realtime result-flash). U19 must extract these into a shared
+>   component + hook and have **both** the Predictions page and the home carousel consume them — never
+>   a second, divergent editor on home.
+> - **Cap the carousel.** Next ~5–8 only + "See full schedule →"; never render all 104 in a scroller
+>   (bad carousel *and* it would make the Schedule tab redundant).
+> - **Group-stage only (v1).** `/matches?stage=group`; exclude knockout/locked/kicked-off matches.
+> - **De-dup specials.** The Urgent zone owns the unsubmitted-and-closing nudge; the strip is the
+>   steady-state read-only summary — don't show the same "make your picks" prompt twice.
+> - **Carousel a11y.** Keyboard-scrollable + ARIA list/group semantics + scroll-snap; score inputs
+>   inside the track must stay operable on touch (scroll-vs-interact); respect reduced-motion.
+> - **Request budget.** U18 stays on the existing two home calls (cross-league-summary + `/me/home`);
+>   U19 adds `/matches?stage=group` + `/predictions/me` (document it; no per-card N+1).
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U18 | 🟢 Sonnet | ~3 h | U18.1–U18.6 | |
+| U19 | 🔴 Opus | ~5 h | U19.1–U19.5 | |
+
+---
+
+## U18 — Home hub: greeting-hero, collapsible how-it-works, urgent split, specials strip 🟢 Sonnet · ~3 h
+
+Reshapes the U17 home into the hub top — all on the data the page already fetches (no new requests).
+
+- **U18.1** Greeting + points hero (merge). Revise `StatStrip` (U17.2) into a single hero block:
+  drop the RANK tile entirely; render "Welcome back, {displayName}" (subline) + large `total_points`
+  (POINTS eyebrow, mono/primary) + a "next lock in {countdown}" line. Countdown = soonest of
+  `next_match.kickoff_utc` / `specials_lock_at` (when unsubmitted) from `/me/home`; reuse
+  `useCountdown`. Preserve the U16.2 zero/pre-tournament nudge (no bare "0"). Rank now lives only on
+  the Leagues rows. (~45 min)
+- **U18.2** "How it works" → persistent collapsible. Convert `WelcomeCard` from dismiss-forever
+  (`sss_welcome_dismissed`) to a disclosure: a "How it works" header with a chevron, expand/collapse
+  state persisted (new key e.g. `sss_howitworks_collapsed`), **default expanded**, rendered directly
+  below the hero. Keep the three facts + "Full rules" link. Accessible disclosure (button
+  `aria-expanded` + labelled region). (~40 min)
+- **U18.3** Urgent zone (self-hiding). Rework `NextUpCard` (U17.3) into an **Urgent** section that
+  renders **only** when there's a time-pressured action: specials open + unsubmitted, or a
+  not-yet-locked `next_match` unpredicted (lead with its countdown), or `upcoming_unpredicted > 1`
+  locking soon. When nothing is urgent → render nothing (drop the always-on priority-4 "all set"
+  card; the hero countdown already reassures). (~40 min)
+- **U18.4** Specials read-only strip. New compact `SpecialsStrip` (read-only) showing pick state +
+  lock countdown, linking to `/predictions/specials`. Uses `/me/home` `specials_submitted` +
+  `specials_lock_at` (no new request). Steady-state summary only — defers the unsubmitted-and-urgent
+  nudge to U18.3 (no duplication). (Optional later: a `{n}/6` count via a small `/me/home` add.)
+  (~25 min)
+- **U18.5** Hub-and-spoke deep-links. Verify each home section routes to its destination: roll-up
+  match → match detail; Leagues strip → `/leagues`; specials strip → `/predictions/specials`;
+  (carousel "See full schedule" lands in U19). No bottom-nav structural change; keep Pencil = edit
+  iconography consistent with the Predict tab. (~15 min)
+- **U18.6** Compose + tests. Fixed, self-hiding order: hero → how-it-works → urgent → results roll-up
+  → specials strip → leagues. Vitest: hero (points + countdown, **no** rank, zero state),
+  how-it-works expand/collapse persistence, urgent self-hide when nothing urgent, specials-strip
+  states, ordering. (~35 min)
+
+**Acceptance:**
+- Hero is one block — "Welcome back, {name}" + total points + next-lock countdown; **no rank tile**
+  (rank only on the Leagues rows); the U16.2 zero/pre-tournament nudge is preserved.
+- "How it works" is a persistent collapsible below the hero (not dismiss-forever); collapsed state
+  persists across reloads; default expanded; accessible disclosure.
+- The Urgent zone renders only when something is genuinely time-pressured and renders nothing
+  otherwise (no always-on "all set" card).
+- A read-only specials strip shows pick state + lock countdown and links to the Specials page; no
+  inline editing; it does not duplicate the urgent specials nudge.
+- Home sections deep-link to their tabs (hub-and-spoke); the bottom nav is unchanged.
+- Home still issues only the two existing requests (cross-league-summary + `/me/home`).
+- Vitest + a11y green; all existing tests pass.
+
+---
+
+## U19 — Upcoming-matches carousel + shared prediction editor 🔴 Opus · ~5 h
+
+The judgment-heavy batch: extract the prediction-editing stack so home and the Predictions page share
+one implementation, then build the carousel on top. Run on Opus.
+
+- **U19.1** Extract `PredictionCard` to `apps/web/src/components/PredictionCard.tsx` (today a private
+  fn in `PredictionsPage.tsx`) — props-driven, pixel- and behaviour-identical for the Predictions
+  page. (~45 min)
+- **U19.2** Extract the editor into `apps/web/src/hooks/usePredictionEditor.ts`: debounced autosave
+  (`PUT /predictions/{matchId}`), optimistic local state, **offline write-queue** (`enqueuePrediction`),
+  error rollback, and the realtime result-flash subscription. Refactor `PredictionsPage` to consume it
+  with full parity; re-green its Vitest. (~90 min)
+- **U19.3** `UpcomingMatchesCarousel` on home. Fetch `/api/v1/matches?stage=group` +
+  `/api/v1/predictions/me`; show the next ~5–8 **scheduled, not-locked** matches as scroll-snapped
+  cards reusing `PredictionCard` + `usePredictionEditor` (inline edit), each showing the saved
+  prediction or "not predicted"; end with a "See full schedule →" card → `/schedule`. Knockouts
+  excluded (v1). (~75 min)
+- **U19.4** Carousel a11y + polish: keyboard-scrollable track, ARIA list/group semantics + labels,
+  CSS scroll-snap, reduced-motion respected, score inputs operable on touch inside the track. (~45 min)
+- **U19.5** Tests: Vitest for the carousel (cap, predicted/unpredicted states, inline edit-save via
+  the shared hook, see-full-schedule link) and the extracted hook; PredictionsPage tests re-green;
+  a11y green. (~45 min)
+
+**Acceptance:**
+- `PredictionCard` + `usePredictionEditor` are shared modules; `PredictionsPage` consumes them with no
+  behavioural regression (offline / optimistic / realtime parity; its tests green).
+- Home shows an upcoming-matches carousel capped at the next ~5–8 group-stage matches, each rendering
+  the saved prediction or "not predicted," editable inline (debounced, offline-safe), ending with
+  "See full schedule →" → `/schedule`.
+- Knockout matches are excluded (group-stage scores v1).
+- The carousel is keyboard-accessible, ARIA-labelled, scroll-snapped, and reduced-motion-safe.
+- Added home requests are documented (`/matches?stage=group` + `/predictions/me`); no per-card N+1.
+- Vitest + a11y green; all existing tests pass.
+
+---
+
+## Close-out (round 6)
+
+Per batch: push the batch branch (`feat/premium-polish-10` for U18, then the next free number for
+U19) → `/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if the `U` prefix isn't
+recognised) → lean `session-log.md` entry → strike the batch's row in the round-6 table above.
+Independent of prior rounds — ff-merge once green. **U18 builds on U17**, so close out U17 first.

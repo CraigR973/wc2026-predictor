@@ -93,7 +93,6 @@ function stubAuth() {
     getItem: (k: string) => {
       if (k === 'wc2026_player') return STORED_PLAYER;
       if (k === 'wc2026_access') return FAKE_JWT;
-      if (k === 'sss_leaderboard_hint_dismissed') return null;
       return null;
     },
     setItem: vi.fn(),
@@ -143,55 +142,83 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// U17.2 — Stat strip tiles
+// U18.1 — GreetingHero (replaces StatStrip)
 // ---------------------------------------------------------------------------
 
-describe('DashboardPage — StatStrip tiles', () => {
-  it('shows total_points in the Points tile', async () => {
+describe('DashboardPage — GreetingHero', () => {
+  it('shows total_points in the hero', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText('87')).toBeTruthy());
-    expect(screen.getByText('87')).toBeTruthy();
   });
 
-  it('shows best league rank in the Rank tile', async () => {
+  it('shows "Welcome back" greeting with player display name', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('#1')).toBeTruthy());
-    expect(screen.getByText('#1')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText(/Welcome back,/)).toBeTruthy());
+    expect(screen.queryByText('Alice')).toBeTruthy();
   });
 
-  it('rank tile shows — when no snapshots yet', async () => {
+  it('does not show a Rank label in the hero', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('87')).toBeTruthy());
+    expect(screen.queryByText('Rank')).toBeFalsy();
+  });
+
+  it('shows "0" in zero state (not hidden)', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
-    expect(screen.getByText('—')).toBeTruthy();
+    expect(screen.getByText('0')).toBeTruthy();
   });
 
-  it('shows ↑/↓ delta on the best-rank tile', async () => {
+  it('shows the zero-state nudge subline when total_points === 0', async () => {
     stubAuth();
-    const summary = {
-      ...SUMMARY_ONE_LEAGUE,
-      per_league: [{ ...SUMMARY_ONE_LEAGUE.per_league[0], rank_delta: 2 }],
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    render(<Wrapper />);
+    await waitFor(() =>
+      expect(screen.queryByText(/Your tally starts when the first results land/)).toBeTruthy(),
+    );
+  });
+
+  it('shows next-lock countdown when next_match is in the future', async () => {
+    stubAuth();
+    const home = {
+      todo: {
+        specials_submitted: true,
+        specials_lock_at: null,
+        upcoming_unpredicted: 0,
+        next_match: {
+          id: 'm1',
+          kickoff_utc: new Date(Date.now() + 7_200_000).toISOString(), // 2 h from now
+          home_label: 'Brazil',
+          away_label: 'Mexico',
+          predicted: true,
+        },
+      },
+      rollup: null,
     };
-    const Wrapper = makeWrapper(mockFetch(summary));
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, home));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryAllByText('↑2').length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.queryByText(/next lock in/)).toBeTruthy());
   });
 
-  it('appends "best of N" when in multiple leagues', async () => {
+  it('shows next-lock countdown from specials_lock_at when unsubmitted', async () => {
     stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_TWO_LEAGUES));
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
+    // HOME_EMPTY has specials_lock_at set and !specials_submitted
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/best of 2/)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/next lock in/)).toBeTruthy());
   });
 });
 
 // ---------------------------------------------------------------------------
-// U16.2 — Stat strip zero / pre-tournament state
+// U16.2 — Zero / pre-tournament state (preserved)
 // ---------------------------------------------------------------------------
 
 describe('DashboardPage — zero state', () => {
@@ -209,71 +236,105 @@ describe('DashboardPage — zero state', () => {
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
-    // Points tile shows 0
     expect(screen.getByText('0')).toBeTruthy();
   });
 });
 
 // ---------------------------------------------------------------------------
-// U16.4 — Delta badge on CompactLeagueRow
+// U18.2 — How it works collapsible
 // ---------------------------------------------------------------------------
 
-describe('DashboardPage — delta badge', () => {
-  it('renders ↑2 badge when rank_delta = 2', async () => {
+describe('DashboardPage — How it works collapsible', () => {
+  it('is expanded by default and content is visible', async () => {
     stubAuth();
-    const summary = {
-      ...SUMMARY_ONE_LEAGUE,
-      per_league: [{ ...SUMMARY_ONE_LEAGUE.per_league[0], rank_delta: 2 }],
-    };
-    const Wrapper = makeWrapper(mockFetch(summary));
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
     render(<Wrapper />);
-    // The league row DeltaBadge renders ↑2
-    await waitFor(() => {
-      const nodes = screen.getAllByText('↑2');
-      expect(nodes.length).toBeGreaterThan(0);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
+    );
+    // Content region visible
+    expect(screen.queryByRole('region', { name: /How it works/i })).toBeTruthy();
+    expect(screen.queryByText(/Full rules/)).toBeTruthy();
+  });
+
+  it('toggle button has aria-expanded=true when expanded', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    render(<Wrapper />);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
+    );
+    const btn = screen.getByRole('button', { name: /How it works/i });
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('click collapses — content hidden, aria-expanded=false', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    render(<Wrapper />);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
+    );
+    const btn = screen.getByRole('button', { name: /How it works/i });
+    fireEvent.click(btn);
+    expect(screen.queryByRole('region', { name: /How it works/i })).toBeFalsy();
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('persists collapsed state to localStorage on collapse', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    render(<Wrapper />);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /How it works/i }));
+    expect(localStorage.setItem).toHaveBeenCalledWith('sss_howitworks_collapsed', '1');
+  });
+
+  it('persists expanded state to localStorage on expand', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    render(<Wrapper />);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
+    );
+    const btn = screen.getByRole('button', { name: /How it works/i });
+    fireEvent.click(btn); // collapse
+    fireEvent.click(btn); // expand
+    expect(localStorage.setItem).toHaveBeenCalledWith('sss_howitworks_collapsed', '0');
+  });
+
+  it('starts collapsed when localStorage has stored collapsed=true', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => {
+        if (k === 'wc2026_player') return STORED_PLAYER;
+        if (k === 'wc2026_access') return FAKE_JWT;
+        if (k === 'sss_howitworks_collapsed') return '1';
+        return null;
+      },
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
     });
-  });
-
-  it('renders ↓1 badge when rank_delta = -1', async () => {
-    stubAuth();
-    const summary = {
-      ...SUMMARY_ONE_LEAGUE,
-      per_league: [{ ...SUMMARY_ONE_LEAGUE.per_league[0], rank: 2, rank_delta: -1 }],
-    };
-    const Wrapper = makeWrapper(mockFetch(summary));
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryAllByText('↓1').length).toBeGreaterThan(0));
-  });
-
-  it('renders ▬ when rank_delta = 0', async () => {
-    stubAuth();
-    const summary = {
-      ...SUMMARY_ONE_LEAGUE,
-      per_league: [{ ...SUMMARY_ONE_LEAGUE.per_league[0], rank: 2, rank_delta: 0 }],
-    };
-    const Wrapper = makeWrapper(mockFetch(summary));
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('▬')).toBeTruthy());
-    expect(screen.getByText('▬')).toBeTruthy();
-  });
-
-  it('renders no delta badge when rank_delta is null', async () => {
-    stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE));
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('The Steele Spreadsheet')).toBeTruthy());
-    expect(screen.queryByText('↑')).toBeFalsy();
-    expect(screen.queryByText('↓')).toBeFalsy();
-    expect(screen.queryByText('▬')).toBeFalsy();
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
+    );
+    expect(screen.queryByRole('region', { name: /How it works/i })).toBeFalsy();
+    expect(
+      screen.getByRole('button', { name: /How it works/i }).getAttribute('aria-expanded'),
+    ).toBe('false');
   });
 });
 
 // ---------------------------------------------------------------------------
-// U17.3 — NextUpCard priority ladder
+// U18.3 — UrgentZone (replaces NextUpCard, minus the always-on P4 "all set")
 // ---------------------------------------------------------------------------
 
-describe('DashboardPage — NextUpCard priority ladder', () => {
-  it('shows Specials card when specials open + not submitted (priority 1)', async () => {
+describe('DashboardPage — UrgentZone priority ladder', () => {
+  it('shows Specials CTA when specials open + not submitted (priority 1)', async () => {
     stubAuth();
     const home = {
       todo: {
@@ -291,7 +352,7 @@ describe('DashboardPage — NextUpCard priority ladder', () => {
     );
   });
 
-  it('does not show Specials card when already submitted', async () => {
+  it('does not show Specials CTA when already submitted', async () => {
     stubAuth();
     const home = {
       todo: {
@@ -304,7 +365,7 @@ describe('DashboardPage — NextUpCard priority ladder', () => {
     };
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/You.re all set/)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
     expect(screen.queryByText('Make your Specials picks')).toBeFalsy();
   });
 
@@ -347,7 +408,7 @@ describe('DashboardPage — NextUpCard priority ladder', () => {
     await waitFor(() => expect(screen.queryByText('5 matches open to predict')).toBeTruthy());
   });
 
-  it('shows calm all-done state when nothing to action (priority 4)', async () => {
+  it('renders nothing and hides the To-do section when nothing is urgent', async () => {
     stubAuth();
     const home = {
       todo: {
@@ -360,7 +421,119 @@ describe('DashboardPage — NextUpCard priority ladder', () => {
     };
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/You.re all set/)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
+    expect(screen.queryByText('To-do')).toBeFalsy();
+    expect(screen.queryByText(/You.re all set/)).toBeFalsy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// U18.4 — SpecialsStrip
+// ---------------------------------------------------------------------------
+
+describe('DashboardPage — SpecialsStrip', () => {
+  it('shows "Specials picks submitted" when specials_submitted=true', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
+    render(<Wrapper />);
+    await waitFor(() =>
+      expect(screen.queryByText('Specials picks submitted')).toBeTruthy(),
+    );
+  });
+
+  it('shows Specials section header when strip is visible', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('Specials picks submitted')).toBeTruthy());
+    expect(screen.queryByText('Specials')).toBeTruthy();
+  });
+
+  it('hides strip when not submitted + lock open (UrgentZone handles the CTA instead)', async () => {
+    stubAuth();
+    const home = {
+      todo: {
+        specials_submitted: false,
+        specials_lock_at: '2026-06-15T15:00:00Z',
+        upcoming_unpredicted: 0,
+        next_match: null,
+      },
+      rollup: null,
+    };
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('Make your Specials picks')).toBeTruthy());
+    expect(screen.queryByText('Specials picks submitted')).toBeFalsy();
+  });
+
+  it('hides strip when no specials data at all', async () => {
+    stubAuth();
+    const home = {
+      todo: {
+        specials_submitted: false,
+        specials_lock_at: null,
+        upcoming_unpredicted: 0,
+        next_match: null,
+      },
+      rollup: null,
+    };
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
+    expect(screen.queryByText('Specials picks submitted')).toBeFalsy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// U16.4 — Delta badge on CompactLeagueRow
+// ---------------------------------------------------------------------------
+
+describe('DashboardPage — delta badge', () => {
+  it('renders ↑2 badge in league row when rank_delta = 2', async () => {
+    stubAuth();
+    const summary = {
+      ...SUMMARY_ONE_LEAGUE,
+      per_league: [{ ...SUMMARY_ONE_LEAGUE.per_league[0], rank_delta: 2 }],
+    };
+    const Wrapper = makeWrapper(mockFetch(summary));
+    render(<Wrapper />);
+    await waitFor(() => {
+      const nodes = screen.getAllByText('↑2');
+      expect(nodes.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('renders ↓1 badge when rank_delta = -1', async () => {
+    stubAuth();
+    const summary = {
+      ...SUMMARY_ONE_LEAGUE,
+      per_league: [{ ...SUMMARY_ONE_LEAGUE.per_league[0], rank: 2, rank_delta: -1 }],
+    };
+    const Wrapper = makeWrapper(mockFetch(summary));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryAllByText('↓1').length).toBeGreaterThan(0));
+  });
+
+  it('renders ▬ when rank_delta = 0', async () => {
+    stubAuth();
+    const summary = {
+      ...SUMMARY_ONE_LEAGUE,
+      per_league: [{ ...SUMMARY_ONE_LEAGUE.per_league[0], rank: 2, rank_delta: 0 }],
+    };
+    const Wrapper = makeWrapper(mockFetch(summary));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('▬')).toBeTruthy());
+    expect(screen.getByText('▬')).toBeTruthy();
+  });
+
+  it('renders no delta badge when rank_delta is null', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('The Steele Spreadsheet')).toBeTruthy());
+    expect(screen.queryByText('↑')).toBeFalsy();
+    expect(screen.queryByText('↓')).toBeFalsy();
+    expect(screen.queryByText('▬')).toBeFalsy();
   });
 });
 
@@ -376,7 +549,6 @@ describe('DashboardPage — ResultsRollupCard', () => {
     await waitFor(() =>
       expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy(),
     );
-    // Zone is announced by the consistent "Results" section header
     expect(screen.queryByText('Results')).toBeTruthy();
   });
 
@@ -384,7 +556,6 @@ describe('DashboardPage — ResultsRollupCard', () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    // Wait for the points total to appear (data-specific, not the always-present header)
     await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
     expect(screen.queryByText(/2 matches/)).toBeTruthy();
   });
@@ -393,7 +564,6 @@ describe('DashboardPage — ResultsRollupCard', () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    // Wait for the points total — confirms real data loaded, not just the placeholder
     await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
 
     const expandBtn = screen.getByRole('button', { name: /Latest Results/i });
@@ -412,8 +582,6 @@ describe('DashboardPage — ResultsRollupCard', () => {
     const expandBtn = screen.getByRole('button', { name: /Latest Results/i });
     fireEvent.click(expandBtn);
 
-    // Both leagues had movement triggered by match-1 which is in the rollup;
-    // at least one element (rollup impact or summary line) contains the text
     await waitFor(() =>
       expect(screen.queryAllByText(/↑2 The Steele Spreadsheet/).length).toBeGreaterThan(0),
     );
@@ -461,11 +629,11 @@ describe('DashboardPage — cross-league movement summary', () => {
 });
 
 // ---------------------------------------------------------------------------
-// U17.6 — Adaptive ordering
+// U18.6 — Section ordering and self-hiding
 // ---------------------------------------------------------------------------
 
-describe('DashboardPage — ordering', () => {
-  it('pre-tournament: rollup placeholder and NextUpCard both present', async () => {
+describe('DashboardPage — ordering and self-hiding', () => {
+  it('pre-tournament: UrgentZone (specials CTA) and Results placeholder both present', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
     render(<Wrapper />);
@@ -474,15 +642,25 @@ describe('DashboardPage — ordering', () => {
     expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy();
   });
 
-  it('post-result: rollup shows real data, NextUpCard present below', async () => {
+  it('post-result: rollup shows real data, UrgentZone self-hides when nothing urgent', async () => {
     stubAuth();
-    const home = { ...HOME_WITH_ROLLUP };
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, home));
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    // Wait for rollup data to load (points total confirms real data, not placeholder)
     await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
-    // NextUpCard also shows (all-done state since no upcoming)
-    expect(screen.queryByText(/You.re all set/)).toBeTruthy();
+    // UrgentZone: specials submitted, no upcoming → self-hides
+    expect(screen.queryByText('To-do')).toBeFalsy();
+    // SpecialsStrip: submitted → visible
+    expect(screen.queryByText('Specials picks submitted')).toBeTruthy();
+  });
+
+  it('all zones ordered: how-it-works present, results present, leagues present', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('The Steele Spreadsheet')).toBeTruthy());
+    expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy();
+    expect(screen.queryByText('Results')).toBeTruthy();
+    expect(screen.queryByText('Leagues')).toBeTruthy();
   });
 });
 
@@ -498,7 +676,6 @@ describe('PointsBreakdownRow', () => {
     expect(screen.getByText('Result')).toBeTruthy();
     expect(screen.getByText('+3')).toBeTruthy();
     expect(screen.getByText('+2')).toBeTruthy();
-    // Exact is 0 — shows —
     expect(screen.getByText('Exact')).toBeTruthy();
     expect(screen.getByText('5 pts')).toBeTruthy();
   });

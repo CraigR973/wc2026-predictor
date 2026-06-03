@@ -1526,3 +1526,16 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - mypy `[type-arg]` error on `dict[uuid.UUID, list]` (bare `list`) — fix was `list[Any]` in `me.py`; CI caught it on first push.
 
 **Next:** No further U-batches defined — check with user.
+
+---
+
+## Polish batch U17 — Home page redesign: stat strip + smart to-do + results roll-up
+**Commits:** 21afe57, b06bf61, 706c0c4 · CI ✅
+
+### Key facts for future sessions
+- Shipped home order is FIXED (StatStrip → ResultsRollupCard → NextUpCard → WelcomeCard → Leagues); the rollup self-hides via a pre-tournament placeholder instead of reordering. This REVISES U17.6's "adaptive ordering" spec — the polish-batches doc still reads "adaptive" (b06bf61).
+- `ResultsRollupCard` toggle's accessible name is an `aria-label` ("Latest results, {matchday}, +{pts}…"); the visible "Latest Results" eyebrow was replaced by a page-level "Results" section header (706c0c4). Tests match the button via `/Latest Results/i` against that aria-label.
+- Premium pass (706c0c4) added a `SectionHeader` system + elevation hierarchy: gradient `rounded-xl` hero, `surface-elevated` actionable to-do cards, plain `surface` content cards. 267 Vitest green, typecheck clean.
+- U18 (next) reshapes this top — greeting merged into hero, RANK tile removed (rank lives only on Leagues rows), next-lock countdown, WelcomeCard → persistent collapsible. Builds on U17; spec in docs/polish-batches.md (1638891).
+
+**Next:** Polish batch U18 — Home hub: greeting-hero, collapsible how-it-works, urgent split, specials strip 🟢 Sonnet
