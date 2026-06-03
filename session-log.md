@@ -1539,3 +1539,18 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - U18 (next) reshapes this top — greeting merged into hero, RANK tile removed (rank lives only on Leagues rows), next-lock countdown, WelcomeCard → persistent collapsible. Builds on U17; spec in docs/polish-batches.md (1638891).
 
 **Next:** Polish batch U18 — Home hub: greeting-hero, collapsible how-it-works, urgent split, specials strip 🟢 Sonnet
+
+---
+
+## Polish batch U18 — Home hub: greeting-hero, collapsible how-it-works, urgent split, specials strip
+**Commits:** 6a5cc7a · CI ✅
+
+### Key facts for future sessions
+- `StatStrip` (points + rank two-tile) replaced by `GreetingHero` — single gradient block with greeting, POINTS eyebrow, large `total_points`, and "next lock in {countdown}" line. Rank tile removed entirely; rank lives only on `CompactLeagueRow`.
+- `nearestLockTarget()` computes the soonest ISO string from `specials_lock_at` (when `!specials_submitted`) and `next_match.kickoff_utc`. `HeroCountdownLine` calls `useCountdown` unconditionally using a FAR_FUTURE sentinel when target is null.
+- `WelcomeCard` converts from dismiss-forever (`sss_welcome_dismissed`) to a persistent collapsible (`sss_howitworks_collapsed`). Default expanded (null → not collapsed). "Got it" button removed — just a chevron toggle.
+- `UrgentZone` = P1–P3 of old `NextUpCard`, P4 "all set" card dropped. Returns `null` when nothing urgent; the `To-do` section header self-hides with it.
+- `SpecialsStrip` shows only when `specials_submitted === true` — avoids duplicating the UrgentZone CTA for the unsubmitted+open state.
+- Fixed page order: hero → how-it-works → urgent → results → specials → leagues (U19 carousel inserts between urgent and results).
+
+**Next:** Polish batch U19 — Upcoming-matches carousel + shared prediction editor 🔴 Opus
