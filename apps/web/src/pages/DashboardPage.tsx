@@ -13,6 +13,7 @@ import {
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { WelcomeCard } from '../components/WelcomeCard';
+import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
 import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
@@ -534,6 +535,9 @@ export function DashboardPage() {
           <UrgentZone todo={todo} isLoading={homeLoading} />
         </section>
       )}
+
+      {/* Upcoming-matches carousel — inline group-stage prediction editing (U19) */}
+      <UpcomingMatchesCarousel />
 
       {/* Results roll-up */}
       <section aria-labelledby="home-results-label">
