@@ -369,21 +369,20 @@ describe('DashboardPage — NextUpCard priority ladder', () => {
 // ---------------------------------------------------------------------------
 
 describe('DashboardPage — ResultsRollupCard', () => {
-  it('omits the rollup card pre-tournament (rollup=null)', async () => {
+  it('shows placeholder text pre-tournament (rollup=null)', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
-    expect(screen.queryByText('Latest Results')).toBeFalsy();
+    await waitFor(() => expect(screen.queryByText('Latest Results')).toBeTruthy());
+    expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy();
   });
 
   it('shows collapsed rollup header when rollup present', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Latest Results')).toBeTruthy());
-    // Shows points and match count in header
-    expect(screen.queryByText(/\+10/)).toBeTruthy();
+    // Wait for the points total to appear (data-specific, not the always-present header)
+    await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
     expect(screen.queryByText(/2 matches/)).toBeTruthy();
   });
 
@@ -391,10 +390,8 @@ describe('DashboardPage — ResultsRollupCard', () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Latest Results')).toBeTruthy());
-
-    // Brazil and Argentina are not visible until expanded
-    expect(screen.queryByText(/Brazil/)).toBeFalsy();
+    // Wait for the points total — confirms real data loaded, not just the placeholder
+    await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
 
     const expandBtn = screen.getByRole('button', { name: /Latest Results/i });
     fireEvent.click(expandBtn);
@@ -407,7 +404,7 @@ describe('DashboardPage — ResultsRollupCard', () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_TWO_LEAGUES, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Latest Results')).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
 
     const expandBtn = screen.getByRole('button', { name: /Latest Results/i });
     fireEvent.click(expandBtn);
@@ -464,22 +461,23 @@ describe('DashboardPage — cross-league movement summary', () => {
 // U17.6 — Adaptive ordering
 // ---------------------------------------------------------------------------
 
-describe('DashboardPage — adaptive ordering', () => {
-  it('pre-tournament: NextUpCard present, no rollup card', async () => {
+describe('DashboardPage — ordering', () => {
+  it('pre-tournament: rollup placeholder and NextUpCard both present', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText('Make your Specials picks')).toBeTruthy());
-    expect(screen.queryByText('Latest Results')).toBeFalsy();
+    expect(screen.queryByText('Latest Results')).toBeTruthy();
+    expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy();
   });
 
-  it('post-result: rollup card present, NextUpCard present below', async () => {
+  it('post-result: rollup shows real data, NextUpCard present below', async () => {
     stubAuth();
     const home = { ...HOME_WITH_ROLLUP };
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, home));
     render(<Wrapper />);
-    // Rollup header shows
-    await waitFor(() => expect(screen.queryByText('Latest Results')).toBeTruthy());
+    // Wait for rollup data to load (points total confirms real data, not placeholder)
+    await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
     // NextUpCard also shows (all-done state since no upcoming)
     expect(screen.queryByText(/You.re all set/)).toBeTruthy();
   });

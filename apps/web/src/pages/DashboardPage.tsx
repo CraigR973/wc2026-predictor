@@ -242,7 +242,18 @@ function ResultsRollupCard({
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  if (!rollup) return null;
+  if (!rollup) {
+    return (
+      <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+        <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-3">
+          Latest Results
+        </p>
+        <p className="font-sans text-sm text-text-muted">
+          Your points and match results will appear here once the first scores are in.
+        </p>
+      </div>
+    );
+  }
 
   const { matchday, points_gained, match_count, matches } = rollup;
 
@@ -414,7 +425,7 @@ function CrossLeagueMovementSummary({
 }
 
 // ---------------------------------------------------------------------------
-// Page (U17.6 — adaptive composition)
+// Page
 // ---------------------------------------------------------------------------
 
 export function DashboardPage() {
@@ -434,29 +445,17 @@ export function DashboardPage() {
   });
 
   const perLeague = summary?.per_league ?? [];
-  const hasRollup = home?.rollup != null;
 
   return (
     <div className="space-y-5">
-      {/* Stat strip — POINTS + best RANK (U17.2) */}
       <StatStrip summary={summary} isLoading={summaryLoading} />
 
-      {/* Adaptive top zone (U17.6) */}
-      {hasRollup ? (
-        <>
-          {/* Results lead when scores exist */}
-          <ResultsRollupCard rollup={home!.rollup} perLeague={perLeague} timezone={timezone} />
-          <NextUpCard todo={home?.todo} isLoading={homeLoading} />
-        </>
-      ) : (
-        /* Next-up leads pre-tournament */
-        <NextUpCard todo={home?.todo} isLoading={homeLoading} />
-      )}
+      {/* Rollup self-hides when null — same fixed order pre- and post-tournament */}
+      <ResultsRollupCard rollup={home?.rollup ?? null} perLeague={perLeague} timezone={timezone} />
+      <NextUpCard todo={home?.todo} isLoading={homeLoading} />
 
-      {/* WelcomeCard below the to-do (U17.6) */}
       <WelcomeCard />
 
-      {/* Compact league rank strip (U16.4) with cross-league summary (U17.5) */}
       {summaryLoading ? (
         <Skeleton className="h-[80px] rounded-lg" />
       ) : perLeague.length > 0 ? (
