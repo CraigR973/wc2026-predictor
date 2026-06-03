@@ -1,6 +1,11 @@
 import { Download, Smartphone } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { IosSafariOverlay } from './IosSafariOverlay';
+
+// Routes where the install gate must not fire — these are public onboarding
+// pages for people who haven't installed yet. Each has its own install guidance.
+const GATE_BYPASS_PREFIXES = ['/join/', '/welcome'];
 
 /**
  * Mandatory install gate — renders a full-screen blocking overlay whenever
@@ -18,11 +23,15 @@ import { IosSafariOverlay } from './IosSafariOverlay';
  * returns null.
  */
 export function InstallPromptController() {
+  const { pathname } = useLocation();
   const { isInstalled, isIos, isIosSafari, isAndroid, isMobile, canInstall, prompt } =
     useInstallPrompt();
 
   // Already installed or desktop — nothing to show
   if (isInstalled || !isMobile) return null;
+
+  // Public onboarding routes — let the page render its own install guidance
+  if (GATE_BYPASS_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return null;
 
   // iOS Safari — show step-by-step tutorial
   if (isIosSafari) return <IosSafariOverlay />;
