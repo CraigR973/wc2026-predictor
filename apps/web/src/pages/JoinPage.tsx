@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Share, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,7 @@ import { brand } from '@/theme/tokens';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAccessToken } from '@/lib/tokens';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { BrowserOnboarding } from '@/components/BrowserOnboarding';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -48,110 +48,7 @@ interface LeaguePreview {
   privacy: string;
 }
 
-// ─── Browser info page ────────────────────────────────────────────────────────
-// Shown when the link is opened in a mobile browser (not the installed PWA).
-// No joining happens here — everything is done inside the app.
-
-function BrowserInfoPage() {
-  const { isIosSafari, canInstall, prompt: triggerInstall } = useInstallPrompt();
-
-  return (
-    <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4 pt-safe pb-safe">
-      <div className="w-full max-w-sm space-y-8">
-
-        {/* Brand */}
-        <div className="text-center space-y-2">
-          <Brand variant="splash" />
-          <p className="text-text-primary font-sans text-base sm:text-lg italic mt-6">
-            {brand.tagline}
-          </p>
-          <p className="text-text-secondary font-sans text-sm mt-1">
-            World Cup 2026 prediction league — pick scores match by match and climb the table.
-          </p>
-        </div>
-
-        {/* About */}
-        <div className="rounded-xl border border-border bg-surface px-5 py-4 space-y-2">
-          <p className="text-sm font-sans font-semibold text-text-primary">About the app</p>
-          <p className="text-xs font-sans text-text-secondary leading-relaxed">
-            The Steele Spreadsheet System is a private prediction league for the 2026 FIFA World Cup.
-            Pick scores match by match as the tournament unfolds — no bracket to fill in upfront, just
-            predict each game before kick-off. One important thing: go to{' '}
-            <strong>Predict → Specials</strong> before the tournament starts to lock in your
-            tournament award picks.
-          </p>
-        </div>
-
-        {/* New to the app */}
-        <div className="space-y-3">
-          <p className="text-xs font-mono uppercase tracking-widest text-text-muted">New to the app?</p>
-
-          {canInstall && (
-            <Button variant="accent" className="w-full gap-2" onClick={triggerInstall}>
-              <Plus className="h-4 w-4" aria-hidden />
-              Add to home screen
-            </Button>
-          )}
-
-          {isIosSafari && !canInstall && (
-            <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm font-sans text-text-secondary">
-              In Safari, tap{' '}
-              <Share className="inline h-3.5 w-3.5 text-[#007AFF] align-text-bottom" aria-hidden />{' '}
-              <strong>Share → Add to Home Screen</strong>, then open the app from your home screen.
-            </div>
-          )}
-
-          <ol className="space-y-2 text-sm font-sans text-text-secondary">
-            {(canInstall || isIosSafari) && (
-              <li className="flex gap-3">
-                <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
-                <span>Install the app using the button{canInstall ? ' above' : ' instructions above'}</span>
-              </li>
-            )}
-            <li className="flex gap-3">
-              <span className="shrink-0 font-mono text-primary font-semibold">
-                {canInstall || isIosSafari ? '2.' : '1.'}
-              </span>
-              <span>Open it from your home screen</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="shrink-0 font-mono text-primary font-semibold">
-                {canInstall || isIosSafari ? '3.' : '2.'}
-              </span>
-              <span>Tap <strong>Leagues → Join by code</strong> and enter the join code you were sent</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="shrink-0 font-mono text-primary font-semibold">
-                {canInstall || isIosSafari ? '4.' : '3.'}
-              </span>
-              <span>Before the tournament starts, go to <strong>Predict → Specials</strong> to lock in your award picks</span>
-            </li>
-          </ol>
-        </div>
-
-        {/* Already have the app */}
-        <div className="space-y-3">
-          <p className="text-xs font-mono uppercase tracking-widest text-text-muted">Already have the app?</p>
-          <ol className="space-y-2 text-sm font-sans text-text-secondary">
-            <li className="flex gap-3">
-              <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
-              <span>Open it from your home screen</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
-              <span>Tap <strong>Leagues → Join by code</strong></span>
-            </li>
-            <li className="flex gap-3">
-              <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
-              <span>Enter the join code you were sent</span>
-            </li>
-          </ol>
-        </div>
-
-      </div>
-    </div>
-  );
-}
+// Browser onboarding is handled by the shared BrowserOnboarding component.
 
 // ─── Installed PWA join flow ──────────────────────────────────────────────────
 // Full functional join — shown only when running inside the installed app.
@@ -430,10 +327,10 @@ function AppJoinFlow() {
 export function JoinPage() {
   const { isInstalled, isMobile } = useInstallPrompt();
 
-  // Mobile browser (not the installed PWA): show the info/onboarding page only.
+  // Mobile browser (not the installed PWA): show the shared onboarding page.
   // All joining happens inside the app — nothing to do in the browser.
   if (isMobile && !isInstalled) {
-    return <BrowserInfoPage />;
+    return <BrowserOnboarding />;
   }
 
   // Desktop browser or installed PWA: show the functional join flow.
