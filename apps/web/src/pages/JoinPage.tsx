@@ -340,47 +340,76 @@ export function JoinPage() {
         {/* "Already have the app?" hint for code path */}
         {inviteState === 'valid' && useCode && !player && (
           <p className="text-center text-text-muted font-sans text-xs">
-            Already have the app? Open it and enter code{' '}
+            Already have the app? Open it, tap <strong>Leagues → Join by code</strong> and enter{' '}
             <span className="font-mono font-semibold text-text-secondary">{token?.toUpperCase()}</span>.
           </p>
         )}
 
-        {/* Install affordance — only when not standalone and not dismissed */}
+        {/* Install affordance — only when not already running as installed PWA */}
         {showInstallNudge && (
-          <div className="rounded-xl border border-border bg-surface px-4 py-3 relative">
+          <div className="rounded-xl border border-border bg-surface px-4 py-4 relative">
             <button
               onClick={dismissInstall}
-              aria-label="Dismiss install prompt"
-              className="absolute top-2 right-2 p-1 rounded text-text-muted hover:text-text-secondary transition-colors"
+              aria-label="Dismiss"
+              className="absolute top-2.5 right-3 p-1 rounded text-text-muted hover:text-text-secondary transition-colors"
             >
               <X className="h-3.5 w-3.5" aria-hidden />
             </button>
 
-            {canInstall && (
-              <div className="pr-6 space-y-2">
-                <p className="text-sm font-sans font-medium text-text-primary">Add to home screen</p>
-                <p className="text-xs text-text-muted font-sans">
-                  Install the app for the best experience — offline support, push notifications, and fast access.
+            <div className="pr-6 space-y-3">
+              <div>
+                <p className="text-sm font-sans font-semibold text-text-primary">Get the app for the best experience</p>
+                <p className="text-xs text-text-muted font-sans mt-1 leading-relaxed">
+                  The Steele Spreadsheet System is a World Cup 2026 prediction league — pick scores match by match as the tournament unfolds. No bracket to fill in upfront, just predict each game before kick-off and see who tops the table.
                 </p>
-                <Button size="sm" variant="outline" className="gap-1.5 mt-1" onClick={triggerInstall}>
+              </div>
+
+              {/* Platform-specific install step */}
+              {canInstall && (
+                <Button size="sm" variant="outline" className="gap-1.5 w-full" onClick={triggerInstall}>
                   <Plus className="h-3.5 w-3.5" aria-hidden />
                   Add to home screen
                 </Button>
-              </div>
-            )}
+              )}
 
-            {isIosSafari && !canInstall && (
-              <div className="pr-6 space-y-2">
-                <p className="text-sm font-sans font-medium text-text-primary">Add to home screen</p>
-                <p className="text-xs text-text-muted font-sans">
-                  In Safari, tap{' '}
-                  <span className="inline-flex items-center gap-0.5 align-middle">
-                    <Share className="h-3 w-3 text-[#007AFF]" aria-hidden />
-                  </span>{' '}
-                  Share → <strong>Add to Home Screen</strong>.
-                </p>
-              </div>
-            )}
+              {/* Numbered steps */}
+              <ol className="space-y-2 text-xs font-sans text-text-secondary">
+                {isIosSafari && !canInstall && (
+                  <li className="flex items-start gap-2">
+                    <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
+                    <span>
+                      In Safari, tap{' '}
+                      <Share className="inline h-3 w-3 text-[#007AFF] align-text-bottom" aria-hidden />{' '}
+                      <strong>Share → Add to Home Screen</strong>
+                    </span>
+                  </li>
+                )}
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0 font-mono text-primary font-semibold">
+                    {isIosSafari && !canInstall ? '2.' : canInstall ? '1.' : '1.'}
+                  </span>
+                  <span>Open the app from your home screen</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0 font-mono text-primary font-semibold">
+                    {isIosSafari && !canInstall ? '3.' : canInstall ? '2.' : '2.'}
+                  </span>
+                  <span>
+                    Tap <strong>Leagues → Join by code</strong> and enter{' '}
+                    {useCode
+                      ? <span className="font-mono font-semibold text-primary">{token!.toUpperCase()}</span>
+                      : 'your join code'
+                    }
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0 font-mono text-primary font-semibold">
+                    {isIosSafari && !canInstall ? '4.' : canInstall ? '3.' : '3.'}
+                  </span>
+                  <span>Before the tournament starts, go to <strong>Predict → Specials</strong> to lock in your tournament award picks</span>
+                </li>
+              </ol>
+            </div>
           </div>
         )}
       </div>

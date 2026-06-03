@@ -22,9 +22,23 @@ describe('buildInviteMessage', () => {
     expect(msg).toContain('ABC123');
   });
 
-  it('contains the join link', () => {
+  it('contains the app install URL (home, not a deep link)', () => {
     const msg = buildInviteMessage(PARAMS);
-    expect(msg).toContain('https://example.com/join/ABC123');
+    expect(msg).toContain('https://example.com');
+    // The /join/ deep link is intentionally absent — links always open in browser
+    expect(msg).not.toContain('/join/ABC123');
+  });
+
+  it('contains in-app navigation steps', () => {
+    const msg = buildInviteMessage(PARAMS);
+    expect(msg).toContain('Leagues');
+    expect(msg).toContain('Join by code');
+  });
+
+  it('mentions Specials and the pre-tournament deadline', () => {
+    const msg = buildInviteMessage(PARAMS);
+    expect(msg).toContain('Predict → Specials');
+    expect(msg.toLowerCase()).toContain('tournament');
   });
 
   it('contains an "already have the app" hint with the code', () => {
