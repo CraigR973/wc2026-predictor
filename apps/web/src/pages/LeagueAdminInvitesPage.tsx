@@ -7,12 +7,12 @@ import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import type { LeagueDetail, LeagueInvite } from '@/lib/types';
 import { buildInviteMessage, shareInvite } from '@/lib/invite';
 import { getAccessToken } from '@/lib/tokens';
-
-const BASE = import.meta.env.VITE_API_URL ?? '';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
+
+const BASE = import.meta.env.VITE_API_URL ?? '';
 
 export function LeagueAdminInvitesPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
@@ -41,7 +41,7 @@ export function LeagueAdminInvitesPage() {
         joinCode: league.join_code,
         origin: window.location.origin,
       });
-      const url = `${window.location.origin}/join/${league.join_code}`;
+      const url = window.location.origin; // share the app home — /join/ links always open in browser
       await shareInvite({ message, url });
     } catch {
       toast.error('Could not share invite');
