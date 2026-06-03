@@ -42,7 +42,7 @@ export function LeagueHomePage() {
       joinCode: league.join_code,
       origin: window.location.origin,
     });
-    const url = `${window.location.origin}/join/${league.join_code}`;
+    const url = window.location.origin; // share the app home — /join/ links always open in browser
     try {
       const result = await shareInvite({ message, url });
       if (result === 'copied') {
