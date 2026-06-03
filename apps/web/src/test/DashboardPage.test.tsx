@@ -373,8 +373,11 @@ describe('DashboardPage — ResultsRollupCard', () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Latest Results')).toBeTruthy());
-    expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy(),
+    );
+    // Zone is announced by the consistent "Results" section header
+    expect(screen.queryByText('Results')).toBeTruthy();
   });
 
   it('shows collapsed rollup header when rollup present', async () => {
@@ -467,7 +470,7 @@ describe('DashboardPage — ordering', () => {
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText('Make your Specials picks')).toBeTruthy());
-    expect(screen.queryByText('Latest Results')).toBeTruthy();
+    expect(screen.queryByText('Results')).toBeTruthy();
     expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy();
   });
 
