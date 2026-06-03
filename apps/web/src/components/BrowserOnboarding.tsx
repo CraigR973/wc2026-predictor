@@ -12,11 +12,11 @@ import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 export function BrowserOnboarding() {
   const { isIos, isIosSafari, canInstall, prompt: triggerInstall } = useInstallPrompt();
 
-  // Chrome/other on iOS uses the same iOS share sheet as Safari
-  const isIosAnyBrowser = isIos;
+  const isIosChrome = isIos && !isIosSafari;
 
-  // Step numbering depends on whether there's a platform-specific install step
-  const hasInstallStep = canInstall || isIosAnyBrowser;
+  // Step numbering for the join steps — shifts down by 1 when there are no
+  // platform install steps (Android native prompt or non-iOS without prompt)
+  const hasInstallStep = canInstall || isIos;
   const n = (base: number) => `${hasInstallStep ? base : base - 1}.`;
 
   return (
@@ -56,7 +56,7 @@ export function BrowserOnboarding() {
         <div className="space-y-4">
           <p className="text-xs font-mono uppercase tracking-widest text-text-muted">New to the app?</p>
 
-          {/* Platform install action */}
+          {/* Android — native install prompt */}
           {canInstall && (
             <Button variant="accent" className="w-full gap-2" onClick={triggerInstall}>
               <Plus className="h-4 w-4" aria-hidden />
@@ -64,33 +64,85 @@ export function BrowserOnboarding() {
             </Button>
           )}
 
-          {isIosAnyBrowser && !canInstall && (
-            <div className="rounded-lg border border-border bg-surface/60 px-4 py-3">
-              <p className="text-sm font-sans text-text-secondary">
-                Tap{' '}
-                <Share className="inline h-4 w-4 text-[#007AFF] align-text-bottom" aria-hidden />{' '}
-                <strong className="text-text-primary">Share → Add to Home Screen</strong>
-                {isIosSafari ? ' in Safari' : ' in your browser'}, then tap{' '}
-                <strong className="text-text-primary">Add</strong>.
+          {/* Safari on iOS — exact steps */}
+          {isIosSafari && (
+            <div className="rounded-lg border border-border bg-surface/60 px-4 py-4 space-y-3">
+              <p className="text-sm font-sans font-semibold text-text-primary">
+                Install from Safari
               </p>
+              <ol className="space-y-2">
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
+                  <span>Tap <strong className="text-text-primary">•••</strong> in the bottom toolbar</span>
+                </li>
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
+                  <span>Tap <strong className="text-text-primary">Share</strong>{' '}
+                    <Share className="inline h-3.5 w-3.5 text-[#007AFF] align-text-bottom" aria-hidden />
+                  </span>
+                </li>
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
+                  <span>Tap <strong className="text-text-primary">View More</strong></span>
+                </li>
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">4.</span>
+                  <span>Tap <strong className="text-text-primary">Add to Home Screen</strong></span>
+                </li>
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">5.</span>
+                  <span>Tap <strong className="text-text-primary">Add</strong> in the top-right corner</span>
+                </li>
+              </ol>
             </div>
           )}
 
+          {/* Chrome on iOS — exact steps */}
+          {isIosChrome && (
+            <div className="rounded-lg border border-border bg-surface/60 px-4 py-4 space-y-3">
+              <p className="text-sm font-sans font-semibold text-text-primary">
+                Install from Chrome
+              </p>
+              <ol className="space-y-2">
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
+                  <span>Tap the <strong className="text-text-primary">Share</strong> button{' '}
+                    <Share className="inline h-3.5 w-3.5 text-[#007AFF] align-text-bottom" aria-hidden />{' '}
+                    in the address bar at the top
+                  </span>
+                </li>
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
+                  <span>Tap <strong className="text-text-primary">View More</strong></span>
+                </li>
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
+                  <span>Tap <strong className="text-text-primary">Add to Home Screen</strong></span>
+                </li>
+                <li className="flex gap-2.5 text-sm font-sans text-text-secondary">
+                  <span className="shrink-0 font-mono text-primary font-semibold">4.</span>
+                  <span>Tap <strong className="text-text-primary">Add</strong> in the top-right corner</span>
+                </li>
+              </ol>
+            </div>
+          )}
+
+          {/* Join steps — follow on from install */}
           <ol className="space-y-3">
             {hasInstallStep && (
               <li className="flex gap-3 text-sm font-sans text-text-secondary">
                 <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
                 <span>
-                  {canInstall
-                    ? 'Tap the button above to install'
-                    : 'Follow the install steps above'}
+                  {canInstall ? 'Tap the button above to install, then open the app from your home screen' : 'Follow the install steps above, then open the app from your home screen'}
                 </span>
               </li>
             )}
-            <li className="flex gap-3 text-sm font-sans text-text-secondary">
-              <span className="shrink-0 font-mono text-primary font-semibold">{n(2)}</span>
-              <span>Open the app from your home screen</span>
-            </li>
+            {!hasInstallStep && (
+              <li className="flex gap-3 text-sm font-sans text-text-secondary">
+                <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
+                <span>Open the app from your home screen</span>
+              </li>
+            )}
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
               <span className="shrink-0 font-mono text-primary font-semibold">{n(3)}</span>
               <span>
@@ -119,9 +171,7 @@ export function BrowserOnboarding() {
             </li>
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
               <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
-              <span>
-                Tap <strong className="text-text-primary">Leagues → Join by code</strong>
-              </span>
+              <span>Tap <strong className="text-text-primary">Leagues → Join by code</strong></span>
             </li>
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
               <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
