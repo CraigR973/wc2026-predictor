@@ -51,6 +51,12 @@ describe('buildInviteMessage', () => {
     const msg = buildInviteMessage(PARAMS);
     expect(msg).toContain('The Steele Spreadsheet System');
   });
+
+  it('contains the Lewis Steele / Robinson\'s Fruit Juice backstory', () => {
+    const msg = buildInviteMessage(PARAMS);
+    expect(msg).toContain('Lewis Steele');
+    expect(msg).toContain("Robinson's Fruit Juice");
+  });
 });
 
 describe('shareInvite — navigator.share absent', () => {
