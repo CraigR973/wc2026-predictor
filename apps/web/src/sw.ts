@@ -11,17 +11,14 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null } | string>;
 };
 
-// Claim clients immediately so this SW controls all open tabs on activation.
-// skipWaiting is intentionally NOT called here — we use registerType: 'prompt'
-// so the UpdateBanner can ask the user before swapping the bundle. The banner
-// posts SKIP_WAITING when the user taps "Refresh".
+// Skip waiting unconditionally so the new SW activates immediately on install.
+// Previously we used registerType:'prompt' and required the user to tap "Refresh"
+// on the UpdateBanner — but the IosSafariOverlay (z-70) blocked the banner on iOS,
+// creating a deadlock where the old overlay-showing SW could never be replaced.
+// The UpdateBanner still shows after activation to prompt a page reload so users
+// get the latest JS, but the SW itself no longer waits for their action.
+self.skipWaiting();
 clientsClaim();
-
-self.addEventListener('message', (event) => {
-  if (event.data && (event.data as { type?: string }).type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});
 
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
