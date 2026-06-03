@@ -1,8 +1,16 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Sparkles, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Sparkles,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  ListChecks,
+  Check,
+} from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { WelcomeCard } from '../components/WelcomeCard';
@@ -18,7 +26,22 @@ import type {
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 // ---------------------------------------------------------------------------
-// Stat strip — 2-tile compact row (U17.2 replaces U16 PointsHero)
+// Section header — consistent zone label that gives each zone its own identity
+// ---------------------------------------------------------------------------
+
+function SectionHeader({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <h2
+      id={id}
+      className="mb-2 px-0.5 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted"
+    >
+      {children}
+    </h2>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Hero stat panel — points + best rank, unified dashboard metric (U17.2)
 // ---------------------------------------------------------------------------
 
 function StatStrip({
@@ -29,12 +52,7 @@ function StatStrip({
   isLoading: boolean;
 }) {
   if (isLoading) {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        <Skeleton className="h-[76px] rounded-lg" />
-        <Skeleton className="h-[76px] rounded-lg" />
-      </div>
-    );
+    return <Skeleton className="h-[88px] sm:h-[108px] rounded-xl" />;
   }
 
   const pts = summary?.total_points ?? 0;
@@ -53,26 +71,26 @@ function StatStrip({
   const bestDelta = bestEntry?.rank_delta ?? null;
 
   return (
-    <div>
-      <div className="grid grid-cols-2 gap-3">
-        {/* Points tile */}
-        <div className="rounded-lg border border-border bg-surface p-3 sm:p-4">
-          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-2">
+    <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-surface-elevated to-surface shadow-sm">
+      <div className="grid grid-cols-2 divide-x divide-border/60">
+        {/* Points — the hero metric */}
+        <div className="p-4 sm:p-5">
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
             Points
           </p>
-          <p className="font-mono text-4xl sm:text-5xl text-primary tabular-nums font-semibold leading-none">
+          <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-primary sm:text-5xl">
             {pts}
           </p>
         </div>
 
-        {/* Rank tile */}
-        <div className="rounded-lg border border-border bg-surface p-3 sm:p-4">
-          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-2">
+        {/* Best rank across leagues */}
+        <div className="p-4 sm:p-5">
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
             Rank
           </p>
           {bestRank !== null ? (
-            <div className="flex items-baseline gap-2">
-              <p className="font-mono text-4xl sm:text-5xl text-primary tabular-nums font-semibold leading-none">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-text-primary sm:text-5xl">
                 #{bestRank}
               </p>
               {bestDelta !== null && bestDelta !== 0 && (
@@ -85,20 +103,21 @@ function StatStrip({
                 </span>
               )}
               {leaguesCount > 1 && (
-                <span className="text-[10px] font-sans text-text-muted">
+                <span className="font-sans text-[10px] text-text-muted">
                   best of {leaguesCount}
                 </span>
               )}
             </div>
           ) : (
-            <p className="font-mono text-4xl sm:text-5xl text-text-muted tabular-nums font-semibold leading-none">
+            <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-text-muted sm:text-5xl">
               —
             </p>
           )}
         </div>
       </div>
+
       {!hasActivity && (
-        <p className="mt-2 font-sans text-xs text-text-muted text-center">
+        <p className="border-t border-border/60 px-4 py-2.5 text-center font-sans text-xs text-text-muted sm:px-5">
           Your tally starts when the first results land · WC kicks off 11 Jun
         </p>
       )}
@@ -107,7 +126,7 @@ function StatStrip({
 }
 
 // ---------------------------------------------------------------------------
-// Next-up to-do card (U17.3 — single action surface)
+// Next-up to-do card (U17.3 — single, clearly-actionable surface)
 // ---------------------------------------------------------------------------
 
 function formatCountdown(cd: {
@@ -133,9 +152,29 @@ function NextMatchCountdown({ kickoffUtc }: { kickoffUtc: string }) {
   );
 }
 
+// Shared shell for the actionable to-do states — raised + interactive.
+const ACTION_CARD =
+  'group flex items-center gap-3 rounded-lg border border-border bg-surface-elevated p-4 shadow-sm transition-colors hover:border-border-strong hover:bg-surface-overlay press-down focus-visible:outline-none focus-visible:shadow-glow sm:p-5';
+
+// Leading icon chip used across to-do states for a consistent visual anchor.
+function ActionIcon({ children, tone = 'primary' }: { children: ReactNode; tone?: 'primary' | 'success' }) {
+  const toneClass =
+    tone === 'success'
+      ? 'bg-surface-elevated text-success'
+      : 'bg-primary/10 text-primary group-hover:bg-primary/15';
+  return (
+    <span
+      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors ${toneClass}`}
+      aria-hidden
+    >
+      {children}
+    </span>
+  );
+}
+
 function NextUpCard({ todo, isLoading }: { todo: HomeResponse['todo'] | undefined; isLoading: boolean }) {
   if (isLoading) {
-    return <Skeleton className="h-[88px] rounded-lg" />;
+    return <Skeleton className="h-[72px] sm:h-[80px] rounded-lg" />;
   }
   if (!todo) return null;
 
@@ -146,26 +185,20 @@ function NextUpCard({ todo, isLoading }: { todo: HomeResponse['todo'] | undefine
 
   if (specialsOpen) {
     return (
-      <Link
-        to="/predictions/specials"
-        className="group flex items-center gap-3 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
-      >
-        <span
-          className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-md bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors"
-          aria-hidden
-        >
+      <Link to="/predictions/specials" className={ACTION_CARD}>
+        <ActionIcon>
           <Sparkles className="h-4 w-4" />
-        </span>
-        <span className="flex-1 min-w-0">
+        </ActionIcon>
+        <span className="min-w-0 flex-1">
           <span className="block font-sans text-sm font-semibold text-text-primary">
             Make your Specials picks
           </span>
-          <span className="block text-text-muted text-xs font-sans mt-0.5">
+          <span className="mt-0.5 block font-sans text-xs text-text-muted">
             Tournament winner, Golden Boot, top scorer
           </span>
         </span>
         <ChevronRight
-          className="h-4 w-4 text-text-muted shrink-0 transition-transform group-hover:translate-x-0.5"
+          className="h-4 w-4 shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5"
           aria-hidden
         />
       </Link>
@@ -175,23 +208,23 @@ function NextUpCard({ todo, isLoading }: { todo: HomeResponse['todo'] | undefine
   // Priority 2: next match unpredicted + not locked
   if (next_match && !next_match.predicted) {
     return (
-      <div className="rounded-lg border border-border bg-surface-elevated p-4 sm:p-5">
-        <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-2">
-          Next up
-        </p>
-        <p className="font-sans text-sm font-medium text-text-primary mb-1 truncate">
-          {next_match.home_label}{' '}
-          <span className="text-text-muted font-normal">vs</span>{' '}
-          {next_match.away_label}
-        </p>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-text-muted font-sans">
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated p-4 shadow-sm sm:p-5">
+        <ActionIcon>
+          <Clock className="h-4 w-4" />
+        </ActionIcon>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-sans text-sm font-medium text-text-primary">
+            {next_match.home_label}{' '}
+            <span className="font-normal text-text-muted">vs</span>{' '}
+            {next_match.away_label}
+          </span>
+          <span className="mt-0.5 block font-sans text-xs text-text-muted">
             locks in <NextMatchCountdown kickoffUtc={next_match.kickoff_utc} />
           </span>
-          <Button asChild size="sm" variant="default" className="ml-auto">
-            <Link to="/predictions">Predict now</Link>
-          </Button>
-        </div>
+        </span>
+        <Button asChild size="sm" variant="default" className="shrink-0">
+          <Link to="/predictions">Predict now</Link>
+        </Button>
       </div>
     );
   }
@@ -199,21 +232,27 @@ function NextUpCard({ todo, isLoading }: { todo: HomeResponse['todo'] | undefine
   // Priority 3: more upcoming matches to predict
   if (upcoming_unpredicted > 1) {
     return (
-      <Link
-        to="/predictions"
-        className="flex items-center gap-3 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:bg-surface-elevated transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow"
-      >
+      <Link to="/predictions" className={ACTION_CARD}>
+        <ActionIcon>
+          <ListChecks className="h-4 w-4" />
+        </ActionIcon>
         <span className="flex-1 font-sans text-sm font-medium text-text-primary">
           {upcoming_unpredicted} matches open to predict
         </span>
-        <ChevronRight className="h-4 w-4 text-text-muted shrink-0" aria-hidden />
+        <ChevronRight
+          className="h-4 w-4 shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5"
+          aria-hidden
+        />
       </Link>
     );
   }
 
-  // Priority 4: all done — calm state
+  // Priority 4: all done — calm, recessed state
   return (
-    <div className="flex items-center gap-3 p-4 sm:p-5 rounded-lg border border-border bg-surface">
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4 sm:p-5">
+      <ActionIcon tone="success">
+        <Check className="h-4 w-4" />
+      </ActionIcon>
       <span className="flex-1 font-sans text-sm text-text-secondary">
         You&apos;re all set
         {next_match && (
@@ -235,16 +274,31 @@ function ResultsRollupCard({
   rollup,
   perLeague,
   timezone,
+  isLoading,
 }: {
   rollup: HomeResponse['rollup'];
   perLeague: CrossLeagueSummary['per_league'];
   timezone: string;
+  isLoading: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  if (!rollup) return null;
+  if (isLoading) {
+    return <Skeleton className="h-[64px] sm:h-[72px] rounded-lg" />;
+  }
+
+  if (!rollup) {
+    return (
+      <div className="rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-5">
+        <p className="font-sans text-sm text-text-muted">
+          Your points and match results will appear here once the first scores are in.
+        </p>
+      </div>
+    );
+  }
 
   const { matchday, points_gained, match_count, matches } = rollup;
+  const matchLabel = `${match_count} ${match_count === 1 ? 'match' : 'matches'}`;
 
   // Format the matchday date string for display
   const matchdayLabel = formatInTimeZone(
@@ -269,31 +323,25 @@ function ResultsRollupCard({
     });
 
   return (
-    <div className="rounded-lg border border-border bg-surface overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
       {/* Collapsed header */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-3 p-4 sm:p-5 text-left hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+        className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow sm:p-5"
         aria-expanded={expanded}
+        aria-label={`Latest results, ${matchdayLabel}, +${points_gained} points from ${matchLabel}`}
       >
-        <span className="flex-1 min-w-0">
-          <span className="block text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-1">
-            Latest Results
-          </span>
-          <span className="font-sans text-sm font-medium text-text-primary">
-            {matchdayLabel}:{' '}
-            <span className="text-primary font-mono tabular-nums">
-              +{points_gained}
-            </span>{' '}
-            <span className="text-text-muted font-normal">
-              · {match_count} {match_count === 1 ? 'match' : 'matches'}
-            </span>
-          </span>
+        <span className="min-w-0 flex-1 font-sans text-sm font-medium text-text-primary">
+          {matchdayLabel}
+          <span className="font-normal text-text-muted"> · {matchLabel}</span>
+        </span>
+        <span className="shrink-0 font-mono text-lg font-semibold tabular-nums text-primary">
+          +{points_gained}
         </span>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-text-muted shrink-0" aria-hidden />
+          <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
         ) : (
-          <ChevronDown className="h-4 w-4 text-text-muted shrink-0" aria-hidden />
+          <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
         )}
       </button>
 
@@ -306,15 +354,15 @@ function ResultsRollupCard({
               <Link
                 key={m.match_id}
                 to={`/matches/${m.match_id}`}
-                className="block px-4 sm:px-5 py-3 border-b border-border/50 last:border-b-0 hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+                className="block border-b border-border/50 px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow sm:px-5"
               >
-                <p className="font-sans text-xs font-medium text-text-primary mb-1 truncate">
+                <p className="mb-1 truncate font-sans text-xs font-medium text-text-primary">
                   {m.home_label}{' '}
-                  <span className="text-text-muted font-normal">vs</span>{' '}
+                  <span className="font-normal text-text-muted">vs</span>{' '}
                   {m.away_label}
                 </p>
                 {hasScore && (
-                  <p className="font-mono text-xs text-text-muted tabular-nums mb-2">
+                  <p className="mb-2 font-mono text-xs tabular-nums text-text-muted">
                     {m.actual_home}–{m.actual_away}
                     {m.predicted_home !== null && m.predicted_away !== null && (
                       <span className="ml-2 text-text-muted/70">
@@ -332,7 +380,7 @@ function ResultsRollupCard({
 
           {/* Movement impact across leagues */}
           {impactParts.length > 0 && (
-            <p className="px-4 sm:px-5 py-3 text-xs font-sans text-text-muted">
+            <p className="px-4 py-3 font-sans text-xs text-text-muted sm:px-5">
               {impactParts.join(' · ')}
             </p>
           )}
@@ -370,13 +418,13 @@ function CompactLeagueRow({ entry }: { entry: PerLeagueEntry }) {
   return (
     <Link
       to={`/leagues/${slug}/leaderboard`}
-      className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-border/50 last:border-b-0 hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:shadow-glow"
+      className="flex items-center gap-3 border-b border-border/50 px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow sm:px-5"
     >
-      <span className="flex-1 min-w-0 font-sans text-sm font-medium text-text-primary truncate">
+      <span className="min-w-0 flex-1 truncate font-sans text-sm font-medium text-text-primary">
         {name}
       </span>
       {rank !== null ? (
-        <span className="shrink-0 flex items-center gap-2 font-mono text-xs tabular-nums">
+        <span className="flex shrink-0 items-center gap-2 font-mono text-xs tabular-nums">
           <span className="text-text-muted">
             {MEDAL[rank] ?? `#${rank}`}
             <span className="font-sans opacity-60"> of {member_count}</span>
@@ -384,9 +432,9 @@ function CompactLeagueRow({ entry }: { entry: PerLeagueEntry }) {
           <DeltaBadge delta={rank_delta} />
         </span>
       ) : (
-        <span className="shrink-0 text-xs font-sans text-text-muted">—</span>
+        <span className="shrink-0 font-sans text-xs text-text-muted">—</span>
       )}
-      <ChevronRight className="h-3.5 w-3.5 text-text-muted shrink-0" aria-hidden />
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
     </Link>
   );
 }
@@ -407,14 +455,14 @@ function CrossLeagueMovementSummary({
   });
 
   return (
-    <p className="px-4 sm:px-5 pt-3 pb-0 text-xs font-sans text-text-muted">
+    <p className="border-b border-border/50 px-4 py-3 font-sans text-xs text-text-muted sm:px-5">
       Across your leagues: {parts.join(' · ')}
     </p>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Page (U17.6 — adaptive composition)
+// Page
 // ---------------------------------------------------------------------------
 
 export function DashboardPage() {
@@ -434,38 +482,49 @@ export function DashboardPage() {
   });
 
   const perLeague = summary?.per_league ?? [];
-  const hasRollup = home?.rollup != null;
 
   return (
-    <div className="space-y-5">
-      {/* Stat strip — POINTS + best RANK (U17.2) */}
+    <div className="space-y-6">
+      {/* Hero — points + best rank at a glance */}
       <StatStrip summary={summary} isLoading={summaryLoading} />
 
-      {/* Adaptive top zone (U17.6) */}
-      {hasRollup ? (
-        <>
-          {/* Results lead when scores exist */}
-          <ResultsRollupCard rollup={home!.rollup} perLeague={perLeague} timezone={timezone} />
+      {/* Results */}
+      <section aria-labelledby="home-results-label">
+        <SectionHeader id="home-results-label">Results</SectionHeader>
+        <ResultsRollupCard
+          rollup={home?.rollup ?? null}
+          perLeague={perLeague}
+          timezone={timezone}
+          isLoading={homeLoading}
+        />
+      </section>
+
+      {/* To-do — the single action surface */}
+      {(homeLoading || home?.todo) && (
+        <section aria-labelledby="home-todo-label">
+          <SectionHeader id="home-todo-label">To-do</SectionHeader>
           <NextUpCard todo={home?.todo} isLoading={homeLoading} />
-        </>
-      ) : (
-        /* Next-up leads pre-tournament */
-        <NextUpCard todo={home?.todo} isLoading={homeLoading} />
+        </section>
       )}
 
-      {/* WelcomeCard below the to-do (U17.6) */}
       <WelcomeCard />
 
-      {/* Compact league rank strip (U16.4) with cross-league summary (U17.5) */}
+      {/* Leagues */}
       {summaryLoading ? (
-        <Skeleton className="h-[80px] rounded-lg" />
+        <section aria-labelledby="home-leagues-label">
+          <SectionHeader id="home-leagues-label">Leagues</SectionHeader>
+          <Skeleton className="h-[80px] rounded-lg" />
+        </section>
       ) : perLeague.length > 0 ? (
-        <div className="rounded-lg border border-border bg-surface overflow-hidden">
-          <CrossLeagueMovementSummary perLeague={perLeague} />
-          {perLeague.map((entry) => (
-            <CompactLeagueRow key={entry.slug} entry={entry} />
-          ))}
-        </div>
+        <section aria-labelledby="home-leagues-label">
+          <SectionHeader id="home-leagues-label">Leagues</SectionHeader>
+          <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+            <CrossLeagueMovementSummary perLeague={perLeague} />
+            {perLeague.map((entry) => (
+              <CompactLeagueRow key={entry.slug} entry={entry} />
+            ))}
+          </div>
+        </section>
       ) : null}
     </div>
   );
