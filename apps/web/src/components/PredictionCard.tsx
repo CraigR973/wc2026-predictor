@@ -70,6 +70,13 @@ export interface PredictionCardProps {
   highlighted: boolean;
   onHomeChange: (matchId: string, value: string) => void;
   onAwayChange: (matchId: string, value: string) => void;
+  /**
+   * Space-constrained contexts (the home carousel) render team codes — "🇲🇽 MEX"
+   * — instead of full names, which truncate to 2–3 chars in a narrow card and
+   * become ambiguous (South Africa vs South Korea both show "So…"). Defaults to
+   * full names so the Predictions page is unchanged.
+   */
+  compact?: boolean;
 }
 
 export function PredictionCard({
@@ -80,6 +87,7 @@ export function PredictionCard({
   highlighted,
   onHomeChange,
   onAwayChange,
+  compact = false,
 }: PredictionCardProps) {
   const kickoffLocal = formatInTimeZone(
     new Date(match.kickoff_utc),
@@ -103,10 +111,10 @@ export function PredictionCard({
     countdown.hours === 0;
 
   const homeLabel = match.home_team
-    ? `${match.home_team.flag_emoji} ${match.home_team.name}`
+    ? `${match.home_team.flag_emoji} ${compact ? match.home_team.code : match.home_team.name}`
     : (match.home_team_placeholder ?? '?');
   const awayLabel = match.away_team
-    ? `${match.away_team.flag_emoji} ${match.away_team.name}`
+    ? `${match.away_team.flag_emoji} ${compact ? match.away_team.code : match.away_team.name}`
     : (match.away_team_placeholder ?? '?');
 
   const homeVal = local?.home ?? (prediction?.predicted_home !== null && prediction?.predicted_home !== undefined ? String(prediction.predicted_home) : '');

@@ -111,7 +111,7 @@ export function UpcomingMatchesCarousel() {
             m.away_team_placeholder,
           )}, ${formatInTimeZone(new Date(m.kickoff_utc), timezone, 'EEE d MMM, HH:mm')}`;
           return (
-            <li key={m.id} className="w-[280px] shrink-0 snap-start">
+            <li key={m.id} className="w-[300px] shrink-0 snap-start">
               <div role="group" aria-label={label} className="h-full">
                 <PredictionCard
                   match={m}
@@ -121,6 +121,7 @@ export function UpcomingMatchesCarousel() {
                   highlighted={highlightedMatchIds.has(m.id)}
                   onHomeChange={handleHomeChange}
                   onAwayChange={handleAwayChange}
+                  compact
                 />
               </div>
             </li>
