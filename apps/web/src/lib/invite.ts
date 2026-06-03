@@ -27,13 +27,16 @@ export function buildInviteMessage({ leagueName, joinCode, origin }: InviteMessa
 
 export interface ShareInviteParams {
   message: string;
-  url: string;
 }
 
-export async function shareInvite({ message, url }: ShareInviteParams): Promise<'shared' | 'copied' | 'cancelled'> {
+export async function shareInvite({ message }: ShareInviteParams): Promise<'shared' | 'copied' | 'cancelled'> {
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {
-      await navigator.share({ text: message, url });
+      // Share text only — no url param. iOS renders the url as a separate
+      // clickable link below the text, which clutters the preview and appears
+      // adjacent to the "already have the app" line. The install URL is already
+      // embedded in the message text so there's no information loss.
+      await navigator.share({ text: message });
       return 'shared';
     } catch (err) {
       // AbortError = user dismissed/swiped the share sheet — not an error, stay silent

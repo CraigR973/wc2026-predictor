@@ -42,9 +42,8 @@ export function LeagueHomePage() {
       joinCode: league.join_code,
       origin: window.location.origin,
     });
-    const url = window.location.origin; // share the app home — /join/ links always open in browser
     try {
-      const result = await shareInvite({ message, url });
+      const result = await shareInvite({ message });
       if (result === 'copied') {
         setShareStatus('copied');
         setTimeout(() => setShareStatus('idle'), 2000);
