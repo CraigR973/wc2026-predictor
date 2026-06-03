@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Share, Plus, X } from 'lucide-react';
+import { Share, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,6 @@ import { getAccessToken } from '@/lib/tokens';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
-const INSTALL_DISMISS_KEY = 'sss_join_install_dismissed';
 
 const TIMEZONES = [
   'Europe/London',
@@ -37,9 +36,6 @@ const TIMEZONES = [
 
 type InviteState = 'loading' | 'valid' | 'error';
 
-// A join code is exactly 6 uppercase alphanumeric chars.
-// Invite tokens from generate_opaque_token() are 43-char base64url strings.
-// The length difference makes them trivially distinguishable.
 const JOIN_CODE_RE = /^[A-Z0-9]{6}$/;
 function isJoinCode(token: string): boolean {
   return JOIN_CODE_RE.test(token.toUpperCase());
@@ -52,11 +48,118 @@ interface LeaguePreview {
   privacy: string;
 }
 
-export function JoinPage() {
+// ─── Browser info page ────────────────────────────────────────────────────────
+// Shown when the link is opened in a mobile browser (not the installed PWA).
+// No joining happens here — everything is done inside the app.
+
+function BrowserInfoPage() {
+  const { isIosSafari, canInstall, prompt: triggerInstall } = useInstallPrompt();
+
+  return (
+    <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4 pt-safe pb-safe">
+      <div className="w-full max-w-sm space-y-8">
+
+        {/* Brand */}
+        <div className="text-center space-y-2">
+          <Brand variant="splash" />
+          <p className="text-text-primary font-sans text-base sm:text-lg italic mt-6">
+            {brand.tagline}
+          </p>
+          <p className="text-text-secondary font-sans text-sm mt-1">
+            World Cup 2026 prediction league — pick scores match by match and climb the table.
+          </p>
+        </div>
+
+        {/* About */}
+        <div className="rounded-xl border border-border bg-surface px-5 py-4 space-y-2">
+          <p className="text-sm font-sans font-semibold text-text-primary">About the app</p>
+          <p className="text-xs font-sans text-text-secondary leading-relaxed">
+            The Steele Spreadsheet System is a private prediction league for the 2026 FIFA World Cup.
+            Pick scores match by match as the tournament unfolds — no bracket to fill in upfront, just
+            predict each game before kick-off. One important thing: go to{' '}
+            <strong>Predict → Specials</strong> before the tournament starts to lock in your
+            tournament award picks.
+          </p>
+        </div>
+
+        {/* New to the app */}
+        <div className="space-y-3">
+          <p className="text-xs font-mono uppercase tracking-widest text-text-muted">New to the app?</p>
+
+          {canInstall && (
+            <Button variant="accent" className="w-full gap-2" onClick={triggerInstall}>
+              <Plus className="h-4 w-4" aria-hidden />
+              Add to home screen
+            </Button>
+          )}
+
+          {isIosSafari && !canInstall && (
+            <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm font-sans text-text-secondary">
+              In Safari, tap{' '}
+              <Share className="inline h-3.5 w-3.5 text-[#007AFF] align-text-bottom" aria-hidden />{' '}
+              <strong>Share → Add to Home Screen</strong>, then open the app from your home screen.
+            </div>
+          )}
+
+          <ol className="space-y-2 text-sm font-sans text-text-secondary">
+            {(canInstall || isIosSafari) && (
+              <li className="flex gap-3">
+                <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
+                <span>Install the app using the button{canInstall ? ' above' : ' instructions above'}</span>
+              </li>
+            )}
+            <li className="flex gap-3">
+              <span className="shrink-0 font-mono text-primary font-semibold">
+                {canInstall || isIosSafari ? '2.' : '1.'}
+              </span>
+              <span>Open it from your home screen</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="shrink-0 font-mono text-primary font-semibold">
+                {canInstall || isIosSafari ? '3.' : '2.'}
+              </span>
+              <span>Tap <strong>Leagues → Join by code</strong> and enter the join code you were sent</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="shrink-0 font-mono text-primary font-semibold">
+                {canInstall || isIosSafari ? '4.' : '3.'}
+              </span>
+              <span>Before the tournament starts, go to <strong>Predict → Specials</strong> to lock in your award picks</span>
+            </li>
+          </ol>
+        </div>
+
+        {/* Already have the app */}
+        <div className="space-y-3">
+          <p className="text-xs font-mono uppercase tracking-widest text-text-muted">Already have the app?</p>
+          <ol className="space-y-2 text-sm font-sans text-text-secondary">
+            <li className="flex gap-3">
+              <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
+              <span>Open it from your home screen</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
+              <span>Tap <strong>Leagues → Join by code</strong></span>
+            </li>
+            <li className="flex gap-3">
+              <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
+              <span>Enter the join code you were sent</span>
+            </li>
+          </ol>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ─── Installed PWA join flow ──────────────────────────────────────────────────
+// Full functional join — shown only when running inside the installed app.
+
+function AppJoinFlow() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { player } = useAuth();
-  const { isInstalled, isIosSafari, canInstall, prompt: triggerInstall } = useInstallPrompt();
 
   const useCode = !!token && isJoinCode(token);
 
@@ -65,11 +168,6 @@ export function JoinPage() {
   const [leagueHint, setLeagueHint] = useState('');
   const [leaguePreview, setLeaguePreview] = useState<LeaguePreview | null>(null);
 
-  const [installDismissed, setInstallDismissed] = useState(
-    () => !!localStorage.getItem(INSTALL_DISMISS_KEY),
-  );
-
-  // Unauthenticated create-account form state
   const [displayName, setDisplayName] = useState('');
   const [pin, setPin] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
@@ -87,7 +185,6 @@ export function JoinPage() {
     }
 
     if (useCode) {
-      // Join-by-code path: look up league preview (public endpoint, no auth needed)
       fetch(`${BASE}/api/v1/leagues/by-code/${encodeURIComponent(token.toUpperCase())}`)
         .then(async (r) => {
           if (!r.ok) throw new Error('Invalid join code');
@@ -105,7 +202,6 @@ export function JoinPage() {
       return;
     }
 
-    // Original invite-token path
     fetch(`${BASE}/api/v1/auth/invite/${token}`)
       .then(async (r) => {
         if (!r.ok) {
@@ -124,12 +220,6 @@ export function JoinPage() {
       });
   }, [token, useCode]);
 
-  function dismissInstall() {
-    localStorage.setItem(INSTALL_DISMISS_KEY, '1');
-    setInstallDismissed(true);
-  }
-
-  // Authenticated path — join by code or claim single-use invite
   async function handleAuthenticatedClaim() {
     setError('');
     setIsSubmitting(true);
@@ -175,7 +265,6 @@ export function JoinPage() {
     }
   }
 
-  // Unauthenticated path — create account then join
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -220,18 +309,13 @@ export function JoinPage() {
     }
   }
 
-  const showInstallNudge = !isInstalled && !installDismissed && (canInstall || isIosSafari);
-
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4 pt-safe pb-safe">
       <div className="w-full max-w-sm space-y-6">
-        <div className="mb-2">
+        <div>
           <Brand variant="splash" />
           <p className="text-center text-text-primary mt-6 font-sans text-base sm:text-lg italic">
             {brand.tagline}
-          </p>
-          <p className="text-center text-text-secondary font-sans text-sm mt-2">
-            World Cup 2026 prediction league — pick scores, climb the table.
           </p>
         </div>
 
@@ -336,83 +420,22 @@ export function JoinPage() {
             </CardContent>
           </Card>
         )}
-
-        {/* "Already have the app?" hint for code path */}
-        {inviteState === 'valid' && useCode && !player && (
-          <p className="text-center text-text-muted font-sans text-xs">
-            Already have the app? Open it, tap <strong>Leagues → Join by code</strong> and enter{' '}
-            <span className="font-mono font-semibold text-text-secondary">{token?.toUpperCase()}</span>.
-          </p>
-        )}
-
-        {/* Install affordance — only when not already running as installed PWA */}
-        {showInstallNudge && (
-          <div className="rounded-xl border border-border bg-surface px-4 py-4 relative">
-            <button
-              onClick={dismissInstall}
-              aria-label="Dismiss"
-              className="absolute top-2.5 right-3 p-1 rounded text-text-muted hover:text-text-secondary transition-colors"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-            </button>
-
-            <div className="pr-6 space-y-3">
-              <div>
-                <p className="text-sm font-sans font-semibold text-text-primary">Get the app for the best experience</p>
-                <p className="text-xs text-text-muted font-sans mt-1 leading-relaxed">
-                  The Steele Spreadsheet System is a World Cup 2026 prediction league — pick scores match by match as the tournament unfolds. No bracket to fill in upfront, just predict each game before kick-off and see who tops the table.
-                </p>
-              </div>
-
-              {/* Platform-specific install step */}
-              {canInstall && (
-                <Button size="sm" variant="outline" className="gap-1.5 w-full" onClick={triggerInstall}>
-                  <Plus className="h-3.5 w-3.5" aria-hidden />
-                  Add to home screen
-                </Button>
-              )}
-
-              {/* Numbered steps */}
-              <ol className="space-y-2 text-xs font-sans text-text-secondary">
-                {isIosSafari && !canInstall && (
-                  <li className="flex items-start gap-2">
-                    <span className="shrink-0 font-mono text-primary font-semibold">1.</span>
-                    <span>
-                      In Safari, tap{' '}
-                      <Share className="inline h-3 w-3 text-[#007AFF] align-text-bottom" aria-hidden />{' '}
-                      <strong>Share → Add to Home Screen</strong>
-                    </span>
-                  </li>
-                )}
-                <li className="flex items-start gap-2">
-                  <span className="shrink-0 font-mono text-primary font-semibold">
-                    {isIosSafari && !canInstall ? '2.' : canInstall ? '1.' : '1.'}
-                  </span>
-                  <span>Open the app from your home screen</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="shrink-0 font-mono text-primary font-semibold">
-                    {isIosSafari && !canInstall ? '3.' : canInstall ? '2.' : '2.'}
-                  </span>
-                  <span>
-                    Tap <strong>Leagues → Join by code</strong> and enter{' '}
-                    {useCode
-                      ? <span className="font-mono font-semibold text-primary">{token!.toUpperCase()}</span>
-                      : 'your join code'
-                    }
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="shrink-0 font-mono text-primary font-semibold">
-                    {isIosSafari && !canInstall ? '4.' : canInstall ? '3.' : '3.'}
-                  </span>
-                  <span>Before the tournament starts, go to <strong>Predict → Specials</strong> to lock in your tournament award picks</span>
-                </li>
-              </ol>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
+}
+
+// ─── Route entry point ────────────────────────────────────────────────────────
+
+export function JoinPage() {
+  const { isInstalled, isMobile } = useInstallPrompt();
+
+  // Mobile browser (not the installed PWA): show the info/onboarding page only.
+  // All joining happens inside the app — nothing to do in the browser.
+  if (isMobile && !isInstalled) {
+    return <BrowserInfoPage />;
+  }
+
+  // Desktop browser or installed PWA: show the functional join flow.
+  return <AppJoinFlow />;
 }
