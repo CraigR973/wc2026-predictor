@@ -247,8 +247,10 @@ async def test_join_endpoint_inserts_profile_and_membership(
 # ---------------------------------------------------------------------------
 
 
-async def _insert_open_league(conn: AsyncConnection, *, creator_id: uuid.UUID) -> tuple[uuid.UUID, str]:
-    """Insert an open-privacy league and return (league_id, slug, join_code)."""
+async def _insert_open_league(
+    conn: AsyncConnection, *, creator_id: uuid.UUID
+) -> tuple[uuid.UUID, str]:
+    """Insert a public_open league and return (league_id, slug)."""
     sfx = _suffix()
     slug = f"dj-{sfx}"
     code = f"DJCODE{sfx[:4].upper()}"
@@ -258,7 +260,7 @@ async def _insert_open_league(conn: AsyncConnection, *, creator_id: uuid.UUID) -
                 """
                 INSERT INTO leagues (id, slug, name, created_by, privacy, join_code)
                 VALUES (gen_random_uuid(), :slug, :name, :c,
-                        CAST('open' AS league_privacy), :code)
+                        CAST('public_open' AS league_privacy), :code)
                 RETURNING id
                 """
             ),
