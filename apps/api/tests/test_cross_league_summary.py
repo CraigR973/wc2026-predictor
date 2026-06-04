@@ -30,6 +30,7 @@ from src.models.profile import Profile
 
 def _player() -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "Caller"
     return p
@@ -310,6 +311,7 @@ async def test_cross_league_summary_db_three_leagues(db_conn: AsyncConnection) -
 
     def _caller() -> MagicMock:
         p = MagicMock(spec=Profile)
+        p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
         p.id = caller
         return p
 
@@ -352,6 +354,7 @@ async def test_cross_league_summary_db_excludes_solo_league(db_conn: AsyncConnec
 
     def _caller() -> MagicMock:
         p = MagicMock(spec=Profile)
+        p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
         p.id = caller
         return p
 

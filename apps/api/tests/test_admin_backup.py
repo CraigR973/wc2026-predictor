@@ -22,6 +22,7 @@ from src.services.backup import BackupInfo
 
 def _make_admin() -> Profile:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "Admin"
     p.role = PlayerRole.admin

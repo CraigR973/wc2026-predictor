@@ -39,6 +39,7 @@ def _profile(
     is_active: bool = True,
 ) -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = player_id or uuid.uuid4()
     p.display_name = "TestPlayer"
     p.role = PlayerRole.player
@@ -47,6 +48,7 @@ def _profile(
     p.timezone = "UTC"
     p.created_at = datetime(2026, 1, 1)
     p.deleted_at = None
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     return p
 
 
@@ -400,6 +402,7 @@ async def test_departed_member_drops_off_leaderboard(db_conn: AsyncConnection) -
     # Verify both are on the board before departure
     session = AsyncSession(bind=db_conn, expire_on_commit=False)
     requester = MagicMock(spec=Profile)
+    requester.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     requester.id = alice_id
     requester.site_role = None
     requester.deleted_at = None

@@ -52,6 +52,7 @@ def _make_player(
     locked_until: datetime | None = None,
 ) -> Profile:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "Alice Wong"
     p.first_name = "Alice"

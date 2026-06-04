@@ -53,6 +53,7 @@ def _match_update(**kwargs: Any) -> MatchUpdate:
 
 def _player(role: str = "player") -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "Alice"
     p.is_active = True

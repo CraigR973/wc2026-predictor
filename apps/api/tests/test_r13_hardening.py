@@ -17,6 +17,7 @@ from src.models.profile import PlayerRole, Profile, SiteRole
 
 async def _make_profile_mock(*, site_role: SiteRole) -> Profile:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.site_role = site_role
     p.role = PlayerRole.admin if site_role == SiteRole.superadmin else PlayerRole.player
@@ -46,6 +47,7 @@ async def test_require_admin_ignores_legacy_role_field() -> None:
     from src.auth import require_admin
 
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.role = PlayerRole.admin  # legacy field says admin…
     p.site_role = SiteRole.user  # …but site_role says user — must lose
