@@ -81,10 +81,12 @@ export function MyLeaguesPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <PageHeader title="My Leagues" />
-        <div className="flex gap-2">
+    <div className="space-y-6 overflow-x-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <PageHeader title="My Leagues" />
+        </div>
+        <div className="flex gap-2 shrink-0 flex-wrap">
           <Button asChild variant="outline" size="sm">
             <Link to="/leagues/discover">Discover</Link>
           </Button>

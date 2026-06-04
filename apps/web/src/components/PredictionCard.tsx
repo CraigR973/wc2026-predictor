@@ -9,6 +9,7 @@ import { ScoreInput } from './ui/score-input';
 import { useCountdown } from '../hooks/useCountdown';
 import { canEdit, statusLabel, statusVariant } from '../lib/matchStatus';
 import type { LocalPrediction } from '../hooks/usePredictionEditor';
+import { shortPlaceholder } from '../lib/matchTeam';
 import { cn } from '../lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -123,10 +124,12 @@ export function PredictionCard({
   const flag = (emoji: string) => (emoji ? `${emoji} ` : '');
   const homeLabel = match.home_team
     ? `${flag(match.home_team.flag_emoji)}${compact ? match.home_team.code : match.home_team.name}`
-    : (match.home_team_placeholder ?? '?');
+    : shortPlaceholder(match.home_team_placeholder);
   const awayLabel = match.away_team
     ? `${flag(match.away_team.flag_emoji)}${compact ? match.away_team.code : match.away_team.name}`
-    : (match.away_team_placeholder ?? '?');
+    : shortPlaceholder(match.away_team_placeholder);
+  const homeTitle = !match.home_team ? (match.home_team_placeholder ?? undefined) : undefined;
+  const awayTitle = !match.away_team ? (match.away_team_placeholder ?? undefined) : undefined;
 
   const homeVal = local?.home ?? (prediction?.predicted_home !== null && prediction?.predicted_home !== undefined ? String(prediction.predicted_home) : '');
   const awayVal = local?.away ?? (prediction?.predicted_away !== null && prediction?.predicted_away !== undefined ? String(prediction.predicted_away) : '');
@@ -186,7 +189,13 @@ export function PredictionCard({
 
       {/* Teams + score inputs */}
       <div className="flex items-center gap-3">
-        <div className="flex-1 text-sm font-sans text-text-primary truncate text-right">
+        <div
+          title={homeTitle}
+          className={cn(
+            'flex-1 text-sm font-sans text-text-primary truncate text-right',
+            homeTitle && 'italic text-text-muted font-mono text-xs',
+          )}
+        >
           {homeLabel}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -204,7 +213,15 @@ export function PredictionCard({
             aria-label={`Away score for match ${match.match_number}`}
           />
         </div>
-        <div className="flex-1 text-sm font-sans text-text-primary truncate">{awayLabel}</div>
+        <div
+          title={awayTitle}
+          className={cn(
+            'flex-1 text-sm font-sans text-text-primary truncate',
+            awayTitle && 'italic text-text-muted font-mono text-xs',
+          )}
+        >
+          {awayLabel}
+        </div>
       </div>
 
       {/* Footer states — mt-auto pushes this to the bottom so all cards share

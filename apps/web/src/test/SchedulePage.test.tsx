@@ -114,9 +114,10 @@ describe('SchedulePage knockout skeleton', () => {
   it('shows placeholder labels for knockout matches whose teams are TBD', async () => {
     vi.stubGlobal('fetch', makeFetch([GROUP_MATCH, R32_MATCH, R16_MATCH]));
     renderPage();
-    await waitFor(() => expect(screen.getByText('Winner Group A')).toBeTruthy());
-    expect(screen.getByText('Best 3rd #1')).toBeTruthy();
-    expect(screen.getByText('Winner of Match 73')).toBeTruthy();
+    // Placeholders are rendered as short codes; full text on title attribute.
+    await waitFor(() => expect(screen.getByText('WA')).toBeTruthy());
+    expect(screen.getByText('B3#')).toBeTruthy();
+    expect(screen.getByText('W73')).toBeTruthy();
   });
 
   it('still groups group-stage matches under a date heading', async () => {

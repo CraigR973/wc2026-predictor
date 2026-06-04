@@ -98,10 +98,12 @@ export function LeagueMembersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <PageHeader title="Members" />
+      <div className="flex items-start justify-between gap-3 min-w-0">
+        <div className="min-w-0 flex-1">
+          <PageHeader title="Members" back={{ to: `/leagues/${slug}`, label: 'Back' }} />
+        </div>
         {myMembership && (
-          <Button size="sm" variant="outline" className="text-error border-error/40 hover:bg-error/10" onClick={() => setShowLeaveDialog(true)}>
+          <Button size="sm" variant="outline" className="shrink-0 text-error border-error/40 hover:bg-error/10" onClick={() => setShowLeaveDialog(true)}>
             Leave league
           </Button>
         )}

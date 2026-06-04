@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
+import { shortPlaceholder } from '../lib/matchTeam';
 import { useAuth } from '../contexts/AuthContext';
 import { Skeleton } from '../components/ui/skeleton';
 import { BracketTeaser } from '../components/BracketTeaser';
@@ -72,7 +73,7 @@ function actualWinnerId(m: MatchResponse): string | null {
 
 function teamLabel(team: MatchResponse['home_team'], placeholder: string | null): string {
   if (team) return `${team.flag_emoji} ${team.name}`;
-  return placeholder ?? '?';
+  return shortPlaceholder(placeholder);
 }
 
 // Returns the centre-Y of match index `i` in a round of `count` matches.
@@ -162,7 +163,7 @@ function MatchBox({
           data-correct={homeCorrect ? 'true' : 'false'}
           data-wrong={homeWrong ? 'true' : 'false'}
         >
-          <span className="truncate">{homeLabel}</span>
+          <span className="truncate" title={match.home_team ? undefined : (match.home_team_placeholder ?? undefined)}>{homeLabel}</span>
           {isCompleted && match.actual_home_score !== null && (
             <span className="font-mono text-text-muted shrink-0">{match.actual_home_score}</span>
           )}
@@ -176,7 +177,7 @@ function MatchBox({
           data-correct={awayCorrect ? 'true' : 'false'}
           data-wrong={awayWrong ? 'true' : 'false'}
         >
-          <span className="truncate">{awayLabel}</span>
+          <span className="truncate" title={match.away_team ? undefined : (match.away_team_placeholder ?? undefined)}>{awayLabel}</span>
           {isCompleted && match.actual_away_score !== null && (
             <span className="font-mono text-text-muted shrink-0">{match.actual_away_score}</span>
           )}

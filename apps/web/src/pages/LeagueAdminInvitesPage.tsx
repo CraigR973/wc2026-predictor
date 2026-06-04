@@ -115,7 +115,7 @@ export function LeagueAdminInvitesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Invites" />
+      <PageHeader title="Invites" back={{ to: `/leagues/${slug}`, label: 'Back' }} />
 
       {/* Primary action — join code share */}
       <Card>

@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
+import { Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Brand } from '@/components/Brand';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -17,6 +19,10 @@ const DESKTOP_NAV = [
 
 export function TopBar() {
   const { player } = useAuth();
+  const { resolved, setMode } = useTheme();
+  function toggleTheme() {
+    setMode(resolved === 'dark' ? 'light' : 'dark');
+  }
 
   return (
     <header
@@ -69,6 +75,18 @@ export function TopBar() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="tap-target inline-flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            {resolved === 'dark' ? (
+              <Sun className="h-4 w-4" aria-hidden />
+            ) : (
+              <Moon className="h-4 w-4" aria-hidden />
+            )}
+          </button>
           {player?.role === 'admin' && (
             <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full bg-accent/15 text-accent text-[10px] font-mono uppercase tracking-[0.2em]">
               Admin

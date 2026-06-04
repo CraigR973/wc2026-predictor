@@ -11,6 +11,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { KNOCKOUT_STAGES, STAGE_LONG } from '../lib/stages';
+import { shortPlaceholder } from '../lib/matchTeam';
 import { cn } from '../lib/utils';
 
 type StatusVariant = 'default' | 'success' | 'error' | 'muted' | 'accent' | 'warning' | 'live';
@@ -47,10 +48,12 @@ function MatchCard({
 
   const homeLabel = match.home_team
     ? `${match.home_team.flag_emoji} ${match.home_team.code}`
-    : match.home_team_placeholder ?? '?';
+    : shortPlaceholder(match.home_team_placeholder);
   const awayLabel = match.away_team
     ? `${match.away_team.flag_emoji} ${match.away_team.code}`
-    : match.away_team_placeholder ?? '?';
+    : shortPlaceholder(match.away_team_placeholder);
+  const homeTitle = !match.home_team ? (match.home_team_placeholder ?? undefined) : undefined;
+  const awayTitle = !match.away_team ? (match.away_team_placeholder ?? undefined) : undefined;
 
   const isResult =
     match.status === 'completed' &&
@@ -91,9 +94,11 @@ function MatchCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <span
+            title={homeTitle}
             className={cn(
               'text-sm font-sans truncate',
               homeWon ? 'text-text-primary font-semibold' : 'text-text-secondary',
+              homeTitle && 'italic text-text-muted font-mono text-xs',
             )}
           >
             {homeLabel}
@@ -108,9 +113,11 @@ function MatchCard({
           )}
 
           <span
+            title={awayTitle}
             className={cn(
               'text-sm font-sans truncate text-right',
               awayWon ? 'text-text-primary font-semibold' : 'text-text-secondary',
+              awayTitle && 'italic text-text-muted font-mono text-xs',
             )}
           >
             {awayLabel}
