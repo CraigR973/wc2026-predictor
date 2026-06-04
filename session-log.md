@@ -1612,3 +1612,18 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - TopBar Sun/Moon toggle calls `useTheme().setMode(resolved === 'dark' ? 'light' : 'dark')` — Settings remains the 3-way source of truth.
 
 **Next:** Polish batch U22 — Knockout per-match lock + temporal leaderboard 🔴 Opus
+
+---
+
+## Polish batch U22 — Knockout per-match lock + temporal leaderboard
+**Commits:** 14bf9be, f054f94 · CI ✅
+
+### Key facts for future sessions
+- Temporal points (`_temporal_points()` in `apps/api/src/routers/leaderboard.py`) are derived per-request, NOT stored; each metric sums scoreline (`Prediction`) + winner (`KnockoutPrediction`) points.
+- "round" = furthest settled stage via the `_STAGE_ORDER` map among matches with `result_entered_at IS NOT NULL` (group = one round); "today" = requester `profiles.timezone` calendar day (`ZoneInfo`, UTC fallback on bad tz) vs naive-UTC `result_entered_at`.
+- Behavior change to an existing surface: `_round_leaderboard` (the "By round" page) now ALSO counts knockout winner points so knockout-stage totals match the new Round metric; group stage unchanged.
+- Knockout write lock AND reveal gate are both per-match `kickoff_utc <= now` now (`_is_round_locked` dropped). U24's profile knockout reveal builds on this gate.
+- Frontend Today/Round/Total toggle re-sorts + re-ranks client-side via `rankBy()` (`apps/web/src/lib/leaderboard.ts`); only Total pulses on rank change. Last-match points render in the expand row.
+- `groups.name` is VARCHAR(1) (groups A–L) — DB-backed test fixtures need single-char group names; truncation only fails in the CI Postgres job.
+
+**Next:** Polish batch U23 — Full-photo avatars 🟢 Sonnet
