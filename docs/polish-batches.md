@@ -1067,8 +1067,8 @@ per batch (`feat/premium-polish-10` for U18, next free number if taken), ff-merg
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U18 | 🟢 Sonnet | ~3 h | U18.1–U18.6 | |
-| U19 | 🔴 Opus | ~5 h | U19.1–U19.5 | |
+| ~~U18~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U18.1–U18.6~~ | ✅ Shipped 2026-06-03 |
+| ~~U19~~ | ~~🔴 Opus~~ | ~~~5 h~~ | ~~U19.1–U19.5~~ | ✅ Shipped 2026-06-03 |
 
 ---
 
@@ -1163,3 +1163,441 @@ Per batch: push the batch branch (`feat/premium-polish-10` for U18, then the nex
 U19) → `/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if the `U` prefix isn't
 recognised) → lean `session-log.md` entry → strike the batch's row in the round-6 table above.
 Independent of prior rounds — ff-merge once green. **U18 builds on U17**, so close out U17 first.
+
+---
+
+# Premium polish round 7 — snags backlog (U21–U24)
+
+Source: user-reported snags, 2026-06-04. Design decisions were locked with the user in
+that session (see **Decisions** below — do not re-litigate). Same workflow as earlier
+rounds: one conceptual area + one model per batch, ship-able in a focused session, off the
+next free `feat/premium-polish-<n>` branch (after U20's `feat/premium-polish-12`).
+
+Mark batches complete by striking through the row.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U21 | 🟢 Sonnet | ~3.5 h | U21.1–U21.5 | Not started |
+| U22 | 🔴 Opus | ~3.5 h | U22.1–U22.3 | Not started |
+| U23 | 🟢 Sonnet | ~3.5 h | U23.1–U23.3 | Not started |
+| U24 | 🔴 Opus | ~3 h | U24.1–U24.4 | Not started |
+
+**Dependencies:** U21 and U23 are independent. **U24 depends on U22** — the per-match
+knockout lock from U22.1 defines when knockout predictions become visible in U24's profile
+reveal. Suggested order: U21 → U22 → U23 → U24.
+
+**Privacy invariant (applies to U22 + U24):** no endpoint may ever return a player's
+prediction before that prediction locks. Reuse the existing lock gate; U24 must ship a
+regression test asserting pre-lock predictions never leak.
+
+---
+
+## Decisions (locked 2026-06-04)
+
+- **Avatars (U23):** full photo upload. New `profiles.avatar_url`; Supabase Storage bucket
+  + access policy; client-side resize to ~512 px square, ~2 MB cap; no auto-moderation
+  (invite-only league of ≤15 trusted people). Existing initials `Avatar`
+  (`apps/web/src/components/ui/avatar.tsx`) is the fallback.
+- **Knockout lock (U22.1):** switch from round-level to per-match. Keep the per-match
+  kickoff lock; drop the round-level condition. Safe — sibling knockout ties are
+  independent, so there's no info-leak reason for the round lock.
+- **"Round" (U22.2) = stage:** group stage is ONE round; r32/r16/qf/sf/final each their
+  own. "Round points" = points in the current (furthest-progressed) stage, resetting per
+  stage.
+- **"Today's points" (U22.2):** the viewer's local calendar day, computed per-viewer at
+  query time from `profiles.timezone` (not a stored column, not UTC).
+- **Profile reveal (U24) = all:** group predictions (reveal at lock), specials (reveal once
+  the tournament starts), knockout bracket (reveal per-match).
+
+---
+
+## Current state already in the repo (verify, then build on it — do NOT rebuild)
+
+- **Leaderboard** `apps/web/src/pages/LeaderboardPage.tsx`: rank, name (already links to
+  `/players/:id`), total points, expand row with Match/Knockout/Special category sums.
+  "By round" (`RoundLeaderboardPage`) + "History" views already exist. Snapshots are
+  cumulative totals with `snapshot_at` + `triggered_by_match_id`
+  (`apps/api/src/services/leaderboard.py`) — temporal deltas are DERIVABLE, not stored.
+- **Match lock:** group matches lock per-match at kickoff (`apps/api/src/scheduler.py`
+  `lock_due_matches`). Knockout predictions use round-level lock
+  (`apps/api/src/routers/knockout_predictions.py` `_is_round_locked` → true if ANY match in
+  the stage left `scheduled`); reveal gate 403s pre-lock. ← U22.1 changes this.
+- **Team placeholders:** `apps/api/src/models/match.py`
+  `home_team_placeholder` / `away_team_placeholder` (String(50), e.g. "Runner-up Group F",
+  "Winner of Match 73"). Rendered raw in `SchedulePage.tsx` + `PredictionsPage.tsx` → overflow.
+- **PageHeader** `apps/web/src/components/PageHeader.tsx` already supports a `back` chip and
+  a `showBack` chevron — league sub-pages just don't pass them.
+- **Theming** fully built: `apps/web/src/contexts/ThemeContext.tsx` (light/dark/system,
+  persisted, updates the theme-color meta) + a 3-way toggle in Settings. `TopBar.tsx`
+  doesn't expose it.
+- **Dup-join** already enforced: `UniqueConstraint(league_id, player_id)`
+  ("uq_league_memberships_league_player", `apps/api/src/models/league_membership.py`) +
+  join endpoint returns ALREADY_MEMBER (`apps/api/src/routers/leagues.py` `join_league`).
+  Only residual = one-human-two-accounts (a unique-verified-email control) — optional, low
+  priority.
+- **Player profile** ~70 % built: `apps/web/src/pages/PlayerProfilePage.tsx` (stats,
+  best/worst round, head-to-head vs you, recent settled predictions w/ breakdown). Reveal
+  gate is correct: `apps/api/src/routers/players.py` recent-predictions endpoint returns
+  settled-only (`points_awarded IS NOT NULL`) + a shared-league check. U24 EXTENDS this to
+  locked-but-unsettled predictions + specials + knockout, reusing the post-lock comparison
+  logic in `MatchDetailPage` / `ComparePage`.
+- **Avatar** initials component exists (`apps/web/src/components/ui/avatar.tsx`); the
+  `Profile` model (`apps/api/src/models/profile.py`) has no avatar column.
+
+---
+
+## U21 — Quick polish 🟢 Sonnet · ~3.5 h
+
+Five independent, low-risk fixes. Frontend-only except U21.4's test.
+
+- **U21.1** (snag #3) Team-less match rendering: stop rendering the raw 50-char placeholder.
+  Map to short codes (e.g. `2F`, `W73`, `RU-A`) with the full text on tap/`title`, plus a
+  distinct "TBD" visual treatment. Apply in `SchedulePage.tsx`, `PredictionsPage.tsx`, and
+  check `MatchDetailPage` + bracket surfaces.
+- **U21.2** (snag #4) Back buttons: audit league sub-pages (members, settings, invites,
+  join-requests, round leaderboard, history, compare) and pass `back` / `showBack` to
+  `PageHeader` consistently.
+- **U21.3** (snag #5) Dark-mode toggle in `TopBar.tsx`: an icon button in the right cluster
+  wired to `useTheme().setMode`. Settings stays the 3-way (system/light/dark) source of
+  truth; the TopBar control is a quick light/dark flip.
+- **U21.4** (snag #6) Verify the dup-join guard with a test (constraint + ALREADY_MEMBER
+  path, incl. re-join after leave reactivating the soft-deleted row). Optionally raise the
+  multi-account / unique-email question with the user.
+- **U21.5** (round-8 snag, folded in) League-header overflow — kill horizontal scroll on the
+  league surfaces: `LeagueHomePage.tsx` header (lines 68–95: the Invite/Members/Invites/
+  Settings cluster is `shrink-0 flex-wrap`, but the title side has no `min-w-0`/truncation →
+  long league names push width) and `MyLeaguesPage.tsx` header (lines 85–97: title +
+  Discover/Join/+New in a `justify-between` row with NO wrap). Add `min-w-0`/truncation, make
+  the button clusters wrap, and guard the page container against `overflow-x`. **Do this as
+  one pass with U21.2** — same league-header audit; apply the overflow fix to any sub-page
+  header that needs it too. jsdom can't measure layout, so the unit test asserts the layout
+  classes are present (proxy); real verification is the mobile-width (360 px) preview.
+
+**Acceptance:**
+- Team-less matches never overflow/truncate; the full placeholder is available on tap/title;
+  "TBD" matches read as visually distinct from real fixtures.
+- Every league sub-page has a working back affordance.
+- The TopBar has a dark/light toggle that updates the theme immediately (incl. theme-color
+  meta); Settings remains the 3-way control.
+- A test covers the dup-join guard (same player can't double-join; re-join after leave works).
+- No league surface scrolls horizontally at 360 px; long league names truncate; action /
+  settings button clusters wrap (one audit pass with U21.2).
+- Frontend tests + a11y green; backend test (U21.4) green.
+
+## U22 — Knockout per-match lock + temporal leaderboard 🔴 Opus · ~3.5 h
+
+Foundational lock change first, then the new leaderboard metrics.
+
+- **U22.1** (snag #2) Knockout predictions lock per-match, not per-round: drop the
+  round-level condition (`_is_round_locked`) in `knockout_predictions.py`, keep the
+  per-match kickoff lock, and update the reveal gate to per-match.
+- **U22.2** (snag #1) Backend temporal points per player/league: last-match points (points
+  on the most recently settled match's prediction), today's points (viewer-local day via
+  `profiles.timezone`), round points (current/furthest-progressed stage; group = one round),
+  alongside the existing total.
+- **U22.3** (snag #1) Surface on the leaderboard via a period toggle (Today / Round / Total)
+  or inside the expand row — NOT four columns (mobile width).
+
+**Acceptance:**
+- A knockout prediction locks only at its own match's kickoff; a sibling tie kicking off no
+  longer locks the rest of the round; reveal is per-match.
+- The leaderboard exposes last-match / today / round / total points; "today" is viewer-local;
+  "round" = the current stage and resets per stage.
+- No new pre-lock leak (privacy invariant); existing snapshot/leaderboard behaviour intact.
+- Backend + frontend tests green, incl. a per-match-lock test and a temporal-points test.
+
+## U23 — Full-photo avatars 🟢 Sonnet · ~3.5 h
+
+- **U23.1** Migration adding `profiles.avatar_url` (nullable) + a Supabase Storage bucket
+  and access policy (avatars; public read of unguessable paths, owner write).
+- **U23.2** Upload control in Settings: pick/crop to square, client-side resize to ~512 px,
+  ~2 MB cap, type allow-list; persist the URL on the profile.
+- **U23.3** Render the avatar everywhere identity shows (TopBar, leaderboard rows, player
+  profile, league members), with the initials `Avatar` as the fallback when `avatar_url`
+  is null.
+
+**Acceptance:**
+- A user can upload / replace / remove a photo avatar; it appears across TopBar, leaderboard,
+  profile, and members; initials fallback when unset.
+- Upload enforces type + ~2 MB + square ~512 px resize; no broken-image states.
+- Migration applied (repo-root `/migrations`, sequential id); tests cover the endpoint +
+  fallback rendering; a11y green.
+
+## U24 — Reveal-all gated player profile 🔴 Opus · ~3 h
+
+Depends on U22.1 (per-match knockout lock semantics).
+
+- **U24.1** A shared reveal gate + extend the profile to show group predictions as soon as
+  they lock (not only once settled), reusing the post-lock comparison logic.
+- **U24.2** Specials section on the profile, revealed once the tournament has started.
+- **U24.3** Knockout bracket section on the profile, revealed per-match (per U22.1).
+- **U24.4** Regression test asserting predictions are NEVER returned before lock (group,
+  specials, knockout), and ARE visible to league-mates immediately after lock.
+
+**Acceptance:**
+- `PlayerProfilePage` shows a player's group, special, and knockout predictions, each gated
+  by its own lock; nothing is visible before lock; everything is visible to league-mates at
+  lock.
+- One shared gate is used by all three sections (no duplicated / divergent rules).
+- The leak regression test is green; existing profile/stats tests stay green.
+
+---
+
+## Close-out (round 7)
+
+Per batch: push the batch branch (next free `feat/premium-polish-<n>` after U20's `-12`) →
+`/phase-closeout U<n>` (CI poll + ff-merge; manual fallback if the `U` prefix isn't
+recognised) → lean `session-log.md` entry → strike the batch's row in the round-7 table
+above. U21 and U23 are independent; **close out U22 before U24** (U24 builds on U22.1).
+
+---
+
+# Rebrand — Calcio (U25)
+
+The app was previously named "The Steele Spreadsheet System" (SSS). The new name is
+**Calcio** — Italian for football, doubles as a nod to "calculate". One focused session,
+🟢 Sonnet, off a fresh `feat/rebrand-calcio` branch.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U25 | 🟢 Sonnet | ~1.5 h | U25.1–U25.5 | Not started |
+
+---
+
+### U25 — Calcio rebrand
+
+- **U25.1** Brand token update (`apps/web/src/theme/tokens.ts`):
+  - `brand.full` → `'Calcio'`
+  - `brand.short` → `'Calcio'`
+  - `brand.wordmarkTop` → `'Calcio'` (single word — no two-line split needed; keep the field
+    for compat but set to `'Calcio'`; remove or blank `wordmarkBottom`)
+  - `brand.tagline` → keep `'Still Email?'` (name-agnostic, still lands)
+  - Update the file-header comment (currently references "The Steele Spreadsheet")
+  (~10 min)
+
+- **U25.2** PWA & meta name (`apps/web/index.html` + `apps/web/vite.config.ts`):
+  - `index.html`: `<title>` → `Calcio`; `apple-mobile-web-app-title` `SSS` → `Calcio`;
+    `og:title`, `twitter:title`, and meta `description` all updated
+  - `vite.config.ts` PWA plugin manifest: `name: 'Calcio'`, `short_name: 'Calcio'`
+  (~10 min)
+
+- **U25.3** Wordmark component (`apps/web/src/components/Brand.tsx`):
+  - Current component renders a two-line "The Steele / Spreadsheet System" logotype via
+    `brand.wordmarkTop` / `brand.wordmarkBottom`, plus an `SSS` monogram variant.
+  - New: render `brand.full` (`Calcio`) as a **single-line logotype** in the existing type
+    treatment (heavy weight, emerald gradient). All size variants (`sm`, `md`, `lg`, default)
+    must scale correctly.
+  - If any SVG path or character-spacing code is hard-coded for three letters, replace it.
+  - The "SSS monogram" avatar fallback (used in `avatar.tsx`) should become a `C` or `CA`
+    initial — check `apps/web/src/components/ui/avatar.tsx`.
+  (~40 min)
+
+- **U25.4** Copy updates:
+  - `AboutPage.tsx`: eyebrow → `"Calcio"`; update the "A Steele and Robbo Worldwide
+    production" tagline to something neutral (e.g. "A friends league, built properly") —
+    keep the `"Built by Craig Robinson and Lewis Steele"` tech-credit line unchanged (that's
+    a builder credit, not a branding statement)
+  - `BrowserOnboarding.tsx`: "The Steele Spreadsheet System is a private…" →
+    "Calcio is a private World Cup 2026 prediction league."
+  - `BrowserOnboarding.tsx`: update the "Previously administered with great distinction by
+    Company CEO Lewis Steele via a spreadsheet…" flavour copy — tone is still warm/fun,
+    just drop the personal name; e.g. "Previously run from a spreadsheet of legendary
+    proportions, Calcio is the official upgrade."
+  - `invite.ts`: update subject line and share-text body to reference Calcio
+  - `IosSafariOverlay.tsx`: any visible app-name reference
+  (~25 min)
+
+- **U25.5** Test string updates:
+  - `grep -rn "Steele Spreadsheet\|\"SSS\"\|'SSS'" apps/web/src/test/` — find every
+    Vitest assertion that references the old name and update to `"Calcio"` / `'Calcio'`
+  - Re-run `pnpm --dir apps/web test` and confirm all tests green
+  (~15 min)
+
+**Acceptance:**
+- No user-visible string contains "The Steele Spreadsheet System" or bare "SSS"
+- Browser tab title, PWA install prompt, iOS Add to Home Screen: all display "Calcio"
+- `og:title` and `twitter:title` are "Calcio"
+- Brand logo / logotype renders cleanly at all breakpoints and size variants
+- Onboarding overlay, invite share text, iOS install overlay: all reference Calcio
+- About page eyebrow is "Calcio"; builder credit line ("Craig Robinson and Lewis Steele") unchanged
+- All Vitest tests green
+
+## Close-out (U25)
+
+`feat/rebrand-calcio` → `/phase-closeout U25` → lean `session-log.md` entry → strike U25
+row above. Independent of U21–U24 — can ship in any order.
+
+---
+
+# Premium polish round 8 — snags backlog (U26)
+
+Source: user-reported snags, 2026-06-04 (follow-up to round 7). Same workflow: one focused
+🟢 Sonnet session, off the next free `feat/premium-polish-<n>` branch. Two independent,
+low-risk frontend fixes — each already has a surface in the repo, so we **extend, not
+rebuild**. Decisions locked with the user (see below — do not re-litigate). (The
+leagues-overflow snag was folded into U21.5 — same league-header audit.)
+
+Mark complete by striking through the row.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U26 | 🟢 Sonnet | ~3 h | U26.1–U26.2 | Not started |
+
+**Dependencies:** none — the two items are independent of each other and of U21–U25.
+
+---
+
+## Decisions (locked 2026-06-04)
+
+- **Mandatory updates (U26.1) = smart auto-reload.** The SW already self-activates
+  (`skipWaiting`/`clientsClaim`); force the *page reload* (new JS) at a **safe moment** —
+  tab refocus, next route change, or a short countdown — deferring while the predictions
+  editor has unsaved edits. Add a periodic `update()` poll so long-lived PWA sessions still
+  pick up new versions. No permanent "dismiss". NOT a hard immediate auto-reload (would
+  interrupt mid-action / lose unsaved input).
+- **Scoring examples (U26.2) = worked matrix of every achievable per-match total
+  {0, 2, 3, 5, 10}.** 7 and 8 are impossible (an exact score implies correct result +
+  combined goals, so it stacks straight to 10). Show predict-vs-actual + breakdown for each.
+  Surface in both the Predictions quick-ref (collapsed) and the About page, from ONE shared
+  scoring-data module so they can't drift. Reconcile the specials count/total to the actual
+  implementation.
+
+---
+
+## Current state already in the repo (verify, then build on it — do NOT rebuild)
+
+- **Update flow:** `registerType: 'prompt'` (`apps/web/vite.config.ts`); `UpdateBanner.tsx`
+  shows a *dismissible* "A new version is available" banner. `apps/web/src/sw.ts` ALREADY
+  calls `self.skipWaiting()` + `clientsClaim()` (lines 14–21) — the SW self-activates; only
+  the page reload is optional. ⚠ **History:** they moved to `skipWaiting` because
+  `IosSafariOverlay` (z-70) covered the banner (z-60) on iOS and deadlocked. Don't
+  reintroduce a tap-dependent deadlock — any residual prompt must render ABOVE the overlay.
+- **Scoring already documented in TWO places, neither with worked examples:**
+  `apps/web/src/components/ScoringGuide.tsx` (compact quick-ref on `PredictionsPage`, match
+  scoring 2/3/5/10 only) and `apps/web/src/pages/AboutPage.tsx` §"How scoring works" (match +
+  knockout-winner escalating + specials + max-points). ⚠ AboutPage lists only **3 specials
+  = 45 pts** and grand total **1380**; architecture §6.1 + the data model define **6
+  specials = 80** and **≈1415**. Verify which the app actually implements; reconcile.
+- **Authoritative scoring = `wc2026-architecture.md` §6.1.** Group/knockout match = 2
+  (combined goals) + 3 (result) + 5 (exact), stacking to 10. Knockout-winner per round:
+  R32 5 → R16 10 → QF 15 → SF 20 → 3rd 10 → Final 25. Specials 20/15/15/10/10/10.
+
+---
+
+## U26 — Clarity & mandatory updates 🟢 Sonnet · ~3 h
+
+- **U26.1** (mandatory updates) Smart auto-reload for new versions. Keep the SW's
+  `skipWaiting`/`clientsClaim`; add a periodic `registerSW` `update()` poll (~30–60 min);
+  on `onNeedRefresh`, schedule a reload at a safe moment (tab `visibilitychange`→visible,
+  next route change, or a short visible countdown), deferring while the predictions editor
+  reports unsaved edits (wire a lightweight dirty-state signal if none exists). Remove the
+  permanent-dismiss path; ensure any residual prompt renders above the iOS overlay (fix
+  z-order) so it can't deadlock. Touches `UpdateBanner.tsx`, `vite.config.ts`, maybe `sw.ts`.
+- **U26.2** (scoring clarity) Add a worked-examples matrix of every achievable per-match
+  total — {0, 2, 3, 5, 10} — each as predict-vs-actual + the points breakdown, surfaced in
+  `ScoringGuide.tsx` (collapsed) and `AboutPage.tsx`. Extract a shared scoring-data module
+  (rows + worked examples + specials) consumed by both so they can't diverge. Reconcile the
+  specials count/total to the actual implementation (fix the 45-vs-80 / 1380-vs-1415 split).
+
+**Acceptance:**
+- A new deploy reaches an already-open PWA session without the user tapping anything: the
+  app reloads to the new version at a safe moment (not mid-edit), there's no way to
+  permanently suppress the update, and no iOS-overlay deadlock.
+- The Predictions quick-ref AND the About page each show worked examples for every
+  achievable per-match total (0, 2, 3, 5, 10); both render from one shared source; the
+  specials count + grand total match the implementation (no 45-vs-80 mismatch).
+- Frontend tests green — incl. a scoring-examples render test asserting the five totals and
+  an update-scheduling test (defers on unsaved edits, fires on refocus); a11y green.
+
+---
+
+## Close-out (round 8)
+
+Push the batch branch (next free `feat/premium-polish-<n>`) → `/phase-closeout U26` (CI poll
++ ff-merge; manual fallback if the `U` prefix isn't recognised) → lean `session-log.md`
+entry → strike U26's row above.
+
+---
+
+# Round 9 — live match hub + hero dashboard (U27)
+
+Decided 2026-06-04 after reviewing U20. The live carousel slot removed in U20 and all the
+rich live/score/points features below live here. 🔴 **Opus**.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U27 | 🔴 Opus | ~5 h | U27.1–U27.7 | Not started |
+
+**Dependencies:** U27 builds on U20 (home v2). Close out U20 first.
+
+---
+
+## U27 — Live match hub + hero dashboard 🔴 Opus · ~5 h
+
+### Backend changes required first
+
+- **U27.B1** Add `elapsed_minutes: int | None` to `MatchResponse` — the live elapsed
+  minute, populated by the result-fetcher when status = `live`. First verify the
+  result-fetcher actually captures it (check the football-data API response shape); if not,
+  leave it `null` and mark the display field optional.
+- **U27.B2** Add `kickoff_utc: str` to `HomeRollupMatch` — so each per-match row in the
+  hero rollup expansion can show date + time. The match `id` is already on the row so a
+  client-side join to `['matches','group']` is a fallback for group stage, but adding it to
+  the payload is cleaner and covers knockout rollups.
+
+### Frontend items
+
+- **U27.1 Live match hub section** — a new full-width section that appears between the
+  hero and the pre-tournament checklist when ≥1 group match is live. Shows one card per
+  live match (adaptive — one card wide on mobile, two columns on wider screens).
+  Each live card:
+  - Match header: `{home_flag} {home_code} {actual_home}–{actual_away} {away_code} {away_flag}`
+    in a large prominent score, plus elapsed minutes (`{n}'`, or `HT`, or omitted if null).
+  - Your prediction row: `You: {predicted_home}–{predicted_away}`.
+  - Provisional points row: compute client-side using the existing shared scoring logic
+    (`packages/shared/` scoring) against the *current* live score + your prediction. Label
+    "Points if this stands: X".
+  - Green live pulse (existing `.animate-ping` pattern).
+  Remove the small hero corner chip for `kind='live'` once this section exists — the chip
+  keeps `kind='next'` and `kind='last'` only.
+
+- **U27.2 Hero dashboard section headings** — the hero card gets labelled sub-sections:
+  "Points" (already present), "Daily summary" (the +N pts delta row, with a tap-for-detail
+  chevron), and the section header above the live hub (rendered outside the card):
+  `"Live now"` (only when live) or nothing. These headings use the same `text-lg font-bold`
+  style as the other page sections.
+
+- **U27.3 Daily summary always-visible league movement** — the cross-league movement
+  summary (`↑2 The Steele Spreadsheet · ↓1 Office Pool`) currently lives inside the
+  expanded rollup and in the Leagues section below. Bring the compact colour-coded summary
+  (already colour-coded in U20) up to always show below the "+N pts" collapsed delta line,
+  so it's visible without expanding.
+
+- **U27.4 Pronounced score + prediction in breakdown** — inside the expanded rollup per-
+  match row: make `actual_home–actual_away` larger (`text-base font-semibold`) and the
+  "you: X–Y" prediction more visually distinct (a small pill or different colour). Add the
+  match kickoff date/time using `kickoff_utc` from `HomeRollupMatch` (U27.B2).
+
+- **U27.5 Next-match chip → inline below points** — when nothing is live, replace the
+  top-right corner chip with an inline row below the points: `Next · {flag} {code} v {code}
+  {flag} · in {countdown}`. This gives more space and removes the awkward side-by-side
+  layout on narrow screens.
+
+- **U27.6 Last-result chip cleanup** — when nothing live or upcoming, show the last FT
+  result inline (same row style as U27.5) rather than a corner chip.
+
+- **U27.7 Tests + a11y** — update DashboardPage tests for the new hub section and chip
+  positions; update carousel tests (live already excluded from U20); Vitest + axe green.
+
+**Acceptance:**
+- When ≥1 match is live, a `"Live now"` hub section appears above the checklist with one
+  card per live match showing score, elapsed minute (or omitted if backend null), your
+  prediction, and provisional points.
+- When 2+ matches are live simultaneously, the hub is multi-card (responsive grid).
+- The hero shows "Daily summary" always-expanded league movement (colour-coded green/red)
+  without requiring the user to tap.
+- Per-match rollup rows show prominent score, visible prediction, and kickoff date/time.
+- The next/last match slot uses the inline layout, not the corner chip.
+- Backend: `elapsed_minutes` present on MatchResponse; `kickoff_utc` present on
+  HomeRollupMatch.
+- Typecheck clean; Vitest 290+ green; axe green; no regressions.

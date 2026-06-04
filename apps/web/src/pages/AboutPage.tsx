@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
+import { markRulesRead } from '@/lib/checklist';
 import { cn } from '@/lib/utils';
 
 // ── Small helpers ──────────────────────────────────────────────────────────────
@@ -207,6 +209,12 @@ function WhyCard({ children }: { children: React.ReactNode }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export function AboutPage() {
+  // Viewing the rules satisfies the pre-tournament checklist's "Read the rules"
+  // item (U20.4).
+  useEffect(() => {
+    markRulesRead();
+  }, []);
+
   return (
     <div className="max-w-xl space-y-6">
       <PageHeader title="About" eyebrow="The Steele Spreadsheet System" showBack />
