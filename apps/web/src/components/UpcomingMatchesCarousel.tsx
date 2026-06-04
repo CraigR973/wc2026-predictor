@@ -5,7 +5,6 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { ArrowRight } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { canEdit } from '../lib/matchStatus';
 import { usePredictionEditor } from '../hooks/usePredictionEditor';
 import { PredictionCard } from './PredictionCard';
 import { Skeleton } from './ui/skeleton';
@@ -14,6 +13,17 @@ import type { MatchResponse, PredictionResponse } from '../lib/types';
 // Cap on how many upcoming cards the carousel shows before the "see full
 // schedule" affordance. The full list lives at /schedule.
 const MAX_CARDS = 8;
+
+// Statuses the carousel surfaces: scheduled only (open to predict).
+// Locked matches have closed prediction windows and would imply you can still
+// act; live moves to the U27 hub; completed/knockout excluded.
+const CAROUSEL_STATUSES = new Set<MatchResponse['status']>([
+  'scheduled',
+]);
+
+// Shared section-title styling — real bold titles, sentence case (U20 v2).
+const SECTION_LABEL_CLS =
+  'mb-2 px-0.5 text-lg font-bold tracking-tight text-text-primary';
 
 function teamName(
   team: MatchResponse['home_team'],
@@ -58,11 +68,11 @@ export function UpcomingMatchesCarousel() {
     [predictions],
   );
 
-  // Next N scheduled (not-locked) group-stage matches, soonest first.
+  // Next N scheduled / locked / live group-stage matches, soonest first.
   const upcoming = useMemo(
     () =>
       matches
-        .filter((m) => m.stage === 'group' && canEdit(m.status))
+        .filter((m) => m.stage === 'group' && CAROUSEL_STATUSES.has(m.status))
         .sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc))
         .slice(0, MAX_CARDS),
     [matches],
@@ -73,10 +83,7 @@ export function UpcomingMatchesCarousel() {
   if (isLoading) {
     return (
       <section aria-labelledby="home-upcoming-label">
-        <h2
-          id="home-upcoming-label"
-          className="mb-2 px-0.5 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted"
-        >
+        <h2 id="home-upcoming-label" className={SECTION_LABEL_CLS}>
           Upcoming
         </h2>
         <div className="flex gap-3 overflow-hidden">
@@ -92,10 +99,7 @@ export function UpcomingMatchesCarousel() {
 
   return (
     <section aria-labelledby="home-upcoming-label">
-      <h2
-        id="home-upcoming-label"
-        className="mb-2 px-0.5 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted"
-      >
+      <h2 id="home-upcoming-label" className={SECTION_LABEL_CLS}>
         Upcoming
       </h2>
 

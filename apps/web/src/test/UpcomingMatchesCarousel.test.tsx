@@ -183,15 +183,45 @@ describe('UpcomingMatchesCarousel', () => {
     expect(screen.queryByTestId('prediction-card-m2')).toBeNull();
   });
 
-  it('excludes locked matches and self-hides when nothing is scheduled', async () => {
-    const matches = [baseMatch(1, { status: 'locked' }), baseMatch(2, { status: 'completed' })];
+  it('excludes locked matches (prediction window closed)', async () => {
+    const matches = [baseMatch(1, { status: 'locked' }), baseMatch(2)];
     renderCarousel(makeFetch(matches, []));
 
-    // After load, no scheduled group matches → the whole section (incl. the
-    // loading skeleton's "Upcoming" header) unmounts.
+    await waitFor(() => expect(screen.queryByTestId('prediction-card-m2')).toBeTruthy());
+    expect(screen.queryByTestId('prediction-card-m1')).toBeNull();
+  });
+
+  it('excludes live matches (live hub moved to U27)', async () => {
+    const matches = [
+      baseMatch(1, { status: 'live', actual_home_score: 1, actual_away_score: 0 }),
+      baseMatch(2),
+    ];
+    renderCarousel(makeFetch(matches, []));
+
+    await waitFor(() => expect(screen.queryByTestId('prediction-card-m2')).toBeTruthy());
+    expect(screen.queryByTestId('prediction-card-m1')).toBeNull();
+  });
+
+  it('excludes completed matches', async () => {
+    const matches = [baseMatch(1), baseMatch(2, { status: 'completed' })];
+    renderCarousel(makeFetch(matches, []));
+
+    await waitFor(() => expect(screen.queryByTestId('prediction-card-m1')).toBeTruthy());
+    expect(screen.queryByTestId('prediction-card-m2')).toBeNull();
+  });
+
+  it('self-hides when no scheduled matches remain', async () => {
+    const matches = [
+      baseMatch(1, { status: 'locked' }),
+      baseMatch(2, { status: 'live', actual_home_score: 1, actual_away_score: 0 }),
+      baseMatch(3, { status: 'completed' }),
+      baseMatch(4, { stage: 'round_of_32' }),
+    ];
+    renderCarousel(makeFetch(matches, []));
+
+    // No open-to-predict group matches → the whole section unmounts.
     await waitFor(() => expect(screen.queryByText('Upcoming')).toBeNull());
     expect(screen.queryByRole('list', { name: 'Upcoming matches' })).toBeNull();
-    expect(screen.queryByTestId('prediction-card-m1')).toBeNull();
   });
 
   it('exposes ARIA list + per-card group semantics with labels', async () => {
@@ -204,7 +234,10 @@ describe('UpcomingMatchesCarousel', () => {
   });
 
   it('has no axe violations', async () => {
-    const matches = [baseMatch(1), baseMatch(2)];
+    const matches = [
+      baseMatch(1),
+      baseMatch(2),
+    ];
     const predictions = [{ match_id: 'm1', predicted_home: 1, predicted_away: 0, points_awarded: null }];
     const { container } = renderCarousel(makeFetch(matches, predictions));
 

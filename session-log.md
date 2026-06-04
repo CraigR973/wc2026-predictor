@@ -1569,3 +1569,17 @@ race-safe (`SELECT ... FOR UPDATE`), and audit-logged with
 - U20 batch (home screen v2) agreed in this session: hero redesign, pre-tournament checklist, remove How-it-Works + Specials strip, slimmed urgent zone, locked/live carousel states, countdown polish, bolder headers.
 
 **Next:** Polish batch U20 — Home screen v2 🔴 Opus
+
+---
+
+## U20 — design decisions recorded pre-close-out (formal entry added by /phase-closeout U20)
+
+Built in two passes this session: the initial U20.1–U20.8 home v2, then a user-reviewed refinement pass. Net final state below (the refinement supersedes the first pass where they conflict).
+
+**To-do / urgent zone REMOVED entirely (refinement).** The first pass slimmed the urgent zone to a gated P1 specials fallback + a P2 "<1hr lock" CTA. After review we dropped the whole zone: the pre-tournament checklist already nudges specials, and the carousel's per-card countdowns + the new hero match chip cover match urgency — so `UrgentZone`, `locksWithinHour`, the `checklistResolved` gating, and `PreTournamentChecklist`'s `onResolved` prop are all gone. Trade-off accepted: once the checklist is dismissed there is no on-home specials reminder (push + Specials page still cover it).
+
+**Hero reshaped (refinement).** Greeting ("Welcome back, {name}") pulled OUT of the hero card into a bold `text-2xl` page title above it. The card is now points (left) + a glanceable match chip (right) with priority **live → next → last**, derived client-side from the shared `['matches','group']` query via `pickHeroChip()` (no backend change); it replaced the old "next lock in" hero line. The collapsed "+N pts · {matchday}" results delta (U20.1) stays folded at the bottom of the card.
+
+**Section headers → real titles (refinement).** `SectionHeader`, the carousel `SECTION_LABEL_CLS`, and the checklist "Get set up" h2 all moved from the 10px uppercase-mono eyebrow to `text-lg font-bold tracking-tight text-text-primary` (sentence case). Verified computed: greeting 24px/700, section titles 18px/700.
+
+**Final home order:** greeting → hero (points + chip + delta) → "Get set up" checklist → "Upcoming" carousel → "Leagues".

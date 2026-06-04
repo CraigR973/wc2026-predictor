@@ -54,6 +54,13 @@ function formatCountdown(parts: { days: number; hours: number; minutes: number; 
   return `${parts.minutes}m ${parts.seconds}s`;
 }
 
+// Full-granularity variant for the prediction eyebrow (U20.7): always shows all
+// four parts and ticks the seconds, e.g. "7d 21h 14m 32s".
+function formatCountdownFull(parts: { days: number; hours: number; minutes: number; seconds: number; expired: boolean }): string {
+  if (parts.expired) return 'Started';
+  return `${parts.days}d ${parts.hours}h ${parts.minutes}m ${parts.seconds}s`;
+}
+
 // ---------------------------------------------------------------------------
 // Prediction card — a single match with editable score inputs.
 //
@@ -102,6 +109,9 @@ export function PredictionCard({
   const isVoided = match.status === 'cancelled' || match.status === 'postponed';
   const isCompleted = match.status === 'completed';
   const isLocked = match.status === 'locked';
+  const isLive = match.status === 'live';
+  const hasLiveScore =
+    match.actual_home_score !== null && match.actual_away_score !== null;
 
   // Deadline warning: scheduled + < 1hr remaining
   const isDeadlineWarning =
@@ -110,11 +120,12 @@ export function PredictionCard({
     countdown.days === 0 &&
     countdown.hours === 0;
 
+  const flag = (emoji: string) => (emoji ? `${emoji} ` : '');
   const homeLabel = match.home_team
-    ? `${match.home_team.flag_emoji} ${compact ? match.home_team.code : match.home_team.name}`
+    ? `${flag(match.home_team.flag_emoji)}${compact ? match.home_team.code : match.home_team.name}`
     : (match.home_team_placeholder ?? '?');
   const awayLabel = match.away_team
-    ? `${match.away_team.flag_emoji} ${compact ? match.away_team.code : match.away_team.name}`
+    ? `${flag(match.away_team.flag_emoji)}${compact ? match.away_team.code : match.away_team.name}`
     : (match.away_team_placeholder ?? '?');
 
   const homeVal = local?.home ?? (prediction?.predicted_home !== null && prediction?.predicted_home !== undefined ? String(prediction.predicted_home) : '');
@@ -129,7 +140,7 @@ export function PredictionCard({
   return (
     <motion.div
       className={cn(
-        'rounded-lg border bg-surface p-4 transition-all',
+        'flex h-full flex-col rounded-lg border bg-surface p-4 transition-all',
         isVoided && 'opacity-50',
         isDeadlineWarning
           ? 'border-warning/60'
@@ -150,13 +161,13 @@ export function PredictionCard({
           {editable && !countdown.expired && (
             <span
               className={cn(
-                'mt-1 flex items-center gap-1 font-mono text-sm tabular-nums',
-                isDeadlineWarning ? 'text-warning font-semibold' : 'text-text-secondary',
+                'mt-1 flex items-center gap-1 whitespace-nowrap font-mono text-sm tabular-nums',
+                isDeadlineWarning ? 'text-warning font-semibold' : 'text-success',
               )}
               data-testid={isDeadlineWarning ? 'deadline-warning' : undefined}
             >
               <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {formatCountdown(countdown)}
+              {formatCountdownFull(countdown)}
             </span>
           )}
         </div>
@@ -165,7 +176,11 @@ export function PredictionCard({
             <PointsBadge points={points} breakdown={prediction?.points_breakdown} />
           )}
           {isCompleted && noSubmission && <Badge variant="muted">No entry</Badge>}
-          <Badge variant={statusVariant(match.status)}>{statusLabel(match.status)}</Badge>
+          {/* Live carries its own green pulse in the footer (U20.6) — skip the
+              red status pill so the two don't clash. */}
+          {!isLive && (
+            <Badge variant={statusVariant(match.status)}>{statusLabel(match.status)}</Badge>
+          )}
         </div>
       </div>
 
@@ -192,7 +207,9 @@ export function PredictionCard({
         <div className="flex-1 text-sm font-sans text-text-primary truncate">{awayLabel}</div>
       </div>
 
-      {/* Footer states */}
+      {/* Footer states — mt-auto pushes this to the bottom so all cards share
+          the same height regardless of status. */}
+      <div className="mt-auto">
       {isLocked && (
         <div
           className="mt-3 flex items-center justify-center gap-1.5 text-xs font-sans text-warning"
@@ -200,6 +217,28 @@ export function PredictionCard({
         >
           <Lock size={12} aria-hidden="true" />
           <span>Kicks off in {formatCountdown(countdown)}</span>
+        </div>
+      )}
+
+      {/* Live: green pulse badge + current score (prediction stays visible in the
+          disabled inputs above). U20.6 */}
+      {isLive && (
+        <div
+          className="mt-3 flex items-center justify-center gap-2 font-mono text-xs"
+          data-testid="live-indicator"
+        >
+          <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-[0.2em] text-success">
+            <span className="relative flex h-2 w-2" aria-hidden>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+            </span>
+            Live
+          </span>
+          {hasLiveScore && (
+            <span className="tabular-nums text-text-secondary">
+              Now {match.actual_home_score}–{match.actual_away_score}
+            </span>
+          )}
         </div>
       )}
 
@@ -238,6 +277,7 @@ export function PredictionCard({
           {match.postponed_reason}
         </p>
       )}
+      </div>{/* end footer */}
     </motion.div>
   );
 }

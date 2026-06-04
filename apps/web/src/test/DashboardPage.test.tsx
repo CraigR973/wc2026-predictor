@@ -88,11 +88,18 @@ const SUMMARY_TWO_LEAGUES = {
   ],
 };
 
-function stubAuth() {
+// localStorage stub. By default the pre-tournament checklist (U20.4) is marked
+// dismissed so it stays out of the way of the dashboard-zone assertions — and so
+// the urgent-zone Specials fallback, gated behind checklist resolution (U20.5),
+// can surface. Checklist-specific tests pass { checklistDismissed: false }.
+function stubAuth({ checklistDismissed = true }: { checklistDismissed?: boolean } = {}) {
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => {
       if (k === 'wc2026_player') return STORED_PLAYER;
       if (k === 'wc2026_access') return FAKE_JWT;
+      if (k === 'sss_checklist_v1') {
+        return checklistDismissed ? '{"rulesRead":true,"dismissed":true}' : null;
+      }
       return null;
     },
     setItem: vi.fn(),
@@ -122,7 +129,12 @@ function makeWrapper(fetchImpl: (url: string) => Promise<unknown>) {
   return Wrapper;
 }
 
-function mockFetch(summary: object, home: object = HOME_EMPTY) {
+function mockFetch(
+  summary: object,
+  home: object = HOME_EMPTY,
+  predictions: unknown[] = [],
+  matches: unknown[] = [],
+) {
   return (url: string) => {
     if (url.includes('/leagues/mine')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LEAGUE) });
@@ -132,6 +144,12 @@ function mockFetch(summary: object, home: object = HOME_EMPTY) {
     }
     if (url.includes('/me/home')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(home) });
+    }
+    if (url.includes('/api/v1/matches')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(matches) });
+    }
+    if (url.includes('/predictions/me')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(predictions) });
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
   };
@@ -157,8 +175,7 @@ describe('DashboardPage — GreetingHero', () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/Welcome back,/)).toBeTruthy());
-    expect(screen.queryByText('Alice')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('Welcome back, Alice')).toBeTruthy());
   });
 
   it('does not show a Rank label in the hero', async () => {
@@ -186,34 +203,13 @@ describe('DashboardPage — GreetingHero', () => {
     );
   });
 
-  it('shows next-lock countdown when next_match is in the future', async () => {
+  it('shows the next-match chip instead of a rank label', async () => {
     stubAuth();
-    const home = {
-      todo: {
-        specials_submitted: true,
-        specials_lock_at: null,
-        upcoming_unpredicted: 0,
-        next_match: {
-          id: 'm1',
-          kickoff_utc: new Date(Date.now() + 7_200_000).toISOString(), // 2 h from now
-          home_label: 'Brazil',
-          away_label: 'Mexico',
-          predicted: true,
-        },
-      },
-      rollup: null,
-    };
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, home));
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/next lock in/)).toBeTruthy());
-  });
-
-  it('shows next-lock countdown from specials_lock_at when unsubmitted', async () => {
-    stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
-    // HOME_EMPTY has specials_lock_at set and !specials_submitted
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/next lock in/)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText('87')).toBeTruthy());
+    // The old "next lock in" hero line was replaced by the match chip (U20 v2).
+    expect(screen.queryByText(/next lock in/)).toBeFalsy();
   });
 });
 
@@ -241,144 +237,99 @@ describe('DashboardPage — zero state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// U18.2 — How it works collapsible
+// U20 v2 — Hero match chip (live → next → last) + To-do zone removed
 // ---------------------------------------------------------------------------
 
-describe('DashboardPage — How it works collapsible', () => {
-  it('is expanded by default and content is visible', async () => {
+function buildMatch(
+  id: string,
+  status: string,
+  kickoffOffsetMs: number,
+  scores?: { hs: number; as: number },
+) {
+  return {
+    id,
+    match_number: 1,
+    stage: 'group',
+    group_id: 'g',
+    home_team: { id: 'h', name: 'Spain', code: 'ESP', flag_emoji: '🇪🇸' },
+    away_team: { id: 'a', name: 'Italy', code: 'ITA', flag_emoji: '🇮🇹' },
+    home_team_placeholder: null,
+    away_team_placeholder: null,
+    kickoff_utc: new Date(Date.now() + kickoffOffsetMs).toISOString(),
+    venue: null,
+    status,
+    actual_home_score: scores?.hs ?? null,
+    actual_away_score: scores?.as ?? null,
+    extra_time: false,
+    penalties: false,
+    postponed_reason: null,
+  };
+}
+
+describe('DashboardPage — hero match chip', () => {
+  it('shows the live chip when a match is in play', async () => {
     stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    const matches = [buildMatch('m1', 'live', -600_000, { hs: 1, as: 0 })];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
     render(<Wrapper />);
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
-    );
-    // Content region visible
-    expect(screen.queryByRole('region', { name: /How it works/i })).toBeTruthy();
-    expect(screen.queryByText(/Full rules/)).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId('hero-chip-live')).toBeTruthy());
+    expect(screen.getByTestId('hero-chip-live').textContent).toMatch(/1.0/); // "1–0"
   });
 
-  it('toggle button has aria-expanded=true when expanded', async () => {
+  it('shows the next-match chip with a countdown when nothing is live', async () => {
     stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    const matches = [buildMatch('m1', 'scheduled', 1_800_000)];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
     render(<Wrapper />);
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
-    );
-    const btn = screen.getByRole('button', { name: /How it works/i });
-    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    await waitFor(() => expect(screen.queryByTestId('hero-chip-next')).toBeTruthy());
+    const chip = screen.getByTestId('hero-chip-next');
+    expect(chip.textContent).toMatch(/ESP/);
+    expect(chip.textContent).toMatch(/in /);
   });
 
-  it('click collapses — content hidden, aria-expanded=false', async () => {
+  it('falls back to the last result when nothing is live or upcoming', async () => {
     stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    const matches = [buildMatch('m1', 'completed', -3_600_000, { hs: 2, as: 1 })];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
     render(<Wrapper />);
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
-    );
-    const btn = screen.getByRole('button', { name: /How it works/i });
-    fireEvent.click(btn);
-    expect(screen.queryByRole('region', { name: /How it works/i })).toBeFalsy();
-    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    await waitFor(() => expect(screen.queryByTestId('hero-chip-last')).toBeTruthy());
+    expect(screen.getByTestId('hero-chip-last').textContent).toMatch(/2.1/); // "2–1"
   });
 
-  it('persists collapsed state to localStorage on collapse', async () => {
+  it('prioritises live over upcoming and completed', async () => {
     stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    const matches = [
+      buildMatch('m1', 'completed', -3_600_000, { hs: 2, as: 1 }),
+      buildMatch('m2', 'scheduled', 1_800_000),
+      buildMatch('m3', 'live', -600_000, { hs: 0, as: 0 }),
+    ];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
     render(<Wrapper />);
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
-    );
-    fireEvent.click(screen.getByRole('button', { name: /How it works/i }));
-    expect(localStorage.setItem).toHaveBeenCalledWith('sss_howitworks_collapsed', '1');
+    await waitFor(() => expect(screen.queryByTestId('hero-chip-live')).toBeTruthy());
+    expect(screen.queryByTestId('hero-chip-next')).toBeFalsy();
+    expect(screen.queryByTestId('hero-chip-last')).toBeFalsy();
   });
 
-  it('persists expanded state to localStorage on expand', async () => {
+  it('shows no chip when there are no group matches', async () => {
     stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], []));
     render(<Wrapper />);
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
-    );
-    const btn = screen.getByRole('button', { name: /How it works/i });
-    fireEvent.click(btn); // collapse
-    fireEvent.click(btn); // expand
-    expect(localStorage.setItem).toHaveBeenCalledWith('sss_howitworks_collapsed', '0');
+    await waitFor(() => expect(screen.queryByText(/\+10 pts/)).toBeTruthy());
+    expect(screen.queryByTestId('hero-chip-live')).toBeFalsy();
+    expect(screen.queryByTestId('hero-chip-next')).toBeFalsy();
+    expect(screen.queryByTestId('hero-chip-last')).toBeFalsy();
   });
 
-  it('starts collapsed when localStorage has stored collapsed=true', async () => {
-    vi.stubGlobal('localStorage', {
-      getItem: (k: string) => {
-        if (k === 'wc2026_player') return STORED_PLAYER;
-        if (k === 'wc2026_access') return FAKE_JWT;
-        if (k === 'sss_howitworks_collapsed') return '1';
-        return null;
-      },
-      setItem: vi.fn(),
-      removeItem: vi.fn(),
-      clear: vi.fn(),
-    });
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO));
-    render(<Wrapper />);
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy(),
-    );
-    expect(screen.queryByRole('region', { name: /How it works/i })).toBeFalsy();
-    expect(
-      screen.getByRole('button', { name: /How it works/i }).getAttribute('aria-expanded'),
-    ).toBe('false');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// U18.3 — UrgentZone (replaces NextUpCard, minus the always-on P4 "all set")
-// ---------------------------------------------------------------------------
-
-describe('DashboardPage — UrgentZone priority ladder', () => {
-  it('shows Specials CTA when specials open + not submitted (priority 1)', async () => {
+  it('renders no To-do section (removed in U20 v2)', async () => {
     stubAuth();
     const home = {
       todo: {
         specials_submitted: false,
         specials_lock_at: '2026-06-15T15:00:00Z',
-        upcoming_unpredicted: 0,
-        next_match: null,
-      },
-      rollup: null,
-    };
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
-    render(<Wrapper />);
-    await waitFor(() =>
-      expect(screen.queryByText('Make your Specials picks')).toBeTruthy(),
-    );
-  });
-
-  it('does not show Specials CTA when already submitted', async () => {
-    stubAuth();
-    const home = {
-      todo: {
-        specials_submitted: true,
-        specials_lock_at: '2026-06-15T15:00:00Z',
-        upcoming_unpredicted: 0,
-        next_match: null,
-      },
-      rollup: null,
-    };
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
-    expect(screen.queryByText('Make your Specials picks')).toBeFalsy();
-  });
-
-  it('shows match predict CTA when next_match unpredicted (priority 2)', async () => {
-    stubAuth();
-    const home = {
-      todo: {
-        specials_submitted: true,
-        specials_lock_at: null,
-        upcoming_unpredicted: 1,
+        upcoming_unpredicted: 5,
         next_match: {
           id: 'm1',
-          kickoff_utc: new Date(Date.now() + 3_600_000).toISOString(),
+          kickoff_utc: new Date(Date.now() + 1_800_000).toISOString(),
           home_label: 'Brazil',
           away_label: 'Mexico',
           predicted: false,
@@ -388,99 +339,10 @@ describe('DashboardPage — UrgentZone priority ladder', () => {
     };
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Predict now')).toBeTruthy());
-    expect(screen.queryByText(/Brazil/)).toBeTruthy();
-  });
-
-  it('shows "N matches open" when upcoming_unpredicted > 1 (priority 3)', async () => {
-    stubAuth();
-    const home = {
-      todo: {
-        specials_submitted: true,
-        specials_lock_at: null,
-        upcoming_unpredicted: 5,
-        next_match: null,
-      },
-      rollup: null,
-    };
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('5 matches open to predict')).toBeTruthy());
-  });
-
-  it('renders nothing and hides the To-do section when nothing is urgent', async () => {
-    stubAuth();
-    const home = {
-      todo: {
-        specials_submitted: true,
-        specials_lock_at: null,
-        upcoming_unpredicted: 0,
-        next_match: null,
-      },
-      rollup: null,
-    };
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
-    render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
     expect(screen.queryByText('To-do')).toBeFalsy();
-    expect(screen.queryByText(/You.re all set/)).toBeFalsy();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// U18.4 — SpecialsStrip
-// ---------------------------------------------------------------------------
-
-describe('DashboardPage — SpecialsStrip', () => {
-  it('shows "Specials picks submitted" when specials_submitted=true', async () => {
-    stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
-    render(<Wrapper />);
-    await waitFor(() =>
-      expect(screen.queryByText('Specials picks submitted')).toBeTruthy(),
-    );
-  });
-
-  it('shows Specials section header when strip is visible', async () => {
-    stubAuth();
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Specials picks submitted')).toBeTruthy());
-    expect(screen.queryByText('Specials')).toBeTruthy();
-  });
-
-  it('hides strip when not submitted + lock open (UrgentZone handles the CTA instead)', async () => {
-    stubAuth();
-    const home = {
-      todo: {
-        specials_submitted: false,
-        specials_lock_at: '2026-06-15T15:00:00Z',
-        upcoming_unpredicted: 0,
-        next_match: null,
-      },
-      rollup: null,
-    };
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Make your Specials picks')).toBeTruthy());
-    expect(screen.queryByText('Specials picks submitted')).toBeFalsy();
-  });
-
-  it('hides strip when no specials data at all', async () => {
-    stubAuth();
-    const home = {
-      todo: {
-        specials_submitted: false,
-        specials_lock_at: null,
-        upcoming_unpredicted: 0,
-        next_match: null,
-      },
-      rollup: null,
-    };
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
-    expect(screen.queryByText('Specials picks submitted')).toBeFalsy();
+    expect(screen.queryByText('Make your Specials picks')).toBeFalsy();
+    expect(screen.queryByText('Predict now')).toBeFalsy();
   });
 });
 
@@ -538,26 +400,32 @@ describe('DashboardPage — delta badge', () => {
 });
 
 // ---------------------------------------------------------------------------
-// U17.4 — ResultsRollupCard
+// U20.1 — Results roll-up, folded into the hero
 // ---------------------------------------------------------------------------
 
-describe('DashboardPage — ResultsRollupCard', () => {
-  it('shows placeholder text pre-tournament (rollup=null)', async () => {
+describe('DashboardPage — results roll-up (in hero)', () => {
+  it('shows the pre-tournament nudge and no results delta when rollup is null', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
     render(<Wrapper />);
     await waitFor(() =>
-      expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy(),
+      expect(screen.queryByText(/Your tally starts when the first results land/)).toBeTruthy(),
     );
-    expect(screen.queryByText('Results')).toBeTruthy();
+    // No tappable results delta exists until the first results land.
+    expect(screen.queryByRole('button', { name: /Latest results/i })).toBeFalsy();
+    expect(screen.queryByText(/\+10 pts/)).toBeFalsy();
   });
 
-  it('shows collapsed rollup header when rollup present', async () => {
+  it('shows the collapsed delta line (+pts · matchday, no match count) when rollup present', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
-    expect(screen.queryByText(/2 matches/)).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText(/\+10 pts/)).toBeTruthy());
+    expect(screen.queryByText(/11 Jun/)).toBeTruthy();
+    // Match count lives only in the aria-label / expanded rows now, not the line.
+    expect(screen.queryByText(/2 matches/)).toBeFalsy();
+    // The expand control keeps its "Latest results" accessible name.
+    expect(screen.queryByRole('button', { name: /Latest results/i })).toBeTruthy();
   });
 
   it('expands per-match rows on click', async () => {
@@ -629,38 +497,129 @@ describe('DashboardPage — cross-league movement summary', () => {
 });
 
 // ---------------------------------------------------------------------------
-// U18.6 — Section ordering and self-hiding
+// U20 — Section ordering and self-hiding
 // ---------------------------------------------------------------------------
 
 describe('DashboardPage — ordering and self-hiding', () => {
-  it('pre-tournament: UrgentZone (specials CTA) and Results placeholder both present', async () => {
+  it('pre-tournament: greeting + results nudge present, no To-do section', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Make your Specials picks')).toBeTruthy());
-    expect(screen.queryByText('Results')).toBeTruthy();
-    expect(screen.queryByText(/Your points and match results will appear here/)).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByText(/Your tally starts when the first results land/)).toBeTruthy(),
+    );
+    expect(screen.queryByText('Welcome back, Alice')).toBeTruthy();
+    expect(screen.queryByText('To-do')).toBeFalsy();
   });
 
-  it('post-result: rollup shows real data, UrgentZone self-hides when nothing urgent', async () => {
+  it('post-result: results delta shows, no To-do section', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
-    // UrgentZone: specials submitted, no upcoming → self-hides
+    await waitFor(() => expect(screen.queryByText(/\+10 pts/)).toBeTruthy());
     expect(screen.queryByText('To-do')).toBeFalsy();
-    // SpecialsStrip: submitted → visible
-    expect(screen.queryByText('Specials picks submitted')).toBeTruthy();
   });
 
-  it('all zones ordered: how-it-works present, results present, leagues present', async () => {
+  it('orders the zones: hero greeting, folded results delta, leagues — no how-it-works card', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText('The Steele Spreadsheet')).toBeTruthy());
-    expect(screen.queryByRole('button', { name: /How it works/i })).toBeTruthy();
-    expect(screen.queryByText('Results')).toBeTruthy();
+    expect(screen.queryByText(/Welcome back,/)).toBeTruthy();
+    expect(screen.queryByText(/\+10 pts/)).toBeTruthy();
     expect(screen.queryByText('Leagues')).toBeTruthy();
+    // How-it-works card was removed in U20.3.
+    expect(screen.queryByRole('button', { name: /How it works/i })).toBeFalsy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// U20.4 — Pre-tournament checklist
+// ---------------------------------------------------------------------------
+
+describe('DashboardPage — Pre-tournament checklist', () => {
+  it('renders the three setup items', async () => {
+    stubAuth({ checklistDismissed: false });
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('Pre-Tournament Checklist')).toBeTruthy());
+    expect(screen.queryByText('Read the rules')).toBeTruthy();
+    expect(screen.queryByText('Submit your Specials picks')).toBeTruthy();
+    expect(screen.queryByText('Predict your first match')).toBeTruthy();
+  });
+
+  it('reflects specials_submitted by striking the Specials item', async () => {
+    stubAuth({ checklistDismissed: false });
+    const home = {
+      todo: { specials_submitted: true, specials_lock_at: null, upcoming_unpredicted: 0, next_match: null },
+      rollup: null,
+    };
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, home));
+    render(<Wrapper />);
+    // Submitted → the item label is struck through (done) once home loads.
+    await waitFor(() =>
+      expect(screen.getByText('Submit your Specials picks').className).toMatch(/line-through/),
+    );
+    // No first prediction yet → that item is not struck through.
+    expect(screen.getByText('Predict your first match').className).not.toMatch(/line-through/);
+  });
+
+  it('auto-ticks "Read the rules" when the row link is clicked', async () => {
+    stubAuth({ checklistDismissed: false });
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('Pre-Tournament Checklist')).toBeTruthy());
+
+    // Click the "Read the rules" link (not the "Mark done" button).
+    fireEvent.click(screen.getByText('Read the rules'));
+
+    await waitFor(() =>
+      expect(screen.getByText('Read the rules').className).toMatch(/line-through/),
+    );
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      'sss_checklist_v1',
+      expect.stringContaining('"rulesRead":true'),
+    );
+  });
+
+  it('ticks "Read the rules" when marked done, persisting to localStorage', async () => {
+    stubAuth({ checklistDismissed: false });
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('Pre-Tournament Checklist')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark done' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('Read the rules').className).toMatch(/line-through/),
+    );
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      'sss_checklist_v1',
+      expect.stringContaining('"rulesRead":true'),
+    );
+  });
+
+  it('disappears when dismissed, persisting the latch', async () => {
+    stubAuth({ checklistDismissed: false });
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText('Pre-Tournament Checklist')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+    await waitFor(() => expect(screen.queryByText('Pre-Tournament Checklist')).toBeFalsy());
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      'sss_checklist_v1',
+      expect.stringContaining('"dismissed":true'),
+    );
+  });
+
+  it('is absent when previously dismissed (sss_checklist_v1 dismissed=true)', async () => {
+    stubAuth({ checklistDismissed: true });
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
+    expect(screen.queryByText('Pre-Tournament Checklist')).toBeFalsy();
   });
 });
 
