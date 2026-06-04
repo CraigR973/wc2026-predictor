@@ -1597,3 +1597,18 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `WelcomeCard.tsx` deleted. U27 spec in `docs/polish-batches.md` needs backend fields (`elapsed_minutes` on MatchResponse, `kickoff_utc` on HomeRollupMatch) before it ships.
 
 **Next:** Polish batch U21 — Quick polish 🟢 Sonnet
+
+---
+
+## Polish batch U21 — Quick polish
+**Commits:** b0d564a, 18621c7, 3a33475, 7835229 · CI ✅
+
+### Key facts for future sessions
+- `shortPlaceholder()` in `apps/web/src/lib/matchTeam.ts`: strings ≤6 chars with no spaces pass through unchanged (e.g. "1A", "2B"); "Winner Group A" → "WA"; "Winner of Match 73" → "W73"; "Runner-up Group A" → "RU-A". Tests check short codes, not full placeholder strings.
+- `league_privacy` enum in DB is `public_open` / `public_request` / `private` — not `open`. (Test bug caught by CI.)
+- `join_code` column is `VARCHAR(8)` — test fixture must generate ≤6-char codes.
+- Back buttons added to Members, Settings, Invites, Join Requests league sub-pages (all point to `/leagues/${slug}`). Round leaderboard, history, and compare already had back buttons.
+- `PageHeader` h1 now has `truncate`; LeagueHomePage title side needs `min-w-0 flex-1` wrapper to actually clip.
+- TopBar Sun/Moon toggle calls `useTheme().setMode(resolved === 'dark' ? 'light' : 'dark')` — Settings remains the 3-way source of truth.
+
+**Next:** Polish batch U22 — Knockout per-match lock + temporal leaderboard 🔴 Opus
