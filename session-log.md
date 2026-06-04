@@ -1583,3 +1583,17 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 **Section headers → real titles (refinement).** `SectionHeader`, the carousel `SECTION_LABEL_CLS`, and the checklist "Get set up" h2 all moved from the 10px uppercase-mono eyebrow to `text-lg font-bold tracking-tight text-text-primary` (sentence case). Verified computed: greeting 24px/700, section titles 18px/700.
 
 **Final home order:** greeting → hero (points + chip + delta) → "Get set up" checklist → "Upcoming" carousel → "Leagues".
+
+---
+
+## Polish batch U20 — Home screen v2
+**Commits:** b846f73 · CI ✅
+
+### Key facts for future sessions
+- Carousel is **scheduled-only** — locked and live both excluded. Live hub deferred to U27. The U19 note "U20 extends to scheduled|locked|live" is now stale.
+- `pickHeroChip()` in `DashboardPage` derives the live→next→last chip from the shared `['matches','group']` query — no extra request.
+- `PreTournamentChecklist` + `lib/checklist.ts` (new); localStorage key `sss_checklist_v1`. `onResolved` prop was drafted and removed in the same session — it is NOT in the final code.
+- Movement deltas: down = `text-live` (red `#EF4444`), up = `text-success` (green) — applied in Leagues rows and hero rollup impact line.
+- `WelcomeCard.tsx` deleted. U27 spec in `docs/polish-batches.md` needs backend fields (`elapsed_minutes` on MatchResponse, `kickoff_utc` on HomeRollupMatch) before it ships.
+
+**Next:** Polish batch U21 — Quick polish 🟢 Sonnet
