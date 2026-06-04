@@ -143,6 +143,9 @@ function entry(player_id: string, rank: number, total_points: number): Leaderboa
     knockout_winner_points: 0,
     special_points: 0,
     is_active: true,
+    last_match_points: 0,
+    today_points: 0,
+    round_points: 0,
     snapshot_at: '2026-06-12T20:00:00Z',
   } as LeaderboardEntry;
 }

@@ -36,3 +36,34 @@ export function dedupedLeaderboard(
     return { ...e, rank };
   });
 }
+
+export type LeaderboardPeriod = 'today' | 'round' | 'total';
+
+const PERIOD_FIELD: Record<LeaderboardPeriod, keyof LeaderboardEntry> = {
+  today: 'today_points',
+  round: 'round_points',
+  total: 'total_points',
+};
+
+/**
+ * Re-sort (already-deduped) entries by the selected period's points and reassign
+ * standard competition ranks for that period (U22.3). `total` reproduces the
+ * default total ordering, so this is idempotent there. Ties break by name for a
+ * stable order. Returns new objects; never mutates the input.
+ */
+export function rankByPeriod(
+  entries: LeaderboardEntry[],
+  period: LeaderboardPeriod,
+): LeaderboardEntry[] {
+  const field = PERIOD_FIELD[period];
+  const sorted = [...entries].sort(
+    (a, b) => (b[field] as number) - (a[field] as number) || a.player_name.localeCompare(b.player_name),
+  );
+  let rank = 1;
+  return sorted.map((e, i) => {
+    if (i > 0 && (e[field] as number) < (sorted[i - 1][field] as number)) {
+      rank = i + 1;
+    }
+    return { ...e, rank };
+  });
+}

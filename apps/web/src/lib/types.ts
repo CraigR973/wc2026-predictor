@@ -90,6 +90,10 @@ export interface LeaderboardEntry {
   knockout_winner_points: number;
   special_points: number;
   is_active: boolean;
+  // Temporal metrics (U22.2), derived server-side. Match-scoped points only.
+  last_match_points: number;
+  today_points: number;
+  round_points: number;
 }
 
 export interface SnapshotPoint {

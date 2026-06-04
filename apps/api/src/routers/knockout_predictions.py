@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
-from src.models.match import Match, MatchStatus
+from src.models.match import Match
 from src.models.prediction import KnockoutPrediction
 from src.models.profile import Profile
 from src.rate_limit import limiter, per_player_key
@@ -84,20 +84,6 @@ async def _get_match_or_404(match_id: uuid.UUID, db: AsyncSession) -> Match:
     return match
 
 
-async def _is_round_locked(stage: str, db: AsyncSession) -> bool:
-    """True if any match in this stage is no longer scheduled (round-level lock)."""
-    result = await db.execute(
-        select(Match)
-        .where(
-            Match.stage == stage,
-            Match.status != MatchStatus.scheduled,
-            Match.deleted_at.is_(None),
-        )
-        .limit(1)
-    )
-    return result.scalar_one_or_none() is not None
-
-
 # ---------------------------------------------------------------------------
 # PUT /api/v1/knockout-predictions/{match_id}
 # ---------------------------------------------------------------------------
@@ -124,12 +110,10 @@ async def upsert_knockout_prediction(
 
     now = _now()
 
-    # Per-match safety net: kickoff has passed regardless of stale status
+    # Per-match lock (U22.1): a knockout prediction locks only at its own match's
+    # kickoff. Sibling ties in the same stage are independent — one kicking off no
+    # longer locks the rest of the round.
     if match.kickoff_utc <= now:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="PREDICTION_LOCKED")
-
-    # Round-level lock: any match in this stage not scheduled → locked for all
-    if await _is_round_locked(match.stage, db):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="PREDICTION_LOCKED")
 
     result = await db.execute(
@@ -191,7 +175,10 @@ async def match_knockout_predictions(
 ) -> MatchKnockoutPredictionsResponse:
     match = await _get_match_or_404(match_id, db)
 
-    if match.status == MatchStatus.scheduled:
+    # Per-match reveal gate (U22.1): predictions for this match stay hidden until
+    # the match itself locks at kickoff — symmetric with the per-match write lock.
+    # A sibling tie in the same stage kicking off does not reveal this one.
+    if match.kickoff_utc > _now():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Predictions are hidden until the match is locked",
