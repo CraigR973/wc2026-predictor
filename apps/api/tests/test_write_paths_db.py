@@ -310,9 +310,7 @@ async def test_dup_join_guard_already_member(db_conn: AsyncConnection) -> None:
     # Confirm only one membership row exists (no duplicate)
     count = (
         await db_conn.execute(
-            text(
-                "SELECT COUNT(*) FROM league_memberships WHERE league_id = :l AND player_id = :p"
-            ),
+            text("SELECT COUNT(*) FROM league_memberships WHERE league_id = :l AND player_id = :p"),
             {"l": str(league_id), "p": str(player_id)},
         )
     ).scalar_one()
@@ -361,9 +359,7 @@ async def test_rejoin_after_leave_restores_soft_deleted_row(db_conn: AsyncConnec
     # Still only one row (upsert restored it, no second insert)
     count = (
         await db_conn.execute(
-            text(
-                "SELECT COUNT(*) FROM league_memberships WHERE league_id = :l AND player_id = :p"
-            ),
+            text("SELECT COUNT(*) FROM league_memberships WHERE league_id = :l AND player_id = :p"),
             {"l": str(league_id), "p": str(player_id)},
         )
     ).scalar_one()
