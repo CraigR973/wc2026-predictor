@@ -55,6 +55,7 @@ playwright-report/
 test-results/
 
 # Claude Code runtime artifacts (settings.json and commands/ stay tracked)
+.claude/scheduled_tasks.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 .mcp.json
