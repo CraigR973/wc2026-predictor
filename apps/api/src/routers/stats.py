@@ -42,9 +42,11 @@ class PlayerStatsOut(BaseModel):
     worst_round_points: int | None
     current_streak: int
     avg_prediction_timing_mins: float | None
+    # Avatar (U23.1) — null when the player hasn't uploaded a photo
+    avatar_url: str | None = None
 
 
-def _to_out(data: PlayerStatsData) -> PlayerStatsOut:
+def _to_out(data: PlayerStatsData, avatar_url: str | None = None) -> PlayerStatsOut:
     return PlayerStatsOut(
         player_id=data.player_id,
         player_name=data.player_name,
@@ -59,6 +61,7 @@ def _to_out(data: PlayerStatsData) -> PlayerStatsOut:
         worst_round_points=data.worst_round_points,
         current_streak=data.current_streak,
         avg_prediction_timing_mins=data.avg_prediction_timing_mins,
+        avatar_url=avatar_url,
     )
 
 
@@ -73,7 +76,7 @@ async def get_my_stats(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PlayerStatsOut:
     stats = await get_player_stats(player.id, player.display_name, db)
-    return _to_out(stats)
+    return _to_out(stats, avatar_url=player.avatar_url)
 
 
 # ---------------------------------------------------------------------------
@@ -129,4 +132,4 @@ async def get_player_stats_by_id(
             detail="You do not share a league with this player",
         )
     stats = await get_player_stats(player_id, profile.display_name, db)
-    return _to_out(stats)
+    return _to_out(stats, avatar_url=profile.avatar_url)

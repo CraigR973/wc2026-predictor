@@ -54,6 +54,7 @@ def _make_player(
     p.display_name = display_name
     p.is_active = is_active
     p.deleted_at = datetime(2026, 1, 1) if deleted else None
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     return p
 
 
@@ -85,6 +86,7 @@ def _make_requester() -> MagicMock:
     p.is_active = True
     p.deleted_at = None
     p.timezone = "UTC"
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     return p
 
 

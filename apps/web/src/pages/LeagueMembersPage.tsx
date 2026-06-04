@@ -121,7 +121,7 @@ export function LeagueMembersPage() {
             <Card key={m.player_id}>
               <CardContent className="pt-3 pb-3">
                 <div className="flex items-center gap-3">
-                  <Avatar name={m.league_display_name ?? m.display_name} size="sm" />
+                  <Avatar name={m.league_display_name ?? m.display_name} size="sm" src={m.avatar_url} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-sans font-medium truncate">
                       {m.league_display_name ?? m.display_name}

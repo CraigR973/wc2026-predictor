@@ -79,6 +79,7 @@ class PlayerInfo(BaseModel):
     display_name: str
     role: str
     timezone: str
+    avatar_url: str | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -752,6 +753,60 @@ async def me(player: CurrentPlayer) -> PlayerInfo:
         display_name=player.display_name,
         role=player.role.value,
         timezone=player.timezone,
+        avatar_url=player.avatar_url,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PATCH /me/avatar — set or clear the authenticated player's avatar URL
+# ---------------------------------------------------------------------------
+
+
+class AvatarUpdateRequest(BaseModel):
+    """Body for setting or clearing a player's avatar URL.
+
+    ``avatar_url`` must be a valid HTTPS URL (Supabase Storage public URL)
+    or ``null`` to remove the avatar.  The client is responsible for
+    uploading the image to Supabase Storage and providing the resulting URL.
+    URL length capped at 2048 chars matching the column constraint.
+    """
+
+    avatar_url: str | None = Field(default=None, max_length=2048)
+
+
+@router.patch("/me/avatar", response_model=PlayerInfo)
+@limiter.limit("30/minute", key_func=per_player_key)
+async def update_avatar(
+    request: Request,
+    body: AvatarUpdateRequest,
+    player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> PlayerInfo:
+    """Set or clear the caller's avatar URL.
+
+    The client uploads the image to Supabase Storage (bucket: avatars,
+    path: <player_id>/<filename>) and then calls this endpoint with the
+    resulting public URL.  Passing ``null`` removes the avatar.
+    """
+    if body.avatar_url is not None and not body.avatar_url.startswith("https://"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="avatar_url must be an HTTPS URL or null",
+        )
+
+    await db.execute(
+        update(Profile).where(Profile.id == player.id).values(avatar_url=body.avatar_url)
+    )
+    await db.commit()
+    await db.refresh(player)
+
+    log.info("avatar updated", player_id=str(player.id), has_avatar=body.avatar_url is not None)
+    return PlayerInfo(
+        id=str(player.id),
+        display_name=player.display_name,
+        role=player.role.value,
+        timezone=player.timezone,
+        avatar_url=player.avatar_url,
     )
 
 

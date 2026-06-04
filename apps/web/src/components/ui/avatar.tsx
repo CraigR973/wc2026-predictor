@@ -1,9 +1,11 @@
-import { type HTMLAttributes } from 'react';
+import { useState, type HTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
   name: string;
   size?: 'sm' | 'md' | 'lg';
+  /** Optional photo URL. Falls back to initials when null/undefined or on load error. */
+  src?: string | null;
 }
 
 const SIZE: Record<NonNullable<AvatarProps['size']>, string> = {
@@ -40,19 +42,31 @@ function tintFor(name: string): string {
   return PALETTE[Math.abs(h) % PALETTE.length]!;
 }
 
-export function Avatar({ name, size = 'md', className, ...props }: AvatarProps) {
+export function Avatar({ name, size = 'md', src, className, ...props }: AvatarProps) {
+  const [imgError, setImgError] = useState(false);
+  const showPhoto = !!src && !imgError;
+
   return (
     <div
       className={cn(
-        'inline-flex items-center justify-center rounded-full font-sans font-semibold select-none',
+        'inline-flex items-center justify-center rounded-full select-none overflow-hidden',
         SIZE[size],
-        tintFor(name),
+        !showPhoto && cn('font-sans font-semibold', tintFor(name)),
         className,
       )}
       aria-hidden
       {...props}
     >
-      {initials(name)}
+      {showPhoto ? (
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        initials(name)
+      )}
     </div>
   );
 }

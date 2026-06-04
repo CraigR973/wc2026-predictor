@@ -101,7 +101,7 @@ export function TopBar() {
               <span className="hidden sm:inline text-sm text-text-secondary font-sans">
                 {player.displayName}
               </span>
-              <Avatar name={player.displayName} size="sm" />
+              <Avatar name={player.displayName} size="sm" src={player.avatarUrl} />
             </NavLink>
           )}
         </div>

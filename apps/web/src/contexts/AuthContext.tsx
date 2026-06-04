@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { clearTokens, getStoredPlayer, storeTokens, StoredPlayer } from '../lib/tokens';
+import { clearTokens, getAccessToken, getRefreshToken, getStoredPlayer, storeTokens, StoredPlayer } from '../lib/tokens';
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   throw new Error('VITE_API_URL is required in production builds');
@@ -21,18 +21,21 @@ interface AuthContextValue extends AuthState {
     timezone: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
+  /** Update a subset of the stored player (e.g. after avatar upload). */
+  updatePlayer: (patch: Partial<StoredPlayer>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function playerFromApiResponse(data: {
-  player: { id: string; display_name: string; role: string; timezone: string };
+  player: { id: string; display_name: string; role: string; timezone: string; avatar_url?: string | null };
 }): StoredPlayer {
   return {
     id: data.player.id,
     displayName: data.player.display_name,
     role: data.player.role as 'player' | 'admin',
     timezone: data.player.timezone,
+    avatarUrl: data.player.avatar_url ?? null,
   };
 }
 
@@ -106,8 +109,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ player: null, isLoading: false });
   }, []);
 
+  const updatePlayer = useCallback((patch: Partial<StoredPlayer>) => {
+    setState((s) => {
+      if (!s.player) return s;
+      const updated = { ...s.player, ...patch };
+      const access = getAccessToken();
+      const refresh = getRefreshToken();
+      if (access && refresh) storeTokens(access, refresh, updated);
+      return { ...s, player: updated };
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, login, signup, logout }}>
+    <AuthContext.Provider value={{ ...state, login, signup, logout, updatePlayer }}>
       {children}
     </AuthContext.Provider>
   );

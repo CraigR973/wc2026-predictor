@@ -9,6 +9,7 @@ export interface StoredPlayer {
   displayName: string;
   role: 'player' | 'admin';
   timezone: string;
+  avatarUrl?: string | null;
 }
 
 export function storeTokens(access: string, refresh: string, player: StoredPlayer): void {

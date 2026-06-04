@@ -65,6 +65,8 @@ class LeaderboardEntryOut(BaseModel):
     last_match_points: int = 0  # points on the most recently settled match
     today_points: int = 0  # points from matches settled in the viewer's local day
     round_points: int = 0  # points in the current (furthest-progressed) stage
+    # Avatar (U23.1) — null when the player hasn't set a photo
+    avatar_url: str | None = None
 
 
 class SnapshotPoint(BaseModel):
@@ -141,6 +143,7 @@ async def _leaderboard_entries(
             knockout_winner_points=snapshot.knockout_winner_points,
             special_points=snapshot.special_points,
             is_active=profile.is_active,
+            avatar_url=profile.avatar_url,
         )
         for profile, snapshot in rows
     ]

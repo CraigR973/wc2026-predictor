@@ -7,6 +7,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { PointsBreakdownPopover } from '../components/PointsBreakdownPopover';
+import { Avatar } from '../components/ui/avatar';
 import type { PlayerStats, RecentPrediction } from '../lib/types';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -123,11 +124,14 @@ export function PlayerProfilePage() {
 
   return (
     <div className="space-y-7">
-      <PageHeader
-        title={stats.player_name}
-        eyebrow={`${stats.total_predictions_settled} predictions settled`}
-        back={{ to: '/leagues', label: 'Leagues' }}
-      />
+      <div className="flex items-center gap-4">
+        <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+        <PageHeader
+          title={stats.player_name}
+          eyebrow={`${stats.total_predictions_settled} predictions settled`}
+          back={{ to: '/leagues', label: 'Leagues' }}
+        />
+      </div>
 
       {/* Stat cards */}
       <div>

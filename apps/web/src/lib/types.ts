@@ -94,6 +94,8 @@ export interface LeaderboardEntry {
   last_match_points: number;
   today_points: number;
   round_points: number;
+  // Avatar (U23.1) — null when player hasn't uploaded a photo
+  avatar_url?: string | null;
 }
 
 export interface SnapshotPoint {
@@ -181,6 +183,8 @@ export interface PlayerStats {
   worst_round_points: number | null;
   current_streak: number;
   avg_prediction_timing_mins: number | null;
+  // Avatar (U23.1) — null when player hasn't uploaded a photo
+  avatar_url?: string | null;
 }
 
 export interface PlayerListItem {
@@ -253,6 +257,8 @@ export interface LeagueMember {
   league_display_name: string | null;
   role: 'player' | 'admin';
   joined_at: string;
+  // Avatar (U23.1) — null when player hasn't uploaded a photo
+  avatar_url?: string | null;
 }
 
 export interface JoinRequest {

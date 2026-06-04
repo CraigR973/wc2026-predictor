@@ -13,6 +13,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { Avatar } from '../components/ui/avatar';
 import { cn } from '../lib/utils';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -127,7 +128,8 @@ function LeaderboardRow({
         </span>
       </td>
       <td className="py-3.5 min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Avatar name={entry.player_name} size="sm" src={entry.avatar_url} className="shrink-0" />
           {showArrow && (
             <span className="shrink-0">
               <ArrowGlyph rank={rd} shouldPulse={shouldPulse} reduceMotion={reduceMotion} />
