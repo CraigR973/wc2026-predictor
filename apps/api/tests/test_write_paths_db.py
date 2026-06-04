@@ -253,7 +253,7 @@ async def _insert_open_league(
     """Insert a public_open league and return (league_id, slug)."""
     sfx = _suffix()
     slug = f"dj-{sfx}"
-    code = f"DJCODE{sfx[:4].upper()}"
+    code = sfx[:6].upper()  # VARCHAR(8) limit; _suffix() is hex, 6 chars safe
     league_id = (
         await conn.execute(
             text(
