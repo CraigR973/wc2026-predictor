@@ -1069,6 +1069,7 @@ per batch (`feat/premium-polish-10` for U18, next free number if taken), ff-merg
 |---|---|---|---|---|
 | ~~U18~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U18.1–U18.6~~ | ✅ Shipped 2026-06-03 |
 | ~~U19~~ | ~~🔴 Opus~~ | ~~~5 h~~ | ~~U19.1–U19.5~~ | ✅ Shipped 2026-06-03 |
+| ~~U20~~ | ~~🔴 Opus~~ | ~~~5 h~~ | ~~U20.1–U20.8~~ | ✅ Shipped 2026-06-04 |
 
 ---
 
