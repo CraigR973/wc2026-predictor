@@ -592,7 +592,7 @@ async def test_league_leaderboard_temporal_points(db_conn: AsyncConnection) -> N
     """last-match / today / round points are derived from settled matches, scoped
     per player, and include knockout-winner points (U22.2). 'Round' is the current
     (furthest-progressed) stage; the viewer's day here is UTC."""
-    g = await _insert_group(db_conn, "TZ")
+    g = await _insert_group(db_conn, "A")  # groups.name is VARCHAR(1) (groups A–L)
     home = await _insert_team(db_conn, g, "Temporal Home", "TPH")
     away = await _insert_team(db_conn, g, "Temporal Away", "TPA")
     alice = await _insert_profile(db_conn, "tmp_alice")
@@ -681,7 +681,7 @@ async def test_league_round_leaderboard_includes_knockout_points(
     """The per-round leaderboard sums scoreline + knockout-winner points for the
     stage, so a knockout round's total matches the leaderboard's 'round' metric
     (U22.2). Group stage (no knockout predictions) is unchanged."""
-    g = await _insert_group(db_conn, "RK")
+    g = await _insert_group(db_conn, "A")  # groups.name is VARCHAR(1) (groups A–L)
     home = await _insert_team(db_conn, g, "RK Home", "RKH")
     away = await _insert_team(db_conn, g, "RK Away", "RKA")
     alice = await _insert_profile(db_conn, "rk_alice")
