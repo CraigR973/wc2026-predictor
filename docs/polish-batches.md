@@ -1628,3 +1628,40 @@ Single-item fix surfaced by the post-U27 code audit. 🟢 Sonnet.
 - `UpdateBanner.test.tsx` asserts the icon carries `animate-spin`.
 - No other UpdateBanner behaviour changes.
 - Frontend tests + typecheck + lint green.
+
+---
+
+# Round 11 — snagging pass (U29) — added 2026-06-05
+
+Ad-hoc snagging batch from a hands-on test pass: copy fixes, two bug fixes
+(photo-upload RLS, public-league 422) and a few UX reworks. 🟢 Sonnet.
+Recorded retrospectively for ledger completeness — shipped to staging before
+write-up (commits `2bee43c` + `7ca3a67`).
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~U29~~ | ~~🟢 Sonnet~~ | ~~~6 h~~ | ~~U29.1–U29.9~~ | ✅ Shipped 2026-06-05 |
+
+---
+
+## U29 — Snagging pass: photo upload, leaderboard, copy + 2 bug fixes 🟢 Sonnet
+
+15 user-flagged items from a hands-on pass, grouped:
+
+- **U29.1** Optional signup photo. New avatar picker on `SignupPage.tsx`; uploads after the account exists (so it's authenticated). Shared `apps/web/src/lib/image.ts` (`resizeAvatar` + `uploadAvatarImage`).
+- **U29.2** Remove the "In partnership with Robinsons" + "Still Email?" lockup from Login + Signup; deleted `PartnershipLockup.tsx` + `public/robinsons-logo.png`. (Reverses U8/U9.2; the `tokens.ts` `tagline` constant is now dead but left in place.)
+- **U29.3** Remove the "Mark done" affordance from the Read-the-rules checklist row (`PreTournamentChecklist.tsx`); the row still auto-ticks on navigation.
+- **U29.4** Scoring quick-ref also on Home — reuse `ScoringGuide` with an optional `storageKey`/`defaultOpen` (collapsed, own key) on `DashboardPage`.
+- **U29.5** Share-message copy: "Join me on Calcio …" + "next iteration" (was "official upgrade") in `invite.ts` + `BrowserOnboarding.tsx`.
+- **U29.6** League entry lands on the leaderboard directly: `/leagues/:slug` → redirect; ported the league header (Invite / Members / admin Settings / Invites + "Your position") into `LeaderboardPage`; removed `LeagueHomePage`.
+- **U29.7** Leaderboard score breakdown shown inline as Match / KO / Special columns (removed the tap-to-expand dropdown; long-press → compare kept).
+- **U29.8** Avatar dropdown (Profile → `/players/:id`, Settings) in `TopBar` via new `@radix-ui/react-dropdown-menu` + `ui/dropdown-menu.tsx`. Back buttons on Discover Leagues + Admin Players. Copy: "Upcoming" → "Upcoming Matches", "Leagues" → "My Leagues".
+- **U29.9** Two bug fixes: (a) **photo-upload RLS** — re-architected to a backend service-role upload (`POST /api/v1/auth/me/avatar` + `services/storage.py`) that bypasses Storage RLS, since the app's custom JWT auth has no `auth.uid()`; enables bigger uploads (1024 px / 5 MB, migration `024`). (b) **public-league 422** — map privacy to the backend enum (`public_open` / `public_request`) + cap `max_members` at 50.
+
+**Acceptance:**
+- Signup shows an optional photo picker; Settings re-upload and the signup photo both succeed via the backend endpoint (no RLS error).
+- Creating a public/open league returns 201 (no 422).
+- No Robinsons / "Still Email?" lockup on either auth page; no "Mark done" on the rules row.
+- Tapping a league lands on its leaderboard; Invite / Members / Settings still reachable; breakdown shows as inline columns.
+- Avatar dropdown offers Profile + Settings; Discover Leagues + Admin Players have back chips; Home reads "Upcoming Matches" + "My Leagues"; scoring quick-ref present (collapsed) on Home.
+- Frontend + backend tests, typecheck, lint, ruff, mypy green; staging CI green (commits `2bee43c` + `7ca3a67`).

@@ -1702,4 +1702,19 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 ### Key facts for future sessions
 - SVG `className` in jsdom is an `SVGAnimatedString` object, not a plain string — use `svg.classList.contains('animate-spin')` in Vitest assertions, not `.toMatch(/pattern/)`.
 
-**Next:** none — no U29 planned yet.
+**Next:** Polish batch U29 — Snagging pass 🟢 Sonnet
+
+---
+
+## Polish batch U29 — Snagging pass: photo upload, leaderboard, copy + 2 bug fixes
+**Commits:** 2bee43c, 7ca3a67 · CI ✅
+
+### Key facts for future sessions
+- Avatar upload is **backend-mediated**: the browser POSTs the resized JPEG bytes to `POST /api/v1/auth/me/avatar`, which uploads to Supabase Storage with the **service-role key** (`apps/api/src/services/storage.py`). This is deliberate — the app's custom name+PIN JWT is not a Supabase session, so Storage RLS sees `auth.uid()` = NULL and the avatars bucket's owner-insert policy can never pass from the browser. Do NOT "simplify" back to a client-side `supabase.storage.upload`; it reintroduces "new row violates row-level security policy".
+- `apiFetch` already supports a non-JSON body: pass a `Blob` + `headers: { 'Content-Type': 'image/jpeg' }` and it overrides the default JSON content-type (used by `uploadAvatarImage` in `lib/image.ts`).
+- `/leagues/:slug` is now a redirect to `…/leaderboard` (`LeagueHomeRedirect` in `App.tsx`); `LeagueHomePage` was deleted and its header actions live on `LeaderboardPage`. Any test/e2e asserting the bare `/leagues/<slug>` URL must expect `…/leaderboard` — that's what broke `multi-league.spec.ts:118` (fixed in 7ca3a67).
+- Create-league privacy is the backend enum end-to-end now (`public_open` / `public_request` / `private`); the form sends those values directly (sending the old `open`/`request` was the 422 cause).
+- `tokens.ts` still has `tagline: 'Still Email?'` as a now-dead constant — its only consumer (`PartnershipLockup`) was deleted, so it renders nowhere; left in place, harmless.
+- Migration `024` raises the avatars bucket `file_size_limit` to 5 MB (Supabase-only; no-op on plain-PG CI via the schema-exists guard, same pattern as `023`).
+
+**Next:** none — no U30 planned yet.
