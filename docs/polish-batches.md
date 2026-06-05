@@ -1665,3 +1665,30 @@ write-up (commits `2bee43c` + `7ca3a67`).
 - Tapping a league lands on its leaderboard; Invite / Members / Settings still reachable; breakdown shows as inline columns.
 - Avatar dropdown offers Profile + Settings; Discover Leagues + Admin Players have back chips; Home reads "Upcoming Matches" + "My Leagues"; scoring quick-ref present (collapsed) on Home.
 - Frontend + backend tests, typecheck, lint, ruff, mypy green; staging CI green (commits `2bee43c` + `7ca3a67`).
+
+---
+
+# Round 12 — leaderboard snags (U30) — added 2026-06-05
+
+Follow-up snags on the league/leaderboard surface from U29's rework. 🟢 Sonnet.
+Shipped to staging before write-up (commit `89839a9`).
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~U30~~ | ~~🟢 Sonnet~~ | ~~~30 min~~ | ~~U30.1–U30.4~~ | ✅ Shipped 2026-06-05 |
+
+---
+
+## U30 — Leaderboard snags: position, medals, spacing, full name 🟢 Sonnet · ~30 min
+
+- **U30.1** Remove the "Your position" card from the league/leaderboard header (`LeaderboardPage.tsx`); the caller's own row is highlighted in the table instead (`bg-primary/10`, lifted from `/5`). Drops the now-unused `myEntry` + Badge/Card imports.
+- **U30.2** Rank column shows plain numbers — removed the 🥇🥈🥉 `MEDAL` map from the rows.
+- **U30.3** Space out the inline breakdown columns: Match / KO / Special cells `px-1` → `px-2.5` (header + rows).
+- **U30.4** Show the full league name at the top: stack the Invite / Members / admin Settings / Invites actions in a row *below* the title (was squeezing it side-by-side), and let the title wrap via a new opt-in `wrapTitle` on `PageHeader` (default truncate unchanged for every other page).
+
+**Acceptance:**
+- No "Your position" card; the caller's row is visibly highlighted in the table.
+- Ranks render as 1, 2, 3… (no medals).
+- Breakdown columns are visibly spaced.
+- Long league names show in full (wrap, not truncate); actions sit below the title.
+- Frontend typecheck, lint, 338 tests green; staging CI green (commit `89839a9`).
