@@ -138,7 +138,7 @@ export function UpdateBanner() {
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
         <div className="flex items-center gap-2 min-w-0">
-          <RefreshCw className="h-4 w-4 shrink-0animate-spin" aria-hidden />
+          <RefreshCw className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
           <span className="text-sm font-sans font-medium truncate">
             {isDirty
               ? 'New version ready — updating after save'

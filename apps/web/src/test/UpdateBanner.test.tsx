@@ -178,6 +178,15 @@ describe('UpdateBanner', () => {
     expect(mockSW).toHaveBeenCalledWith(true);
   });
 
+  it('refresh icon carries animate-spin class', () => {
+    render(<UpdateBanner />);
+    triggerNeedRefresh();
+    // aria-hidden SVG — query by tag inside the banner
+    const banner = screen.getByRole('status');
+    const svg = banner.querySelector('svg');
+    expect(svg?.classList.contains('animate-spin')).toBe(true);
+  });
+
   it('renders with z-[80] class (above iOS overlay z-[70])', () => {
     render(<UpdateBanner />);
     triggerNeedRefresh();
