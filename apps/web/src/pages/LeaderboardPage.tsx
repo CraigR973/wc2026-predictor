@@ -14,13 +14,10 @@ import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar } from '../components/ui/avatar';
-import { Badge } from '../components/ui/badge';
-import { Card, CardContent } from '../components/ui/card';
 import { buildInviteMessage, shareInvite } from '../lib/invite';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
-const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 const HINT_DISMISSED_KEY = 'sss_leaderboard_hint_dismissed';
 
 interface RankDelta {
@@ -120,13 +117,13 @@ function LeaderboardRow({
       className={cn(
         'border-b border-border/50 last:border-0 cursor-pointer select-none',
         'hover:bg-surface-elevated transition-colors',
-        isMe && 'bg-primary/5',
+        isMe && 'bg-primary/10',
       )}
       {...handlers}
     >
       <td className="py-3.5 pl-3 sm:pl-5 w-7">
         <span className="text-text-muted font-mono text-sm tabular-nums">
-          {MEDAL[entry.rank] ?? entry.rank}
+          {entry.rank}
         </span>
       </td>
       <td className="py-3.5 min-w-0">
@@ -155,13 +152,13 @@ function LeaderboardRow({
           )}
         </div>
       </td>
-      <td className="py-3.5 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
+      <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
         {entry.match_points}
       </td>
-      <td className="py-3.5 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
+      <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
         {entry.knockout_winner_points}
       </td>
-      <td className="py-3.5 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
+      <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
         {entry.special_points}
       </td>
       <td className="py-3.5 pr-3 sm:pr-5 pl-1 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">
@@ -280,19 +277,18 @@ function LeagueLeaderboardHeader({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="mb-5 flex items-start justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <PageHeader
-          title={league?.name ?? 'Leaderboard'}
-          eyebrow="Standings"
-          back={{ to: '/leagues', label: 'Leagues' }}
-          className="mb-0"
-        />
-        {league?.description && (
-          <p className="text-text-secondary font-sans text-sm mt-1 truncate">{league.description}</p>
-        )}
-      </div>
-      <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+    <div className="mb-5">
+      <PageHeader
+        title={league?.name ?? 'Leaderboard'}
+        eyebrow="Standings"
+        back={{ to: '/leagues', label: 'Leagues' }}
+        wrapTitle
+        className="mb-0"
+      />
+      {league?.description && (
+        <p className="text-text-secondary font-sans text-sm mt-1">{league.description}</p>
+      )}
+      <div className="mt-3 flex gap-2 flex-wrap">
         {league?.join_code && (
           <Button size="sm" variant="accent" onClick={handleShare} className="gap-1.5">
             <Share2 className="h-3.5 w-3.5" aria-hidden />
@@ -347,7 +343,6 @@ export function LeaderboardPage() {
   const ranked = dedupedLeaderboard(data, leagueSlug);
   const displayData = rankByPeriod(ranked, period);
   const showArrow = period === 'total';
-  const myEntry = ranked.find((e) => e.player_id === currentUser?.id);
 
   useEffect(() => {
     if (ranked.length === 0) return;
@@ -458,22 +453,6 @@ export function LeaderboardPage() {
     <div>
       <LeagueLeaderboardHeader slug={leagueSlug} />
 
-      {myEntry && (
-        <Card className="mb-5 border-primary/30">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-sans text-text-secondary">Your position</span>
-              <div className="flex items-center gap-3">
-                <Badge variant="muted" className="font-mono">
-                  #{myEntry.rank}
-                </Badge>
-                <span className="font-semibold font-mono text-primary">{myEntry.total_points} pts</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {!hintDismissed && (
         <div className="mb-4 flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-mono text-text-muted">
           <span>Long-press a row to compare</span>
@@ -503,9 +482,9 @@ export function LeaderboardPage() {
               <tr className="border-b border-border text-text-muted text-[10px] font-mono uppercase tracking-[0.2em]">
                 <th className="py-2.5 pl-3 sm:pl-5 text-left w-7">#</th>
                 <th className="py-2.5 text-left">Player</th>
-                <th className="py-2.5 px-1 text-right" title="Match points">M</th>
-                <th className="py-2.5 px-1 text-right" title="Knockout points">KO</th>
-                <th className="py-2.5 px-1 text-right" title="Special points">SP</th>
+                <th className="py-2.5 px-2.5 text-right" title="Match points">M</th>
+                <th className="py-2.5 px-2.5 text-right" title="Knockout points">KO</th>
+                <th className="py-2.5 px-2.5 text-right" title="Special points">SP</th>
                 <th className="py-2.5 pr-3 sm:pr-5 pl-1 text-right w-12">{PERIOD_LABELS[period]}</th>
               </tr>
             </thead>
