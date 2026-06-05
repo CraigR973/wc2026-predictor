@@ -1679,3 +1679,17 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `UpdateBanner` reworked: permanent-dismiss path REMOVED; z-index raised `z-[60]`→`z-[80]` (above the iOS install overlay at `z-[70]`, which previously deadlocked it); SW `update()` polled every ~45 min; auto-reload after a 5s visible countdown, deferred to `visibilitychange→visible` when hidden.
 
 **Next:** Polish batch U27 — Live match hub + hero dashboard 🔴 Opus (BLOCKED — needs backend `elapsed_minutes` on MatchResponse + `kickoff_utc` on HomeRollupMatch first)
+
+---
+
+## Polish batch U27 — Live match hub + hero dashboard
+**Commits:** 6701096 · CI ✅
+
+### Key facts for future sessions
+- `@wc2026/shared` is now wired into `apps/web` (its **first** consumer) as `workspace:*` — the live hub's "Points if this stands" reuses `scoreMatchPrediction`, not a reimplementation. Consumed as raw TS source (`exports` → `./src/index.ts`, no build step); adding the dep needed a committed `pnpm-lock.yaml` bump or CI's frozen install fails.
+- `MatchResponse.elapsed_minutes` is **intentionally always null** — the football-data feed the fetcher reads (`FDMatch`) carries no minute and `matches` has no column. The hub omits the minute when null; this is not a bug. A real minute would need a migration + `FDMatch`/`result_sync` change.
+- The live hub reads only `['matches','group']`, so knockout live matches don't surface there (matches the spec's "group match is live"). The inline next/last slot also ignores live, so a live match no longer suppresses the "Next" line — hub + Next coexist.
+- Two movement renderers can show the same `↑2 …` string and that's expected: the hero daily-summary filters to the rollup's `triggered_by_match_id`; the Leagues-section `CrossLeagueMovementSummary` shows all movers (2+ leagues).
+- Old `pickHeroChip`/`HeroMatchChip` (single live→next→last corner chip) removed; `data-testid="hero-chip-live"` is gone, `hero-chip-next`/`hero-chip-last` now mark the inline row, `live-hub`/`live-match-card` mark the hub.
+
+**Next:** none — U27 was the final batch in `docs/polish-batches.md`.
