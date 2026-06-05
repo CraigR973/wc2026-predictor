@@ -1611,7 +1611,7 @@ Single-item fix surfaced by the post-U27 code audit. 🟢 Sonnet.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U28 | 🟢 Sonnet | ~15 min | U28.1 | |
+| ~~U28~~ | ~~🟢 Sonnet~~ | ~~~15 min~~ | ~~U28.1~~ | ✅ Shipped 2026-06-05 |
 
 ---
 
