@@ -55,7 +55,7 @@ describe('buildInviteMessage', () => {
   it('contains the spreadsheet backstory', () => {
     const msg = buildInviteMessage(PARAMS);
     expect(msg).toContain('spreadsheet');
-    expect(msg).toContain('Calcio is the official upgrade');
+    expect(msg).toContain('Calcio is the next iteration');
   });
 });
 

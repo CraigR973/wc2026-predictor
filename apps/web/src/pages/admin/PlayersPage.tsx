@@ -114,6 +114,7 @@ export function AdminPlayersPage() {
       <PageHeader
         title="Players"
         eyebrow="Admin"
+        back={{ to: '/admin', label: 'Admin' }}
         action={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-1.5 text-xs font-sans text-text-secondary cursor-pointer">

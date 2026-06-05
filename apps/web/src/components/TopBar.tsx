@@ -1,9 +1,15 @@
-import { NavLink } from 'react-router-dom';
-import { Moon, Sun } from 'lucide-react';
+import { NavLink, Link } from 'react-router-dom';
+import { Moon, Sun, User, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Brand } from '@/components/Brand';
 import { Avatar } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 const DESKTOP_NAV = [
@@ -93,16 +99,31 @@ export function TopBar() {
             </span>
           )}
           {player && (
-            <NavLink
-              to="/settings"
-              aria-label={`Your profile (${player.displayName})`}
-              className="inline-flex items-center gap-2 press-down rounded-full focus-visible:outline-none focus-visible:shadow-glow"
-            >
-              <span className="hidden sm:inline text-sm text-text-secondary font-sans">
-                {player.displayName}
-              </span>
-              <Avatar name={player.displayName} size="sm" src={player.avatarUrl} />
-            </NavLink>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={`Account menu (${player.displayName})`}
+                className="inline-flex items-center gap-2 press-down rounded-full focus-visible:outline-none focus-visible:shadow-glow"
+              >
+                <span className="hidden sm:inline text-sm text-text-secondary font-sans">
+                  {player.displayName}
+                </span>
+                <Avatar name={player.displayName} size="sm" src={player.avatarUrl} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to={`/players/${player.id}`}>
+                    <User className="h-4 w-4" aria-hidden />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">
+                    <Settings className="h-4 w-4" aria-hidden />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>

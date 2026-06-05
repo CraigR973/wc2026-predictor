@@ -601,7 +601,7 @@ describe('DashboardPage — ordering and self-hiding', () => {
     await waitFor(() => expect(screen.queryByText('The Steele Spreadsheet')).toBeTruthy());
     expect(screen.queryByText(/Welcome back,/)).toBeTruthy();
     expect(screen.queryByText(/\+10 pts/)).toBeTruthy();
-    expect(screen.queryByText('Leagues')).toBeTruthy();
+    expect(screen.queryByText('My Leagues')).toBeTruthy();
     // How-it-works card was removed in U20.3.
     expect(screen.queryByRole('button', { name: /How it works/i })).toBeFalsy();
   });
@@ -644,25 +644,8 @@ describe('DashboardPage — Pre-tournament checklist', () => {
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText('Pre-Tournament Checklist')).toBeTruthy());
 
-    // Click the "Read the rules" link (not the "Mark done" button).
+    // Click the "Read the rules" link — it auto-ticks on navigation.
     fireEvent.click(screen.getByText('Read the rules'));
-
-    await waitFor(() =>
-      expect(screen.getByText('Read the rules').className).toMatch(/line-through/),
-    );
-    expect(localStorage.setItem).toHaveBeenCalledWith(
-      'sss_checklist_v1',
-      expect.stringContaining('"rulesRead":true'),
-    );
-  });
-
-  it('ticks "Read the rules" when marked done, persisting to localStorage', async () => {
-    stubAuth({ checklistDismissed: false });
-    const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
-    render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText('Pre-Tournament Checklist')).toBeTruthy());
-
-    fireEvent.click(screen.getByRole('button', { name: 'Mark done' }));
 
     await waitFor(() =>
       expect(screen.getByText('Read the rules').className).toMatch(/line-through/),

@@ -41,7 +41,7 @@ export function BrowserOnboarding() {
           </p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
             Previously run from a spreadsheet of legendary proportions, Calcio is the
-            official upgrade.
+            next iteration.
           </p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
             One important note: go to{' '}

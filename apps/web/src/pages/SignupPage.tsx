@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Camera } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PinInput } from '@/components/PinInput';
 import { Brand } from '@/components/Brand';
-import { PartnershipLockup } from '@/components/PartnershipLockup';
+import { Avatar } from '@/components/ui/avatar';
+import {
+  ALLOWED_AVATAR_TYPES,
+  MAX_AVATAR_BYTES,
+  resizeAvatar,
+  uploadAvatarImage,
+} from '@/lib/image';
 
 const TIMEZONES = [
   'Europe/London',
@@ -45,6 +53,28 @@ export function SignupPage() {
   );
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+    if (!file) return;
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      toast.error('Photo must be a JPEG, PNG, WebP or GIF.');
+      return;
+    }
+    if (file.size > MAX_AVATAR_BYTES * 2) {
+      toast.error('Photo too large — please choose one under 10 MB.');
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,6 +92,17 @@ export function SignupPage() {
     setIsLoading(true);
     try {
       await signup({ email: email.trim(), first_name: firstName.trim(), last_name: lastName.trim(), pin, timezone });
+
+      // Optional profile photo — uploaded after the account exists (so we're
+      // authenticated). A failure here must not block account creation.
+      if (avatarFile) {
+        try {
+          await uploadAvatarImage(await resizeAvatar(avatarFile));
+        } catch {
+          toast.error('Account created, but your photo could not be uploaded. Add it later in Settings.');
+        }
+      }
+
       if (inviteToken) {
         navigate(`/join/${inviteToken}`, { replace: true });
       } else {
@@ -84,7 +125,6 @@ export function SignupPage() {
       <div className="w-full max-w-sm">
         <div className="mb-10">
           <Brand variant="splash" />
-          <PartnershipLockup />
         </div>
 
         <Card>
@@ -93,6 +133,31 @@ export function SignupPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex flex-col items-center gap-2 pb-1">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept={ALLOWED_AVATAR_TYPES.join(',')}
+                  className="sr-only"
+                  aria-label="Add a profile photo"
+                  onChange={handleAvatarSelect}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="relative rounded-full press-down focus-visible:outline-none focus-visible:shadow-glow"
+                  aria-label="Add a profile photo"
+                >
+                  <Avatar name={firstName || 'You'} size="lg" src={avatarPreview ?? undefined} />
+                  <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white border-2 border-surface">
+                    <Camera className="h-3.5 w-3.5" aria-hidden />
+                  </span>
+                </button>
+                <p className="text-xs font-sans text-text-muted">
+                  {avatarFile ? 'Photo added — tap to change' : 'Add a photo (optional)'}
+                </p>
+              </div>
+
               <div className="space-y-1">
                 <Label htmlFor="email">Email</Label>
                 <Input

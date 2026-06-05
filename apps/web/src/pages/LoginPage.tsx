@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PinInput } from '@/components/PinInput';
 import { Brand } from '@/components/Brand';
-import { PartnershipLockup } from '@/components/PartnershipLockup';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -42,7 +41,6 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-10">
           <Brand variant="splash" />
-          <PartnershipLockup />
         </div>
 
         <Card>

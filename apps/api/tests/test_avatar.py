@@ -200,3 +200,85 @@ async def test_me_avatar_url_null_when_unset(client: AsyncClient) -> None:
 
     assert resp.status_code == 200, resp.text
     assert resp.json()["avatar_url"] is None
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/auth/me/avatar — server-side upload (service-role, bypasses RLS)
+# ---------------------------------------------------------------------------
+
+
+async def test_upload_avatar_success(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """POST image bytes uploads via storage and persists the returned URL."""
+    player = _make_player()
+    public_url = "https://example.supabase.co/storage/v1/object/public/avatars/abc/1.jpg"
+
+    upload_mock = AsyncMock(return_value=public_url)
+    monkeypatch.setattr("src.routers.auth.upload_avatar", upload_mock)
+
+    mock_db = _stub_db([MagicMock()])
+
+    async def _refresh(obj: object) -> None:
+        player.avatar_url = public_url
+
+    mock_db.refresh = AsyncMock(side_effect=_refresh)
+
+    async with _override(player, mock_db):
+        resp = await client.post(
+            "/api/v1/auth/me/avatar",
+            content=b"\xff\xd8\xff\xe0jpegbytes",
+            headers={"Content-Type": "image/jpeg"},
+        )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["avatar_url"] == public_url
+    upload_mock.assert_awaited_once()
+    # Uploaded under the caller's id, with the declared content type.
+    assert upload_mock.await_args.args[0] == str(player.id)
+    assert upload_mock.await_args.args[2] == "image/jpeg"
+
+
+async def test_upload_avatar_rejects_unsupported_type(client: AsyncClient) -> None:
+    """A non-image content type is rejected with 415."""
+    player = _make_player()
+    async with _override(player, _stub_db()):
+        resp = await client.post(
+            "/api/v1/auth/me/avatar",
+            content=b"hello",
+            headers={"Content-Type": "text/plain"},
+        )
+    assert resp.status_code == 415, resp.text
+
+
+async def test_upload_avatar_rejects_empty_body(client: AsyncClient) -> None:
+    """An empty image body is rejected with 422."""
+    player = _make_player()
+    async with _override(player, _stub_db()):
+        resp = await client.post(
+            "/api/v1/auth/me/avatar",
+            content=b"",
+            headers={"Content-Type": "image/jpeg"},
+        )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_upload_avatar_rejects_too_large(client: AsyncClient) -> None:
+    """A body over the 5 MB cap is rejected with 413."""
+    player = _make_player()
+    big = b"\x00" * (5 * 1024 * 1024 + 1)
+    async with _override(player, _stub_db()):
+        resp = await client.post(
+            "/api/v1/auth/me/avatar",
+            content=big,
+            headers={"Content-Type": "image/jpeg"},
+        )
+    assert resp.status_code == 413, resp.text
+
+
+async def test_upload_avatar_unauthenticated(client: AsyncClient) -> None:
+    """Unauthenticated upload is rejected."""
+    resp = await client.post(
+        "/api/v1/auth/me/avatar",
+        content=b"\xff\xd8\xff",
+        headers={"Content-Type": "image/jpeg"},
+    )
+    assert resp.status_code in (401, 403)

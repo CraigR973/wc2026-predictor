@@ -100,7 +100,7 @@ export function UpcomingMatchesCarousel() {
   return (
     <section aria-labelledby="home-upcoming-label">
       <h2 id="home-upcoming-label" className={SECTION_LABEL_CLS}>
-        Upcoming
+        Upcoming Matches
       </h2>
 
       <ul

@@ -54,7 +54,6 @@ const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then((m) =>
 const MyLeaguesPage = lazy(() => import('./pages/MyLeaguesPage').then((m) => ({ default: m.MyLeaguesPage })));
 const CreateLeaguePage = lazy(() => import('./pages/CreateLeaguePage').then((m) => ({ default: m.CreateLeaguePage })));
 const DiscoverLeaguesPage = lazy(() => import('./pages/DiscoverLeaguesPage').then((m) => ({ default: m.DiscoverLeaguesPage })));
-const LeagueHomePage = lazy(() => import('./pages/LeagueHomePage').then((m) => ({ default: m.LeagueHomePage })));
 const LeagueMembersPage = lazy(() => import('./pages/LeagueMembersPage').then((m) => ({ default: m.LeagueMembersPage })));
 const LeagueSettingsPage = lazy(() => import('./pages/LeagueSettingsPage').then((m) => ({ default: m.LeagueSettingsPage })));
 const LeagueJoinRequestsPage = lazy(() => import('./pages/LeagueJoinRequestsPage').then((m) => ({ default: m.LeagueJoinRequestsPage })));
@@ -101,6 +100,15 @@ function LeagueAwareLayout() {
 function LeagueAdminRedirect({ suffix }: { suffix: string }) {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   return <Navigate to={`/leagues/${slug}/admin/${suffix}`} replace />;
+}
+
+/**
+ * The league landing page is now the leaderboard itself — entering a league
+ * drops you straight onto the full standings (no intermediate summary page).
+ */
+function LeagueHomeRedirect() {
+  const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
+  return <Navigate to={`/leagues/${slug}/leaderboard`} replace />;
 }
 
 export function App() {
@@ -155,7 +163,7 @@ export function App() {
                       <Route path="/leagues/new" element={<CreateLeaguePage />} />
                       <Route path="/leagues/discover" element={<DiscoverLeaguesPage />} />
                       <Route path="/leagues/join" element={<JoinByCodePage />} />
-                      <Route path="/leagues/:slug" element={<LeagueHomePage />} />
+                      <Route path="/leagues/:slug" element={<LeagueHomeRedirect />} />
 
                       {/* Per-league standings + compare */}
                       <Route path="/leagues/:slug/leaderboard" element={<LeaderboardPage />} />

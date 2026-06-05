@@ -12,7 +12,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar } from '../components/ui/avatar';
-import { supabase } from '../lib/supabase';
+import {
+  ALLOWED_AVATAR_TYPES,
+  MAX_AVATAR_BYTES,
+  resizeAvatar,
+  uploadAvatarImage,
+} from '../lib/image';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -348,46 +353,6 @@ function AppearanceSection() {
 
 // ── Avatar section ────────────────────────────────────────────────────────────
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
-const TARGET_SIZE = 512; // resize to at most 512×512 px
-
-/** Resize the file to a square ≤512px JPEG blob via OffscreenCanvas / canvas. */
-async function resizeToSquare(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const side = Math.min(bitmap.width, bitmap.height, TARGET_SIZE);
-
-  // Crop to a centred square first, then scale.
-  const srcX = (bitmap.width - Math.min(bitmap.width, bitmap.height)) / 2;
-  const srcY = (bitmap.height - Math.min(bitmap.width, bitmap.height)) / 2;
-  const srcSize = Math.min(bitmap.width, bitmap.height);
-
-  let canvas: OffscreenCanvas | HTMLCanvasElement;
-  let ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
-  if (typeof OffscreenCanvas !== 'undefined') {
-    canvas = new OffscreenCanvas(side, side);
-    ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null;
-  } else {
-    canvas = document.createElement('canvas');
-    canvas.width = side;
-    canvas.height = side;
-    ctx = (canvas as HTMLCanvasElement).getContext('2d');
-  }
-  if (!ctx) throw new Error('Canvas context unavailable');
-  ctx.drawImage(bitmap, srcX, srcY, srcSize, srcSize, 0, 0, side, side);
-
-  if ('convertToBlob' in canvas) {
-    return (canvas as OffscreenCanvas).convertToBlob({ type: 'image/jpeg', quality: 0.88 });
-  }
-  return new Promise<Blob>((resolve, reject) =>
-    (canvas as HTMLCanvasElement).toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
-      'image/jpeg',
-      0.88,
-    ),
-  );
-}
-
 function AvatarSection() {
   const { player, updatePlayer } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -400,44 +365,27 @@ function AvatarSection() {
       fileRef.current.value = '';
 
       if (!file) return;
-      if (!ALLOWED_TYPES.includes(file.type)) {
+      if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
         toast.error('Only JPEG, PNG, WebP, or GIF files are supported');
         return;
       }
-      if (file.size > MAX_BYTES * 3) {
-        // Rough guard before resize — resized output will be ≤ 2 MB.
-        toast.error('File too large. Please choose an image under 6 MB.');
+      if (file.size > MAX_AVATAR_BYTES * 2) {
+        // Rough guard before resize — the resized output is far smaller.
+        toast.error('File too large. Please choose an image under 10 MB.');
         return;
       }
 
       setUploading(true);
       try {
-        const blob = await resizeToSquare(file);
-        if (blob.size > MAX_BYTES) {
-          toast.error('Resized image still exceeds 2 MB. Please choose a smaller photo.');
+        const blob = await resizeAvatar(file);
+        if (blob.size > MAX_AVATAR_BYTES) {
+          toast.error('Resized image is too large. Please choose a smaller photo.');
           return;
         }
 
-        if (!player) throw new Error('Not signed in');
-
-        const path = `${player.id}/${Date.now()}.jpg`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        const publicUrl = urlData.publicUrl;
-
-        // Persist to profile via backend
-        await apiFetch('/api/v1/auth/me/avatar', {
-          method: 'PATCH',
-          body: JSON.stringify({ avatar_url: publicUrl }),
-        });
-
-        updatePlayer({ avatarUrl: publicUrl });
+        // Upload via the backend (service-role key → bypasses Storage RLS).
+        const newUrl = await uploadAvatarImage(blob);
+        updatePlayer({ avatarUrl: newUrl });
         toast.success('Avatar updated');
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Upload failed');
@@ -445,7 +393,7 @@ function AvatarSection() {
         setUploading(false);
       }
     },
-    [player, updatePlayer],
+    [updatePlayer],
   );
 
   const handleRemove = useCallback(async () => {
@@ -475,7 +423,7 @@ function AvatarSection() {
         <input
           ref={fileRef}
           type="file"
-          accept={ALLOWED_TYPES.join(',')}
+          accept={ALLOWED_AVATAR_TYPES.join(',')}
           className="sr-only"
           aria-label="Upload avatar photo"
           onChange={handleFileChange}
@@ -505,7 +453,7 @@ function AvatarSection() {
         )}
 
         <p className="text-[11px] text-text-muted font-sans leading-tight">
-          JPEG, PNG, WebP or GIF · cropped to square · max 2 MB
+          JPEG, PNG, WebP or GIF · cropped to square · max 5 MB
         </p>
       </div>
     </div>
