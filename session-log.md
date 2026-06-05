@@ -1693,3 +1693,13 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Old `pickHeroChip`/`HeroMatchChip` (single live→next→last corner chip) removed; `data-testid="hero-chip-live"` is gone, `hero-chip-next`/`hero-chip-last` now mark the inline row, `live-hub`/`live-match-card` mark the hub.
 
 **Next:** none — U27 was the final batch in `docs/polish-batches.md`.
+
+---
+
+## Polish batch U28 — Audit follow-up: UpdateBanner className fix
+**Commits:** 0818300 · CI ✅
+
+### Key facts for future sessions
+- SVG `className` in jsdom is an `SVGAnimatedString` object, not a plain string — use `svg.classList.contains('animate-spin')` in Vitest assertions, not `.toMatch(/pattern/)`.
+
+**Next:** none — no U29 planned yet.

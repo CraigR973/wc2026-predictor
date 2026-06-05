@@ -1602,3 +1602,29 @@ rich live/score/points features below live here. 🔴 **Opus**.
 - Backend: `elapsed_minutes` present on MatchResponse; `kickoff_utc` present on
   HomeRollupMatch.
 - Typecheck clean; Vitest 290+ green; axe green; no regressions.
+
+---
+
+# Round 10 — audit follow-up (U28)
+
+Single-item fix surfaced by the post-U27 code audit. 🟢 Sonnet.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U28 | 🟢 Sonnet | ~15 min | U28.1 | |
+
+---
+
+## U28 — Audit follow-up: UpdateBanner className fix 🟢 Sonnet · ~15 min
+
+- **U28.1** `UpdateBanner.tsx:141` — `"h-4 w-4 shrink-0animate-spin"` fuses two
+  Tailwind utilities into one invalid class (missing space). Fix to
+  `"h-4 w-4 shrink-0 animate-spin"`. Add a Vitest assertion in
+  `UpdateBanner.test.tsx` that the refresh-icon SVG carries `animate-spin`
+  so it can't silently regress.
+
+**Acceptance:**
+- The refresh icon has both `shrink-0` and `animate-spin` as separate classes.
+- `UpdateBanner.test.tsx` asserts the icon carries `animate-spin`.
+- No other UpdateBanner behaviour changes.
+- Frontend tests + typecheck + lint green.
