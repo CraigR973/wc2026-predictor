@@ -1653,3 +1653,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Frontend `PlayerProfilePage` renders group/specials/knockout sections each independently gated; response shapes in `lib/types.ts`.
 
 **Next:** Polish batch U25 — Rebrand to Calcio 🟢 Sonnet
+
+---
+
+## Polish batch U25 — Rebrand to Calcio
+**Commits:** d28d58f · CI ✅
+
+### Key facts for future sessions
+- Rebrand (SSS/"The Steele Spreadsheet System" → "Calcio") changed user-facing copy ONLY (frontend, 11 files: index.html title/meta, PWA manifest in vite.config, Brand.tsx, tokens, AboutPage, CreateLeaguePage placeholder, invite copy). Backend untouched.
+- Deliberately LEFT as structural identifiers (do NOT assume these are stale brand): `DEFAULT_LEAGUE_SLUG = 'steele-spreadsheet'` and all `sss_*` localStorage keys (`sss_leaderboard_hint_dismissed`, `sss_checklist_v1`, …) — a slug change needs a DB migration + redirect; renaming localStorage keys silently resets every user's saved prefs.
+- `Brand.tsx`: two-line wordmark collapsed to single-line "CALCIO"; `brand.wordmarkBottom` kept (set to `''`) in the token shape so destructuring consumers don't break; the `MarkSvg` letterform was left unchanged.
+- Test fixtures with `slug: 'steele-spreadsheet'` / `name: 'The Steele Spreadsheet'` are structural render fixtures, left as-is; only `invite.test.ts` had real brand-string assertions to update.
+
+**Next:** Polish batch U26 — Clarity & mandatory updates 🟢 Sonnet
