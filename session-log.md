@@ -1627,3 +1627,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `groups.name` is VARCHAR(1) (groups A–L) — DB-backed test fixtures need single-char group names; truncation only fails in the CI Postgres job.
 
 **Next:** Polish batch U23 — Full-photo avatars 🟢 Sonnet
+
+---
+
+## Polish batch U23 — Full-photo avatars
+**Commits:** 3419bec, 5adb126, 4581c3c · CI ✅
+
+### Key facts for future sessions
+- Migration 023 adds `profiles.avatar_url` + a Supabase Storage `avatars` bucket and RLS policies (public read; owner write via `auth.uid()::text = storage.foldername(name)[1]`). ALL bucket/policy SQL is guarded by `information_schema.schemata WHERE schema_name='storage'`, so it's a NO-OP on plain Postgres (CI/local) and only provisions on Supabase. Downgrade leaves the bucket.
+- Profile API responses now serialize `avatar_url`, so every `MagicMock(spec=Profile)` in tests must set `.avatar_url = None` or Pydantic chokes on the MagicMock default — ~30 test files were updated; new Profile-mock tests must do the same.
+- Client upload (SettingsPage): crop to square, resize ~512px, ~2MB cap, type allow-list; initials `Avatar` (`components/ui/avatar.tsx`) is the fallback when `avatar_url` is null; rendered in TopBar, leaderboard rows, player profile, league members; flows through AuthContext.
+- Shipped with a flake fix: `test_award_specials_snapshot_has_correct_points` now reads the recompute snapshot via `triggered_by_match_id IS NULL` — pre-existing tied-`snapshot_at` flake (both snapshots share one `transaction_timestamp()`), NOT a U23 regression; it just lost the coin-flip on this CI run.
+
+**Next:** Polish batch U24 — Reveal-all gated player profile 🔴 Opus
