@@ -1527,7 +1527,7 @@ rich live/score/points features below live here. 🔴 **Opus**.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U27 | 🔴 Opus | ~5 h | U27.1–U27.7 | Not started |
+| ~~U27~~ | ~~🔴 Opus~~ | ~~~5 h~~ | ~~U27.1–U27.7~~ | ✅ Shipped 2026-06-05 |
 
 **Dependencies:** U27 builds on U20 (home v2). Close out U20 first.
 
