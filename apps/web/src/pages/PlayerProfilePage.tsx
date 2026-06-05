@@ -7,7 +7,13 @@ import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { PointsBreakdownPopover } from '../components/PointsBreakdownPopover';
-import type { PlayerStats, RecentPrediction } from '../lib/types';
+import { Avatar } from '../components/ui/avatar';
+import type {
+  PlayerStats,
+  ProfilePredictions,
+  RecentPrediction,
+  SpecialType,
+} from '../lib/types';
 
 const STAGE_LABEL: Record<string, string> = {
   group: 'Group Stage',
@@ -17,6 +23,15 @@ const STAGE_LABEL: Record<string, string> = {
   sf: 'Semi-Finals',
   third_place: 'Third Place',
   final: 'Final',
+};
+
+const SPECIAL_LABEL: Record<SpecialType, string> = {
+  tournament_winner: 'Tournament Winner',
+  golden_boot: 'Golden Boot',
+  top_scoring_team: 'Top Scoring Team',
+  player_of_tournament: 'Player of the Tournament',
+  young_player_of_tournament: 'Young Player of the Tournament',
+  golden_glove: 'Golden Glove',
 };
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -42,6 +57,163 @@ function isMatchUnfinished(p: RecentPrediction): boolean {
   return p.actual_home === null || p.actual_away === null;
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">
+      {children}
+    </h2>
+  );
+}
+
+// U24: locked group predictions (kicked-off matches). Mirrors the post-lock
+// comparison styling used elsewhere — result, the player's pick, and points.
+function GroupPredictionsSection({ data }: { data: ProfilePredictions['group'] }) {
+  if (data.length === 0) return null;
+  return (
+    <div>
+      <SectionTitle>Group Predictions</SectionTitle>
+      <div className="rounded-lg border border-border bg-surface overflow-hidden">
+        <table className="w-full text-sm font-sans">
+          <thead>
+            <tr className="border-b border-border text-text-muted text-xs">
+              <th className="py-2 pl-4 text-left">Match</th>
+              <th className="py-2 text-center">Result</th>
+              <th className="py-2 text-center">Predicted</th>
+              <th className="py-2 pr-4 text-center">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((p) => {
+              const unfinished = p.actual_home === null || p.actual_away === null;
+              return (
+                <tr key={p.match_id} className="border-b border-border/50 last:border-0">
+                  <td className="py-2 pl-4">
+                    <span className="text-text-primary">
+                      {p.home_team_flag} {p.home_team_name ?? '?'} vs {p.away_team_flag}{' '}
+                      {p.away_team_name ?? '?'}
+                    </span>
+                    <span className="block text-xs text-text-muted">
+                      {STAGE_LABEL[p.stage] ?? p.stage}
+                    </span>
+                  </td>
+                  <td className="py-2 text-center text-text-secondary font-mono">
+                    {p.actual_home ?? '?'}–{p.actual_away ?? '?'}
+                  </td>
+                  <td className="py-2 text-center text-text-secondary font-mono">
+                    {p.predicted_home ?? '?'}–{p.predicted_away ?? '?'}
+                  </td>
+                  <td
+                    className={`py-2 pr-4 text-center font-bold ${outcomeClass(p.points_awarded, unfinished)}`}
+                  >
+                    {p.points_awarded != null ? (
+                      <PointsBreakdownPopover breakdown={p.points_breakdown}>
+                        <span>{p.points_awarded}</span>
+                      </PointsBreakdownPopover>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// U24: locked knockout predictions (per-match kickoff lock from U22.1) — the
+// tie and who this player backed to advance.
+function KnockoutPredictionsSection({ data }: { data: ProfilePredictions['knockout'] }) {
+  if (data.length === 0) return null;
+  return (
+    <div>
+      <SectionTitle>Knockout Predictions</SectionTitle>
+      <div className="rounded-lg border border-border bg-surface overflow-hidden">
+        <table className="w-full text-sm font-sans">
+          <thead>
+            <tr className="border-b border-border text-text-muted text-xs">
+              <th className="py-2 pl-4 text-left">Tie</th>
+              <th className="py-2 text-center">Pick</th>
+              <th className="py-2 pr-4 text-center">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((p) => (
+              <tr key={p.match_id} className="border-b border-border/50 last:border-0">
+                <td className="py-2 pl-4">
+                  <span className="text-text-primary">
+                    {p.home_team_flag} {p.home_team_name ?? '?'} vs {p.away_team_flag}{' '}
+                    {p.away_team_name ?? '?'}
+                  </span>
+                  <span className="block text-xs text-text-muted">
+                    {STAGE_LABEL[p.stage] ?? p.stage}
+                  </span>
+                </td>
+                <td className="py-2 text-center text-text-primary font-medium">
+                  {p.predicted_winner_name ?? '—'}
+                </td>
+                <td
+                  className={`py-2 pr-4 text-center font-bold ${outcomeClass(p.points_awarded, p.points_awarded === null)}`}
+                >
+                  {p.points_awarded ?? '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// U24: special predictions, revealed as a set once the tournament starts.
+function SpecialPredictionsSection({
+  revealed,
+  data,
+}: {
+  revealed: boolean;
+  data: ProfilePredictions['specials'];
+}) {
+  // Hidden until the tournament starts — show nothing rather than an empty
+  // shell that could imply this player made no picks.
+  if (!revealed || data.length === 0) return null;
+  return (
+    <div>
+      <SectionTitle>Special Predictions</SectionTitle>
+      <div className="rounded-lg border border-border bg-surface overflow-hidden">
+        <table className="w-full text-sm font-sans">
+          <thead>
+            <tr className="border-b border-border text-text-muted text-xs">
+              <th className="py-2 pl-4 text-left">Award</th>
+              <th className="py-2 text-center">Pick</th>
+              <th className="py-2 pr-4 text-center">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((p) => (
+              <tr key={p.prediction_type} className="border-b border-border/50 last:border-0">
+                <td className="py-2 pl-4 text-text-muted">
+                  {SPECIAL_LABEL[p.prediction_type] ?? p.prediction_type}
+                </td>
+                <td className="py-2 text-center text-text-primary font-medium">
+                  {p.predicted_team_name ?? p.predicted_player_name ?? '—'}
+                </td>
+                <td
+                  className={`py-2 pr-4 text-center font-bold ${outcomeClass(p.points_awarded, p.points_awarded === null)}`}
+                >
+                  {p.points_awarded ?? '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function PlayerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { player: currentUser } = useAuth();
@@ -62,6 +234,15 @@ export function PlayerProfilePage() {
   const { data: recentPreds = [] } = useQuery<RecentPrediction[]>({
     queryKey: ['player-recent-preds', id],
     queryFn: () => apiFetch<RecentPrediction[]>(`/api/v1/players/${id}/predictions/recent`),
+    enabled: !!id,
+  });
+
+  // U24: full reveal-gated board (group + knockout + specials). The backend
+  // only ever returns predictions that have already locked, so every row here
+  // is safe to render — the privacy gate lives server-side, not in this view.
+  const { data: revealed } = useQuery<ProfilePredictions>({
+    queryKey: ['player-profile-preds', id],
+    queryFn: () => apiFetch<ProfilePredictions>(`/api/v1/players/${id}/profile-predictions`),
     enabled: !!id,
   });
 
@@ -123,11 +304,14 @@ export function PlayerProfilePage() {
 
   return (
     <div className="space-y-7">
-      <PageHeader
-        title={stats.player_name}
-        eyebrow={`${stats.total_predictions_settled} predictions settled`}
-        back={{ to: '/leagues', label: 'Leagues' }}
-      />
+      <div className="flex items-center gap-4">
+        <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+        <PageHeader
+          title={stats.player_name}
+          eyebrow={`${stats.total_predictions_settled} predictions settled`}
+          back={{ to: '/leagues', label: 'Leagues' }}
+        />
+      </div>
 
       {/* Stat cards */}
       <div>
@@ -292,12 +476,28 @@ export function PlayerProfilePage() {
         </div>
       )}
 
-      {recentPreds.length === 0 && stats.total_predictions_settled === 0 && (
-        <EmptyState
-          title="No settled predictions yet"
-          description="Predictions show up here after each match is settled."
+      {/* U24: reveal-gated prediction board — group, knockout, specials. Each
+          section self-hides when empty; the backend only returns locked rows. */}
+      {revealed && <GroupPredictionsSection data={revealed.group} />}
+      {revealed && <KnockoutPredictionsSection data={revealed.knockout} />}
+      {revealed && (
+        <SpecialPredictionsSection
+          revealed={revealed.specials_revealed}
+          data={revealed.specials}
         />
       )}
+
+      {recentPreds.length === 0 &&
+        stats.total_predictions_settled === 0 &&
+        (!revealed ||
+          (revealed.group.length === 0 &&
+            revealed.knockout.length === 0 &&
+            revealed.specials.length === 0)) && (
+          <EmptyState
+            title="No predictions to show yet"
+            description="A player's picks appear here once each match locks at kickoff."
+          />
+        )}
     </div>
   );
 }

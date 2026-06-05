@@ -8,11 +8,11 @@ export interface InviteMessageParams {
 
 export function buildInviteMessage({ leagueName, joinCode, origin }: InviteMessageParams): string {
   return [
-    `The Steele Spreadsheet System — World Cup 2026 prediction league.`,
+    `Calcio — World Cup 2026 prediction league.`,
     ``,
     `Pick scores match by match as the tournament unfolds — no bracket to fill in upfront, just predict each game before kick-off.`,
     ``,
-    `Previously administered with great distinction by Company CEO Lewis Steele via a spreadsheet of legendary proportions, the league has entered a bold new era in official partnership with tech sponsor Robinson's Fruit Juice, who have put together this app.`,
+    `Previously run from a spreadsheet of legendary proportions, Calcio is the official upgrade.`,
     ``,
     `League: ${leagueName}`,
     `Your join code: ${joinCode}`,

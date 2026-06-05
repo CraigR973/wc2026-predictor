@@ -47,6 +47,7 @@ def _now() -> datetime:
 
 def _make_player(role: PlayerRole = PlayerRole.player) -> Profile:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "TestPlayer"
     p.role = role
@@ -339,6 +340,7 @@ async def test_get_all_specials_post_lock() -> None:
     player = _make_player()
     other_id = uuid.uuid4()
     other_profile = MagicMock(spec=Profile)
+    other_profile.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     other_profile.id = other_id
     other_profile.display_name = "OtherPlayer"
     other_profile.deleted_at = None
@@ -813,6 +815,12 @@ async def test_award_specials_snapshot_has_correct_points(db_conn: AsyncConnecti
             s.total_points, s.triggered_by_match_id
         FROM leaderboard_snapshots s JOIN profiles p ON p.id = s.player_id
         WHERE s.player_id IN (:a, :b)
+          -- Read the post-recompute snapshot (triggered_by_match_id IS NULL),
+          -- not the trigger's match snapshot. Both share snapshot_at (one
+          -- transaction_timestamp() per db_conn txn), so ordering on snapshot_at
+          -- alone ties nondeterministically — the recompute filter is the
+          -- deterministic discriminator.
+          AND s.triggered_by_match_id IS NULL
         ORDER BY s.player_id, s.snapshot_at DESC
         """,
         a=alice,

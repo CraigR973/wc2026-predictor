@@ -1,6 +1,14 @@
+/**
+ * ScoringGuide — collapsible quick-reference on the Predictions page.
+ *
+ * All scoring data (rows, worked examples, specials) is sourced from the
+ * shared scoringData module so it stays in sync with AboutPage.
+ */
+
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MATCH_SCORING_ROWS, WORKED_EXAMPLES } from '@/lib/scoringData';
 
 const STORAGE_KEY = 'sss_scoring_guide_open';
 
@@ -11,15 +19,6 @@ function getInitialOpen(): boolean {
 function persistOpen(open: boolean): void {
   try { localStorage.setItem(STORAGE_KEY, String(open)); } catch { /* ignore */ }
 }
-
-interface Row { label: string; note: string; pts: string; accent?: boolean }
-
-const ROWS: Row[] = [
-  { label: 'Correct combined goals', note: 'e.g. 2–1 vs 3–0: both = 3 goals', pts: '2' },
-  { label: 'Correct result',         note: 'Win / Draw / Loss',                pts: '3' },
-  { label: 'Exact scoreline',        note: 'Both goals right',                  pts: '5' },
-  { label: 'Maximum per match',      note: 'All three stack',                   pts: '10', accent: true },
-];
 
 /**
  * Collapsible scoring quick-reference for the Predictions page.
@@ -73,19 +72,19 @@ export function ScoringGuide() {
           </div>
 
           {/* Scoring table */}
-          <table className="w-full text-xs font-sans border-collapse px-1 mb-1">
+          <table className="w-full text-xs font-sans border-collapse px-1 mb-1" aria-label="Scoring criteria">
             <thead>
               <tr className="border-t border-b border-border">
-                <th className="text-left py-1.5 pl-4 text-text-muted font-medium uppercase tracking-wider text-[10px]">
+                <th scope="col" className="text-left py-1.5 pl-4 text-text-muted font-medium uppercase tracking-wider text-[10px]">
                   Criteria
                 </th>
-                <th className="text-right py-1.5 pr-4 text-text-muted font-medium uppercase tracking-wider text-[10px] w-12">
+                <th scope="col" className="text-right py-1.5 pr-4 text-text-muted font-medium uppercase tracking-wider text-[10px] w-12">
                   Pts
                 </th>
               </tr>
             </thead>
             <tbody>
-              {ROWS.map((r) => (
+              {MATCH_SCORING_ROWS.map((r) => (
                 <tr
                   key={r.label}
                   className={cn(
@@ -115,6 +114,54 @@ export function ScoringGuide() {
               ))}
             </tbody>
           </table>
+
+          {/* Worked examples */}
+          <div className="px-4 pb-4 mt-3">
+            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-text-muted mb-2">
+              Worked examples
+            </p>
+            <table className="w-full text-xs font-sans border-collapse" aria-label="Scoring worked examples">
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className="text-left py-1 text-text-muted font-medium uppercase tracking-wider text-[10px]">You</th>
+                  <th scope="col" className="text-left py-1 px-2 text-text-muted font-medium uppercase tracking-wider text-[10px]">Actual</th>
+                  <th scope="col" className="text-left py-1 text-text-muted font-medium uppercase tracking-wider text-[10px]">Breakdown</th>
+                  <th scope="col" className="text-right py-1 text-text-muted font-medium uppercase tracking-wider text-[10px] w-12">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {WORKED_EXAMPLES.map((ex) => (
+                  <tr
+                    key={ex.total}
+                    className={cn(
+                      'border-b border-border/30',
+                      ex.total === 10 && 'bg-accent/5',
+                      ex.total === 0 && 'opacity-60',
+                    )}
+                  >
+                    <td className="py-1.5 font-mono text-text-primary">{ex.predicted}</td>
+                    <td className="py-1.5 px-2 font-mono text-text-primary">{ex.actual}</td>
+                    <td className="py-1.5 text-text-muted text-[11px] leading-snug">{ex.breakdown}</td>
+                    <td className="py-1.5 text-right">
+                      <span
+                        className={cn(
+                          'inline-block px-1.5 py-0.5 rounded-full font-mono font-semibold text-[11px] leading-4',
+                          ex.total === 10
+                            ? 'bg-accent/15 text-accent'
+                            : ex.total === 0
+                              ? 'bg-border text-text-muted'
+                              : 'bg-primary/15 text-primary',
+                        )}
+                        data-example-total={ex.total}
+                      >
+                        {ex.total}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

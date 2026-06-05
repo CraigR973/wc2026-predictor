@@ -202,6 +202,7 @@ class HomeTodoBlock(BaseModel):
 
 class RollupMatch(BaseModel):
     match_id: str
+    kickoff_utc: str
     home_label: str
     away_label: str
     home_flag: str | None
@@ -415,6 +416,7 @@ async def me_home(
             rollup_matches.append(
                 RollupMatch(
                     match_id=str(match.id),
+                    kickoff_utc=match.kickoff_utc.isoformat() + "Z",
                     home_label=home_label,
                     away_label=away_label,
                     home_flag=ht.flag_emoji if ht else None,

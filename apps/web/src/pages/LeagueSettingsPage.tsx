@@ -74,7 +74,7 @@ export function LeagueSettingsPage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      <PageHeader title="League Settings" />
+      <PageHeader title="League Settings" back={{ to: `/leagues/${slug}`, label: 'Back' }} />
 
       <Card>
         <CardHeader>

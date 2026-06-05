@@ -35,15 +35,13 @@ export function BrowserOnboarding() {
         <div className="rounded-xl border border-border bg-surface px-5 py-5 space-y-3">
           <p className="text-base font-sans font-semibold text-text-primary">About</p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            The Steele Spreadsheet System is a private World Cup 2026 prediction league.
+            Calcio is a private World Cup 2026 prediction league.
             Pick scores match by match as the tournament unfolds — no bracket to fill in
             upfront, just predict each game before kick-off.
           </p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            Previously administered with great distinction by Company CEO Lewis Steele via
-            a spreadsheet of legendary proportions, the league has entered a bold new era
-            in official partnership with tech sponsor Robinson's Fruit Juice, who have put
-            together this app.
+            Previously run from a spreadsheet of legendary proportions, Calcio is the
+            official upgrade.
           </p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
             One important note: go to{' '}

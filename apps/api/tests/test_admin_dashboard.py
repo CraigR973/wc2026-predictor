@@ -29,6 +29,7 @@ def _now() -> datetime:
 
 def _make_admin() -> Profile:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "Admin"
     p.role = PlayerRole.admin
@@ -39,6 +40,7 @@ def _make_admin() -> Profile:
 
 def _make_player(deleted: bool = False) -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.deleted_at = _now() if deleted else None
     return p

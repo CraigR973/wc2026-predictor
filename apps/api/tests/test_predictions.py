@@ -29,6 +29,7 @@ def _now() -> datetime:
 
 def _make_player(player_id: uuid.UUID | None = None) -> Profile:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = player_id or uuid.uuid4()
     p.display_name = "TestPlayer"
     p.role = PlayerRole.player
@@ -337,7 +338,10 @@ async def test_my_predictions_breakdown_round_trips() -> None:
 @pytest.mark.asyncio
 async def test_match_predictions_post_lock() -> None:
     player = _make_player()
-    match = _make_match(MatchStatus.locked)
+    # A locked match has, by definition, already kicked off (the scheduler only
+    # flips status→locked once kickoff_utc has passed). The shared reveal gate
+    # keys on kickoff, so the fixture must reflect a past kickoff.
+    match = _make_match(MatchStatus.locked, kickoff_utc=_now() - timedelta(minutes=5))
     pred = _make_prediction(player.id, match.id)
     profile = _make_player(player.id)
     db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])

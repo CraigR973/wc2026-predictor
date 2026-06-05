@@ -62,12 +62,76 @@ const RECENT_PREDS = [
   },
 ];
 
+// U24 reveal-gated board. Default fixture: everything revealed (locked).
+const PROFILE_PREDS: Record<string, unknown> = {
+  specials_revealed: true,
+  group: [
+    {
+      match_id: 'g1',
+      stage: 'group',
+      kickoff_utc: '2026-06-14T18:00:00Z',
+      home_team_name: 'Argentina',
+      away_team_name: 'Mexico',
+      home_team_flag: '🇦🇷',
+      away_team_flag: '🇲🇽',
+      actual_home: null,
+      actual_away: null,
+      predicted_home: 3,
+      predicted_away: 0,
+      points_awarded: null,
+      points_breakdown: null,
+    },
+  ],
+  knockout: [
+    {
+      match_id: 'k1',
+      // Use a stage not asserted elsewhere (best=group, worst=r16) to avoid
+      // STAGE_LABEL collisions in the broader page tests.
+      stage: 'qf',
+      kickoff_utc: '2026-07-01T18:00:00Z',
+      home_team_name: 'France',
+      away_team_name: 'Spain',
+      home_team_flag: '🇫🇷',
+      away_team_flag: '🇪🇸',
+      predicted_winner_id: 'team-france',
+      predicted_winner_name: 'France',
+      points_awarded: 4,
+    },
+  ],
+  specials: [
+    {
+      prediction_type: 'tournament_winner',
+      // Distinct team name (recent preds already render Brazil/Germany) so the
+      // recent-predictions test's getByText(/Brazil/) stays unambiguous.
+      predicted_team_id: 'team-portugal',
+      predicted_team_name: 'Portugal',
+      predicted_player_name: null,
+      points_awarded: null,
+    },
+  ],
+};
+
+// Specials still hidden (tournament not started) and nothing else revealed.
+const PROFILE_PREDS_HIDDEN: Record<string, unknown> = {
+  specials_revealed: false,
+  group: [],
+  knockout: [],
+  specials: [],
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeFetch(targetId: string = PLAYER_ID) {
+function makeFetch(
+  targetId: string = PLAYER_ID,
+  profilePreds: Record<string, unknown> = PROFILE_PREDS,
+) {
   return vi.fn((url: string) => {
+    // Order matters: the profile-predictions path also contains "/predictions".
+    if (url.includes('/profile-predictions')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(profilePreds) });
+    }
     if (url.includes(`/api/v1/stats/${targetId}`)) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(STATS) });
     }
@@ -87,7 +151,11 @@ function makeQueryClient() {
 
 const FAKE_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwMSIsImV4cCI6OTk5OTk5OTk5OX0.fake';
 
-function renderPage(playerId: string = PLAYER_ID, currentUserId: string = MY_ID) {
+function renderPage(
+  playerId: string = PLAYER_ID,
+  currentUserId: string = MY_ID,
+  profilePreds: Record<string, unknown> = PROFILE_PREDS,
+) {
   const storedPlayer = JSON.stringify({
     id: currentUserId,
     displayName: 'Alice',
@@ -106,7 +174,7 @@ function renderPage(playerId: string = PLAYER_ID, currentUserId: string = MY_ID)
     clear: vi.fn(),
   });
 
-  vi.stubGlobal('fetch', makeFetch(playerId));
+  vi.stubGlobal('fetch', makeFetch(playerId, profilePreds));
 
   return render(
     <QueryClientProvider client={makeQueryClient()}>
@@ -203,5 +271,45 @@ describe('PlayerProfilePage', () => {
     await waitFor(() => {
       expect(screen.getByText('Leagues')).toBeInTheDocument();
     });
+  });
+
+  // U24 — reveal-gated sections
+  it('renders the locked group predictions section', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Group Predictions')).toBeInTheDocument();
+      expect(screen.getByText(/Argentina/)).toBeInTheDocument();
+      expect(screen.getByText(/Mexico/)).toBeInTheDocument();
+    });
+  });
+
+  it('renders the knockout predictions section with the backed winner', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Knockout Predictions')).toBeInTheDocument();
+      // France appears as both a team in the tie and the picked winner
+      expect(screen.getAllByText(/France/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/Spain/)).toBeInTheDocument();
+    });
+  });
+
+  it('renders the special predictions section once revealed', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Special Predictions')).toBeInTheDocument();
+      expect(screen.getByText('Tournament Winner')).toBeInTheDocument();
+    });
+  });
+
+  it('hides the specials section when not yet revealed', async () => {
+    renderPage(PLAYER_ID, MY_ID, PROFILE_PREDS_HIDDEN);
+    await waitFor(() => {
+      // stats still load, so the page is rendered…
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Bob');
+    });
+    // …but none of the reveal-gated sections appear
+    expect(screen.queryByText('Special Predictions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Group Predictions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Knockout Predictions')).not.toBeInTheDocument();
   });
 });

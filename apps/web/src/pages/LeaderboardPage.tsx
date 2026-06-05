@@ -8,11 +8,12 @@ import type { LeaderboardEntry } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useLongPress } from '../hooks/useLongPress';
-import { dedupedLeaderboard } from '../lib/leaderboard';
+import { dedupedLeaderboard, rankByPeriod, type LeaderboardPeriod } from '../lib/leaderboard';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { Avatar } from '../components/ui/avatar';
 import { cn } from '../lib/utils';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -83,6 +84,8 @@ function ArrowGlyph({
 
 interface RowProps {
   entry: LeaderboardEntry;
+  displayPoints: number;
+  showArrow: boolean;
   prevRank: number | undefined;
   isOpen: boolean;
   isMe: boolean;
@@ -94,6 +97,8 @@ interface RowProps {
 
 function LeaderboardRow({
   entry,
+  displayPoints,
+  showArrow,
   prevRank,
   isOpen,
   isMe,
@@ -123,10 +128,13 @@ function LeaderboardRow({
         </span>
       </td>
       <td className="py-3.5 min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="shrink-0">
-            <ArrowGlyph rank={rd} shouldPulse={shouldPulse} reduceMotion={reduceMotion} />
-          </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Avatar name={entry.player_name} size="sm" src={entry.avatar_url} className="shrink-0" />
+          {showArrow && (
+            <span className="shrink-0">
+              <ArrowGlyph rank={rd} shouldPulse={shouldPulse} reduceMotion={reduceMotion} />
+            </span>
+          )}
           <Link
             to={`/players/${entry.player_id}`}
             className={cn(
@@ -146,7 +154,7 @@ function LeaderboardRow({
         </div>
       </td>
       <td className="py-3.5 text-right pr-2 font-mono text-base font-semibold text-primary tabular-nums w-14">
-        {entry.total_points}
+        {displayPoints}
       </td>
       <td className="py-3.5 pr-4 sm:pr-5 text-right w-8">
         <ChevronDown
@@ -193,6 +201,52 @@ function SubNav({ slug }: { slug: string }) {
   );
 }
 
+const PERIOD_LABELS: Record<LeaderboardPeriod, string> = {
+  today: 'Today',
+  round: 'Round',
+  total: 'Total',
+};
+
+function periodPoints(entry: LeaderboardEntry, period: LeaderboardPeriod): number {
+  if (period === 'today') return entry.today_points;
+  if (period === 'round') return entry.round_points;
+  return entry.total_points;
+}
+
+function PeriodToggle({
+  period,
+  onChange,
+}: {
+  period: LeaderboardPeriod;
+  onChange: (p: LeaderboardPeriod) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Points period"
+      className="mb-4 inline-flex rounded-full border border-border bg-surface p-0.5 text-xs font-medium font-sans"
+    >
+      {(['today', 'round', 'total'] as const).map((p) => (
+        <button
+          key={p}
+          type="button"
+          role="tab"
+          aria-selected={period === p}
+          onClick={() => onChange(p)}
+          className={cn(
+            'px-3.5 py-1 rounded-full transition-colors press-down focus-visible:outline-none focus-visible:shadow-glow',
+            period === p
+              ? 'bg-primary/15 text-primary'
+              : 'text-text-secondary hover:text-text-primary',
+          )}
+        >
+          {PERIOD_LABELS[p]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function LeaderboardPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -208,6 +262,8 @@ export function LeaderboardPage() {
   // U5.3: player IDs whose rank just changed — held for ~260 ms so the
   // arrow has time to play its pulse. Empty on initial mount.
   const [pulsingIds, setPulsingIds] = useState<ReadonlySet<string>>(() => new Set());
+  // U22.3: which points period the rows show. 'total' is the default standings.
+  const [period, setPeriod] = useState<LeaderboardPeriod>('total');
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard', leagueSlug],
@@ -216,19 +272,24 @@ export function LeaderboardPage() {
     staleTime: 15_000,
   });
 
-  const displayData = dedupedLeaderboard(data, leagueSlug);
+  // `ranked` is the canonical total-order standings — it drives the rank-change
+  // pulse so toggling period never pulses. `displayData` is what we render,
+  // re-sorted for the active period (idempotent for 'total').
+  const ranked = dedupedLeaderboard(data, leagueSlug);
+  const displayData = rankByPeriod(ranked, period);
+  const showArrow = period === 'total';
 
   useEffect(() => {
-    if (displayData.length === 0) return;
+    if (ranked.length === 0) return;
     const prev = prevDataRef.current;
-    prevDataRef.current = displayData;
+    prevDataRef.current = ranked;
 
     // First render with data — never pulse. Just seed the ref.
     if (prev.length === 0) return;
 
     const prevByPlayer = Object.fromEntries(prev.map((e) => [e.player_id, e.rank]));
     const changed = new Set<string>();
-    for (const e of displayData) {
+    for (const e of ranked) {
       const pr = prevByPlayer[e.player_id];
       if (pr !== undefined && pr !== e.rank) changed.add(e.player_id);
     }
@@ -237,7 +298,7 @@ export function LeaderboardPage() {
     setPulsingIds(changed);
     const id = setTimeout(() => setPulsingIds(new Set()), 260);
     return () => clearTimeout(id);
-  }, [displayData]);
+  }, [ranked]);
 
   useEffect(() => {
     const channel = supabase
@@ -360,13 +421,15 @@ export function LeaderboardPage() {
           description="The leaderboard fills in as match results are confirmed. Check back after the first kickoff!"
         />
       ) : (
-        <div className="rounded-lg border border-border bg-surface overflow-hidden">
+        <>
+          <PeriodToggle period={period} onChange={setPeriod} />
+          <div className="rounded-lg border border-border bg-surface overflow-hidden">
           <table className="w-full text-sm font-sans">
             <thead>
               <tr className="border-b border-border text-text-muted text-[10px] font-mono uppercase tracking-[0.2em]">
                 <th className="py-2.5 pl-4 sm:pl-5 text-left w-10">#</th>
                 <th className="py-2.5 text-left">Player</th>
-                <th className="py-2.5 text-right pr-2 w-16">Pts</th>
+                <th className="py-2.5 text-right pr-2 w-16">{PERIOD_LABELS[period]}</th>
                 <th className="py-2.5 pr-4 sm:pr-5 w-8"></th>
               </tr>
             </thead>
@@ -378,11 +441,13 @@ export function LeaderboardPage() {
                   <Fragment key={entry.player_id}>
                     <LeaderboardRow
                       entry={entry}
-                      prevRank={prevByPlayer[entry.player_id]}
+                      displayPoints={periodPoints(entry, period)}
+                      showArrow={showArrow}
+                      prevRank={showArrow ? prevByPlayer[entry.player_id] : undefined}
                       isOpen={isOpen}
                       isMe={isMe}
                       reduceMotion={reduceMotion}
-                      shouldPulse={pulsingIds.has(entry.player_id)}
+                      shouldPulse={showArrow && pulsingIds.has(entry.player_id)}
                       onToggle={() => toggleExpand(entry.player_id)}
                       onLongPress={() => openCompare(entry.player_id)}
                     />
@@ -417,6 +482,12 @@ export function LeaderboardPage() {
                                 </span>
                               </span>
                             </div>
+                            <div className="mt-1.5 text-xs font-sans text-text-muted">
+                              Last match{' '}
+                              <span className="text-text-secondary font-mono font-medium tabular-nums">
+                                {entry.last_match_points}
+                              </span>
+                            </div>
                           </td>
                         </motion.tr>
                       )}
@@ -426,7 +497,8 @@ export function LeaderboardPage() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

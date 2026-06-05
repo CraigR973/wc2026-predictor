@@ -66,6 +66,17 @@ vi.mock('@/hooks/useInstallPrompt', () => ({
   }),
 }));
 
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: () => ({
+        upload: vi.fn().mockResolvedValue({ error: null }),
+        getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://example.supabase.co/avatars/x.jpg' } }),
+      }),
+    },
+  },
+}));
+
 beforeEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();

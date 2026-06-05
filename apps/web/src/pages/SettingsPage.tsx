@@ -1,15 +1,18 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info } from 'lucide-react';
+import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info, Camera, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import { Skeleton } from '../components/ui/skeleton';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
+import { Avatar } from '../components/ui/avatar';
+import { supabase } from '../lib/supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -343,12 +346,182 @@ function AppearanceSection() {
   );
 }
 
+// ── Avatar section ────────────────────────────────────────────────────────────
+
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+const TARGET_SIZE = 512; // resize to at most 512×512 px
+
+/** Resize the file to a square ≤512px JPEG blob via OffscreenCanvas / canvas. */
+async function resizeToSquare(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const side = Math.min(bitmap.width, bitmap.height, TARGET_SIZE);
+
+  // Crop to a centred square first, then scale.
+  const srcX = (bitmap.width - Math.min(bitmap.width, bitmap.height)) / 2;
+  const srcY = (bitmap.height - Math.min(bitmap.width, bitmap.height)) / 2;
+  const srcSize = Math.min(bitmap.width, bitmap.height);
+
+  let canvas: OffscreenCanvas | HTMLCanvasElement;
+  let ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    canvas = new OffscreenCanvas(side, side);
+    ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null;
+  } else {
+    canvas = document.createElement('canvas');
+    canvas.width = side;
+    canvas.height = side;
+    ctx = (canvas as HTMLCanvasElement).getContext('2d');
+  }
+  if (!ctx) throw new Error('Canvas context unavailable');
+  ctx.drawImage(bitmap, srcX, srcY, srcSize, srcSize, 0, 0, side, side);
+
+  if ('convertToBlob' in canvas) {
+    return (canvas as OffscreenCanvas).convertToBlob({ type: 'image/jpeg', quality: 0.88 });
+  }
+  return new Promise<Blob>((resolve, reject) =>
+    (canvas as HTMLCanvasElement).toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+      'image/jpeg',
+      0.88,
+    ),
+  );
+}
+
+function AvatarSection() {
+  const { player, updatePlayer } = useAuth();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!fileRef.current) return;
+      fileRef.current.value = '';
+
+      if (!file) return;
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.error('Only JPEG, PNG, WebP, or GIF files are supported');
+        return;
+      }
+      if (file.size > MAX_BYTES * 3) {
+        // Rough guard before resize — resized output will be ≤ 2 MB.
+        toast.error('File too large. Please choose an image under 6 MB.');
+        return;
+      }
+
+      setUploading(true);
+      try {
+        const blob = await resizeToSquare(file);
+        if (blob.size > MAX_BYTES) {
+          toast.error('Resized image still exceeds 2 MB. Please choose a smaller photo.');
+          return;
+        }
+
+        if (!player) throw new Error('Not signed in');
+
+        const path = `${player.id}/${Date.now()}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        const publicUrl = urlData.publicUrl;
+
+        // Persist to profile via backend
+        await apiFetch('/api/v1/auth/me/avatar', {
+          method: 'PATCH',
+          body: JSON.stringify({ avatar_url: publicUrl }),
+        });
+
+        updatePlayer({ avatarUrl: publicUrl });
+        toast.success('Avatar updated');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Upload failed');
+      } finally {
+        setUploading(false);
+      }
+    },
+    [player, updatePlayer],
+  );
+
+  const handleRemove = useCallback(async () => {
+    if (!player) return;
+    setUploading(true);
+    try {
+      await apiFetch('/api/v1/auth/me/avatar', {
+        method: 'PATCH',
+        body: JSON.stringify({ avatar_url: null }),
+      });
+      updatePlayer({ avatarUrl: null });
+      toast.success('Avatar removed');
+    } catch {
+      toast.error('Failed to remove avatar');
+    } finally {
+      setUploading(false);
+    }
+  }, [player, updatePlayer]);
+
+  if (!player) return null;
+
+  return (
+    <div className="flex items-center gap-4">
+      <Avatar name={player.displayName} size="lg" src={player.avatarUrl} />
+
+      <div className="flex flex-col gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          accept={ALLOWED_TYPES.join(',')}
+          className="sr-only"
+          aria-label="Upload avatar photo"
+          onChange={handleFileChange}
+        />
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => fileRef.current?.click()}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-sans border border-border hover:bg-surface-elevated disabled:opacity-50 transition-colors"
+          aria-label={player.avatarUrl ? 'Replace avatar photo' : 'Upload avatar photo'}
+        >
+          <Camera size={14} aria-hidden />
+          {uploading ? 'Uploading…' : player.avatarUrl ? 'Replace photo' : 'Upload photo'}
+        </button>
+
+        {player.avatarUrl && (
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={handleRemove}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-sans text-error border border-error/30 hover:bg-error/10 disabled:opacity-50 transition-colors"
+            aria-label="Remove avatar photo"
+          >
+            <Trash2 size={14} aria-hidden />
+            Remove photo
+          </button>
+        )}
+
+        <p className="text-[11px] text-text-muted font-sans leading-tight">
+          JPEG, PNG, WebP or GIF · cropped to square · max 2 MB
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
   return (
     <div className="max-w-xl space-y-6">
       <PageHeader title="Settings" eyebrow="Account & device" />
+
+      <SectionCard title="Profile Photo">
+        <AvatarSection />
+      </SectionCard>
 
       <SectionCard title="Appearance">
         <AppearanceSection />

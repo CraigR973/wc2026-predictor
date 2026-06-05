@@ -38,6 +38,7 @@ def _session_with(execute_results: list[object]) -> AsyncMock:
 
 def _existing(display_name: str, role: PlayerRole = PlayerRole.player) -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = display_name
     p.role = role

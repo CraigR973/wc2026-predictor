@@ -17,6 +17,7 @@ from src.models.match import Match, MatchStatus
 from src.models.prediction import Prediction
 from src.models.profile import Profile
 from src.rate_limit import limiter, per_player_key
+from src.reveal_gate import match_prediction_revealed
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -179,7 +180,10 @@ async def match_predictions(
 ) -> MatchPredictionsResponse:
     match = await _get_match_or_404(match_id, db)
 
-    if match.status == MatchStatus.scheduled:
+    # Shared reveal gate (U24): a group prediction is visible only once its match
+    # has locked (kicked off, or been voided by an admin). One rule for every
+    # surface so the write-lock and reveal gate cannot drift (privacy invariant).
+    if not match_prediction_revealed(match, _now()):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Predictions are hidden until the match is locked",

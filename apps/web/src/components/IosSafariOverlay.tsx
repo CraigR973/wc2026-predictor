@@ -37,7 +37,7 @@ export function IosSafariOverlay() {
             Install the app first
           </h2>
           <p className="text-sm text-text-secondary font-sans mb-6 leading-relaxed">
-            The Steele Spreadsheet System needs to be added to your home screen before you can use it. Follow these three steps:
+            Calcio needs to be added to your home screen before you can use it. Follow these three steps:
           </p>
 
           {/* Steps */}

@@ -60,7 +60,7 @@ export function PageHeader({ title, eyebrow, showBack, back, action, className }
               <div className="border-t border-accent/30 mb-2" aria-hidden />
             </>
           )}
-          <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight font-sans leading-tight">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight font-sans leading-tight truncate">
             {title}
           </h1>
         </div>

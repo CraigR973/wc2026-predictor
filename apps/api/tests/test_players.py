@@ -67,6 +67,7 @@ def _make_profile(
     deleted_at: datetime | None = None,
 ) -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = display_name
     p.role = role

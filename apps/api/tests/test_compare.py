@@ -52,6 +52,7 @@ def _skip_member_check() -> Iterator[None]:
 
 def _profile(pid: uuid.UUID, name: str) -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = pid
     p.display_name = name
     p.deleted_at = None
@@ -114,6 +115,7 @@ def _ko_prediction(
 
 def _requester() -> MagicMock:
     r = MagicMock(spec=Profile)
+    r.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     r.id = uuid.uuid4()
     return r
 

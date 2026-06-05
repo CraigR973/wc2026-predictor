@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -41,6 +42,7 @@ const HOME_WITH_ROLLUP: object = {
     matches: [
       {
         match_id: 'match-1',
+        kickoff_utc: '2026-06-11T18:00:00Z',
         home_label: '🇧🇷 Brazil',
         away_label: '🇲🇽 Mexico',
         home_flag: '🇧🇷',
@@ -53,6 +55,7 @@ const HOME_WITH_ROLLUP: object = {
       },
       {
         match_id: 'match-2',
+        kickoff_utc: '2026-06-11T21:00:00Z',
         home_label: '🇦🇷 Argentina',
         away_label: '🇨🇦 Canada',
         home_flag: '🇦🇷',
@@ -263,31 +266,88 @@ function buildMatch(
     extra_time: false,
     penalties: false,
     postponed_reason: null,
+    elapsed_minutes: null,
   };
 }
 
-describe('DashboardPage — hero match chip', () => {
-  it('shows the live chip when a match is in play', async () => {
+function buildPrediction(matchId: string, ph: number, pa: number) {
+  return {
+    id: `pred-${matchId}`,
+    player_id: 'p1',
+    match_id: matchId,
+    predicted_home: ph,
+    predicted_away: pa,
+    submitted_at: '2026-06-11T00:00:00Z',
+    update_count: 1,
+    points_awarded: null,
+    points_breakdown: null,
+    updated_at: '2026-06-11T00:00:00Z',
+  };
+}
+
+describe('DashboardPage — hero inline slot + live hub (U27)', () => {
+  it('shows the live hub (not a corner chip) when a match is in play', async () => {
     stubAuth();
     const matches = [buildMatch('m1', 'live', -600_000, { hs: 1, as: 0 })];
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByTestId('hero-chip-live')).toBeTruthy());
-    expect(screen.getByTestId('hero-chip-live').textContent).toMatch(/1.0/); // "1–0"
+    await waitFor(() => expect(screen.queryByTestId('live-hub')).toBeTruthy());
+    expect(screen.getByText('Live now')).toBeTruthy();
+    expect(screen.getByTestId('live-match-card').textContent).toMatch(/1.0/); // "1–0"
+    // The old live corner chip is gone (U27.1).
+    expect(screen.queryByTestId('hero-chip-live')).toBeFalsy();
   });
 
-  it('shows the next-match chip with a countdown when nothing is live', async () => {
+  it('computes provisional "points if this stands" via the shared scoring logic', async () => {
+    stubAuth();
+    const matches = [buildMatch('m1', 'live', -600_000, { hs: 1, as: 0 })];
+    const predictions = [buildPrediction('m1', 1, 0)]; // exact match → 2+3+5 = 10
+    const Wrapper = makeWrapper(
+      mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches),
+    );
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByTestId('live-match-card')).toBeTruthy());
+    const card = screen.getByTestId('live-match-card');
+    expect(card.textContent).toMatch(/You:/);
+    expect(card.textContent).toMatch(/Points if this stands:/);
+    expect(card.textContent).toMatch(/10/);
+  });
+
+  it('shows "not predicted" and no points row for a live match without a prediction', async () => {
+    stubAuth();
+    const matches = [buildMatch('m1', 'live', -600_000, { hs: 2, as: 2 })];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByTestId('live-match-card')).toBeTruthy());
+    const card = screen.getByTestId('live-match-card');
+    expect(card.textContent).toMatch(/not predicted/);
+    expect(card.textContent).not.toMatch(/Points if this stands/);
+  });
+
+  it('renders one card per live match (responsive multi-card hub)', async () => {
+    stubAuth();
+    const matches = [
+      buildMatch('m1', 'live', -600_000, { hs: 1, as: 0 }),
+      buildMatch('m2', 'live', -300_000, { hs: 0, as: 0 }),
+    ];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryAllByTestId('live-match-card').length).toBe(2));
+  });
+
+  it('shows the inline next slot with a countdown when nothing is live', async () => {
     stubAuth();
     const matches = [buildMatch('m1', 'scheduled', 1_800_000)];
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByTestId('hero-chip-next')).toBeTruthy());
-    const chip = screen.getByTestId('hero-chip-next');
-    expect(chip.textContent).toMatch(/ESP/);
-    expect(chip.textContent).toMatch(/in /);
+    const slot = screen.getByTestId('hero-chip-next');
+    expect(slot.textContent).toMatch(/ESP/);
+    expect(slot.textContent).toMatch(/in /);
+    expect(screen.queryByTestId('live-hub')).toBeFalsy();
   });
 
-  it('falls back to the last result when nothing is live or upcoming', async () => {
+  it('falls back to the last result inline when nothing is live or upcoming', async () => {
     stubAuth();
     const matches = [buildMatch('m1', 'completed', -3_600_000, { hs: 2, as: 1 })];
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
@@ -296,7 +356,7 @@ describe('DashboardPage — hero match chip', () => {
     expect(screen.getByTestId('hero-chip-last').textContent).toMatch(/2.1/); // "2–1"
   });
 
-  it('prioritises live over upcoming and completed', async () => {
+  it('shows the live hub AND the inline next slot together (live no longer suppresses next)', async () => {
     stubAuth();
     const matches = [
       buildMatch('m1', 'completed', -3_600_000, { hs: 2, as: 1 }),
@@ -305,17 +365,18 @@ describe('DashboardPage — hero match chip', () => {
     ];
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByTestId('hero-chip-live')).toBeTruthy());
-    expect(screen.queryByTestId('hero-chip-next')).toBeFalsy();
+    await waitFor(() => expect(screen.queryByTestId('live-hub')).toBeTruthy());
+    // Inline slot prefers the upcoming match; the completed one is suppressed.
+    expect(screen.queryByTestId('hero-chip-next')).toBeTruthy();
     expect(screen.queryByTestId('hero-chip-last')).toBeFalsy();
   });
 
-  it('shows no chip when there are no group matches', async () => {
+  it('shows no inline slot and no live hub when there are no group matches', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], []));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText(/\+10 pts/)).toBeTruthy());
-    expect(screen.queryByTestId('hero-chip-live')).toBeFalsy();
+    expect(screen.queryByTestId('live-hub')).toBeFalsy();
     expect(screen.queryByTestId('hero-chip-next')).toBeFalsy();
     expect(screen.queryByTestId('hero-chip-last')).toBeFalsy();
   });
@@ -441,18 +502,31 @@ describe('DashboardPage — results roll-up (in hero)', () => {
     expect(screen.queryByText(/Argentina/)).toBeTruthy();
   });
 
-  it('shows the league movement impact line when rollup is expanded', async () => {
+  it('shows daily-summary league movement always-visible, without tapping (U27.3)', async () => {
     stubAuth();
     const Wrapper = makeWrapper(mockFetch(SUMMARY_TWO_LEAGUES, HOME_WITH_ROLLUP));
     render(<Wrapper />);
-    await waitFor(() => expect(screen.queryByText(/\+10/)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/\+10 pts/)).toBeTruthy());
 
-    const expandBtn = screen.getByRole('button', { name: /Latest Results/i });
-    fireEvent.click(expandBtn);
+    // Movement is rendered without expanding the rollup.
+    const movement = screen.getByTestId('daily-movement');
+    expect(movement.textContent).toMatch(/↑2 The Steele Spreadsheet/);
+    expect(movement.textContent).toMatch(/↓1 Office Pool/);
+  });
 
-    await waitFor(() =>
-      expect(screen.queryAllByText(/↑2 The Steele Spreadsheet/).length).toBeGreaterThan(0),
-    );
+  it('expanded rows show prominent score, a prediction pill, and kickoff date/time (U27.4)', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP));
+    render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByText(/\+10 pts/)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Latest Results/i }));
+
+    await waitFor(() => expect(screen.queryByText(/Brazil/)).toBeTruthy());
+    // Prediction rendered as a distinct "you 2–1" pill (match-1).
+    expect(screen.queryByText(/you 2.1/)).toBeTruthy();
+    // Kickoff date/time from kickoff_utc (U27.B2) — matches kick off 11 Jun.
+    expect(screen.queryAllByText(/11 Jun/).length).toBeGreaterThan(0);
   });
 });
 
@@ -620,6 +694,30 @@ describe('DashboardPage — Pre-tournament checklist', () => {
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText(/Your tally starts/)).toBeTruthy());
     expect(screen.queryByText('Pre-Tournament Checklist')).toBeFalsy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// U27.7 — Accessibility (live hub + hero)
+// ---------------------------------------------------------------------------
+
+describe('DashboardPage — accessibility (U27)', () => {
+  it('has no axe violations with the live hub, inline slot and daily summary rendered', async () => {
+    stubAuth();
+    const matches = [
+      buildMatch('m1', 'live', -600_000, { hs: 1, as: 0 }),
+      buildMatch('m2', 'scheduled', 1_800_000),
+    ];
+    const predictions = [buildPrediction('m1', 1, 0)];
+    const Wrapper = makeWrapper(
+      mockFetch(SUMMARY_TWO_LEAGUES, HOME_WITH_ROLLUP, predictions, matches),
+    );
+    const { container } = render(<Wrapper />);
+    await waitFor(() => expect(screen.queryByTestId('live-hub')).toBeTruthy());
+    // jsdom cannot evaluate CSS custom properties, so colour-contrast is off;
+    // every other axe rule runs at full severity.
+    const results = await axe(container, { rules: { 'color-contrast': { enabled: false } } });
+    expect(results).toHaveNoViolations();
   });
 });
 

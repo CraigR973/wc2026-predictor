@@ -32,6 +32,7 @@ def _now() -> datetime:
 
 def _player() -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "HomePlayer"
     return p
@@ -388,6 +389,7 @@ async def test_home_rollup_match_details() -> None:
     data = await _call_home(db)
 
     rm = data["rollup"]["matches"][0]
+    assert rm["kickoff_utc"] == "2026-06-02T15:00:00Z"  # U27.B2
     assert rm["actual_home"] == 3
     assert rm["actual_away"] == 1
     assert rm["predicted_home"] == 3

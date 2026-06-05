@@ -1069,6 +1069,7 @@ per batch (`feat/premium-polish-10` for U18, next free number if taken), ff-merg
 |---|---|---|---|---|
 | ~~U18~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U18.1–U18.6~~ | ✅ Shipped 2026-06-03 |
 | ~~U19~~ | ~~🔴 Opus~~ | ~~~5 h~~ | ~~U19.1–U19.5~~ | ✅ Shipped 2026-06-03 |
+| ~~U20~~ | ~~🔴 Opus~~ | ~~~5 h~~ | ~~U20.1–U20.8~~ | ✅ Shipped 2026-06-04 |
 
 ---
 
@@ -1177,10 +1178,10 @@ Mark batches complete by striking through the row.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U21 | 🟢 Sonnet | ~3.5 h | U21.1–U21.5 | Not started |
-| U22 | 🔴 Opus | ~3.5 h | U22.1–U22.3 | Not started |
-| U23 | 🟢 Sonnet | ~3.5 h | U23.1–U23.3 | Not started |
-| U24 | 🔴 Opus | ~3 h | U24.1–U24.4 | Not started |
+| ~~U21~~ | ~~🟢 Sonnet~~ | ~~~3.5 h~~ | ~~U21.1–U21.5~~ | ✅ Shipped 2026-06-04 |
+| ~~U22~~ | ~~🔴 Opus~~ | ~~~3.5 h~~ | ~~U22.1–U22.3~~ | ✅ Shipped 2026-06-04 |
+| ~~U23~~ | ~~🟢 Sonnet~~ | ~~~3.5 h~~ | ~~U23.1–U23.3~~ | ✅ Shipped 2026-06-05 |
+| ~~U24~~ | ~~🔴 Opus~~ | ~~~3 h~~ | ~~U24.1–U24.4~~ | ✅ Shipped 2026-06-05 |
 
 **Dependencies:** U21 and U23 are independent. **U24 depends on U22** — the per-match
 knockout lock from U22.1 defines when knockout predictions become visible in U24's profile
@@ -1360,7 +1361,7 @@ The app was previously named "The Steele Spreadsheet System" (SSS). The new name
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U25 | 🟢 Sonnet | ~1.5 h | U25.1–U25.5 | Not started |
+| ~~U25~~ | ~~🟢 Sonnet~~ | ~~~1.5 h~~ | ~~U25.1–U25.5~~ | ✅ Shipped 2026-06-05 |
 
 ---
 
@@ -1441,7 +1442,7 @@ Mark complete by striking through the row.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U26 | 🟢 Sonnet | ~3 h | U26.1–U26.2 | Not started |
+| ~~U26~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U26.1–U26.2~~ | ✅ Shipped 2026-06-05 |
 
 **Dependencies:** none — the two items are independent of each other and of U21–U25.
 
@@ -1526,7 +1527,7 @@ rich live/score/points features below live here. 🔴 **Opus**.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U27 | 🔴 Opus | ~5 h | U27.1–U27.7 | Not started |
+| ~~U27~~ | ~~🔴 Opus~~ | ~~~5 h~~ | ~~U27.1–U27.7~~ | ✅ Shipped 2026-06-05 |
 
 **Dependencies:** U27 builds on U20 (home v2). Close out U20 first.
 
@@ -1601,3 +1602,29 @@ rich live/score/points features below live here. 🔴 **Opus**.
 - Backend: `elapsed_minutes` present on MatchResponse; `kickoff_utc` present on
   HomeRollupMatch.
 - Typecheck clean; Vitest 290+ green; axe green; no regressions.
+
+---
+
+# Round 10 — audit follow-up (U28)
+
+Single-item fix surfaced by the post-U27 code audit. 🟢 Sonnet.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~U28~~ | ~~🟢 Sonnet~~ | ~~~15 min~~ | ~~U28.1~~ | ✅ Shipped 2026-06-05 |
+
+---
+
+## U28 — Audit follow-up: UpdateBanner className fix 🟢 Sonnet · ~15 min
+
+- **U28.1** `UpdateBanner.tsx:141` — `"h-4 w-4 shrink-0animate-spin"` fuses two
+  Tailwind utilities into one invalid class (missing space). Fix to
+  `"h-4 w-4 shrink-0 animate-spin"`. Add a Vitest assertion in
+  `UpdateBanner.test.tsx` that the refresh-icon SVG carries `animate-spin`
+  so it can't silently regress.
+
+**Acceptance:**
+- The refresh icon has both `shrink-0` and `animate-spin` as separate classes.
+- `UpdateBanner.test.tsx` asserts the icon carries `animate-spin`.
+- No other UpdateBanner behaviour changes.
+- Frontend tests + typecheck + lint green.

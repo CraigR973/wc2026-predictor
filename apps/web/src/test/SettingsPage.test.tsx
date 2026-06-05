@@ -26,6 +26,19 @@ vi.mock('@/hooks/useInstallPrompt', () => ({
   }),
 }));
 
+// ── Mock Supabase (not used in unit tests; avoids env-var initialisation) ────
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: () => ({
+        upload: vi.fn().mockResolvedValue({ error: null }),
+        getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://example.supabase.co/avatars/x.jpg' } }),
+      }),
+    },
+  },
+}));
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const DEFAULT_PREFS = {
@@ -172,6 +185,56 @@ describe('SettingsPage', () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Install app')).toBeInTheDocument();
+    });
+  });
+
+  it('renders the Profile Photo section', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Profile Photo')).toBeInTheDocument();
+    });
+  });
+
+  it('shows "Upload photo" button when player has no avatar', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /upload avatar photo/i })).toBeInTheDocument();
+    });
+  });
+
+  it('renders "Remove photo" button when player has an avatar', async () => {
+    const storedPlayerWithAvatar = JSON.stringify({
+      id: 'p1',
+      displayName: 'Alice',
+      role: 'player',
+      timezone: 'UTC',
+      avatarUrl: 'https://example.supabase.co/avatars/p1/face.jpg',
+    });
+
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => {
+        if (k === 'wc2026_player') return storedPlayerWithAvatar;
+        if (k === 'wc2026_access') return FAKE_JWT;
+        return null;
+      },
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    });
+    vi.stubGlobal('fetch', makeFetch());
+
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <AuthProvider>
+            <SettingsPage />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /remove avatar photo/i })).toBeInTheDocument();
     });
   });
 });

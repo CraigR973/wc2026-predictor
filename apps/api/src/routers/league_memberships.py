@@ -175,6 +175,7 @@ async def list_members(
             display_name=row[0].display_name_override or row[1].display_name,
             role=row[0].role.value,
             joined_at=row[0].joined_at,
+            avatar_url=row[1].avatar_url,
         )
         for row in result.all()
     ]

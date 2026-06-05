@@ -164,6 +164,7 @@ async def test_join_expired_invite(client: AsyncClient) -> None:
 async def test_join_duplicate_display_name(client: AsyncClient) -> None:
     invite = _make_invite()
     existing = MagicMock(spec=Profile)
+    existing.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     mock_db = _stub_db(
         [
             _scalar(invite),  # invite lookup

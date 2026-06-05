@@ -1583,3 +1583,123 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 **Section headers → real titles (refinement).** `SectionHeader`, the carousel `SECTION_LABEL_CLS`, and the checklist "Get set up" h2 all moved from the 10px uppercase-mono eyebrow to `text-lg font-bold tracking-tight text-text-primary` (sentence case). Verified computed: greeting 24px/700, section titles 18px/700.
 
 **Final home order:** greeting → hero (points + chip + delta) → "Get set up" checklist → "Upcoming" carousel → "Leagues".
+
+---
+
+## Polish batch U20 — Home screen v2
+**Commits:** b846f73 · CI ✅
+
+### Key facts for future sessions
+- Carousel is **scheduled-only** — locked and live both excluded. Live hub deferred to U27. The U19 note "U20 extends to scheduled|locked|live" is now stale.
+- `pickHeroChip()` in `DashboardPage` derives the live→next→last chip from the shared `['matches','group']` query — no extra request.
+- `PreTournamentChecklist` + `lib/checklist.ts` (new); localStorage key `sss_checklist_v1`. `onResolved` prop was drafted and removed in the same session — it is NOT in the final code.
+- Movement deltas: down = `text-live` (red `#EF4444`), up = `text-success` (green) — applied in Leagues rows and hero rollup impact line.
+- `WelcomeCard.tsx` deleted. U27 spec in `docs/polish-batches.md` needs backend fields (`elapsed_minutes` on MatchResponse, `kickoff_utc` on HomeRollupMatch) before it ships.
+
+**Next:** Polish batch U21 — Quick polish 🟢 Sonnet
+
+---
+
+## Polish batch U21 — Quick polish
+**Commits:** b0d564a, 18621c7, 3a33475, 7835229 · CI ✅
+
+### Key facts for future sessions
+- `shortPlaceholder()` in `apps/web/src/lib/matchTeam.ts`: strings ≤6 chars with no spaces pass through unchanged (e.g. "1A", "2B"); "Winner Group A" → "WA"; "Winner of Match 73" → "W73"; "Runner-up Group A" → "RU-A". Tests check short codes, not full placeholder strings.
+- `league_privacy` enum in DB is `public_open` / `public_request` / `private` — not `open`. (Test bug caught by CI.)
+- `join_code` column is `VARCHAR(8)` — test fixture must generate ≤6-char codes.
+- Back buttons added to Members, Settings, Invites, Join Requests league sub-pages (all point to `/leagues/${slug}`). Round leaderboard, history, and compare already had back buttons.
+- `PageHeader` h1 now has `truncate`; LeagueHomePage title side needs `min-w-0 flex-1` wrapper to actually clip.
+- TopBar Sun/Moon toggle calls `useTheme().setMode(resolved === 'dark' ? 'light' : 'dark')` — Settings remains the 3-way source of truth.
+
+**Next:** Polish batch U22 — Knockout per-match lock + temporal leaderboard 🔴 Opus
+
+---
+
+## Polish batch U22 — Knockout per-match lock + temporal leaderboard
+**Commits:** 14bf9be, f054f94 · CI ✅
+
+### Key facts for future sessions
+- Temporal points (`_temporal_points()` in `apps/api/src/routers/leaderboard.py`) are derived per-request, NOT stored; each metric sums scoreline (`Prediction`) + winner (`KnockoutPrediction`) points.
+- "round" = furthest settled stage via the `_STAGE_ORDER` map among matches with `result_entered_at IS NOT NULL` (group = one round); "today" = requester `profiles.timezone` calendar day (`ZoneInfo`, UTC fallback on bad tz) vs naive-UTC `result_entered_at`.
+- Behavior change to an existing surface: `_round_leaderboard` (the "By round" page) now ALSO counts knockout winner points so knockout-stage totals match the new Round metric; group stage unchanged.
+- Knockout write lock AND reveal gate are both per-match `kickoff_utc <= now` now (`_is_round_locked` dropped). U24's profile knockout reveal builds on this gate.
+- Frontend Today/Round/Total toggle re-sorts + re-ranks client-side via `rankBy()` (`apps/web/src/lib/leaderboard.ts`); only Total pulses on rank change. Last-match points render in the expand row.
+- `groups.name` is VARCHAR(1) (groups A–L) — DB-backed test fixtures need single-char group names; truncation only fails in the CI Postgres job.
+
+**Next:** Polish batch U23 — Full-photo avatars 🟢 Sonnet
+
+---
+
+## Polish batch U23 — Full-photo avatars
+**Commits:** 3419bec, 5adb126, 4581c3c · CI ✅
+
+### Key facts for future sessions
+- Migration 023 adds `profiles.avatar_url` + a Supabase Storage `avatars` bucket and RLS policies (public read; owner write via `auth.uid()::text = storage.foldername(name)[1]`). ALL bucket/policy SQL is guarded by `information_schema.schemata WHERE schema_name='storage'`, so it's a NO-OP on plain Postgres (CI/local) and only provisions on Supabase. Downgrade leaves the bucket.
+- Profile API responses now serialize `avatar_url`, so every `MagicMock(spec=Profile)` in tests must set `.avatar_url = None` or Pydantic chokes on the MagicMock default — ~30 test files were updated; new Profile-mock tests must do the same.
+- Client upload (SettingsPage): crop to square, resize ~512px, ~2MB cap, type allow-list; initials `Avatar` (`components/ui/avatar.tsx`) is the fallback when `avatar_url` is null; rendered in TopBar, leaderboard rows, player profile, league members; flows through AuthContext.
+- Shipped with a flake fix: `test_award_specials_snapshot_has_correct_points` now reads the recompute snapshot via `triggered_by_match_id IS NULL` — pre-existing tied-`snapshot_at` flake (both snapshots share one `transaction_timestamp()`), NOT a U23 regression; it just lost the coin-flip on this CI run.
+
+**Next:** Polish batch U24 — Reveal-all gated player profile 🔴 Opus
+
+---
+
+## Polish batch U24 — Reveal-all gated player profile
+**Commits:** 218d1e8 · CI ✅
+
+### Key facts for future sessions
+- New shared reveal gate `apps/api/src/reveal_gate.py` is the single source of truth for "is this prediction visible yet": group reveals at kickoff lock, specials once the tournament has started, knockout per-match kickoff (per U22.1). It's used by the new `GET /api/v1/players/{id}/profile-predictions` endpoint (players.py) and wired into predictions/specials/knockout routers — reuse it for any future reveal surface rather than re-deriving lock rules.
+- Access ordering in profile-predictions is target-exists (404) → shared-league (403) → data fetch; pre-lock sections are simply omitted (never returned).
+- Privacy invariant is now CI-enforced by `apps/api/tests/test_profile_predictions.py` (413-line suite: group+specials+knockout all hidden pre-lock, visible to league-mates post-lock, mixed-lock returns only the locked sections). Keep this green when touching any reveal/lock logic.
+- Frontend `PlayerProfilePage` renders group/specials/knockout sections each independently gated; response shapes in `lib/types.ts`.
+
+**Next:** Polish batch U25 — Rebrand to Calcio 🟢 Sonnet
+
+---
+
+## Polish batch U25 — Rebrand to Calcio
+**Commits:** d28d58f · CI ✅
+
+### Key facts for future sessions
+- Rebrand (SSS/"The Steele Spreadsheet System" → "Calcio") changed user-facing copy ONLY (frontend, 11 files: index.html title/meta, PWA manifest in vite.config, Brand.tsx, tokens, AboutPage, CreateLeaguePage placeholder, invite copy). Backend untouched.
+- Deliberately LEFT as structural identifiers (do NOT assume these are stale brand): `DEFAULT_LEAGUE_SLUG = 'steele-spreadsheet'` and all `sss_*` localStorage keys (`sss_leaderboard_hint_dismissed`, `sss_checklist_v1`, …) — a slug change needs a DB migration + redirect; renaming localStorage keys silently resets every user's saved prefs.
+- `Brand.tsx`: two-line wordmark collapsed to single-line "CALCIO"; `brand.wordmarkBottom` kept (set to `''`) in the token shape so destructuring consumers don't break; the `MarkSvg` letterform was left unchanged.
+- Test fixtures with `slug: 'steele-spreadsheet'` / `name: 'The Steele Spreadsheet'` are structural render fixtures, left as-is; only `invite.test.ts` had real brand-string assertions to update.
+
+**Next:** Polish batch U26 — Clarity & mandatory updates 🟢 Sonnet
+
+---
+
+## Polish batch U26 — Clarity & mandatory updates
+**Commits:** 712dd3d · CI ✅
+
+### Key facts for future sessions
+- Specials reconciled to **6 types / 80 pts / grand total 1,415** (was 3 types / 45 / 1,380 — missing `player_of_tournament`=15, `young_player_of_tournament`=10, `golden_glove`=10). Matches backend `SPECIAL_POINTS` in `apps/api/src/routers/specials.py`; if you change scoring, update `scoringData.ts` to match.
+- New shared scoring module `apps/web/src/lib/scoringData.ts` is the single source for match rows, worked examples (0/2/3/5/10), specials, knockout, and grand total — consumed by BOTH `ScoringGuide.tsx` and `AboutPage.tsx` so they can't diverge.
+- New dirty-state signal `apps/web/src/lib/dirtyState.ts` — a module-level pub/sub (NOT React context): `PredictionsPage` calls `setPredictionsDirty()` on local-map changes (clears on unmount); `UpdateBanner` reads it synchronously to defer the auto-reload while predictions are being edited.
+- `UpdateBanner` reworked: permanent-dismiss path REMOVED; z-index raised `z-[60]`→`z-[80]` (above the iOS install overlay at `z-[70]`, which previously deadlocked it); SW `update()` polled every ~45 min; auto-reload after a 5s visible countdown, deferred to `visibilitychange→visible` when hidden.
+
+**Next:** Polish batch U27 — Live match hub + hero dashboard 🔴 Opus (BLOCKED — needs backend `elapsed_minutes` on MatchResponse + `kickoff_utc` on HomeRollupMatch first)
+
+---
+
+## Polish batch U27 — Live match hub + hero dashboard
+**Commits:** 6701096 · CI ✅
+
+### Key facts for future sessions
+- `@wc2026/shared` is now wired into `apps/web` (its **first** consumer) as `workspace:*` — the live hub's "Points if this stands" reuses `scoreMatchPrediction`, not a reimplementation. Consumed as raw TS source (`exports` → `./src/index.ts`, no build step); adding the dep needed a committed `pnpm-lock.yaml` bump or CI's frozen install fails.
+- `MatchResponse.elapsed_minutes` is **intentionally always null** — the football-data feed the fetcher reads (`FDMatch`) carries no minute and `matches` has no column. The hub omits the minute when null; this is not a bug. A real minute would need a migration + `FDMatch`/`result_sync` change.
+- The live hub reads only `['matches','group']`, so knockout live matches don't surface there (matches the spec's "group match is live"). The inline next/last slot also ignores live, so a live match no longer suppresses the "Next" line — hub + Next coexist.
+- Two movement renderers can show the same `↑2 …` string and that's expected: the hero daily-summary filters to the rollup's `triggered_by_match_id`; the Leagues-section `CrossLeagueMovementSummary` shows all movers (2+ leagues).
+- Old `pickHeroChip`/`HeroMatchChip` (single live→next→last corner chip) removed; `data-testid="hero-chip-live"` is gone, `hero-chip-next`/`hero-chip-last` now mark the inline row, `live-hub`/`live-match-card` mark the hub.
+
+**Next:** none — U27 was the final batch in `docs/polish-batches.md`.
+
+---
+
+## Polish batch U28 — Audit follow-up: UpdateBanner className fix
+**Commits:** 0818300 · CI ✅
+
+### Key facts for future sessions
+- SVG `className` in jsdom is an `SVGAnimatedString` object, not a plain string — use `svg.classList.contains('animate-spin')` in Vitest assertions, not `.toMatch(/pattern/)`.
+
+**Next:** none — no U29 planned yet.

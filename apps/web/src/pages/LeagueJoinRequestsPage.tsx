@@ -51,7 +51,7 @@ export function LeagueJoinRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Join Requests" />
+      <PageHeader title="Join Requests" back={{ to: `/leagues/${slug}`, label: 'Back' }} />
 
       {isLoading && (
         <div className="space-y-2">

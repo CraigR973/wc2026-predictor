@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,7 @@ import { ScoringGuide } from '../components/ScoringGuide';
 import { PredictionCard } from '../components/PredictionCard';
 import { usePredictionEditor, type LocalPredictions } from '../hooks/usePredictionEditor';
 import { canEdit } from '../lib/matchStatus';
+import { setPredictionsDirty } from '../lib/dirtyState';
 import { cn } from '../lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,15 @@ export function PredictionsPage() {
 
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange, handleSaveAll } =
     usePredictionEditor({ predictions, matches });
+
+  // Broadcast dirty-state to UpdateBanner so it defers auto-reloads mid-edit.
+  useEffect(() => {
+    const totalDirty = matches.filter((m) => local[m.id]?.dirty).length;
+    setPredictionsDirty(totalDirty > 0);
+  }, [local, matches]);
+
+  // Clear dirty flag when the page unmounts.
+  useEffect(() => () => setPredictionsDirty(false), []);
 
   const isLoading = groupsLoading || matchesLoading || predsLoading;
 

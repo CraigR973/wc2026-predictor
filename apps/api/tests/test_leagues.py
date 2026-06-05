@@ -63,6 +63,7 @@ def _make_profile(
     p.site_role = site_role
     p.deleted_at = _now() if deleted else None
     p.is_active = True
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     return p
 
 

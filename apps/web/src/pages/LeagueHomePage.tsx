@@ -64,12 +64,12 @@ export function LeagueHomePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <PageHeader title={league?.name ?? slug} back={{ to: '/leagues', label: 'Leagues' }} />
           {league?.description && (
-            <p className="text-text-secondary font-sans text-sm mt-1">{league.description}</p>
+            <p className="text-text-secondary font-sans text-sm mt-1 truncate">{league.description}</p>
           )}
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">

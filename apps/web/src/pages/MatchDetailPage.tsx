@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '../lib/api';
+import { shortPlaceholder } from '../lib/matchTeam';
 import { useAuth } from '../contexts/AuthContext';
 import type {
   MatchResponse,
@@ -49,10 +50,12 @@ const STATUS_VARIANT: Record<MatchResponse['status'], StatusVariant> = {
 function MatchHeader({ match, timezone }: { match: MatchResponse; timezone: string }) {
   const homeLabel = match.home_team
     ? `${match.home_team.flag_emoji} ${match.home_team.name}`
-    : match.home_team_placeholder ?? 'TBD';
+    : shortPlaceholder(match.home_team_placeholder);
   const awayLabel = match.away_team
     ? `${match.away_team.flag_emoji} ${match.away_team.name}`
-    : match.away_team_placeholder ?? 'TBD';
+    : shortPlaceholder(match.away_team_placeholder);
+  const homeTitle = !match.home_team ? (match.home_team_placeholder ?? undefined) : undefined;
+  const awayTitle = !match.away_team ? (match.away_team_placeholder ?? undefined) : undefined;
 
   const kickoffLocal = formatInTimeZone(
     new Date(match.kickoff_utc),
@@ -75,7 +78,12 @@ function MatchHeader({ match, timezone }: { match: MatchResponse; timezone: stri
       </div>
 
       <div className="flex items-center justify-between gap-4">
-        <span className="text-lg font-sans text-text-primary font-semibold text-center flex-1">
+        <span
+          title={homeTitle}
+          className={homeTitle
+            ? 'flex-1 text-center font-mono text-sm italic text-text-muted'
+            : 'flex-1 text-center text-lg font-sans text-text-primary font-semibold'}
+        >
           {homeLabel}
         </span>
 
@@ -87,7 +95,12 @@ function MatchHeader({ match, timezone }: { match: MatchResponse; timezone: stri
           <span className="text-text-muted font-mono text-xl shrink-0">vs</span>
         )}
 
-        <span className="text-lg font-sans text-text-primary font-semibold text-center flex-1">
+        <span
+          title={awayTitle}
+          className={awayTitle
+            ? 'flex-1 text-center font-mono text-sm italic text-text-muted'
+            : 'flex-1 text-center text-lg font-sans text-text-primary font-semibold'}
+        >
           {awayLabel}
         </span>
       </div>

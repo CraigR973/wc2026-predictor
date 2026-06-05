@@ -29,9 +29,11 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
+from src.auth import create_access_token
 from src.bootstrap_admin import create_admin
 from src.database import get_db
 from src.main import app
+from src.models.profile import PlayerRole
 
 pytestmark = pytest.mark.asyncio
 
@@ -238,3 +240,138 @@ async def test_join_endpoint_inserts_profile_and_membership(
         )
     ).first()
     assert membership is not None, "join did not create profile + membership rows"
+
+
+# ---------------------------------------------------------------------------
+# Dup-join guard: ALREADY_MEMBER + re-join after leave
+# ---------------------------------------------------------------------------
+
+
+async def _insert_open_league(
+    conn: AsyncConnection, *, creator_id: uuid.UUID
+) -> tuple[uuid.UUID, str]:
+    """Insert a public_open league and return (league_id, slug)."""
+    sfx = _suffix()
+    slug = f"dj-{sfx}"
+    code = sfx[:6].upper()  # VARCHAR(8) limit; _suffix() is hex, 6 chars safe
+    league_id = (
+        await conn.execute(
+            text(
+                """
+                INSERT INTO leagues (id, slug, name, created_by, privacy, join_code)
+                VALUES (gen_random_uuid(), :slug, :name, :c,
+                        CAST('public_open' AS league_privacy), :code)
+                RETURNING id
+                """
+            ),
+            {"slug": slug, "name": f"DJ League {sfx}", "c": str(creator_id), "code": code},
+        )
+    ).scalar_one()
+    return league_id, slug
+
+
+async def test_dup_join_guard_already_member(db_conn: AsyncConnection) -> None:
+    """Second join attempt on the same open league returns 409 ALREADY_MEMBER."""
+    sfx = _suffix()
+    # Create a player profile
+    player_id = await _insert_profile(
+        db_conn,
+        display_name=f"DJ Player {sfx}",
+        email=f"dj-player-{sfx}@writeguard.invalid",
+    )
+    creator_id = await _insert_profile(
+        db_conn,
+        display_name=f"DJ Creator {sfx}",
+        email=f"dj-creator-{sfx}@writeguard.invalid",
+        role="admin",
+        site_role="superadmin",
+    )
+    league_id, slug = await _insert_open_league(db_conn, creator_id=creator_id)
+
+    token = create_access_token(player_id, PlayerRole.player)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    session = _savepoint_session(db_conn)
+    app.dependency_overrides[get_db] = _override_db(session)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # First join — should succeed
+            resp1 = await client.post(f"/api/v1/leagues/{slug}/join", headers=headers)
+            assert resp1.status_code == 200, resp1.text
+
+            # Second join — must be rejected
+            resp2 = await client.post(f"/api/v1/leagues/{slug}/join", headers=headers)
+            assert resp2.status_code == 409
+            assert "ALREADY_MEMBER" in resp2.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+        await session.close()
+
+    # Confirm only one membership row exists (no duplicate)
+    count = (
+        await db_conn.execute(
+            text("SELECT COUNT(*) FROM league_memberships WHERE league_id = :l AND player_id = :p"),
+            {"l": str(league_id), "p": str(player_id)},
+        )
+    ).scalar_one()
+    assert count == 1, "duplicate league_membership row was inserted"
+
+
+async def test_rejoin_after_leave_restores_soft_deleted_row(db_conn: AsyncConnection) -> None:
+    """Leaving and re-joining the same league reactivates the soft-deleted row (upsert)."""
+    sfx = _suffix()
+    player_id = await _insert_profile(
+        db_conn,
+        display_name=f"RJ Player {sfx}",
+        email=f"rj-player-{sfx}@writeguard.invalid",
+    )
+    creator_id = await _insert_profile(
+        db_conn,
+        display_name=f"RJ Creator {sfx}",
+        email=f"rj-creator-{sfx}@writeguard.invalid",
+        role="admin",
+        site_role="superadmin",
+    )
+    league_id, slug = await _insert_open_league(db_conn, creator_id=creator_id)
+
+    token = create_access_token(player_id, PlayerRole.player)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    session = _savepoint_session(db_conn)
+    app.dependency_overrides[get_db] = _override_db(session)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # Join
+            resp = await client.post(f"/api/v1/leagues/{slug}/join", headers=headers)
+            assert resp.status_code == 200, resp.text
+
+            # Leave
+            resp = await client.delete(f"/api/v1/leagues/{slug}/membership", headers=headers)
+            assert resp.status_code == 204, resp.text
+
+            # Re-join — must succeed, not 409
+            resp = await client.post(f"/api/v1/leagues/{slug}/join", headers=headers)
+            assert resp.status_code == 200, resp.text
+    finally:
+        app.dependency_overrides.clear()
+        await session.close()
+
+    # Still only one row (upsert restored it, no second insert)
+    count = (
+        await db_conn.execute(
+            text("SELECT COUNT(*) FROM league_memberships WHERE league_id = :l AND player_id = :p"),
+            {"l": str(league_id), "p": str(player_id)},
+        )
+    ).scalar_one()
+    assert count == 1, "upsert created a second row instead of restoring the soft-deleted one"
+
+    # Row must be active (deleted_at NULL)
+    deleted_at = (
+        await db_conn.execute(
+            text(
+                "SELECT deleted_at FROM league_memberships WHERE league_id = :l AND player_id = :p"
+            ),
+            {"l": str(league_id), "p": str(player_id)},
+        )
+    ).scalar_one()
+    assert deleted_at is None, "re-joined membership was not reactivated (deleted_at still set)"

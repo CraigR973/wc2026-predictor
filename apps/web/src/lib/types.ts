@@ -22,6 +22,10 @@ export interface MatchResponse {
   extra_time: boolean;
   penalties: boolean;
   postponed_reason: string | null;
+  // U27.B1 — live elapsed minute. Currently always null (the result-fetcher's
+  // upstream feed carries no per-match minute); the live hub omits the minute
+  // when null. Optional so older cached payloads stay valid.
+  elapsed_minutes?: number | null;
 }
 
 export interface TeamStanding {
@@ -90,6 +94,12 @@ export interface LeaderboardEntry {
   knockout_winner_points: number;
   special_points: number;
   is_active: boolean;
+  // Temporal metrics (U22.2), derived server-side. Match-scoped points only.
+  last_match_points: number;
+  today_points: number;
+  round_points: number;
+  // Avatar (U23.1) — null when player hasn't uploaded a photo
+  avatar_url?: string | null;
 }
 
 export interface SnapshotPoint {
@@ -177,6 +187,8 @@ export interface PlayerStats {
   worst_round_points: number | null;
   current_streak: number;
   avg_prediction_timing_mins: number | null;
+  // Avatar (U23.1) — null when player hasn't uploaded a photo
+  avatar_url?: string | null;
 }
 
 export interface PlayerListItem {
@@ -249,6 +261,8 @@ export interface LeagueMember {
   league_display_name: string | null;
   role: 'player' | 'admin';
   joined_at: string;
+  // Avatar (U23.1) — null when player hasn't uploaded a photo
+  avatar_url?: string | null;
 }
 
 export interface JoinRequest {
@@ -301,6 +315,7 @@ export interface HomeTodo {
 
 export interface HomeRollupMatch {
   match_id: string;
+  kickoff_utc: string; // U27.B2 — drives the date/time shown per rollup row
   home_label: string;
   away_label: string;
   home_flag: string | null;
@@ -338,4 +353,53 @@ export interface RecentPrediction {
   predicted_away: number | null;
   points_awarded: number | null;
   points_breakdown: PointsBreakdown | null;
+}
+
+// U24 — reveal-gated player-profile prediction board. Every item the backend
+// returns has already passed the shared reveal gate (group/knockout: that
+// match has kicked off; specials: the tournament has started), so these are
+// safe to render unconditionally.
+export interface GroupProfilePrediction {
+  match_id: string;
+  stage: string;
+  kickoff_utc: string;
+  home_team_name: string | null;
+  away_team_name: string | null;
+  home_team_flag: string | null;
+  away_team_flag: string | null;
+  actual_home: number | null;
+  actual_away: number | null;
+  predicted_home: number | null;
+  predicted_away: number | null;
+  points_awarded: number | null;
+  points_breakdown: PointsBreakdown | null;
+}
+
+export interface KnockoutProfilePrediction {
+  match_id: string;
+  stage: string;
+  kickoff_utc: string;
+  home_team_name: string | null;
+  away_team_name: string | null;
+  home_team_flag: string | null;
+  away_team_flag: string | null;
+  predicted_winner_id: string | null;
+  predicted_winner_name: string | null;
+  points_awarded: number | null;
+}
+
+export interface SpecialProfilePrediction {
+  prediction_type: SpecialType;
+  predicted_team_id: string | null;
+  predicted_team_name: string | null;
+  predicted_player_name: string | null;
+  points_awarded: number | null;
+}
+
+export interface ProfilePredictions {
+  // false ⇒ specials are still hidden (tournament not started); the list is [].
+  specials_revealed: boolean;
+  group: GroupProfilePrediction[];
+  knockout: KnockoutProfilePrediction[];
+  specials: SpecialProfilePrediction[];
 }

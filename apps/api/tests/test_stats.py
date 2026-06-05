@@ -36,6 +36,7 @@ def _player(display_name: str = "Alice") -> MagicMock:
     p.display_name = display_name
     p.is_active = True
     p.deleted_at = None
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     return p
 
 

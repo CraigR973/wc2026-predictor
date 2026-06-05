@@ -47,3 +47,4 @@ class Profile(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
         Enum(SiteRole, name="site_role", create_type=False),
         nullable=False,
     )
+    avatar_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)

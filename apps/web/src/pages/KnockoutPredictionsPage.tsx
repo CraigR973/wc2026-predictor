@@ -15,6 +15,7 @@ import { PageHeader } from '../components/PageHeader';
 import { PredictionsSubNav } from '../components/PredictionsSubNav';
 import { useCountdown } from '../hooks/useCountdown';
 import { KNOCKOUT_STAGES, type KnockoutStage } from '../lib/stages';
+import { shortPlaceholder } from '../lib/matchTeam';
 import { cn } from '../lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -219,10 +220,12 @@ function KnockoutCard({
   const awayId = match.away_team?.id ?? null;
   const homeLabel = match.home_team
     ? `${match.home_team.flag_emoji} ${match.home_team.name}`
-    : (match.home_team_placeholder ?? '?');
+    : shortPlaceholder(match.home_team_placeholder);
   const awayLabel = match.away_team
     ? `${match.away_team.flag_emoji} ${match.away_team.name}`
-    : (match.away_team_placeholder ?? '?');
+    : shortPlaceholder(match.away_team_placeholder);
+  const homeTitle = !match.home_team ? (match.home_team_placeholder ?? undefined) : undefined;
+  const awayTitle = !match.away_team ? (match.away_team_placeholder ?? undefined) : undefined;
 
   const pickedHome = localWinnerId !== null && localWinnerId === homeId;
   const pickedAway = localWinnerId !== null && localWinnerId === awayId;
@@ -285,6 +288,7 @@ function KnockoutCard({
           correct={actualWinnerId !== null && actualWinnerId === homeId}
           wrong={isCompleted && pickedHome && actualWinnerId !== null && actualWinnerId !== homeId}
           disabled={!canPick || saving || homeId === null}
+          title={homeTitle}
           onClick={() => homeId && onPick(match.id, homeId)}
         />
 
@@ -301,6 +305,7 @@ function KnockoutCard({
           correct={actualWinnerId !== null && actualWinnerId === awayId}
           wrong={isCompleted && pickedAway && actualWinnerId !== null && actualWinnerId !== awayId}
           disabled={!canPick || saving || awayId === null}
+          title={awayTitle}
           onClick={() => awayId && onPick(match.id, awayId)}
         />
       </div>
@@ -343,6 +348,7 @@ function TeamButton({
   correct,
   wrong,
   disabled,
+  title,
   onClick,
 }: {
   label: string;
@@ -351,6 +357,7 @@ function TeamButton({
   correct: boolean;
   wrong: boolean;
   disabled: boolean;
+  title?: string;
   onClick: () => void;
 }) {
   let cls =
@@ -369,9 +376,9 @@ function TeamButton({
   }
 
   return (
-    <button type="button" className={cls} disabled={disabled} onClick={onClick}>
+    <button type="button" className={cls} disabled={disabled} title={title} onClick={onClick}>
       {teamId === null ? (
-        <span className="text-text-muted italic">{label}</span>
+        <span className="text-text-muted italic font-mono">{label}</span>
       ) : (
         label
       )}

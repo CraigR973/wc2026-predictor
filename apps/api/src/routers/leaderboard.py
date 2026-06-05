@@ -6,7 +6,10 @@ the league is resolved (and membership enforced) by the
 """
 
 import uuid
+from collections import defaultdict
+from datetime import UTC, datetime, time, timedelta
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
@@ -18,7 +21,7 @@ from sqlalchemy.orm import aliased
 from src.database import get_db
 from src.models.league_membership import LeagueMembership
 from src.models.match import Match
-from src.models.prediction import LeaderboardSnapshot, Prediction
+from src.models.prediction import KnockoutPrediction, LeaderboardSnapshot, Prediction
 from src.models.profile import Profile
 from src.models.team import TournamentStage
 from src.rate_limit import limiter, per_player_key
@@ -27,6 +30,20 @@ from src.routers.leagues import LeagueMemberDep
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 league_router = APIRouter(prefix="/api/v1/leagues", tags=["leaderboard"])
+
+# Tournament progression order, used to pick the "current" (furthest-progressed)
+# stage for the temporal round metric. third_place (a consolation played before
+# the final) ranks below the final so the final wins once it is settled.
+_STAGE_ORDER: dict[TournamentStage, int] = {
+    TournamentStage.group: 0,
+    TournamentStage.r32: 1,
+    TournamentStage.r16: 2,
+    TournamentStage.qf: 3,
+    TournamentStage.sf: 4,
+    TournamentStage.third_place: 5,
+    TournamentStage.final: 6,
+    TournamentStage.winner: 7,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +60,13 @@ class LeaderboardEntryOut(BaseModel):
     knockout_winner_points: int
     special_points: int
     is_active: bool
+    # Temporal metrics (U22.2), derived at query time — never stored. Match-scoped
+    # points only (scoreline + knockout winner); tournament-long specials excluded.
+    last_match_points: int = 0  # points on the most recently settled match
+    today_points: int = 0  # points from matches settled in the viewer's local day
+    round_points: int = 0  # points in the current (furthest-progressed) stage
+    # Avatar (U23.1) — null when the player hasn't set a photo
+    avatar_url: str | None = None
 
 
 class SnapshotPoint(BaseModel):
@@ -119,6 +143,7 @@ async def _leaderboard_entries(
             knockout_winner_points=snapshot.knockout_winner_points,
             special_points=snapshot.special_points,
             is_active=profile.is_active,
+            avatar_url=profile.avatar_url,
         )
         for profile, snapshot in rows
     ]
@@ -175,19 +200,44 @@ async def _round_leaderboard(
 
     Predictions are global, but the leaderboard only ranks this league's
     members — so the player set is constrained to active memberships.
+
+    Includes both scoreline (``predictions``) and knockout-winner
+    (``knockout_predictions``) points so a knockout stage's per-round total
+    matches the leaderboard's "round" metric (U22.2). The group stage has no
+    knockout predictions, so its total is unchanged.
     """
-    points_subq = (
+    pred_pts = (
         select(
-            Prediction.player_id,
-            func.coalesce(func.sum(Prediction.points_awarded), 0).label("points"),
+            Prediction.player_id.label("player_id"),
+            Prediction.points_awarded.label("pts"),
         )
         .join(Match, Match.id == Prediction.match_id)
         .where(
             Match.stage == stage,
             Match.deleted_at.is_(None),
             Prediction.deleted_at.is_(None),
+            Prediction.points_awarded.is_not(None),
         )
-        .group_by(Prediction.player_id)
+    )
+    ko_pts = (
+        select(
+            KnockoutPrediction.player_id.label("player_id"),
+            KnockoutPrediction.points_awarded.label("pts"),
+        )
+        .join(Match, Match.id == KnockoutPrediction.match_id)
+        .where(
+            Match.stage == stage,
+            Match.deleted_at.is_(None),
+            KnockoutPrediction.points_awarded.is_not(None),
+        )
+    )
+    combined = pred_pts.union_all(ko_pts).subquery()
+    points_subq = (
+        select(
+            combined.c.player_id,
+            func.coalesce(func.sum(combined.c.pts), 0).label("points"),
+        )
+        .group_by(combined.c.player_id)
         .subquery()
     )
 
@@ -219,6 +269,114 @@ async def _round_leaderboard(
     ]
 
 
+def _viewer_day_bounds_utc(
+    tz_name: str, *, now_utc: datetime | None = None
+) -> tuple[datetime, datetime]:
+    """[start, end) of the viewer's *local* calendar day, as naive UTC datetimes.
+
+    ``matches.result_entered_at`` is stored naive-UTC, so the bounds are too.
+    Falls back to UTC if the stored IANA name is missing/invalid. ``now_utc`` (a
+    naive UTC instant) is injectable for deterministic tests; production passes
+    nothing and the wall clock is used.
+    """
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:  # noqa: BLE001 — any bad/unknown tz string → UTC
+        tz = ZoneInfo("UTC")
+    base = now_utc if now_utc is not None else datetime.now(UTC).replace(tzinfo=None)
+    local = base.replace(tzinfo=UTC).astimezone(tz)
+    start_local = datetime.combine(local.date(), time.min, tzinfo=tz)
+    end_local = datetime.combine(local.date() + timedelta(days=1), time.min, tzinfo=tz)
+    return (
+        start_local.astimezone(UTC).replace(tzinfo=None),
+        end_local.astimezone(UTC).replace(tzinfo=None),
+    )
+
+
+async def _temporal_points(
+    db: AsyncSession,
+    member_ids: list[uuid.UUID],
+    viewer_tz: str,
+) -> dict[uuid.UUID, tuple[int, int, int]]:
+    """Per-player ``(last_match, today, round)`` points for the given members.
+
+    All three are derived at query time from settled matches — the leaderboard
+    snapshot stores only cumulative totals, so temporal deltas are computed, not
+    stored (U22.2). Points are match-scoped: scoreline (``predictions``) plus
+    knockout-winner (``knockout_predictions``); tournament-long specials are not
+    attributable to a match/day/round and are excluded.
+
+    * **last_match** — points on the single most recently settled match (global,
+      by ``result_entered_at``); a player who did not predict it scores 0.
+    * **today** — points from matches whose result landed in the viewer's local
+      calendar day.
+    * **round** — points in the current (furthest-progressed) stage; group is one
+      round, each knockout stage its own.
+    """
+    if not member_ids:
+        return {}
+
+    # Settled matches are the source of truth for "last", "today" and the current
+    # stage. result_entered_at is stamped once, at first result entry.
+    settled = (
+        await db.execute(
+            select(Match.id, Match.stage, Match.result_entered_at).where(
+                Match.result_entered_at.is_not(None),
+                Match.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    if not settled:
+        return {}
+
+    start_utc, end_utc = _viewer_day_bounds_utc(viewer_tz)
+    last_match_id = max(settled, key=lambda r: r.result_entered_at).id
+    current_stage = max((r.stage for r in settled), key=lambda s: _STAGE_ORDER.get(s, -1))
+    today_match_ids = {r.id for r in settled if start_utc <= r.result_entered_at < end_utc}
+    round_match_ids = {r.id for r in settled if r.stage == current_stage}
+
+    # Per-(player, match) points from both prediction kinds, scoped to members.
+    # points_awarded IS NOT NULL ⟺ that match has been scored.
+    pred_rows = (
+        await db.execute(
+            select(
+                Prediction.player_id,
+                Prediction.match_id,
+                Prediction.points_awarded,
+            ).where(
+                Prediction.player_id.in_(member_ids),
+                Prediction.points_awarded.is_not(None),
+                Prediction.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    ko_rows = (
+        await db.execute(
+            select(
+                KnockoutPrediction.player_id,
+                KnockoutPrediction.match_id,
+                KnockoutPrediction.points_awarded,
+            ).where(
+                KnockoutPrediction.player_id.in_(member_ids),
+                KnockoutPrediction.points_awarded.is_not(None),
+            )
+        )
+    ).all()
+
+    last: dict[uuid.UUID, int] = defaultdict(int)
+    today: dict[uuid.UUID, int] = defaultdict(int)
+    rnd: dict[uuid.UUID, int] = defaultdict(int)
+    for player_id, match_id, pts in (*pred_rows, *ko_rows):
+        if match_id == last_match_id:
+            last[player_id] += pts
+        if match_id in today_match_ids:
+            today[player_id] += pts
+        if match_id in round_match_ids:
+            rnd[player_id] += pts
+
+    return {pid: (last.get(pid, 0), today.get(pid, 0), rnd.get(pid, 0)) for pid in member_ids}
+
+
 # ---------------------------------------------------------------------------
 # GET /api/v1/leagues/{slug}/leaderboard
 # ---------------------------------------------------------------------------
@@ -232,8 +390,18 @@ async def get_league_leaderboard(
     db: Annotated[AsyncSession, Depends(get_db)],
     include_inactive: bool = Query(default=False),
 ) -> list[LeaderboardEntryOut]:
-    _player, league = ctx
-    return await _leaderboard_entries(db, league.id, include_inactive=include_inactive)
+    player, league = ctx
+    entries = await _leaderboard_entries(db, league.id, include_inactive=include_inactive)
+    # Attach temporal metrics (U22.2). "today" is the viewer's local day, so it is
+    # computed from the caller's own timezone, not the row owner's.
+    member_ids = [uuid.UUID(e.player_id) for e in entries]
+    temporal = await _temporal_points(db, member_ids, player.timezone)
+    for e in entries:
+        last, today, rnd = temporal.get(uuid.UUID(e.player_id), (0, 0, 0))
+        e.last_match_points = last
+        e.today_points = today
+        e.round_points = rnd
+    return entries
 
 
 @league_router.get("/{slug}/leaderboard/history", response_model=list[HistoryEntryOut])

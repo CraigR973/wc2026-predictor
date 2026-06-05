@@ -29,6 +29,7 @@ def _make_player(*, role: PlayerRole = PlayerRole.player) -> MagicMock:
     p.pin_hash = hash_pin("1234")
     p.deleted_at = None
     p.created_at = _now()
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     return p
 
 

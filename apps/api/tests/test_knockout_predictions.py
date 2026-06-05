@@ -29,6 +29,7 @@ def _now() -> datetime:
 
 def _make_player(player_id: uuid.UUID | None = None) -> Profile:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = player_id or uuid.uuid4()
     p.display_name = "TestPlayer"
     p.role = PlayerRole.player
@@ -144,8 +145,9 @@ async def test_upsert_knockout_prediction_create() -> None:
     player = _make_player()
     match = _make_match()
     pred = _make_ko_prediction(player.id, match.id, HOME_TEAM_ID)
-    # Sequence: get match, is_round_locked (None = not locked), get existing pred (None), refresh
-    db = _stub_db([_scalar_one(match), _scalar_one(None), _scalar_one(None)])
+    # Sequence: get match, get existing pred (None), refresh. No round-lock query
+    # any more — the per-match kickoff lock is the only gate (U22.1).
+    db = _stub_db([_scalar_one(match), _scalar_one(None)])
     db.refresh = AsyncMock(side_effect=lambda obj: _patch_pred(obj, pred))
 
     async with _override(db, player):
@@ -169,7 +171,7 @@ async def test_upsert_knockout_prediction_update() -> None:
     match = _make_match()
     existing = _make_ko_prediction(player.id, match.id, HOME_TEAM_ID, update_count=1)
     updated = _make_ko_prediction(player.id, match.id, AWAY_TEAM_ID, update_count=2)
-    db = _stub_db([_scalar_one(match), _scalar_one(None), _scalar_one(existing)])
+    db = _stub_db([_scalar_one(match), _scalar_one(existing)])
     db.refresh = AsyncMock(side_effect=lambda obj: _patch_pred(obj, updated))
 
     async with _override(db, player):
@@ -186,13 +188,19 @@ async def test_upsert_knockout_prediction_update() -> None:
 
 
 @pytest.mark.asyncio
-async def test_upsert_knockout_prediction_round_locked() -> None:
-    """Returns 409 when any match in the round is no longer scheduled."""
+async def test_upsert_knockout_prediction_sibling_started_does_not_lock() -> None:
+    """U22.1 per-match lock: a sibling tie in the same stage having kicked off no
+    longer locks this match. With this match's own kickoff still in the future the
+    upsert succeeds — the handler issues no round-level query at all (proven by the
+    stub providing only match + existing-pred lookups, no sibling-scan result)."""
     player = _make_player()
-    match = _make_match()
-    locked_match = _make_match(status=MatchStatus.locked)
-    # Sequence: get match, is_round_locked → returns a locked match
-    db = _stub_db([_scalar_one(match), _scalar_one(locked_match)])
+    match = _make_match(
+        status=MatchStatus.scheduled,
+        kickoff_utc=_now() + timedelta(hours=2),
+    )
+    pred = _make_ko_prediction(player.id, match.id, HOME_TEAM_ID)
+    db = _stub_db([_scalar_one(match), _scalar_one(None)])
+    db.refresh = AsyncMock(side_effect=lambda obj: _patch_pred(obj, pred))
 
     async with _override(db, player):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -202,16 +210,16 @@ async def test_upsert_knockout_prediction_round_locked() -> None:
                 headers={"Authorization": "Bearer x"},
             )
 
-    assert resp.status_code == 409
-    assert resp.json()["detail"] == "PREDICTION_LOCKED"
+    assert resp.status_code == 200
+    db.add.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_upsert_knockout_prediction_race_window_returns_409() -> None:
     """Race window: status still 'scheduled', kickoff already passed → 409.
 
-    The kickoff_utc safety net runs before the round-lock check, so the
-    handler refuses even if the scheduler hasn't yet flipped status.
+    The per-match kickoff lock refuses the write even if the scheduler hasn't
+    yet flipped the match's status away from 'scheduled' (U22.1).
     """
     player = _make_player()
     match = _make_match(
@@ -277,7 +285,7 @@ async def test_upsert_knockout_prediction_no_team_validation_when_unknown() -> N
     match = _make_match(home_team_id=None, away_team_id=None)
     any_team = uuid.uuid4()
     pred = _make_ko_prediction(player.id, match.id, any_team)
-    db = _stub_db([_scalar_one(match), _scalar_one(None), _scalar_one(None)])
+    db = _stub_db([_scalar_one(match), _scalar_one(None)])
     db.refresh = AsyncMock(side_effect=lambda obj: _patch_pred(obj, pred))
 
     async with _override(db, player):
@@ -339,7 +347,8 @@ async def test_my_knockout_predictions_empty() -> None:
 @pytest.mark.asyncio
 async def test_match_knockout_predictions_post_lock() -> None:
     player = _make_player()
-    match = _make_match(status=MatchStatus.locked)
+    # Kickoff in the past → the match has locked, so predictions are revealed.
+    match = _make_match(status=MatchStatus.locked, kickoff_utc=_now() - timedelta(hours=1))
     pred = _make_ko_prediction(player.id, match.id)
     profile = _make_player(player.id)
     db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])
@@ -360,8 +369,9 @@ async def test_match_knockout_predictions_post_lock() -> None:
 
 @pytest.mark.asyncio
 async def test_match_knockout_predictions_pre_lock_returns_403() -> None:
+    """Kickoff still in the future → predictions hidden (per-match reveal gate)."""
     player = _make_player()
-    match = _make_match(status=MatchStatus.scheduled)
+    match = _make_match(status=MatchStatus.scheduled, kickoff_utc=_now() + timedelta(hours=1))
     db = _stub_db([_scalar_one(match)])
 
     async with _override(db, player):
@@ -375,10 +385,32 @@ async def test_match_knockout_predictions_pre_lock_returns_403() -> None:
 
 
 @pytest.mark.asyncio
-async def test_match_knockout_predictions_completed_visible() -> None:
-    """Completed matches show predictions."""
+async def test_match_knockout_predictions_kickoff_passed_while_scheduled_visible() -> None:
+    """U22.1 per-match reveal: a match whose kickoff has passed reveals predictions
+    even if its status is still 'scheduled' (scheduler lag). The old gate keyed on
+    status would have kept this 403 — proving the switch to a kickoff-based gate."""
     player = _make_player()
-    match = _make_match(status=MatchStatus.completed)
+    match = _make_match(status=MatchStatus.scheduled, kickoff_utc=_now() - timedelta(seconds=1))
+    pred = _make_ko_prediction(player.id, match.id)
+    profile = _make_player(player.id)
+    db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])
+
+    async with _override(db, player):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get(
+                f"/api/v1/knockout-predictions/match/{match.id}",
+                headers={"Authorization": "Bearer x"},
+            )
+
+    assert resp.status_code == 200
+    assert len(resp.json()["predictions"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_match_knockout_predictions_completed_visible() -> None:
+    """Completed matches show predictions (kickoff is in the past)."""
+    player = _make_player()
+    match = _make_match(status=MatchStatus.completed, kickoff_utc=_now() - timedelta(hours=2))
     pred = _make_ko_prediction(player.id, match.id)
     profile = _make_player(player.id)
     db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])

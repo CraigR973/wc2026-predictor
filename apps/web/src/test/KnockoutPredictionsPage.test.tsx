@@ -310,9 +310,9 @@ describe('KnockoutPredictionsPage', () => {
     await waitFor(() => expect(screen.getByText('R32')).toBeTruthy());
     // The bracket teaser must NOT show — there are seeded rows.
     expect(screen.queryByText(/Knockout picks open after group stage/i)).toBeNull();
-    // Placeholder labels are rendered as the (disabled) team buttons.
-    expect(screen.getByText('Winner Group A')).toBeTruthy();
-    const placeholderBtn = screen.getByText('Winner Group A').closest('button')!;
+    // Placeholder labels are rendered as short codes in the (disabled) team buttons.
+    expect(screen.getByText('WA')).toBeTruthy();
+    const placeholderBtn = screen.getByText('WA').closest('button')!;
     expect(placeholderBtn.disabled).toBe(true);
   });
 });

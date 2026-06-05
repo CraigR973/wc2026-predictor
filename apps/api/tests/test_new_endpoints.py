@@ -30,6 +30,7 @@ def _now() -> datetime:
 
 def _make_profile(*, role: PlayerRole = PlayerRole.player, deleted: bool = False) -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "TestPlayer"
     p.role = role

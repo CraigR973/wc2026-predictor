@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -39,6 +39,7 @@ def _profile(
     is_active: bool = True,
 ) -> MagicMock:
     p = MagicMock(spec=Profile)
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = player_id or uuid.uuid4()
     p.display_name = "TestPlayer"
     p.role = PlayerRole.player
@@ -47,6 +48,7 @@ def _profile(
     p.timezone = "UTC"
     p.created_at = datetime(2026, 1, 1)
     p.deleted_at = None
+    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     return p
 
 
@@ -235,6 +237,8 @@ async def test_match_predictions_filters_cross_league_players() -> None:
     match = MagicMock(spec=Match)
     match.id = uuid.uuid4()
     match.status = MatchStatus.completed
+    # Completed ⇒ already kicked off; the shared reveal gate keys on kickoff.
+    match.kickoff_utc = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
 
     shared_pred = MagicMock()
     shared_pred.player_id = shared_id
@@ -400,6 +404,7 @@ async def test_departed_member_drops_off_leaderboard(db_conn: AsyncConnection) -
     # Verify both are on the board before departure
     session = AsyncSession(bind=db_conn, expire_on_commit=False)
     requester = MagicMock(spec=Profile)
+    requester.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     requester.id = alice_id
     requester.site_role = None
     requester.deleted_at = None
