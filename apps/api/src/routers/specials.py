@@ -19,6 +19,7 @@ from src.models.prediction import SpecialPrediction, SpecialPredictionType
 from src.models.profile import Profile
 from src.models.squad import SquadPlayer
 from src.models.team import TournamentStage
+from src.reveal_gate import specials_revealed
 from src.services.leaderboard import recompute_leaderboard_snapshot
 from src.services.notification_triggers import notify_special_results_awarded
 
@@ -114,9 +115,10 @@ async def _get_opening_match(db: AsyncSession) -> Match | None:
 
 
 def _is_locked(opening_match: Match | None) -> bool:
-    if opening_match is None:
-        return False
-    return _now() >= opening_match.kickoff_utc
+    # Specials lock — and therefore reveal — exactly when the tournament starts.
+    # Delegates to the shared reveal gate so the write-lock and the reveal gate
+    # can never drift apart (privacy invariant, U24).
+    return specials_revealed(opening_match, _now())
 
 
 def _to_item(pred: SpecialPrediction) -> SpecialPredictionItem:

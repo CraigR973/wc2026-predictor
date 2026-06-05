@@ -349,3 +349,52 @@ export interface RecentPrediction {
   points_awarded: number | null;
   points_breakdown: PointsBreakdown | null;
 }
+
+// U24 — reveal-gated player-profile prediction board. Every item the backend
+// returns has already passed the shared reveal gate (group/knockout: that
+// match has kicked off; specials: the tournament has started), so these are
+// safe to render unconditionally.
+export interface GroupProfilePrediction {
+  match_id: string;
+  stage: string;
+  kickoff_utc: string;
+  home_team_name: string | null;
+  away_team_name: string | null;
+  home_team_flag: string | null;
+  away_team_flag: string | null;
+  actual_home: number | null;
+  actual_away: number | null;
+  predicted_home: number | null;
+  predicted_away: number | null;
+  points_awarded: number | null;
+  points_breakdown: PointsBreakdown | null;
+}
+
+export interface KnockoutProfilePrediction {
+  match_id: string;
+  stage: string;
+  kickoff_utc: string;
+  home_team_name: string | null;
+  away_team_name: string | null;
+  home_team_flag: string | null;
+  away_team_flag: string | null;
+  predicted_winner_id: string | null;
+  predicted_winner_name: string | null;
+  points_awarded: number | null;
+}
+
+export interface SpecialProfilePrediction {
+  prediction_type: SpecialType;
+  predicted_team_id: string | null;
+  predicted_team_name: string | null;
+  predicted_player_name: string | null;
+  points_awarded: number | null;
+}
+
+export interface ProfilePredictions {
+  // false ⇒ specials are still hidden (tournament not started); the list is [].
+  specials_revealed: boolean;
+  group: GroupProfilePrediction[];
+  knockout: KnockoutProfilePrediction[];
+  specials: SpecialProfilePrediction[];
+}

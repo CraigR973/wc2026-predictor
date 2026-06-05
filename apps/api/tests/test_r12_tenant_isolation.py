@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -237,6 +237,8 @@ async def test_match_predictions_filters_cross_league_players() -> None:
     match = MagicMock(spec=Match)
     match.id = uuid.uuid4()
     match.status = MatchStatus.completed
+    # Completed ⇒ already kicked off; the shared reveal gate keys on kickoff.
+    match.kickoff_utc = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
 
     shared_pred = MagicMock()
     shared_pred.player_id = shared_id

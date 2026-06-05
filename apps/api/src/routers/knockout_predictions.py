@@ -16,6 +16,7 @@ from src.models.match import Match
 from src.models.prediction import KnockoutPrediction
 from src.models.profile import Profile
 from src.rate_limit import limiter, per_player_key
+from src.reveal_gate import match_prediction_revealed
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -175,10 +176,10 @@ async def match_knockout_predictions(
 ) -> MatchKnockoutPredictionsResponse:
     match = await _get_match_or_404(match_id, db)
 
-    # Per-match reveal gate (U22.1): predictions for this match stay hidden until
-    # the match itself locks at kickoff — symmetric with the per-match write lock.
-    # A sibling tie in the same stage kicking off does not reveal this one.
-    if match.kickoff_utc > _now():
+    # Per-match reveal gate (U22.1, shared gate U24): predictions for this match
+    # stay hidden until the match itself locks at kickoff — symmetric with the
+    # per-match write lock. A sibling tie kicking off does not reveal this one.
+    if not match_prediction_revealed(match, _now()):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Predictions are hidden until the match is locked",
