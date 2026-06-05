@@ -1640,3 +1640,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Shipped with a flake fix: `test_award_specials_snapshot_has_correct_points` now reads the recompute snapshot via `triggered_by_match_id IS NULL` — pre-existing tied-`snapshot_at` flake (both snapshots share one `transaction_timestamp()`), NOT a U23 regression; it just lost the coin-flip on this CI run.
 
 **Next:** Polish batch U24 — Reveal-all gated player profile 🔴 Opus
+
+---
+
+## Polish batch U24 — Reveal-all gated player profile
+**Commits:** 218d1e8 · CI ✅
+
+### Key facts for future sessions
+- New shared reveal gate `apps/api/src/reveal_gate.py` is the single source of truth for "is this prediction visible yet": group reveals at kickoff lock, specials once the tournament has started, knockout per-match kickoff (per U22.1). It's used by the new `GET /api/v1/players/{id}/profile-predictions` endpoint (players.py) and wired into predictions/specials/knockout routers — reuse it for any future reveal surface rather than re-deriving lock rules.
+- Access ordering in profile-predictions is target-exists (404) → shared-league (403) → data fetch; pre-lock sections are simply omitted (never returned).
+- Privacy invariant is now CI-enforced by `apps/api/tests/test_profile_predictions.py` (413-line suite: group+specials+knockout all hidden pre-lock, visible to league-mates post-lock, mixed-lock returns only the locked sections). Keep this green when touching any reveal/lock logic.
+- Frontend `PlayerProfilePage` renders group/specials/knockout sections each independently gated; response shapes in `lib/types.ts`.
+
+**Next:** Polish batch U25 — Rebrand to Calcio 🟢 Sonnet
