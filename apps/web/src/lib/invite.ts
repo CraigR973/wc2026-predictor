@@ -8,11 +8,11 @@ export interface InviteMessageParams {
 
 export function buildInviteMessage({ leagueName, joinCode, origin }: InviteMessageParams): string {
   return [
-    `Calcio — World Cup 2026 prediction league.`,
+    `Join me on Calcio — the World Cup 2026 prediction league.`,
     ``,
     `Pick scores match by match as the tournament unfolds — no bracket to fill in upfront, just predict each game before kick-off.`,
     ``,
-    `Previously run from a spreadsheet of legendary proportions, Calcio is the official upgrade.`,
+    `Previously run from a spreadsheet of legendary proportions, Calcio is the next iteration.`,
     ``,
     `League: ${leagueName}`,
     `Your join code: ${joinCode}`,

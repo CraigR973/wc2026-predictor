@@ -37,6 +37,12 @@ from src.models.refresh_token import RefreshToken
 from src.rate_limit import limiter, login_key, per_player_key, refresh_token_key
 from src.services.email import send_pin_reset_email, send_verification_email
 from src.services.notification_triggers import notify_invite_accepted
+from src.services.storage import (
+    ALLOWED_AVATAR_TYPES,
+    MAX_AVATAR_BYTES,
+    StorageError,
+    upload_avatar,
+)
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -801,6 +807,63 @@ async def update_avatar(
     await db.refresh(player)
 
     log.info("avatar updated", player_id=str(player.id), has_avatar=body.avatar_url is not None)
+    return PlayerInfo(
+        id=str(player.id),
+        display_name=player.display_name,
+        role=player.role.value,
+        timezone=player.timezone,
+        avatar_url=player.avatar_url,
+    )
+
+
+@router.post("/me/avatar", response_model=PlayerInfo)
+@limiter.limit("30/minute", key_func=per_player_key)
+async def upload_avatar_endpoint(
+    request: Request,
+    player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> PlayerInfo:
+    """Upload a new avatar image for the caller.
+
+    The image bytes are sent as the raw request body with an ``image/*``
+    content type. The server uploads to Supabase Storage with the service-role
+    key — bypassing RLS, since the app uses custom JWT auth (not Supabase Auth)
+    so the browser has no ``auth.uid()`` to satisfy the bucket's owner-insert
+    policy — then persists the resulting public URL.
+    """
+    content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if content_type not in ALLOWED_AVATAR_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Avatar must be a JPEG, PNG, WebP or GIF image",
+        )
+
+    content = await request.body()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Empty image body",
+        )
+    if len(content) > MAX_AVATAR_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Image exceeds the 5 MB limit",
+        )
+
+    try:
+        public_url = await upload_avatar(str(player.id), content, content_type)
+    except StorageError as exc:
+        log.error("avatar upload error", player_id=str(player.id), error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not store the image. Please try again.",
+        ) from exc
+
+    await db.execute(update(Profile).where(Profile.id == player.id).values(avatar_url=public_url))
+    await db.commit()
+    await db.refresh(player)
+
+    log.info("avatar uploaded", player_id=str(player.id))
     return PlayerInfo(
         id=str(player.id),
         display_name=player.display_name,

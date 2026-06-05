@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AnimatePresence, motion, useReducedMotionConfig } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus, ChevronDown, X } from 'lucide-react';
+import { motion, useReducedMotionConfig } from 'framer-motion';
+import { TrendingUp, TrendingDown, Minus, Share2, X } from 'lucide-react';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
-import type { LeaderboardEntry } from '../lib/types';
+import type { LeaderboardEntry, LeagueDetail } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useLongPress } from '../hooks/useLongPress';
@@ -14,6 +14,10 @@ import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar } from '../components/ui/avatar';
+import { Badge } from '../components/ui/badge';
+import { Card, CardContent } from '../components/ui/card';
+import { buildInviteMessage, shareInvite } from '../lib/invite';
+import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -87,11 +91,10 @@ interface RowProps {
   displayPoints: number;
   showArrow: boolean;
   prevRank: number | undefined;
-  isOpen: boolean;
   isMe: boolean;
   reduceMotion: boolean;
   shouldPulse: boolean;
-  onToggle: () => void;
+  onOpenProfile: () => void;
   onLongPress: () => void;
 }
 
@@ -100,15 +103,14 @@ function LeaderboardRow({
   displayPoints,
   showArrow,
   prevRank,
-  isOpen,
   isMe,
   reduceMotion,
   shouldPulse,
-  onToggle,
+  onOpenProfile,
   onLongPress,
 }: RowProps) {
   const rd = rankDelta(prevRank, entry.rank);
-  const handlers = useLongPress({ onLongPress, onClick: onToggle });
+  const handlers = useLongPress({ onLongPress, onClick: onOpenProfile });
 
   return (
     <motion.tr
@@ -122,7 +124,7 @@ function LeaderboardRow({
       )}
       {...handlers}
     >
-      <td className="py-3.5 pl-4 sm:pl-5 w-8">
+      <td className="py-3.5 pl-3 sm:pl-5 w-7">
         <span className="text-text-muted font-mono text-sm tabular-nums">
           {MEDAL[entry.rank] ?? entry.rank}
         </span>
@@ -153,17 +155,17 @@ function LeaderboardRow({
           )}
         </div>
       </td>
-      <td className="py-3.5 text-right pr-2 font-mono text-base font-semibold text-primary tabular-nums w-14">
-        {displayPoints}
+      <td className="py-3.5 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
+        {entry.match_points}
       </td>
-      <td className="py-3.5 pr-4 sm:pr-5 text-right w-8">
-        <ChevronDown
-          className={cn(
-            'h-4 w-4 text-text-muted inline-block transition-transform duration-fast',
-            isOpen && 'rotate-180',
-          )}
-          aria-hidden
-        />
+      <td className="py-3.5 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
+        {entry.knockout_winner_points}
+      </td>
+      <td className="py-3.5 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
+        {entry.special_points}
+      </td>
+      <td className="py-3.5 pr-3 sm:pr-5 pl-1 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">
+        {displayPoints}
       </td>
     </motion.tr>
   );
@@ -247,6 +249,74 @@ function PeriodToggle({
   );
 }
 
+function LeagueLeaderboardHeader({ slug }: { slug: string }) {
+  const { player } = useAuth();
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+
+  const { data: league } = useQuery<LeagueDetail>({
+    queryKey: ['league', slug],
+    queryFn: () => apiFetch<LeagueDetail>(`/api/v1/leagues/${slug}`),
+  });
+
+  const isLeagueAdmin =
+    league?.members?.some((m) => m.id === player?.id && m.role === 'admin') ?? false;
+
+  async function handleShare() {
+    if (!league?.join_code) return;
+    const message = buildInviteMessage({
+      leagueName: league.name,
+      joinCode: league.join_code,
+      origin: window.location.origin,
+    });
+    try {
+      const result = await shareInvite({ message });
+      if (result === 'copied') {
+        setShareStatus('copied');
+        setTimeout(() => setShareStatus('idle'), 2000);
+      }
+    } catch {
+      toast.error('Could not share invite');
+    }
+  }
+
+  return (
+    <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <PageHeader
+          title={league?.name ?? 'Leaderboard'}
+          eyebrow="Standings"
+          back={{ to: '/leagues', label: 'Leagues' }}
+          className="mb-0"
+        />
+        {league?.description && (
+          <p className="text-text-secondary font-sans text-sm mt-1 truncate">{league.description}</p>
+        )}
+      </div>
+      <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+        {league?.join_code && (
+          <Button size="sm" variant="accent" onClick={handleShare} className="gap-1.5">
+            <Share2 className="h-3.5 w-3.5" aria-hidden />
+            {shareStatus === 'copied' ? 'Copied!' : 'Invite'}
+          </Button>
+        )}
+        <Button asChild size="sm" variant="outline">
+          <Link to={`/leagues/${slug}/admin/members`}>Members</Link>
+        </Button>
+        {isLeagueAdmin && (
+          <>
+            <Button asChild size="sm" variant="outline">
+              <Link to={`/leagues/${slug}/admin/invites`}>Invites</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to={`/leagues/${slug}/admin/settings`}>Settings</Link>
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function LeaderboardPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -254,7 +324,6 @@ export function LeaderboardPage() {
   const { slug = DEFAULT_LEAGUE_SLUG } = useParams<{ slug: string }>();
   const leagueSlug = slug;
   const prevDataRef = useRef<LeaderboardEntry[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const reduceMotion = useReducedMotionConfig() ?? false;
   const [hintDismissed, setHintDismissed] = useState<boolean>(
     () => localStorage.getItem(HINT_DISMISSED_KEY) === 'true',
@@ -278,6 +347,7 @@ export function LeaderboardPage() {
   const ranked = dedupedLeaderboard(data, leagueSlug);
   const displayData = rankByPeriod(ranked, period);
   const showArrow = period === 'total';
+  const myEntry = ranked.find((e) => e.player_id === currentUser?.id);
 
   useEffect(() => {
     if (ranked.length === 0) return;
@@ -317,18 +387,6 @@ export function LeaderboardPage() {
     };
   }, [queryClient]);
 
-  function toggleExpand(playerId: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(playerId)) {
-        next.delete(playerId);
-      } else {
-        next.add(playerId);
-      }
-      return next;
-    });
-  }
-
   function openCompare(playerId: string) {
     if (!currentUser?.id || currentUser.id === playerId) {
       navigate(`/leagues/${leagueSlug}/compare?b=${playerId}`);
@@ -349,10 +407,10 @@ export function LeaderboardPage() {
   if (isLoading) {
     return (
       <div>
-        <PageHeader title="Leaderboard" eyebrow="Standings" />
+        <LeagueLeaderboardHeader slug={leagueSlug} />
         {!hintDismissed && (
           <div className="mb-4 flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-mono text-text-muted">
-            <span>Tap a row for breakdown · long-press to compare</span>
+            <span>Long-press a row to compare</span>
             <button
               onClick={dismissHint}
               className="shrink-0 text-text-muted hover:text-text-primary transition-colors"
@@ -382,7 +440,7 @@ export function LeaderboardPage() {
   if (error) {
     return (
       <div>
-        <PageHeader title="Leaderboard" eyebrow="Standings" />
+        <LeagueLeaderboardHeader slug={leagueSlug} />
         <EmptyState
           title="Couldn't load the leaderboard"
           description="Refresh the page or check your connection."
@@ -398,11 +456,27 @@ export function LeaderboardPage() {
 
   return (
     <div>
-      <PageHeader title="Leaderboard" eyebrow="Standings" />
+      <LeagueLeaderboardHeader slug={leagueSlug} />
+
+      {myEntry && (
+        <Card className="mb-5 border-primary/30">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-sans text-text-secondary">Your position</span>
+              <div className="flex items-center gap-3">
+                <Badge variant="muted" className="font-mono">
+                  #{myEntry.rank}
+                </Badge>
+                <span className="font-semibold font-mono text-primary">{myEntry.total_points} pts</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {!hintDismissed && (
         <div className="mb-4 flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-mono text-text-muted">
-          <span>Tap a row for breakdown · long-press to compare</span>
+          <span>Long-press a row to compare</span>
           <button
             onClick={dismissHint}
             className="shrink-0 text-text-muted hover:text-text-primary transition-colors"
@@ -427,72 +501,30 @@ export function LeaderboardPage() {
           <table className="w-full text-sm font-sans">
             <thead>
               <tr className="border-b border-border text-text-muted text-[10px] font-mono uppercase tracking-[0.2em]">
-                <th className="py-2.5 pl-4 sm:pl-5 text-left w-10">#</th>
+                <th className="py-2.5 pl-3 sm:pl-5 text-left w-7">#</th>
                 <th className="py-2.5 text-left">Player</th>
-                <th className="py-2.5 text-right pr-2 w-16">{PERIOD_LABELS[period]}</th>
-                <th className="py-2.5 pr-4 sm:pr-5 w-8"></th>
+                <th className="py-2.5 px-1 text-right" title="Match points">M</th>
+                <th className="py-2.5 px-1 text-right" title="Knockout points">KO</th>
+                <th className="py-2.5 px-1 text-right" title="Special points">SP</th>
+                <th className="py-2.5 pr-3 sm:pr-5 pl-1 text-right w-12">{PERIOD_LABELS[period]}</th>
               </tr>
             </thead>
             <tbody>
               {displayData.map((entry) => {
-                const isOpen = expanded.has(entry.player_id);
                 const isMe = entry.player_id === currentUser?.id;
                 return (
-                  <Fragment key={entry.player_id}>
-                    <LeaderboardRow
-                      entry={entry}
-                      displayPoints={periodPoints(entry, period)}
-                      showArrow={showArrow}
-                      prevRank={showArrow ? prevByPlayer[entry.player_id] : undefined}
-                      isOpen={isOpen}
-                      isMe={isMe}
-                      reduceMotion={reduceMotion}
-                      shouldPulse={showArrow && pulsingIds.has(entry.player_id)}
-                      onToggle={() => toggleExpand(entry.player_id)}
-                      onLongPress={() => openCompare(entry.player_id)}
-                    />
-                    <AnimatePresence initial={false}>
-                      {isOpen && (
-                        <motion.tr
-                          key={`${entry.player_id}-detail`}
-                          className="bg-surface-elevated border-b border-border/50"
-                          initial={reduceMotion ? false : { opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={reduceMotion ? { opacity: 0 } : { opacity: 0 }}
-                          transition={{ duration: 0.15 }}
-                        >
-                          <td colSpan={4} className="py-3 pl-12 sm:pl-14 pr-4 sm:pr-5">
-                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs font-sans">
-                              <span className="text-text-muted">
-                                Match{' '}
-                                <span className="text-text-secondary font-mono font-medium tabular-nums">
-                                  {entry.match_points}
-                                </span>
-                              </span>
-                              <span className="text-text-muted">
-                                Knockout{' '}
-                                <span className="text-text-secondary font-mono font-medium tabular-nums">
-                                  {entry.knockout_winner_points}
-                                </span>
-                              </span>
-                              <span className="text-text-muted">
-                                Special{' '}
-                                <span className="text-text-secondary font-mono font-medium tabular-nums">
-                                  {entry.special_points}
-                                </span>
-                              </span>
-                            </div>
-                            <div className="mt-1.5 text-xs font-sans text-text-muted">
-                              Last match{' '}
-                              <span className="text-text-secondary font-mono font-medium tabular-nums">
-                                {entry.last_match_points}
-                              </span>
-                            </div>
-                          </td>
-                        </motion.tr>
-                      )}
-                    </AnimatePresence>
-                  </Fragment>
+                  <LeaderboardRow
+                    key={entry.player_id}
+                    entry={entry}
+                    displayPoints={periodPoints(entry, period)}
+                    showArrow={showArrow}
+                    prevRank={showArrow ? prevByPlayer[entry.player_id] : undefined}
+                    isMe={isMe}
+                    reduceMotion={reduceMotion}
+                    shouldPulse={showArrow && pulsingIds.has(entry.player_id)}
+                    onOpenProfile={() => navigate(`/players/${entry.player_id}`)}
+                    onLongPress={() => openCompare(entry.player_id)}
+                  />
                 );
               })}
             </tbody>

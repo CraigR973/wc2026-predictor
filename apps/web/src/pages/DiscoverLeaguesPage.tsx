@@ -40,7 +40,7 @@ export function DiscoverLeaguesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <PageHeader title="Discover Leagues" />
+        <PageHeader title="Discover Leagues" back={{ to: '/leagues', label: 'Leagues' }} />
         <Button asChild size="sm" variant="outline">
           <Link to="/leagues">My leagues</Link>
         </Button>

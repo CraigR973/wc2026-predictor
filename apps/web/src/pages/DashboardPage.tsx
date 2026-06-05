@@ -8,6 +8,7 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
 import { PreTournamentChecklist } from '../components/PreTournamentChecklist';
+import { ScoringGuide } from '../components/ScoringGuide';
 import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
@@ -558,12 +559,12 @@ export function DashboardPage() {
       {/* Leagues */}
       {summaryLoading ? (
         <section aria-labelledby="home-leagues-label">
-          <SectionHeader id="home-leagues-label">Leagues</SectionHeader>
+          <SectionHeader id="home-leagues-label">My Leagues</SectionHeader>
           <Skeleton className="h-[80px] rounded-lg" />
         </section>
       ) : perLeague.length > 0 ? (
         <section aria-labelledby="home-leagues-label">
-          <SectionHeader id="home-leagues-label">Leagues</SectionHeader>
+          <SectionHeader id="home-leagues-label">My Leagues</SectionHeader>
           <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
             <CrossLeagueMovementSummary perLeague={perLeague} />
             {perLeague.map((entry) => (
@@ -572,6 +573,9 @@ export function DashboardPage() {
           </div>
         </section>
       ) : null}
+
+      {/* Scoring quick-reference — collapsed by default on Home */}
+      <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
     </div>
   );
 }

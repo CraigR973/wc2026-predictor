@@ -10,27 +10,43 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MATCH_SCORING_ROWS, WORKED_EXAMPLES } from '@/lib/scoringData';
 
-const STORAGE_KEY = 'sss_scoring_guide_open';
+const DEFAULT_STORAGE_KEY = 'sss_scoring_guide_open';
 
-function getInitialOpen(): boolean {
-  try { return localStorage.getItem(STORAGE_KEY) !== 'false'; } catch { return true; }
+function getInitialOpen(storageKey: string, defaultOpen: boolean): boolean {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    return stored === null ? defaultOpen : stored !== 'false';
+  } catch {
+    return defaultOpen;
+  }
 }
 
-function persistOpen(open: boolean): void {
-  try { localStorage.setItem(STORAGE_KEY, String(open)); } catch { /* ignore */ }
+function persistOpen(storageKey: string, open: boolean): void {
+  try { localStorage.setItem(storageKey, String(open)); } catch { /* ignore */ }
+}
+
+interface ScoringGuideProps {
+  /** localStorage key for the open/closed state. Defaults to the Predictions-page key. */
+  storageKey?: string;
+  /** Open state on first visit, before any stored value. Defaults to true. */
+  defaultOpen?: boolean;
 }
 
 /**
- * Collapsible scoring quick-reference for the Predictions page.
- * Default open on first visit; toggle state persisted in localStorage.
+ * Collapsible scoring quick-reference. Used on the Predictions page (default
+ * open) and the Home page (passed defaultOpen={false} with its own storageKey).
+ * Toggle state persisted in localStorage per key.
  */
-export function ScoringGuide() {
-  const [open, setOpen] = useState(getInitialOpen);
+export function ScoringGuide({
+  storageKey = DEFAULT_STORAGE_KEY,
+  defaultOpen = true,
+}: ScoringGuideProps = {}) {
+  const [open, setOpen] = useState(() => getInitialOpen(storageKey, defaultOpen));
 
   function toggle() {
     const next = !open;
     setOpen(next);
-    persistOpen(next);
+    persistOpen(storageKey, next);
   }
 
   return (

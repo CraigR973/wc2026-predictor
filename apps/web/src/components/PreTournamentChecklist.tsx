@@ -24,14 +24,11 @@ function ChecklistItem({
   done,
   to,
   children,
-  onTick,
   onLinkClick,
 }: {
   done: boolean;
   to: string;
   children: ReactNode;
-  /** When provided and not yet done, renders a manual "Mark done" affordance. */
-  onTick?: () => void;
   /** Called when the row link is clicked (e.g. to auto-tick on navigation). */
   onLinkClick?: () => void;
 }) {
@@ -58,15 +55,6 @@ function ChecklistItem({
           {children}
         </span>
       </Link>
-      {!done && onTick && (
-        <button
-          type="button"
-          onClick={onTick}
-          className="shrink-0 rounded font-sans text-xs text-text-muted transition-colors hover:text-text-secondary focus-visible:outline-none focus-visible:shadow-glow"
-        >
-          Mark done
-        </button>
-      )}
       {!done && (
         <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
       )}
@@ -140,7 +128,7 @@ export function PreTournamentChecklist({
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
-        <ChecklistItem done={rulesDone} to="/about" onTick={tickRules} onLinkClick={tickRules}>
+        <ChecklistItem done={rulesDone} to="/about" onLinkClick={tickRules}>
           Read the rules
         </ChecklistItem>
         <ChecklistItem done={specialsDone} to="/predictions/specials">
