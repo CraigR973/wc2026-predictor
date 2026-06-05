@@ -115,7 +115,7 @@ test.describe('create league', () => {
     await page.getByLabel(/league name/i).fill('My New League');
     await page.getByRole('button', { name: /create league/i }).click();
 
-    await expect(page).toHaveURL('/leagues/my-new-league');
+    await expect(page).toHaveURL('/leagues/my-new-league/leaderboard');
   });
 
   test('shows validation error when league name is empty', async ({ page }) => {
