@@ -1361,7 +1361,7 @@ The app was previously named "The Steele Spreadsheet System" (SSS). The new name
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U25 | 🟢 Sonnet | ~1.5 h | U25.1–U25.5 | Not started |
+| ~~U25~~ | ~~🟢 Sonnet~~ | ~~~1.5 h~~ | ~~U25.1–U25.5~~ | ✅ Shipped 2026-06-05 |
 
 ---
 
