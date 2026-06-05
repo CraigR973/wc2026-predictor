@@ -1,7 +1,7 @@
 /**
- * Single source of truth for visual design tokens — "The Steele Spreadsheet
- * System" identity. CSS variables in `index.css` mirror these values, Tailwind
- * utilities resolve to `var(--*)` references, and JS consumers (sonner toasts,
+ * Single source of truth for visual design tokens — "Calcio" identity.
+ * CSS variables in `index.css` mirror these values, Tailwind utilities
+ * resolve to `var(--*)` references, and JS consumers (sonner toasts,
  * framer-motion variants, inline gradients) import these constants directly.
  */
 
@@ -102,9 +102,9 @@ export const z = {
 } as const;
 
 export const brand = {
-  full: 'The Steele Spreadsheet System',
-  short: 'SSS',
-  wordmarkTop: 'The Steele',
-  wordmarkBottom: 'Spreadsheet System',
+  full: 'Calcio',
+  short: 'Calcio',
+  wordmarkTop: 'Calcio',
+  wordmarkBottom: '',
   tagline: 'Still Email?',
 } as const;

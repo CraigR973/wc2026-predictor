@@ -15,8 +15,9 @@ const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 /**
  * Default league slug for screens not yet migrated to the per-league
  * LeagueContext (arrives in M6/M7). Mirrors the backend's M2 default so the
- * existing single-league UI keeps resolving to The Steele Spreadsheet after
+ * existing single-league UI keeps resolving to the Calcio league after
  * the M5 endpoint move under /api/v1/leagues/{slug}/.
+ * NOTE: slug value is a structural DB identifier — do NOT rename without a migration + redirect.
  */
 export const DEFAULT_LEAGUE_SLUG = 'steele-spreadsheet';
 

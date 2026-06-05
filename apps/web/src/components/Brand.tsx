@@ -47,14 +47,14 @@ function MarkSvg({ size }: { size: number }) {
 }
 
 /**
- * "The Steele Spreadsheet System" wordmark.
+ * "Calcio" wordmark.
  *
  * variants:
- *   splash  — stacked two-line wordmark (default, used on login splash)
+ *   splash  — single-line wordmark (default, used on login splash)
  *   lockup  — mark left + wordmark right on one line (login splash with new logo)
  *   compact — single-line all-caps mono (TopBar)
  *   mono    — short name in mono (misc)
- *   mark    — just the S letterform at 16/24/32 px
+ *   mark    — just the letterform mark at 16/24/32 px
  */
 export function Brand({ variant = 'splash', size = 32, className }: BrandProps) {
   if (variant === 'mono') {
@@ -80,7 +80,7 @@ export function Brand({ variant = 'splash', size = 32, className }: BrandProps) 
         )}
         aria-label={brand.full}
       >
-        STEELE&nbsp;SPREADSHEET&nbsp;SYSTEM
+        CALCIO
       </span>
     );
   }
@@ -104,29 +104,21 @@ export function Brand({ variant = 'splash', size = 32, className }: BrandProps) 
         aria-label={brand.full}
       >
         <MarkSvg size={64} />
-        <div className="flex flex-col gap-0.5">
-          <p className="font-mono font-semibold uppercase tracking-[0.18em] text-2xl sm:text-3xl leading-none text-wordmark">
-            THE&nbsp;STEELE
-          </p>
-          <p className="font-mono font-medium uppercase tracking-[0.3em] text-[10px] sm:text-[11px] leading-none text-wordmark opacity-90">
-            SPREADSHEET&nbsp;SYSTEM
-          </p>
-        </div>
+        <p className="font-mono font-semibold uppercase tracking-[0.18em] text-2xl sm:text-3xl leading-none text-wordmark">
+          CALCIO
+        </p>
       </div>
     );
   }
 
-  // splash — default stacked layout
+  // splash — default single-line layout
   return (
     <div
       className={cn('flex flex-col items-center text-center select-none gap-2', className)}
       aria-label={brand.full}
     >
       <p className="font-mono font-semibold uppercase tracking-[0.18em] text-3xl sm:text-4xl leading-none text-wordmark">
-        THE&nbsp;STEELE
-      </p>
-      <p className="font-mono font-medium uppercase tracking-[0.3em] text-[11px] sm:text-xs leading-none text-wordmark opacity-90">
-        SPREADSHEET&nbsp;SYSTEM
+        CALCIO
       </p>
     </div>
   );

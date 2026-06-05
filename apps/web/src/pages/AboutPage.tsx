@@ -217,7 +217,7 @@ export function AboutPage() {
 
   return (
     <div className="max-w-xl space-y-6">
-      <PageHeader title="About" eyebrow="The Steele Spreadsheet System" showBack />
+      <PageHeader title="About" eyebrow="Calcio" showBack />
 
       {/* What this is */}
       <Section title="What is this?">
@@ -372,7 +372,7 @@ export function AboutPage() {
 
       {/* Footer credit */}
       <p className="text-center text-xs font-sans text-text-muted pb-2">
-        A Steele and Robbo Worldwide production.
+        A friends league, built properly.
       </p>
     </div>
   );

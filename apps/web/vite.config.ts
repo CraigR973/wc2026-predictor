@@ -31,8 +31,8 @@ export default defineConfig({
         'fonts/outfit-600.woff2',
       ],
       manifest: {
-        name: 'The Steele Spreadsheet System',
-        short_name: 'SSS',
+        name: 'Calcio',
+        short_name: 'Calcio',
         description: 'A private prediction league for the 2026 FIFA World Cup. Invite-only.',
         theme_color: '#0B0E13',
         background_color: '#0B0E13',

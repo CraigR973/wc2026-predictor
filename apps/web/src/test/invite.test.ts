@@ -47,15 +47,15 @@ describe('buildInviteMessage', () => {
     expect(msg).toContain('ABC123');
   });
 
-  it('mentions The Steele Spreadsheet System', () => {
+  it('mentions Calcio', () => {
     const msg = buildInviteMessage(PARAMS);
-    expect(msg).toContain('The Steele Spreadsheet System');
+    expect(msg).toContain('Calcio');
   });
 
-  it('contains the Lewis Steele / Robinson\'s Fruit Juice backstory', () => {
+  it('contains the spreadsheet backstory', () => {
     const msg = buildInviteMessage(PARAMS);
-    expect(msg).toContain('Lewis Steele');
-    expect(msg).toContain("Robinson's Fruit Juice");
+    expect(msg).toContain('spreadsheet');
+    expect(msg).toContain('Calcio is the official upgrade');
   });
 });
 
