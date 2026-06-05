@@ -1717,4 +1717,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `tokens.ts` still has `tagline: 'Still Email?'` as a now-dead constant — its only consumer (`PartnershipLockup`) was deleted, so it renders nowhere; left in place, harmless.
 - Migration `024` raises the avatars bucket `file_size_limit` to 5 MB (Supabase-only; no-op on plain-PG CI via the schema-exists guard, same pattern as `023`).
 
-**Next:** none — no U30 planned yet.
+**Next:** Polish batch U30 — Leaderboard snags 🟢 Sonnet
+
+---
+
+## Polish batch U30 — Leaderboard snags: position, medals, spacing, full name
+**Commits:** 89839a9 · CI ✅
+
+### Key facts for future sessions
+- The league/leaderboard header (`LeagueLeaderboardHeader` in `LeaderboardPage.tsx`) stacks its action buttons BELOW the title now (not side-by-side) so the full league name shows; the title wraps via PageHeader's new opt-in `wrapTitle` prop (every other page still truncates by default).
+- The "Your position" summary card was removed — the player's own row highlight (`bg-primary/10`, lifted from `/5`) is the sole self-indicator now; `myEntry` is gone.
+- Leaderboard ranks are plain numbers — the `MEDAL` (🥇🥈🥉) map was removed.
+
+**Next:** none — no U31 planned yet.

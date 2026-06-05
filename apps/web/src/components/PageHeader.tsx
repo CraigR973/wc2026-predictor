@@ -17,12 +17,14 @@ interface PageHeaderProps {
   /** Optional right-aligned action slot (forward actions only). */
   action?: ReactNode;
   className?: string;
+  /** When true, the title may wrap to multiple lines instead of truncating. */
+  wrapTitle?: boolean;
 }
 
 const backChipClass =
   'inline-flex items-center gap-1 mb-3 text-xs font-mono uppercase tracking-[0.2em] text-text-muted hover:text-text-primary press-down rounded-md focus-visible:outline-none focus-visible:shadow-glow';
 
-export function PageHeader({ title, eyebrow, showBack, back, action, className }: PageHeaderProps) {
+export function PageHeader({ title, eyebrow, showBack, back, action, className, wrapTitle }: PageHeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -60,7 +62,12 @@ export function PageHeader({ title, eyebrow, showBack, back, action, className }
               <div className="border-t border-accent/30 mb-2" aria-hidden />
             </>
           )}
-          <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight font-sans leading-tight truncate">
+          <h1
+            className={cn(
+              'text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight font-sans leading-tight',
+              wrapTitle ? 'break-words' : 'truncate',
+            )}
+          >
             {title}
           </h1>
         </div>
