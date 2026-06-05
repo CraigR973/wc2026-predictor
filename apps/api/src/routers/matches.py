@@ -48,6 +48,12 @@ class MatchResponse(BaseModel):
     extra_time: bool
     penalties: bool
     postponed_reason: str | None
+    # Live elapsed minute (U27.B1). The football-data.org v4 competition-matches
+    # feed the result-fetcher consumes does not carry a per-match minute, and the
+    # matches table has no column for it, so this is currently always null. The
+    # field is part of the contract so the live hub can light up the minute the
+    # day a source for it exists, without another schema/API round-trip.
+    elapsed_minutes: int | None = None
 
 
 # ---------------------------------------------------------------------------

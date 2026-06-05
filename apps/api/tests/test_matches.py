@@ -187,6 +187,8 @@ async def test_live_matches() -> None:
     data = resp.json()
     assert len(data) == 1
     assert data[0]["status"] == "live"
+    # U27.B1 — field is part of the contract; null until a minute source exists.
+    assert data[0]["elapsed_minutes"] is None
 
 
 # ---------------------------------------------------------------------------

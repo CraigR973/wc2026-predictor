@@ -22,6 +22,10 @@ export interface MatchResponse {
   extra_time: boolean;
   penalties: boolean;
   postponed_reason: string | null;
+  // U27.B1 — live elapsed minute. Currently always null (the result-fetcher's
+  // upstream feed carries no per-match minute); the live hub omits the minute
+  // when null. Optional so older cached payloads stay valid.
+  elapsed_minutes?: number | null;
 }
 
 export interface TeamStanding {
@@ -311,6 +315,7 @@ export interface HomeTodo {
 
 export interface HomeRollupMatch {
   match_id: string;
+  kickoff_utc: string; // U27.B2 — drives the date/time shown per rollup row
   home_label: string;
   away_label: string;
   home_flag: string | null;

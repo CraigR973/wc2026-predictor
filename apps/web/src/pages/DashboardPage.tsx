@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { scoreMatchPrediction, type Stage } from '@wc2026/shared';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
@@ -14,6 +15,7 @@ import type {
   CrossLeagueSummary,
   HomeResponse,
   MatchResponse,
+  PredictionResponse,
 } from '../lib/types';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -48,18 +50,16 @@ function formatCountdown(cd: {
 }
 
 // ---------------------------------------------------------------------------
-// Hero match chip (U20 v2) — a glanceable slot in the hero's top-right that
-// surfaces the most relevant fixture: a live match, else the next upcoming
-// one (with a countdown), else the most recent result. Derived entirely from
-// the shared group-matches query — no extra request, no backend change.
+// Inline match slot (U27.5 / U27.6) — a single glanceable line below the points
+// number surfacing the next upcoming fixture (with a countdown) or, failing
+// that, the most recent result. Live matches are NOT shown here: they get the
+// dedicated "Live now" hub below the hero. Derived entirely from the shared
+// group-matches query — no extra request, no backend change.
 // ---------------------------------------------------------------------------
 
-type HeroChip = { kind: 'live' | 'next' | 'last'; match: MatchResponse };
+type InlineSlot = { kind: 'next' | 'last'; match: MatchResponse };
 
-function pickHeroChip(matches: MatchResponse[]): HeroChip | null {
-  const live = matches.find((m) => m.status === 'live');
-  if (live) return { kind: 'live', match: live };
-
+function pickInlineSlot(matches: MatchResponse[]): InlineSlot | null {
   const upcoming = matches
     .filter((m) => m.status === 'scheduled' || m.status === 'locked')
     .sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc));
@@ -77,82 +77,167 @@ function chipTeam(team: MatchResponse['home_team'], placeholder: string | null) 
   return { flag: team?.flag_emoji ?? '', code: team?.code ?? placeholder ?? 'TBD' };
 }
 
-const CHIP_LABEL_CLS =
-  'block font-mono text-[10px] font-semibold uppercase tracking-[0.15em]';
-const CHIP_SUB_CLS = 'block font-sans text-[10px] text-text-muted';
-
-function HeroMatchChip({ kind, match }: HeroChip) {
+function InlineMatchSlot({ kind, match }: InlineSlot) {
   const cd = useCountdown(match.kickoff_utc);
   const home = chipTeam(match.home_team, match.home_team_placeholder);
   const away = chipTeam(match.away_team, match.away_team_placeholder);
-  const score = `${match.actual_home_score ?? 0}–${match.actual_away_score ?? 0}`;
 
-  if (kind === 'live') {
-    return (
-      <div
-        className="shrink-0 rounded-lg border border-live/40 bg-live/10 px-3 py-2 text-right"
-        data-testid="hero-chip-live"
-      >
-        <span className={`${CHIP_LABEL_CLS} flex items-center justify-end gap-1.5 text-success`}>
-          <span className="relative flex h-2 w-2" aria-hidden>
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-          </span>
-          Live
-        </span>
-        <span className="mt-1 block font-mono text-sm tabular-nums text-text-primary">
-          {home.flag} {score} {away.flag}
-        </span>
-        <span className={CHIP_SUB_CLS}>
-          {home.code} v {away.code}
-        </span>
-      </div>
-    );
-  }
+  const label = kind === 'next' ? 'Next' : 'Full time';
+  const testid = kind === 'next' ? 'hero-chip-next' : 'hero-chip-last';
 
-  if (kind === 'next') {
-    return (
-      <div
-        className="shrink-0 rounded-lg border border-border bg-surface px-3 py-2 text-right"
-        data-testid="hero-chip-next"
-      >
-        <span className={`${CHIP_LABEL_CLS} text-text-muted`}>Next</span>
-        <span className="mt-1 block font-sans text-sm text-text-primary">
-          {home.flag} {home.code} <span className="text-text-muted">v</span> {away.code} {away.flag}
-        </span>
-        {!cd.expired && (
-          <span className="block font-mono text-[10px] tabular-nums text-primary">
-            in {formatCountdown(cd)}
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  // last (completed)
   return (
     <div
-      className="shrink-0 rounded-lg border border-border bg-surface px-3 py-2 text-right"
-      data-testid="hero-chip-last"
+      className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-border/40 pt-3 font-sans text-sm"
+      data-testid={testid}
     >
-      <span className={`${CHIP_LABEL_CLS} text-text-muted`}>Full time</span>
-      <span className="mt-1 block font-mono text-sm tabular-nums text-text-primary">
-        {home.flag} {score} {away.flag}
+      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+        {label}
       </span>
-      <span className={CHIP_SUB_CLS}>
-        {home.code} v {away.code}
+      <span className="text-text-muted" aria-hidden>
+        ·
       </span>
+      {kind === 'next' ? (
+        <span className="text-text-primary">
+          {home.flag} {home.code} <span className="text-text-muted">v</span> {away.code} {away.flag}
+        </span>
+      ) : (
+        <span className="font-mono tabular-nums text-text-primary">
+          {home.flag} {home.code} {match.actual_home_score ?? 0}–{match.actual_away_score ?? 0}{' '}
+          {away.code} {away.flag}
+        </span>
+      )}
+      {kind === 'next' && !cd.expired && (
+        <>
+          <span className="text-text-muted" aria-hidden>
+            ·
+          </span>
+          <span className="font-mono text-xs tabular-nums text-primary">in {formatCountdown(cd)}</span>
+        </>
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Results roll-up folded into the hero (U20.1). A tappable "+N pts ·
-// {matchday}" delta line that expands inline to the per-match breakdown and a
-// cross-league rank-impact line. Only rendered when `rollup` exists.
+// Live match hub (U27.1) — a full-width section between the hero and the
+// checklist, shown whenever ≥1 group match is live. One card per live match,
+// responsive (one column on mobile, two on wider screens). Each card shows the
+// running score, elapsed minute (when the backend supplies one), the caller's
+// prediction, and the points that prediction *would* score if the current
+// scoreline held — computed with the shared scoring logic, the same rules the
+// backend trigger applies on full time.
 // ---------------------------------------------------------------------------
 
-function HeroResultsRollup({
+function formatElapsed(elapsed: number | null | undefined): string | null {
+  if (elapsed == null) return null;
+  return `${elapsed}'`;
+}
+
+function LivePulse() {
+  return (
+    <span className="relative flex h-2 w-2" aria-hidden>
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+      <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+    </span>
+  );
+}
+
+function LiveMatchCard({
+  match,
+  prediction,
+}: {
+  match: MatchResponse;
+  prediction: PredictionResponse | undefined;
+}) {
+  const home = chipTeam(match.home_team, match.home_team_placeholder);
+  const away = chipTeam(match.away_team, match.away_team_placeholder);
+  const hs = match.actual_home_score ?? 0;
+  const as = match.actual_away_score ?? 0;
+  const minute = formatElapsed(match.elapsed_minutes);
+
+  const hasPrediction =
+    prediction != null &&
+    prediction.predicted_home !== null &&
+    prediction.predicted_away !== null;
+
+  const provisional = hasPrediction
+    ? scoreMatchPrediction(
+        { homeScore: prediction!.predicted_home!, awayScore: prediction!.predicted_away! },
+        { homeScore: hs, awayScore: as },
+        match.stage as Stage,
+      ).total
+    : 0;
+
+  return (
+    <div
+      className="rounded-xl border border-live/40 bg-live/5 p-4 shadow-sm"
+      data-testid="live-match-card"
+    >
+      <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-success">
+        <LivePulse />
+        Live
+        {minute && <span className="tabular-nums text-text-muted">· {minute}</span>}
+      </div>
+
+      <p className="font-mono text-2xl font-semibold tabular-nums text-text-primary">
+        {home.flag} {home.code}{' '}
+        <span className="text-primary">
+          {hs}–{as}
+        </span>{' '}
+        {away.code} {away.flag}
+      </p>
+
+      <p className="mt-2 font-sans text-sm text-text-muted">
+        You:{' '}
+        {hasPrediction ? (
+          <span className="font-mono font-medium tabular-nums text-text-primary">
+            {prediction!.predicted_home}–{prediction!.predicted_away}
+          </span>
+        ) : (
+          <span className="text-text-muted">not predicted</span>
+        )}
+      </p>
+
+      {hasPrediction && (
+        <p className="mt-1 font-sans text-sm">
+          <span className="text-text-muted">Points if this stands: </span>
+          <span className="font-mono font-semibold tabular-nums text-primary">{provisional}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function LiveMatchHub({
+  matches,
+  predByMatch,
+}: {
+  matches: MatchResponse[];
+  predByMatch: Record<string, PredictionResponse>;
+}) {
+  if (matches.length === 0) return null;
+
+  return (
+    <section aria-labelledby="home-live-label" data-testid="live-hub">
+      <SectionHeader id="home-live-label">Live now</SectionHeader>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {matches.map((m) => (
+          <LiveMatchCard key={m.id} match={m} prediction={predByMatch[m.id]} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Daily summary, folded into the hero (U20.1 → U27.2/U27.3/U27.4). A "Daily
+// summary"-labelled, tappable "+N pts · {matchday}" delta line. The cross-
+// league rank movement it caused now shows *always* (no tap needed); tapping
+// expands the per-match breakdown — prominent score, a distinct prediction
+// pill, and the kickoff date/time. Only rendered when `rollup` exists.
+// ---------------------------------------------------------------------------
+
+function HeroDailySummary({
   rollup,
   perLeague,
   timezone,
@@ -173,7 +258,7 @@ function HeroResultsRollup({
   );
 
   const rollupMatchIds = new Set(matches.map((m) => m.match_id));
-  const impactParts = perLeague
+  const movementParts = perLeague
     .filter(
       (e) =>
         e.triggered_by_match_id !== null &&
@@ -194,11 +279,16 @@ function HeroResultsRollup({
         aria-expanded={expanded}
         aria-label={`Latest results, ${matchdayLabel}, +${points_gained} points from ${matchLabel}`}
       >
-        <span className="min-w-0 flex-1 font-sans text-sm">
-          <span className="font-mono font-semibold tabular-nums text-primary">
-            +{points_gained} pts
+        <span className="min-w-0 flex-1">
+          <span className="mb-0.5 block font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
+            Daily summary
           </span>
-          <span className="text-text-muted"> · {matchdayLabel}</span>
+          <span className="font-sans text-sm">
+            <span className="font-mono font-semibold tabular-nums text-primary">
+              +{points_gained} pts
+            </span>
+            <span className="text-text-muted"> · {matchdayLabel}</span>
+          </span>
         </span>
         {expanded ? (
           <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
@@ -207,50 +297,57 @@ function HeroResultsRollup({
         )}
       </button>
 
+      {/* U27.3 — league movement is always visible, below the collapsed line. */}
+      {movementParts.length > 0 && (
+        <p
+          className="border-t border-border/50 px-4 py-2.5 font-sans text-xs text-text-muted sm:px-5"
+          data-testid="daily-movement"
+        >
+          {movementParts.map((part, i) => (
+            <span key={i}>
+              {i > 0 && ' · '}
+              <span className={part.up ? 'text-success' : 'text-live'}>{part.label}</span>
+            </span>
+          ))}
+        </p>
+      )}
+
       {expanded && (
         <div className="border-t border-border/50">
           {matches.map((m) => {
             const hasScore = m.actual_home !== null && m.actual_away !== null;
+            const hasPrediction = m.predicted_home !== null && m.predicted_away !== null;
             return (
               <Link
                 key={m.match_id}
                 to={`/matches/${m.match_id}`}
                 className="block border-b border-border/50 px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow sm:px-5"
               >
-                <p className="mb-1 truncate font-sans text-xs font-medium text-text-primary">
-                  {m.home_label}{' '}
-                  <span className="font-normal text-text-muted">vs</span>{' '}
-                  {m.away_label}
-                </p>
+                <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                  <p className="min-w-0 truncate font-sans text-xs font-medium text-text-primary">
+                    {m.home_label} <span className="font-normal text-text-muted">vs</span>{' '}
+                    {m.away_label}
+                  </p>
+                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-muted">
+                    {formatInTimeZone(new Date(m.kickoff_utc), timezone, 'd MMM, HH:mm')}
+                  </span>
+                </div>
                 {hasScore && (
-                  <p className="mb-2 font-mono text-xs tabular-nums text-text-muted">
-                    {m.actual_home}–{m.actual_away}
-                    {m.predicted_home !== null && m.predicted_away !== null && (
-                      <span className="ml-2 text-text-muted/70">
-                        (you: {m.predicted_home}–{m.predicted_away})
+                  <p className="mb-2 flex items-center gap-2">
+                    <span className="font-mono text-base font-semibold tabular-nums text-text-primary">
+                      {m.actual_home}–{m.actual_away}
+                    </span>
+                    {hasPrediction && (
+                      <span className="rounded-full border border-border bg-surface-elevated px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-text-muted">
+                        you {m.predicted_home}–{m.predicted_away}
                       </span>
                     )}
                   </p>
                 )}
-                {m.points_breakdown && (
-                  <PointsBreakdownRow breakdown={m.points_breakdown} />
-                )}
+                {m.points_breakdown && <PointsBreakdownRow breakdown={m.points_breakdown} />}
               </Link>
             );
           })}
-
-          {impactParts.length > 0 && (
-            <p className="px-4 py-3 font-sans text-xs text-text-muted sm:px-5">
-              {impactParts.map((part, i) => (
-                <span key={i}>
-                  {i > 0 && ' · '}
-                  <span className={part.up ? 'text-success' : 'text-live'}>
-                    {part.label}
-                  </span>
-                </span>
-              ))}
-            </p>
-          )}
         </div>
       )}
     </div>
@@ -266,14 +363,14 @@ function GreetingHero({
   rollup,
   perLeague,
   timezone,
-  chip,
+  inlineSlot,
   isLoading,
 }: {
   summary: CrossLeagueSummary | undefined;
   rollup: HomeResponse['rollup'];
   perLeague: CrossLeagueSummary['per_league'];
   timezone: string;
-  chip: HeroChip | null;
+  inlineSlot: InlineSlot | null;
   isLoading: boolean;
 }) {
   if (isLoading) {
@@ -285,21 +382,18 @@ function GreetingHero({
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-surface-elevated to-surface shadow-sm">
       <div className="px-4 py-4 sm:px-5 sm:py-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
-              Points
-            </p>
-            <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-primary sm:text-5xl">
-              {pts}
-            </p>
-          </div>
-          {chip && <HeroMatchChip kind={chip.kind} match={chip.match} />}
-        </div>
+        <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">
+          Points
+        </p>
+        <p className="font-mono text-4xl font-semibold leading-none tabular-nums text-primary sm:text-5xl">
+          {pts}
+        </p>
+        {/* U27.5 / U27.6 — next-or-last fixture inline, below the points. */}
+        {inlineSlot && <InlineMatchSlot kind={inlineSlot.kind} match={inlineSlot.match} />}
       </div>
 
       {rollup ? (
-        <HeroResultsRollup rollup={rollup} perLeague={perLeague} timezone={timezone} />
+        <HeroDailySummary rollup={rollup} perLeague={perLeague} timezone={timezone} />
       ) : (
         <p className="border-t border-border/60 px-4 py-2.5 text-center font-sans text-xs text-text-muted sm:px-5">
           Your tally starts when the first results land · WC kicks off 11 Jun
@@ -387,7 +481,7 @@ function CrossLeagueMovementSummary({
 }
 
 // ---------------------------------------------------------------------------
-// Page — fixed order: greeting → hero → checklist → carousel → leagues
+// Page — fixed order: greeting → hero → live hub → checklist → carousel → leagues
 // ---------------------------------------------------------------------------
 
 export function DashboardPage() {
@@ -407,17 +501,30 @@ export function DashboardPage() {
     staleTime: 30_000,
   });
 
-  // Shared with the carousel + checklist (React Query dedupes the key); used
-  // here only to derive the hero's live/next/last match chip.
+  // Shared with the carousel + checklist (React Query dedupes the key): drives
+  // the live hub and the hero's inline next/last fixture slot.
   const { data: matches = [] } = useQuery<MatchResponse[]>({
     queryKey: ['matches', 'group'],
     queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches?stage=group'),
     staleTime: 30_000,
   });
 
+  // Shared with the carousel (same key, deduped). Supplies each live match's
+  // prediction so the hub can show provisional "points if this stands".
+  const { data: predictions = [] } = useQuery<PredictionResponse[]>({
+    queryKey: ['predictions', 'me'],
+    queryFn: () => apiFetch<PredictionResponse[]>('/api/v1/predictions/me'),
+    staleTime: 30_000,
+  });
+
   const perLeague = summary?.per_league ?? [];
   const todo = home?.todo;
-  const heroChip = pickHeroChip(matches);
+
+  const liveMatches = matches.filter((m) => m.status === 'live');
+  const inlineSlot = pickInlineSlot(matches);
+  const predByMatch: Record<string, PredictionResponse> = Object.fromEntries(
+    predictions.map((p) => [p.match_id, p]),
+  );
 
   return (
     <div className="space-y-6">
@@ -431,10 +538,13 @@ export function DashboardPage() {
           rollup={home?.rollup ?? null}
           perLeague={perLeague}
           timezone={timezone}
-          chip={heroChip}
+          inlineSlot={inlineSlot}
           isLoading={summaryLoading || homeLoading}
         />
       </div>
+
+      {/* Live match hub (U27.1) — surfaces between hero and checklist when live */}
+      <LiveMatchHub matches={liveMatches} predByMatch={predByMatch} />
 
       {/* Pre-tournament setup checklist (U20.4) — auto-ticks, latches dismissed */}
       <PreTournamentChecklist
