@@ -1666,3 +1666,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Test fixtures with `slug: 'steele-spreadsheet'` / `name: 'The Steele Spreadsheet'` are structural render fixtures, left as-is; only `invite.test.ts` had real brand-string assertions to update.
 
 **Next:** Polish batch U26 — Clarity & mandatory updates 🟢 Sonnet
+
+---
+
+## Polish batch U26 — Clarity & mandatory updates
+**Commits:** 712dd3d · CI ✅
+
+### Key facts for future sessions
+- Specials reconciled to **6 types / 80 pts / grand total 1,415** (was 3 types / 45 / 1,380 — missing `player_of_tournament`=15, `young_player_of_tournament`=10, `golden_glove`=10). Matches backend `SPECIAL_POINTS` in `apps/api/src/routers/specials.py`; if you change scoring, update `scoringData.ts` to match.
+- New shared scoring module `apps/web/src/lib/scoringData.ts` is the single source for match rows, worked examples (0/2/3/5/10), specials, knockout, and grand total — consumed by BOTH `ScoringGuide.tsx` and `AboutPage.tsx` so they can't diverge.
+- New dirty-state signal `apps/web/src/lib/dirtyState.ts` — a module-level pub/sub (NOT React context): `PredictionsPage` calls `setPredictionsDirty()` on local-map changes (clears on unmount); `UpdateBanner` reads it synchronously to defer the auto-reload while predictions are being edited.
+- `UpdateBanner` reworked: permanent-dismiss path REMOVED; z-index raised `z-[60]`→`z-[80]` (above the iOS install overlay at `z-[70]`, which previously deadlocked it); SW `update()` polled every ~45 min; auto-reload after a 5s visible countdown, deferred to `visibilitychange→visible` when hidden.
+
+**Next:** Polish batch U27 — Live match hub + hero dashboard 🔴 Opus (BLOCKED — needs backend `elapsed_minutes` on MatchResponse + `kickoff_utc` on HomeRollupMatch first)
