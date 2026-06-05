@@ -1181,7 +1181,7 @@ Mark batches complete by striking through the row.
 | ~~U21~~ | ~~🟢 Sonnet~~ | ~~~3.5 h~~ | ~~U21.1–U21.5~~ | ✅ Shipped 2026-06-04 |
 | ~~U22~~ | ~~🔴 Opus~~ | ~~~3.5 h~~ | ~~U22.1–U22.3~~ | ✅ Shipped 2026-06-04 |
 | ~~U23~~ | ~~🟢 Sonnet~~ | ~~~3.5 h~~ | ~~U23.1–U23.3~~ | ✅ Shipped 2026-06-05 |
-| U24 | 🔴 Opus | ~3 h | U24.1–U24.4 | Not started |
+| ~~U24~~ | ~~🔴 Opus~~ | ~~~3 h~~ | ~~U24.1–U24.4~~ | ✅ Shipped 2026-06-05 |
 
 **Dependencies:** U21 and U23 are independent. **U24 depends on U22** — the per-match
 knockout lock from U22.1 defines when knockout predictions become visible in U24's profile
