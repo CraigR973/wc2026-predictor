@@ -1,8 +1,30 @@
+/**
+ * AboutPage — full rules reference + how it was built.
+ *
+ * All scoring data (match rows, worked examples, specials, grand total) is
+ * sourced from the shared scoringData module so it stays in sync with
+ * ScoringGuide on the Predictions page.
+ *
+ * Specials reconciled: 6 types (tournament_winner, golden_boot,
+ * player_of_tournament, top_scoring_team, young_player_of_tournament,
+ * golden_glove) → 80 pts total. Grand total = 720 + 320 + 295 + 80 = 1,415.
+ */
+
 import { useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { markRulesRead } from '@/lib/checklist';
 import { cn } from '@/lib/utils';
+import {
+  MATCH_SCORING_ROWS,
+  WORKED_EXAMPLES,
+  KNOCKOUT_WINNER_ROWS,
+  KNOCKOUT_WINNER_TOTAL,
+  SPECIAL_ROWS,
+  SPECIALS_TOTAL,
+  GRAND_TOTAL_ROWS,
+  GRAND_TOTAL,
+} from '@/lib/scoringData';
 
 // ── Small helpers ──────────────────────────────────────────────────────────────
 
@@ -33,25 +55,23 @@ function Pill({ children, accent = false }: { children: React.ReactNode; accent?
 // ── Scoring tables ─────────────────────────────────────────────────────────────
 
 function GroupScoringTable() {
-  const rows = [
-    { criteria: 'Correct combined total goals', note: 'e.g. predicted 2–1, actual 3–0: both = 3 goals', pts: '2' },
-    { criteria: 'Correct result', note: 'Win / Draw / Loss — ignoring score', pts: '3' },
-    { criteria: 'Exact scoreline', note: 'Both goals correct', pts: '5' },
-  ];
+  // Exclude the "Maximum per match" accent row from the About page table —
+  // the grand total section already covers it.
+  const rows = MATCH_SCORING_ROWS.filter((r) => !r.accent);
   return (
     <div className="overflow-x-auto -mx-1">
       <table className="w-full text-sm font-sans border-collapse">
         <thead>
           <tr className="border-b border-border">
-            <th className="text-left py-2 pr-3 text-text-muted font-medium text-xs uppercase tracking-wider">Criteria</th>
-            <th className="text-right py-2 text-text-muted font-medium text-xs uppercase tracking-wider w-12">Pts</th>
+            <th scope="col" className="text-left py-2 pr-3 text-text-muted font-medium text-xs uppercase tracking-wider">Criteria</th>
+            <th scope="col" className="text-right py-2 text-text-muted font-medium text-xs uppercase tracking-wider w-12">Pts</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.criteria} className="border-b border-border/50">
+            <tr key={r.label} className="border-b border-border/50">
               <td className="py-2.5 pr-3">
-                <p className="text-text-primary font-medium">{r.criteria}</p>
+                <p className="text-text-primary font-medium">{r.label}</p>
                 <p className="text-xs text-text-muted mt-0.5">{r.note}</p>
               </td>
               <td className="py-2.5 text-right">
@@ -60,7 +80,7 @@ function GroupScoringTable() {
             </tr>
           ))}
           <tr className="bg-surface-elevated/50">
-            <td className="py-2.5 pr-3 font-semibold text-text-primary">Maximum per group stage match</td>
+            <td className="py-2.5 pr-3 font-semibold text-text-primary">Maximum per match</td>
             <td className="py-2.5 text-right">
               <Pill accent>10</Pill>
             </td>
@@ -71,27 +91,61 @@ function GroupScoringTable() {
   );
 }
 
+function WorkedExamplesTable() {
+  return (
+    <div className="overflow-x-auto -mx-1">
+      <p className="text-xs text-text-muted font-sans mb-2">
+        Every achievable per-match total — points stack, they don&rsquo;t replace each other.
+      </p>
+      <table
+        className="w-full text-sm font-sans border-collapse"
+        aria-label="Scoring worked examples"
+      >
+        <thead>
+          <tr className="border-b border-border">
+            <th scope="col" className="text-left py-2 pr-2 text-text-muted font-medium text-xs uppercase tracking-wider">You predicted</th>
+            <th scope="col" className="text-left py-2 pr-2 text-text-muted font-medium text-xs uppercase tracking-wider">Actual</th>
+            <th scope="col" className="text-left py-2 text-text-muted font-medium text-xs uppercase tracking-wider">Breakdown</th>
+            <th scope="col" className="text-right py-2 text-text-muted font-medium text-xs uppercase tracking-wider w-12">Pts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {WORKED_EXAMPLES.map((ex) => (
+            <tr
+              key={ex.total}
+              className={cn(
+                'border-b border-border/50',
+                ex.total === 10 && 'bg-accent/5',
+                ex.total === 0 && 'opacity-60',
+              )}
+            >
+              <td className="py-2.5 pr-2 font-mono text-text-primary">{ex.predicted}</td>
+              <td className="py-2.5 pr-2 font-mono text-text-primary">{ex.actual}</td>
+              <td className="py-2.5 text-xs text-text-muted">{ex.breakdown}</td>
+              <td className="py-2.5 text-right">
+                <Pill accent={ex.total === 10}>{ex.total}</Pill>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function KnockoutWinnerTable() {
-  const rounds = [
-    { round: 'Round of 32', matches: 16, pts: 5, max: 80 },
-    { round: 'Round of 16', matches: 8, pts: 10, max: 80 },
-    { round: 'Quarter-Finals', matches: 4, pts: 15, max: 60 },
-    { round: 'Semi-Finals', matches: 2, pts: 20, max: 40 },
-    { round: 'Third Place Play-off', matches: 1, pts: 10, max: 10 },
-    { round: 'Final', matches: 1, pts: 25, max: 25 },
-  ];
   return (
     <div className="overflow-x-auto -mx-1">
       <table className="w-full text-sm font-sans border-collapse">
         <thead>
           <tr className="border-b border-border">
-            <th className="text-left py-2 pr-3 text-text-muted font-medium text-xs uppercase tracking-wider">Round</th>
-            <th className="text-right py-2 px-2 text-text-muted font-medium text-xs uppercase tracking-wider">Per correct</th>
-            <th className="text-right py-2 text-text-muted font-medium text-xs uppercase tracking-wider">Round max</th>
+            <th scope="col" className="text-left py-2 pr-3 text-text-muted font-medium text-xs uppercase tracking-wider">Round</th>
+            <th scope="col" className="text-right py-2 px-2 text-text-muted font-medium text-xs uppercase tracking-wider">Per correct</th>
+            <th scope="col" className="text-right py-2 text-text-muted font-medium text-xs uppercase tracking-wider">Round max</th>
           </tr>
         </thead>
         <tbody>
-          {rounds.map((r) => (
+          {KNOCKOUT_WINNER_ROWS.map((r) => (
             <tr key={r.round} className="border-b border-border/50">
               <td className="py-2.5 pr-3 text-text-primary">{r.round}</td>
               <td className="py-2.5 px-2 text-right">
@@ -104,7 +158,7 @@ function KnockoutWinnerTable() {
             <td className="py-2.5 pr-3 font-semibold text-text-primary">Total — 32 picks</td>
             <td className="py-2.5 px-2" />
             <td className="py-2.5 text-right">
-              <Pill accent>295</Pill>
+              <Pill accent>{KNOCKOUT_WINNER_TOTAL}</Pill>
             </td>
           </tr>
         </tbody>
@@ -114,22 +168,17 @@ function KnockoutWinnerTable() {
 }
 
 function SpecialsTable() {
-  const rows = [
-    { prediction: 'Tournament Winner (pre-tournament)', pts: 20 },
-    { prediction: 'Golden Boot (top scorer — free text)', pts: 15 },
-    { prediction: 'Top Scoring Team', pts: 10 },
-  ];
   return (
     <div className="overflow-x-auto -mx-1">
       <table className="w-full text-sm font-sans border-collapse">
         <thead>
           <tr className="border-b border-border">
-            <th className="text-left py-2 pr-3 text-text-muted font-medium text-xs uppercase tracking-wider">Prediction</th>
-            <th className="text-right py-2 text-text-muted font-medium text-xs uppercase tracking-wider w-12">Pts</th>
+            <th scope="col" className="text-left py-2 pr-3 text-text-muted font-medium text-xs uppercase tracking-wider">Prediction</th>
+            <th scope="col" className="text-right py-2 text-text-muted font-medium text-xs uppercase tracking-wider w-12">Pts</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {SPECIAL_ROWS.map((r) => (
             <tr key={r.prediction} className="border-b border-border/50">
               <td className="py-2.5 pr-3 text-text-primary">{r.prediction}</td>
               <td className="py-2.5 text-right">
@@ -140,7 +189,7 @@ function SpecialsTable() {
           <tr className="bg-surface-elevated/50">
             <td className="py-2.5 pr-3 font-semibold text-text-primary">Total specials</td>
             <td className="py-2.5 text-right">
-              <Pill accent>45</Pill>
+              <Pill accent>{SPECIALS_TOTAL}</Pill>
             </td>
           </tr>
         </tbody>
@@ -150,15 +199,9 @@ function SpecialsTable() {
 }
 
 function MaximumBreakdown() {
-  const rows = [
-    { label: 'Group stage', detail: '72 matches × 10 pts', pts: 720 },
-    { label: 'Knockout score predictions', detail: '32 matches × 10 pts', pts: 320 },
-    { label: 'Knockout winner picks', detail: 'All 32 matches across 6 rounds', pts: 295 },
-    { label: 'Special predictions', detail: 'Winner, Golden Boot, Top Team', pts: 45 },
-  ];
   return (
     <div className="space-y-2">
-      {rows.map((r) => (
+      {GRAND_TOTAL_ROWS.map((r) => (
         <div key={r.label} className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-sans text-text-primary font-medium truncate">{r.label}</p>
@@ -169,7 +212,7 @@ function MaximumBreakdown() {
       ))}
       <div className="pt-2 border-t border-border flex items-center justify-between">
         <span className="text-sm font-sans font-semibold text-text-primary">Grand total</span>
-        <Pill accent>1,380</Pill>
+        <Pill accent>{GRAND_TOTAL.toLocaleString()}</Pill>
       </div>
     </div>
   );
@@ -242,6 +285,13 @@ export function AboutPage() {
             <p className="text-xs text-text-muted mt-2 font-sans">
               Points stack — a correct exact score is worth all three rows (2 + 3 + 5 = 10).
             </p>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-mono font-semibold tracking-[0.2em] uppercase text-text-muted mb-2">
+              Worked examples
+            </h3>
+            <WorkedExamplesTable />
           </div>
 
           <div>
@@ -320,7 +370,7 @@ export function AboutPage() {
 
           <SubHead>Special predictions — locked at the opening match</SubHead>
           <BulletList items={[
-            <>Three special predictions submitted <strong className="text-text-primary font-semibold">before the tournament starts</strong>: Tournament Winner <Pill>20 pts</Pill>, Golden Boot <Pill>15 pts</Pill>, Top Scoring Team <Pill>10 pts</Pill>.</>,
+            <>Six special predictions submitted <strong className="text-text-primary font-semibold">before the tournament starts</strong>: Tournament Winner <Pill>20 pts</Pill>, Golden Boot <Pill>15 pts</Pill>, Player of the Tournament <Pill>15 pts</Pill>, Top Scoring Team <Pill>10 pts</Pill>, Young Player of the Tournament <Pill>10 pts</Pill>, Golden Glove <Pill>10 pts</Pill>.</>,
             'These lock at the kickoff of the opening match (11 June).',
             'Awarded by the admin at the end of the tournament once the final whistle goes — your predictions are safe until then.',
           ]} />

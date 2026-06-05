@@ -1,61 +1,194 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { UpdateBanner } from '@/components/UpdateBanner';
+/**
+ * U26.1 — update-scheduling tests for UpdateBanner.
+ *
+ * Acceptance:
+ *  - Defers reload while predictions are dirty (unsaved edits).
+ *  - Fires reload on refocus (visibilitychange → visible) when dirty flag cleared.
+ *  - No permanent-dismiss path.
+ *  - Renders above the iOS overlay (z-[80]).
+ */
 
-// Staging's UpdateBanner uses registerSW from virtual:pwa-register (not the
-// React-specific useRegisterSW). The mock triggers onNeedRefresh immediately
-// so the banner shows on mount.
-const mockUpdateSW = vi.fn().mockResolvedValue(undefined);
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, act, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
+import { setPredictionsDirty } from '@/lib/dirtyState';
 
-type RegisterSWCallbacks = {
-  onNeedRefresh?: () => void;
-  onOfflineReady?: () => void;
-};
+// Disable color-contrast: jsdom cannot evaluate CSS custom properties.
+const AXE_CONFIG = { rules: { 'color-contrast': { enabled: false } } };
+
+// ── Mock virtual:pwa-register ─────────────────────────────────────────────────
+
+const mockSW = vi.fn().mockResolvedValue(undefined);
+let _onNeedRefresh: (() => void) | undefined;
 
 vi.mock('virtual:pwa-register', () => ({
-  registerSW: vi.fn((callbacks: RegisterSWCallbacks) => {
-    callbacks.onNeedRefresh?.();
-    return mockUpdateSW;
+  registerSW: vi.fn((callbacks: { onNeedRefresh?: () => void; onOfflineReady?: () => void }) => {
+    _onNeedRefresh = callbacks.onNeedRefresh;
+    return mockSW;
   }),
 }));
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+// Import component after mock is registered.
+import { UpdateBanner } from '@/components/UpdateBanner';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function triggerNeedRefresh() {
+  act(() => {
+    _onNeedRefresh?.();
+  });
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('UpdateBanner', () => {
-  it('renders when onNeedRefresh fires', async () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockSW.mockResolvedValue(undefined);
+    _onNeedRefresh = undefined;
+    // Reset dirty state.
+    setPredictionsDirty(false);
+    // Tab starts visible.
+    Object.defineProperty(document, 'visibilityState', {
+      value: 'visible',
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    setPredictionsDirty(false);
+  });
+
+  it('does not render before a new version is available', () => {
     render(<UpdateBanner />);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('shows the banner when onNeedRefresh fires', () => {
+    render(<UpdateBanner />);
+    triggerNeedRefresh();
+    expect(screen.getByRole('status')).toBeTruthy();
+  });
+
+  it('has no permanent dismiss button — only an "Update now" button', () => {
+    render(<UpdateBanner />);
+    triggerNeedRefresh();
+    // Must NOT have a dismiss/close button
+    expect(screen.queryByLabelText(/dismiss/i)).toBeNull();
+    // Must have the manual trigger
+    expect(screen.getByRole('button', { name: /update now/i })).toBeTruthy();
+  });
+
+  it('shows deferred copy while predictions are dirty', () => {
+    setPredictionsDirty(true);
+    render(<UpdateBanner />);
+    triggerNeedRefresh();
+    expect(screen.getByText(/updating after save/i)).toBeTruthy();
+  });
+
+  it('does not auto-reload while predictions are dirty', async () => {
+    setPredictionsDirty(true);
+    render(<UpdateBanner />);
+    triggerNeedRefresh();
+
+    // Advance past the 5-second countdown — should NOT have called reload.
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+    });
+
+    expect(mockSW).not.toHaveBeenCalledWith(true);
+  });
+
+  it('starts countdown when dirty flag is cleared after needsRefresh', async () => {
+    setPredictionsDirty(true);
+    render(<UpdateBanner />);
+    triggerNeedRefresh();
+
+    // Banner shows deferred copy.
+    expect(screen.getByText(/updating after save/i)).toBeTruthy();
+
+    // User saves — clears dirty flag.
+    act(() => {
+      setPredictionsDirty(false);
+    });
+
+    // Countdown should appear.
     await waitFor(() =>
-      expect(screen.getByText('A new version is available')).toBeTruthy(),
+      expect(screen.getByText(/updating in/i)).toBeTruthy(),
     );
-    expect(screen.getByRole('button', { name: /refresh/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /dismiss/i })).toBeTruthy();
   });
 
-  it('calls updateSW(true) on Refresh click', async () => {
+  it('auto-reloads after the countdown elapses when not dirty', async () => {
     render(<UpdateBanner />);
-    await waitFor(() => screen.getByText('A new version is available'));
-    fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
-    await waitFor(() => expect(mockUpdateSW).toHaveBeenCalledWith(true));
+    triggerNeedRefresh();
+
+    // Tab visible, not dirty → countdown starts and fires after 5 s.
+    await act(async () => {
+      vi.advanceTimersByTime(6_000);
+    });
+
+    expect(mockSW).toHaveBeenCalledWith(true);
   });
 
-  it('hides the banner when dismiss is clicked without calling updateSW', async () => {
-    render(<UpdateBanner />);
-    await waitFor(() => screen.getByText('A new version is available'));
-    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+  it('defers reload when tab is hidden, fires when tab becomes visible', async () => {
+    // Hide tab before needsRefresh fires.
+    Object.defineProperty(document, 'visibilityState', {
+      value: 'hidden',
+      writable: true,
+      configurable: true,
+    });
 
-    expect(screen.queryByText('A new version is available')).toBeNull();
-    expect(mockUpdateSW).not.toHaveBeenCalled();
+    render(<UpdateBanner />);
+    triggerNeedRefresh();
+
+    // Advance well past countdown — should NOT reload while hidden.
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(mockSW).not.toHaveBeenCalledWith(true);
+
+    // Tab becomes visible.
+    Object.defineProperty(document, 'visibilityState', {
+      value: 'visible',
+      writable: true,
+      configurable: true,
+    });
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // Countdown runs and fires.
+    await act(async () => {
+      vi.advanceTimersByTime(6_000);
+    });
+    expect(mockSW).toHaveBeenCalledWith(true);
   });
 
-  it('renders nothing when onNeedRefresh is never triggered', async () => {
-    const { registerSW } = await import('virtual:pwa-register');
-    vi.mocked(registerSW).mockImplementationOnce(
-      (_cb) => mockUpdateSW as unknown as () => Promise<void>,
-    );
-
+  it('"Update now" button calls reload immediately', async () => {
     render(<UpdateBanner />);
-    expect(screen.queryByText('A new version is available')).toBeNull();
+    triggerNeedRefresh();
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    await user.click(screen.getByRole('button', { name: /update now/i }));
+
+    expect(mockSW).toHaveBeenCalledWith(true);
+  });
+
+  it('renders with z-[80] class (above iOS overlay z-[70])', () => {
+    render(<UpdateBanner />);
+    triggerNeedRefresh();
+    const banner = screen.getByRole('status');
+    expect(banner.className).toMatch(/z-\[80\]/);
+  });
+
+  it('has no axe violations when visible', async () => {
+    const { container } = render(<UpdateBanner />);
+    triggerNeedRefresh();
+    const results = await axe(container, AXE_CONFIG);
+    expect(results).toHaveNoViolations();
   });
 });
