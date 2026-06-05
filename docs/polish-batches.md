@@ -1442,7 +1442,7 @@ Mark complete by striking through the row.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U26 | 🟢 Sonnet | ~3 h | U26.1–U26.2 | Not started |
+| ~~U26~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U26.1–U26.2~~ | ✅ Shipped 2026-06-05 |
 
 **Dependencies:** none — the two items are independent of each other and of U21–U25.
 
