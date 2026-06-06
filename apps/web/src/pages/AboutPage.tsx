@@ -249,6 +249,32 @@ function WhyCard({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** A captioned joke image. Files live in /public/about/ and are referenced as /about/<name>. */
+function JokeFigure({
+  src,
+  alt,
+  caption,
+  className,
+  imgClassName,
+}: {
+  src: string;
+  alt: string;
+  caption?: string;
+  className?: string;
+  imgClassName?: string;
+}) {
+  return (
+    <figure className={cn('space-y-1.5', className)}>
+      <img src={src} alt={alt} loading="lazy" className={cn('w-full rounded-lg border border-border', imgClassName)} />
+      {caption && (
+        <figcaption className="text-center text-xs font-sans italic text-text-muted">
+          {caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export function AboutPage() {
@@ -265,12 +291,27 @@ export function AboutPage() {
       {/* What this is */}
       <Section title="What is this?">
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
-          A private, invite-only prediction league for the 2026 FIFA World Cup. Up to 15 players
-          compete across the entire tournament — 72 group-stage matches and 32 knockout fixtures,
-          from the Round of 32 all the way to the Final. Predictions lock automatically at each
-          match&rsquo;s kickoff, results are fetched automatically, and the leaderboard updates in
-          real time.
+          Calcio is a prediction game for the 2026 FIFA World Cup. You make one set of predictions
+          for the whole tournament — 72 group-stage matches and 32 knockout fixtures, from the Round
+          of 32 all the way to the Final — and they compete across every league you&rsquo;re in{' '}
+          <strong className="text-text-primary font-medium">at the same time</strong>.
         </p>
+        <p className="text-sm font-sans text-text-secondary leading-relaxed">
+          Start a <strong className="text-text-primary font-medium">private</strong> league for your
+          mates, open a <strong className="text-text-primary font-medium">public</strong> one anyone
+          can find and join, or join leagues other people have started — you can be in as many as you
+          like (15 players by default, up to 50). Predictions lock automatically, results are fetched
+          automatically, and every league&rsquo;s leaderboard updates in real time.
+        </p>
+      </Section>
+
+      {/* Deadlines */}
+      <Section title="Deadlines — what's due when">
+        <BulletList items={[
+          <><strong className="text-text-primary font-semibold">Before the opening match kicks off:</strong> lock in your 6 Specials and your first-match pick — the only things due before the tournament starts.</>,
+          <><strong className="text-text-primary font-semibold">Every match after that:</strong> predict any time before it kicks off — you never have to do them all at once. Each match locks at its own kickoff.</>,
+          <><strong className="text-text-primary font-semibold">Knockout rounds:</strong> same as the group stage — every knockout match locks at its own kickoff, so you predict each one just before it starts, never a whole round up front.</>,
+        ]} />
       </Section>
 
       {/* How scoring works */}
@@ -302,18 +343,20 @@ export function AboutPage() {
               The same group-stage rules apply, but to the 90-minute score only. Extra time and
               penalties determine who advances, but don&rsquo;t affect points. A match that ends
               1–1 after 90 minutes (then decided on penalties) is scored as a 1–1 draw for
-              prediction purposes. Maximum 10 pts per knockout match.
+              prediction purposes. Maximum 10 pts per knockout match. That&rsquo;s exactly why
+              who-advances is a <strong className="text-text-primary font-medium">separate</strong> pick
+              (below) — a draw can&rsquo;t tell us who you reckon goes through on penalties.
             </p>
           </div>
 
           <div>
             <h3 className="text-xs font-mono font-semibold tracking-[0.2em] uppercase text-text-muted mb-2">
-              Knockout winner picks (per round)
+              Knockout winner picks
             </h3>
             <KnockoutWinnerTable />
             <p className="text-xs text-text-muted mt-2 font-sans">
-              Submitted round by round as teams are determined. Locked at the kickoff of the first
-              match in each round.
+              The points scale by round (above), but each pick locks at its own match&rsquo;s
+              kickoff — you predict match by match, just before each one, never a whole round at once.
             </p>
           </div>
 
@@ -342,29 +385,39 @@ export function AboutPage() {
       {/* How it works through the tournament */}
       <Section title="How it works through the tournament">
         <div>
-          <SubHead>Joining</SubHead>
+          <SubHead>Creating your account</SubHead>
           <BulletList items={[
-            'You\'ll get a unique invite link from the admin (over WhatsApp).',
-            'Click the link, choose your display name, set your own 4–8 digit PIN.',
-            <>Nobody — not even the admin — sees your PIN.</>,
-            'Forgot it? Reset via the app.',
+            'Sign up yourself — email, your name, timezone and a 4-digit PIN. No admin needed.',
+            <>Nobody — not even an admin — ever sees your PIN. Forgot it? Reset it in the app.</>,
+            'Add a profile photo if you like (optional).',
+            'Turn on notifications to get a reminder before kickoff so you never miss a deadline.',
+          ]} />
+
+          <SubHead>Getting into leagues</SubHead>
+          <BulletList items={[
+            <>Tap an <strong className="text-text-primary font-semibold">invite link</strong> someone shares with you — the usual way into a private league.</>,
+            <>Or enter a <strong className="text-text-primary font-semibold">join code</strong> under Leagues → Join by code.</>,
+            <>Or <strong className="text-text-primary font-semibold">discover public leagues</strong> and join instantly — or request to join, where an admin approves you.</>,
+            <>Or <strong className="text-text-primary font-semibold">create your own</strong> league (private for your mates, or public for anyone) and invite people in.</>,
+            'You make one set of predictions — they count in every league you join.',
           ]} />
 
           <SubHead>Group stage — 11–28 June</SubHead>
           <BulletList items={[
             'Predict each match\'s score any time before kickoff.',
             'Predictions lock automatically when the match kicks off.',
+            'All kickoff times show in your own timezone (set at signup).',
             <>Results auto-fetch every 5 minutes from <span className="text-text-primary font-medium">football-data.org</span>.</>,
             'The leaderboard updates the moment a result lands.',
-            'Compare your predictions head-to-head against any other player after a match locks.',
+            'Nobody can see your predictions until a match locks — then you can compare head-to-head with any other player.',
           ]} />
 
           <SubHead>Knockout transitions</SubHead>
           <BulletList items={[
             <>After the group stage, the admin reviews standings (including the 8 best third-placed teams per FIFA rules) and triggers the advance to Round of 32.</>,
             'The 16 R32 matches appear in the app with kickoff times pulled from football-data.',
-            <>Predict the <strong className="text-text-primary font-semibold">winner</strong> of each knockout match (not the score) before the first R32 match kicks off. Points increase as the stakes do: <Pill>R32 = 5</Pill> <Pill>R16 = 10</Pill> <Pill>QF = 15</Pill> <Pill>SF = 20</Pill> <Pill>3rd = 10</Pill> <Pill>Final = 25</Pill>.</>,
-            'Knockout score predictions (separate from winner picks) also continue — same group-stage points system applied to the 90-min score.',
+            <>For each knockout match you make <strong className="text-text-primary font-semibold">two</strong> predictions: the 90-minute <strong className="text-text-primary font-semibold">score</strong> and, separately, <strong className="text-text-primary font-semibold">who advances</strong>. Both lock at that match&rsquo;s own kickoff — predict each game just before it starts, not the whole round at once.</>,
+            <>Winner-pick points climb with the stakes: <Pill>R32 = 5</Pill> <Pill>R16 = 10</Pill> <Pill>QF = 15</Pill> <Pill>SF = 20</Pill> <Pill>3rd = 10</Pill> <Pill>Final = 25</Pill>.</>,
             'Same flow repeats for R16, QF, SF, and the Final.',
           ]} />
 
@@ -375,10 +428,11 @@ export function AboutPage() {
             'Awarded by the admin at the end of the tournament once the final whistle goes — your predictions are safe until then.',
           ]} />
 
-          <SubHead>Why per-round predictions, not a pre-tournament bracket?</SubHead>
+          <SubHead>Why predict as you go, not a bracket up front?</SubHead>
           <p className="text-sm font-sans text-text-secondary leading-relaxed mb-3">
             Some leagues ask you to fill your entire bracket before the tournament starts,
-            March-Madness-style. This league does it round by round. Here's why it's better:
+            March-Madness-style. Calcio does it match by match — each pick locks only at that
+            game&rsquo;s kickoff. Here&rsquo;s why that&rsquo;s better:
           </p>
           <WhyCard>
             <BulletList items={[
@@ -394,7 +448,7 @@ export function AboutPage() {
       {/* How it was built */}
       <Section title="How it was built">
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
-          Built by Craig Robinson and Lewis Steele. The frontend is a React 18 PWA hosted on
+          Built by Lewis Steele and Craig Robinson. The frontend is a React 18 PWA hosted on
           Vercel; the backend is a FastAPI service running on Railway backed by a Supabase Postgres
           database. Match results are fetched automatically from{' '}
           <a
@@ -418,12 +472,43 @@ export function AboutPage() {
             </span>
           ))}
         </div>
+
+        {/* Founders + executive sponsors */}
+        <JokeFigure
+          src="/about/founders-handshake.jpg"
+          alt="The two founders shaking hands in an office, one wearing a blue bumbag — a tribute to The Office."
+          className="pt-2"
+        />
+        <div>
+          <SubHead>Executive Sponsors</SubHead>
+          <div className="grid grid-cols-2 gap-3">
+            <JokeFigure
+              src="/about/man-of-steele.jpg"
+              alt="A 'Man of Steele' logo — the Superman shield reworked with the word STEELE."
+              caption="Lewis Steele"
+              imgClassName="h-28 object-contain"
+            />
+            <JokeFigure
+              src="/about/robinsons.png"
+              alt="A 'Robinsons' logo, Craig Robinson's alter-ego brand."
+              caption="Craig Robinson"
+              imgClassName="h-28 object-contain"
+            />
+          </div>
+        </div>
       </Section>
 
       {/* Footer credit */}
-      <p className="text-center text-xs font-sans text-text-muted pb-2">
-        A friends league, built properly.
-      </p>
+      <div className="space-y-2 pb-2">
+        <p className="text-center text-sm font-sans text-text-secondary">Thanks for playing.</p>
+        <JokeFigure
+          src="/about/prestige-worldwide.jpg"
+          alt="Two men in white suits on a yacht with champagne — a Prestige Worldwide tribute from Step Brothers."
+        />
+        <p className="text-center text-xs font-sans text-text-muted">
+          A Prestige Worldwide LLC Application
+        </p>
+      </div>
     </div>
   );
 }

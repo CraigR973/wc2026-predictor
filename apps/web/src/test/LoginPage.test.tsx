@@ -36,6 +36,11 @@ describe('LoginPage', () => {
     expect(screen.getByRole('link', { name: /create account/i })).toBeTruthy();
   });
 
+  it('shows the value-proposition tagline', () => {
+    renderLogin();
+    expect(screen.getByText(/predict once, compete everywhere/i)).toBeTruthy();
+  });
+
   it('shows lockout message on locked account response', async () => {
     vi.stubGlobal('fetch', () =>
       Promise.resolve({
