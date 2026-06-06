@@ -1744,3 +1744,17 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Committed on `chore/calcio-logo` (branched off `feat/snagging-photo-leaderboard`), merged into `staging`.
 
 **Next:** none planned.
+
+---
+
+## Polish batch U37 — Marketing copy + About multi-league refresh
+**Commits:** 8dd5246, 5f783c1 · CI ✅
+
+### Key facts for future sessions
+- Tagline lives in the `brand` token (`tagline` + `taglineSub`, `tokens.ts`), rendered on `/login` + `/welcome`; replaces the dead `'Still Email?'`. The Scotland subhead is intentionally seasonal — retire post-tournament.
+- Knockout locking is **per-match** (each match's own kickoff), per **U22.1** — NOT per-round. The architecture doc (§3.8 + locking rules) and About copy were both stale on this and were corrected here. Each knockout match has two predictions: 90-min score + a separate "who advances" pick (split because a penalty draw can't imply the advancer).
+- About says "4-digit PIN" to match the live `SignupPage` (enforces exactly 4); backend is still `^\d{4,8}$` — latent FE(4)/BE(4–8) mismatch (see U6.3).
+- `/about` joke images (`public/about/`) are personal in-jokes on third-party imagery under an "Executive Sponsors" frame + "Thanks for playing." sign-off — copyright risk if Calcio ever goes public.
+- Footer "A Prestige Worldwide LLC Application" + credit order ("Lewis Steele and Craig Robinson") are intentional gags — don't "correct" them.
+
+**Next:** U32 — Scoring quick-ref placement (🟢 Sonnet) — lowest unshipped of the U32–U36 backlog.
