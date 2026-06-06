@@ -1865,6 +1865,18 @@ done`). All frontend; **lock semantics do not change.**
 
 ---
 
+# Round 15 — Marketing copy + About multi-league refresh (U37) — added 2026-06-06
+
+Ad-hoc batch from a logo → slogan → copy session: value-prop hero on the login / welcome
+splash, About refreshed for multi-league (incl. the per-match knockout correction), and the
+founders' joke images. 🟢 Sonnet.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~U37~~ | ~~🟢 Sonnet~~ | ~~~2 h~~ | ~~U37.1–U37.4~~ | ✅ Shipped 2026-06-06 |
+
+---
+
 ## U37 — Marketing copy + About multi-league refresh 🟢 Sonnet · ~2 h
 
 Shipped ad-hoc from a logo → slogan → copy session (no prior spec row); acceptance
