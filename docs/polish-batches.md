@@ -1719,3 +1719,165 @@ Shipped to staging before write-up (commit `74eef25`).
 - `icon-512.png` = 16929 bytes (verified live on staging).
 - Login / Signup / Welcome splash shows mark above wordmark; axe a11y passes (mark is `aria-hidden`).
 - Frontend typecheck, lint, 15 targeted tests green; staging CI green (9/9 jobs ✅, commit `74eef25`, SHA `6bfc2b4`).
+
+---
+
+# Round 14 — snagging pass (U32–U35) — added 2026-06-06
+
+Snagging batch from a hands-on review with the user. Three 🟢 Sonnet UI batches
+(scoring-ref placement; a clutch of frontend snags; the first-run onboarding + About +
+checklist flow) and two 🔴 Opus feature batches (pre-match prediction reminders; biometric
+unlock). Each batch = one focused session; ship to staging per batch (independent — don't
+wait on the others). `/next-batch-prompt polish` surfaces them in number order as each is
+struck. (The three Sonnet batches — U32/U33/U36 — can share one or two sessions to save
+cold starts, per the orchestration discussion.)
+
+**Decisions locked in the review (carry these):**
+- **Header** = responsive, *not* uniform: mobile gets toggle-left + centred brand; desktop keeps today's layout (avoids the desktop nav collision).
+- **Pre-match reminders** = a **daily digest of your unpredicted matches** as the primary nudge (not per-match spam), fired earlier than kickoff, only to players who haven't predicted. A per-match "here's your pick" confirmation is **opt-in, off by default.** New notification type + its own toggle, respecting quiet hours.
+- **Biometrics** = the **lightweight local unlock gate** over the already-stored session (convenience, not a security upgrade) — *not* full server-side WebAuthn passkeys (a separate, larger batch if ever wanted). Front it with a feasibility spike.
+- **Scoring copy** = the reference table + `/about` worked examples are already clear; only the first-run **tour** slide needs a concrete stacking example. "2 pts for goals only" is a real, intended outcome — make the tour show it.
+- **First-run flow** = soft-guided, **not** forced. Sequence tour → notifications → a skippable **checklist launchpad** (read rules / set specials / first pick) that hands off to the persistent home checklist (`PreTournamentChecklist`). Don't hard-gate the app: specials + first pick lock at the opening match and late-joiners are supported, so blocking is wrong. "Both" = a guided intro **and** the standing checklist.
+- **Prediction-deadline copy** = reassurance only. The app locks **at kickoff** (confirmed in code + `/about` + the tour), so phrase it "set them any time before kickoff — with time to spare," **not** a literal "5 minutes before." A real 5-min grace buffer is a separate backend change (see the note under U36), not this round.
+- **About page** = already exists at `/about` and is reachable via the desktop nav + Settings; add a one-tap **avatar-dropdown** entry for mobile, and make "read the rules" require scrolling to the end (today it ticks on mount/click).
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U32 | 🟢 Sonnet | ~45 min | U32.1–U32.2 | |
+| U33 | 🟢 Sonnet | ~3 h | U33.1–U33.4 | |
+| U34 | 🔴 Opus | ~4 h | U34.1–U34.5 | |
+| U35 | 🔴 Opus | ~4 h | U35.1–U35.5 | |
+| U36 | 🟢 Sonnet | ~3.5 h | U36.1–U36.7 | |
+
+---
+
+## U32 — Scoring quick-ref placement 🟢 Sonnet · ~45 min
+
+Just where the scoring quick-ref (`ScoringGuide`, U29.4) sits on the two main surfaces. The
+tour copy + Back button moved to **U36** with the rest of the onboarding rework, so this
+batch no longer touches the tour. All frontend, no new infra.
+
+- **U32.1** (move scoring ref up on Home) — `DashboardPage.tsx`. The `<ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />` currently renders at the **bottom** of the page (below the "My Leagues" section, ~line 578). Move it **above** the predictions area — directly above `<UpcomingMatchesCarousel />` (~line 557). Keep it collapsed by default (same storageKey).
+- **U32.2** (collapse scoring ref on Predict) — `PredictionsPage.tsx` (~line 141) renders `<ScoringGuide />` **expanded** by default. Pass `defaultOpen={false}` and a **distinct** `storageKey="sss_scoring_guide_predict_open"` so the predict tab starts collapsed and doesn't share Home's open/closed state. (`ScoringGuide.tsx` already supports both props.)
+
+**Acceptance:**
+- Home: the scoring quick-ref sits **above** the upcoming-matches/predictions area, still collapsed by default (own storageKey).
+- Predict tab: the scoring guide is **collapsed by default** via its own storageKey (independent of Home).
+- Frontend typecheck, lint, tests green; staging CI green.
+
+---
+
+## U33 — Frontend snags: public badge, responsive header, profile avatar, long-press 🟢 Sonnet · ~3 h
+
+Four independent UI snags. The badge fix is a real display bug; the rest are UX.
+
+- **U33.1** (public-league badge shows blank — real bug) — the API serializes the **real** enum values `public_open` / `public_request` / `private` (`league.privacy.value`, `routers/leagues.py`), but the frontend still uses **stale short keys**: `LeagueSummary.privacy: 'open' | 'request' | 'private'` (`lib/types.ts:244`) and the `privacyLabel` maps (`MyLeaguesPage.tsx:26`, plus the `=== 'open'` ternary in `DiscoverLeaguesPage.tsx`). Result: public leagues render an **undefined/blank** badge while `private` shows "Private". (U29.9 fixed the create-side 422 but missed this read/display mapping.) Align the type + label maps to the real values and label them **"Public"** (`public_open`) / **"Public · request to join"** (`public_request`) / **"Private"**. Put the label map in **one shared helper** (e.g. `lib/leagues.ts`) consumed by both pages so it can't drift again.
+- **U33.2** (responsive header) — `TopBar.tsx`. On **mobile** (`< md`) lay the bar out as `[theme toggle]` left · **centred Calcio brand** · `[avatar dropdown]` right. On **`md`+** keep today's layout unchanged (brand left, nav centred, toggle + avatar right). Use a single toggle instance with responsive ordering/placement — don't render two copies. (Note: TopBar gained the avatar dropdown in U29.8 and the Calcio mark in U31 — re-survey the current file before editing.)
+- **U33.3** (update photo from your profile) — `PlayerProfilePage.tsx` (~line 307, `<Avatar … src={stats.avatar_url} />`). When viewing **your own** profile (`isSelf`), make the avatar a button that opens the existing avatar-update flow — reuse `lib/image.ts` (`resizeAvatar` + `uploadAvatarImage`) → backend `POST /api/v1/auth/me/avatar` (the service-role upload from U29.9), the same pipeline `SettingsPage` uses. Extract the SettingsPage avatar section into a shared component if that's cleaner than duplicating. Other players' avatars stay **view-only** (no editor).
+- **U33.4** (block the long-press link callout) — `index.css`. Add `-webkit-touch-callout: none` to app interactive elements (extend the existing `header, nav, button, [role='button']` rule that already sets `user-select: none`, ~line 223). Scope to interactive elements only — **don't** kill text selection on body content (league join codes, player names must stay selectable). Complements the existing `useLongPress` contextmenu suppression.
+
+**Acceptance:**
+- Public/open leagues show a **"Public"** badge on both My Leagues and Discover (no blank badge); `public_request` reads "Public · request to join"; `private` reads "Private"; one shared label helper drives both pages.
+- Mobile header: theme toggle top-left, Calcio brand centred, avatar right; **desktop header unchanged**; single toggle instance (no duplicate).
+- On your **own** profile, tapping the avatar opens the photo-update flow and a new image saves end-to-end via the existing backend endpoint; other players' avatars are not editable.
+- Long-pressing app buttons/links no longer triggers the iOS browser link/callout preview; intended text selection still works.
+- Frontend typecheck, lint, tests green; staging CI green.
+
+---
+
+## U34 — Pre-match prediction reminders 🔴 Opus · ~4 h
+
+The push stack, preferences (per-type toggles, global mute, quiet hours), and APScheduler
+all exist. There's already a `deadline_warning` 15-min-before-kickoff broadcast to **all**
+active players (`services/notification_triggers.py:300`), but it doesn't check who has
+predicted and never references picks. This batch adds the targeted reminders.
+
+> **Decisions (locked with the user):** primary nudge = a **daily digest of your unpredicted matches** ("You have 3 matches to predict today"), *not* per-match spam; fired earlier than kickoff and only to players who **haven't** predicted. A per-match **"here's your pick" confirmation is opt-in, off by default.** New notification type + its own preference toggle; respect the existing quiet-hours / global-mute system.
+
+- **U34.1** Prediction-status query helper — "active players who have **not** submitted a prediction" for a given match (and for a set of matches kicking off in a window/day). Uses `predictions.submitted_at IS NOT NULL` + the active-players set. Pure, well-tested helper (service/query module). No "unpredicted players" query exists today.
+- **U34.2** New notification type(s) + preference toggle(s) + migration — add `predict_reminder` (the unpredicted-digest) and `pick_confirmation` (opt-in) to `NotificationType` (`models/notification.py:13`) and to `NotificationPreferences` (`models/prediction.py:150`), defaulting **predict_reminder ON, pick_confirmation OFF**. Wire both into `_pref_enabled` (`push_notification_service.py:54`) and the prefs GET/PATCH (`routers/notifications.py`). Migration for the new pref columns.
+- **U34.3** Daily unpredicted-digest job — a new APScheduler job (`scheduler.py`) that runs once per day and, for each active player with ≥1 **unpredicted** match kicking off that day, sends a **single** digest push ("You have N matches to predict today") deep-linking to `/predictions`. Only to unpredicted players; respects quiet hours, global mute, and the `predict_reminder` toggle. Be deliberate about the daily fire time vs player timezones / quiet hours (matches span US/Canada/Mexico zones; players are mostly UK).
+- **U34.4** Opt-in per-match pick confirmation — for players who **have** predicted and enabled `pick_confirmation`, a pre-match push with their pick ("Your pick for England v France: 2–1 · kicks off 20:00"). Off by default; gated entirely by the toggle. Reuse the existing pre-kickoff window machinery.
+- **U34.5** Tests — the unpredicted-players query; digest targeting (fully-predicted users excluded); toggle gating (both new types); quiet-hours / global-mute suppression; delivery rows in `NotificationLog`.
+
+**Acceptance:**
+- A **daily digest** push goes only to active players with ≥1 unpredicted match kicking off that day; players who've predicted everything get nothing; it deep-links to the predictions surface.
+- The digest respects quiet hours, global mute, and the new `predict_reminder` toggle (default ON).
+- `pick_confirmation` (default OFF) fires a per-match pick reminder **only** for users who enabled it and **only** for matches they've predicted.
+- New notification type(s) + preference toggle(s) exist with correct defaults; migration applied; the prefs API round-trips them.
+- Unit tests cover the unpredicted-players query, digest targeting, toggle gating, and quiet-hours suppression; `pytest` + Vitest green; staging CI green.
+
+---
+
+## U35 — Biometric unlock (local gate) 🔴 Opus · ~4 h
+
+Greenfield — no WebAuthn / passkey / `navigator.credentials` code exists. Auth is Name + PIN
+(bcrypt) + JWT with tokens in `localStorage`. This batch adds a **convenience** biometric
+unlock over the already-stored session — **not** full server-side passkeys.
+
+> **Decision (locked):** lightweight **local biometric gate** (guards re-entry to the stored session; framed as convenience, *not* a security upgrade), not server-side WebAuthn passkey registration/assertion (a separate, larger batch if ever wanted).
+>
+> **Before coding (spike):** confirm a platform authenticator works in the **installed** iOS/Android PWA — `window.PublicKeyCredential` + `isUserVerifyingPlatformAuthenticatorAvailable()`. iOS PWA WebAuthn can be finicky; if installed-PWA support is too flaky, fall back to a simpler in-app PIN re-prompt gate and **report what you found** rather than forcing it.
+
+- **U35.1** Spike + capability detection — detect platform-authenticator availability and gate the **entire** feature behind it (hidden when unsupported). Decide the exact mechanism (WebAuthn `create`/`get` with a locally-stored credential id, user-verification required). Document the security model: it guards re-entry to a session whose refresh token still lives in `localStorage` — convenience, not hardening.
+- **U35.2** Enrollment — a **Settings** toggle "Unlock with Face ID / fingerprint" that registers a platform credential (`navigator.credentials.create`, platform authenticator, `userVerification: 'required'`) and stores the credential id locally. (Server-side assertion verification is out of scope for the light gate.)
+- **U35.3** Unlock gate — when enabled and a stored session exists, require a successful `navigator.credentials.get()` (user verification) before using the stored tokens / rendering authed content. Any failure/cancel falls back to the **PIN** (never a lockout).
+- **U35.4** Settings UI + disable path — enable/disable, and graceful handling of unsupported/declined states. **PIN stays the source of truth and always works.**
+- **U35.5** Tests — capability-gated rendering (hidden when no authenticator), enable/disable flow, unlock success and unlock-failure → PIN fallback. Mock `navigator.credentials` / `PublicKeyCredential`.
+
+**Acceptance:**
+- On a supported installed PWA, a Settings toggle enrolls a platform biometric; with it on, reopening the app requires a successful biometric **or** PIN fallback before authed content shows.
+- Convenience-only: PIN always works as the fallback and source of truth; declining / cancelling never locks the user out.
+- The feature is fully **hidden** when no platform authenticator is available.
+- The security model is documented (guards re-entry to a stored session; not a server-side passkey).
+- Tests cover capability gating, enable/disable, and unlock → PIN fallback; frontend (and any backend) tests green; staging CI green.
+
+---
+
+## U36 — First-run onboarding flow + About page + pre-tournament checklist 🟢 Sonnet · ~3.5 h
+
+Ties the post-signup sequence, the persistent home checklist (`PreTournamentChecklist`,
+U20.4), and the existing `/about` page (`AboutPage`) into one coherent first-run experience
+— and makes "read the rules" actually mean reaching the end. Builds on U10.2
+(`NotificationsPromptModal`) + U10.3 (`IntroTour`) + `FirstRunController` (`tour → notif →
+done`). All frontend; **lock semantics do not change.**
+
+> **Decisions (locked with the user):**
+> - **Soft-guided, not forced** — add a skippable launchpad after the notif prompt; the standing home checklist remains. Never hard-block the app on predicting (specials + first pick lock at the opening match; late-joiners are explicitly supported per `/about`).
+> - **Deadline copy = reassurance, not a hard 5-min lock.** The system locks **at kickoff** (`scheduler.lock_due_matches`, the `predictions` upsert guard, and the existing `/about` + tour copy all agree). Say "before kickoff — with time to spare," not a literal "5 minutes." If a real 5-minute grace buffer is wanted, that's a **separate backend change** (lock at `kickoff − 5m` across the lock job + upsert guard + every "lock at kickoff" string + tests) — flag it, don't bundle it here.
+
+- **U36.1** Tour **Back** button — `IntroTour.tsx` (4-slide press-through, `slide` state ~line 81, Next/Skip only). Show a **Back** control when `slide > 0` that decrements `slide`; Next/Skip unchanged. (Moved from the old U32.4.)
+- **U36.2** Tour scoring clarity — the scoring slide is prose-only; full worked examples live on `/about` + `ScoringGuide`. Add a concrete stacking example to the slide, explicitly covering the goals-only case (*"Predict 2–1 but it ends 1–2? You still bank 2 pts for the right total goals — result + exact stack on top."*), and point to "full rules" (`/about`). (Moved from the old U32.3.)
+- **U36.3** First-run **checklist launchpad** — extend `FirstRunController.tsx` (`tour → notif → done`) with a final **`checklist`** step after `notif`: a skippable screen with the three pre-tournament actions as buttons — **Read the full rules** (`/about`), **Set your Specials** (`/predictions/specials`), **Make your first pick** (`/predictions`) — plus the reassurance copy (U36.4) and a "Skip for now / Go to app" exit. Gate once via localStorage (e.g. `sss_firstrun_launchpad_seen`, mirroring `isTourSeen`/`isNotifPromptSeen`). The home `PreTournamentChecklist` still tracks whatever is skipped.
+- **U36.4** Deadline reassurance copy — in the launchpad **and** the home `PreTournamentChecklist`, make clear specials + the first-match pick stay open until the opening-match kickoff and can be set any time. Keep wording consistent with the accurate `/about` + tour "lock at kickoff" copy; do **not** assert a literal 5-minute cutoff (see decision).
+- **U36.5** Persistent **About** entry on mobile — `/about` is in the desktop nav (`TopBar.tsx:23`) + Settings (`SettingsPage.tsx:491`, "About & scoring rules"), but the desktop nav is hidden on mobile. Add **"About / How it works"** to the **avatar dropdown** (the U29.8 menu, alongside Profile + Settings) so it's one tap on mobile, and reference that path from the launchpad ("reopen any time from the menu → About").
+- **U36.6** About **"scroll to the end"** — `AboutPage.tsx` calls `markRulesRead()` on **mount** (~line 281), and `PreTournamentChecklist` also auto-ticks on the row click (`onLinkClick={tickRules}`, ~line 131), so "Read the rules" completes without reading. Replace both with a **bottom-sentinel `IntersectionObserver`**: mark read only when the user reaches the **end of the rules content** (place the sentinel after the "How it works through the tournament" section, before the build-credits / joke images). Add a top "scroll for the full rules" cue and a clear **end-of-rules marker / CTA** (e.g. "That's everything — set your Specials →").
+- **U36.7** Tests — tour Back nav; `FirstRunController` order `tour → notif → checklist → done` + once-only gate; launchpad button routing; avatar-dropdown About entry; `markRulesRead` fires on reaching the sentinel (mock `IntersectionObserver`), not on mount/click.
+
+**Acceptance:**
+- After signup the flow runs **tour → notifications → checklist launchpad**, each skippable; nothing hard-blocks the app; the launchpad links to rules / specials / first pick and exits to the app.
+- The home `PreTournamentChecklist` still tracks the three actions and latches dismissed when all complete.
+- Onboarding + checklist copy makes clear specials + the first pick can be set any time **before kickoff** (no false "5-minute" claim); tour + `/about` wording stays consistent.
+- The tour has a working **Back** button; the scoring slide shows a concrete stacking example (incl. goals-only = 2 pts) and points to `/about`.
+- `/about` is reachable in **one tap from the avatar dropdown** on mobile (plus the existing nav + Settings paths).
+- "Read the rules" completes only when the user **scrolls to the end of the rules** on `/about` (not on mount/click); a scroll cue + end-of-rules CTA are present.
+- Frontend typecheck, lint, tests green; staging CI green.
+
+---
+
+## U37 — Marketing copy + About multi-league refresh 🟢 Sonnet · ~2 h
+
+Shipped ad-hoc from a logo → slogan → copy session (no prior spec row); acceptance
+reverse-engineered from what landed. U36 (onboarding) builds on this — U37 ships first.
+
+- **U37.1** (tagline tokens + splash hero) — `apps/web/src/theme/tokens.ts`: replace the dead `tagline: 'Still Email?'` with `tagline` ("Predict once, compete everywhere.") + `taglineSub` (Scotland "28 years" line). Render a centred hero — headline + italic subhead — between `<Brand variant="splash" />` and the card on `LoginPage.tsx` + `WelcomePage.tsx`. No new CTAs, no eyebrow. Scotland subhead is intentionally seasonal — retire post-tournament from the token.
+- **U37.2** (About → multi-league + clarity) — `AboutPage.tsx`: rewrite **"What is this?"** + **"Joining"** for the multi-league model (predict once / compete everywhere; private *or* public, instant or request-to-join; self-signup; join paths — invite link `/join/:token`, join code `/leagues/join`, discover `/leagues/discover`, create `/leagues/new`; fix "4–8 digit"→"4-digit"). Add a **"Deadlines — what's due when"** callout (Specials + first pick before the opener; **everything else — knockout score *and* winner picks included — locks per-match at each kickoff**, per U22.1). Clarify the two-prediction knockout model and why (a 90-min penalty draw can't imply the advancer); correct the stale per-round wording in About **and** the architecture doc (§3.8 + locking rules). Fold in **timezones** (kickoffs in your own tz), **hidden picks** (no one sees your predictions until lock), and **notifications** (reminder before kickoff).
+- **U37.3** (credits + footer) — swap credit order to **"Built by Lewis Steele and Craig Robinson."**; add a **"Thanks for playing."** sign-off; footer → **"A Prestige Worldwide LLC Application"** (deliberate Step Brothers gag, not a real entity).
+- **U37.4** (joke images) — add a `JokeFigure` helper (`<figure>` → bordered lazy `<img>` + required `alt` + optional caption + `imgClassName` so the two sponsor logos share a fixed height and captions align). 4 files in `apps/web/public/about/`: `founders-handshake.jpg` (full-width, no caption) + the `man-of-steele.jpg` / `robinsons.png` pair under an **"Executive Sponsors"** heading; `prestige-worldwide.jpg` above the footer. In-jokes on third-party imagery — fine for a private league; swap for original art before any public launch.
+
+**Acceptance:**
+- `/login` + `/welcome` show "Predict once, compete everywhere." + the Scotland subhead from the `brand` token (single source); no eyebrow; `'Still Email?'` gone.
+- About reads multi-league, with a **Deadlines** callout (knockout locks **per-match**, matching U22.1); PIN copy reads **4-digit**; timezones, hidden-picks, and notifications are all covered.
+- Credits read "Lewis Steele and Craig Robinson"; bottom reads "Thanks for playing." → "A Prestige Worldwide LLC Application" under an "Executive Sponsors" image pair.
+- Four joke images render on `/about` (via `JokeFigure`, with alt text) and serve `200`.
+- Frontend typecheck, lint (0 errors), 339 tests green; staging CI green.
