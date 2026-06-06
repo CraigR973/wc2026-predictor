@@ -1729,4 +1729,18 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - The "Your position" summary card was removed — the player's own row highlight (`bg-primary/10`, lifted from `/5`) is the sole self-indicator now; `myEntry` is gone.
 - Leaderboard ranks are plain numbers — the `MEDAL` (🥇🥈🥉) map was removed.
 
-**Next:** none — no U31 planned yet.
+**Next:** Polish batch U31 — Calcio logo rebrand 🟢 Sonnet
+
+---
+
+## Polish batch U31 — Calcio "C" logo + PWA icons + splash lockup
+**Commits:** 74eef25 · CI ✅
+
+### Key facts for future sessions
+- New mark is **Concept 6 "Calcio C"** — `generate-icons.mjs` is the single source of truth for the geometry; re-run it (with nvm Node 20, not system node v14) whenever the mark changes.
+- All 7 public icon files regenerated (`icon-192/384/512`, maskable, apple-touch, favicon.svg + .ico). `icon-512.png` is 16929 bytes (was 13189 — the old pitch icon).
+- `Brand.tsx` `MarkSvg` draws the C + football; `useId()` scopes each gradient to avoid duplicate SVG `id` collisions when multiple marks appear on one page.
+- The splash (`variant="splash"`) now stacks the mark above the CALCIO wordmark; previously it was wordmark-only with no graphic.
+- Committed on `chore/calcio-logo` (branched off `feat/snagging-photo-leaderboard`), merged into `staging`.
+
+**Next:** none planned.

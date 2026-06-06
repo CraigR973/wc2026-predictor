@@ -1692,3 +1692,30 @@ Shipped to staging before write-up (commit `89839a9`).
 - Breakdown columns are visibly spaced.
 - Long league names show in full (wrap, not truncate); actions sit below the title.
 - Frontend typecheck, lint, 338 tests green; staging CI green (commit `89839a9`).
+
+---
+
+# Round 13 — Calcio logo rebrand (U31) — added 2026-06-06
+
+Replace the stale Steele-era "S" mark and pitch icon with the new **Calcio "C"** identity. 🟢 Sonnet.
+Shipped to staging before write-up (commit `74eef25`).
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| ~~U31~~ | ~~🟢 Sonnet~~ | ~~~1 h~~ | ~~U31.1–U31.4~~ | ✅ Shipped 2026-06-06 |
+
+---
+
+## U31 — Calcio "C" logo: new mark + PWA icons + splash lockup 🟢 Sonnet · ~1 h
+
+- **U31.1** New monogram mark — Concept 6 "Calcio C": a geometric monoline **C** (open centre-circle ring) cradling a football in its mouth, in the brass-gold wordmark gradient (`#F0DDA6 → #D4A24A → #A77C2A`) on graphite `#0B0E13`. One shape that reads from 512 px down to 16 px; pentagon panel drops out gracefully at favicon size. Replaces the "S" letterform (Steele) and the busy pitch icon.
+- **U31.2** All PWA icons regenerated — `icon-192/384/512.png`, `icon-maskable-512.png` (0.9 scale inside safe zone), `apple-touch-icon.png` (0.875 scale), `favicon.svg` (flat brass, crisper at 16 px), `favicon.ico` (32 px PNG-in-ICO). `generate-icons.mjs` is the single source of truth; also emits `docs/logo-concepts/concept-6-calcio-c*.svg`.
+- **U31.3** In-app `MarkSvg` in `Brand.tsx` updated to the new C geometry (gradient via `useId`-scoped `linearGradient` so multiple marks on one page stay valid SVG).
+- **U31.4** Splash variant (`Brand` on Login / Signup / Welcome / Join / PIN-reset) now shows the mark above the CALCIO wordmark — the two render as a matched metallic pair. Previously the splash was wordmark-only with no graphic.
+
+**Acceptance:**
+- Home-screen install (Android + iOS) shows the gold C mark and is named **Calcio**.
+- PWA manifest: `name` = `Calcio`, `short_name` = `Calcio`; all four icon sizes point at the new files.
+- `icon-512.png` = 16929 bytes (verified live on staging).
+- Login / Signup / Welcome splash shows mark above wordmark; axe a11y passes (mark is `aria-hidden`).
+- Frontend typecheck, lint, 15 targeted tests green; staging CI green (9/9 jobs ✅, commit `74eef25`, SHA `6bfc2b4`).
