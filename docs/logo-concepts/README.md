@@ -1,5 +1,12 @@
 # Logo concepts — pick one direction
 
+> **Chosen — Concept 6 · "Calcio C" (`concept-6-calcio-c.svg`).** After the rebrand
+> from *The Steele Spreadsheet System* to **Calcio**, the identity moved from an **S**
+> letterform to a **C**: a geometric monoline C (open centre-circle ring) cradling a
+> football, in the brass-gold wordmark gradient on graphite. It is the single source of
+> truth in `apps/web/generate-icons.mjs`, which rasterises every PWA icon + favicon and
+> re-emits the archival SVGs here. The notes below are the original Steele-era exploration.
+
 Five concept marks for **The Steele Spreadsheet System**, drafted at 512 × 512 SVG with a brass + graphite palette (`#D4A24A` on `#0B0E13`). Each concept ships in both a dark variant and a light variant. Once you pick a direction I'll refine that one through Phase 3 — convert text to outlined paths, export to PNG at 192/384/512 for the PWA manifest, and create a 32×32 favicon.
 
 ## How to view
