@@ -1722,7 +1722,7 @@ Shipped to staging before write-up (commit `74eef25`).
 
 ---
 
-# Round 14 — snagging pass (U32–U35) — added 2026-06-06
+# Round 14 — snagging pass (U32–U36) — added 2026-06-06
 
 Snagging batch from a hands-on review with the user. Three 🟢 Sonnet UI batches
 (scoring-ref placement; a clutch of frontend snags; the first-run onboarding + About +
@@ -1893,3 +1893,143 @@ reverse-engineered from what landed. U36 (onboarding) builds on this — U37 shi
 - Credits read "Lewis Steele and Craig Robinson"; bottom reads "Thanks for playing." → "A Prestige Worldwide LLC Application" under an "Executive Sponsors" image pair.
 - Four joke images render on `/about` (via `JokeFigure`, with alt text) and serve `200`.
 - Frontend typecheck, lint (0 errors), 339 tests green; staging CI green.
+
+---
+
+# Round 16 — League-table tiebreakers (U38–U39) — added 2026-06-06
+
+From a design chat with Lewis (the level-on-points problem): settle tied players with a
+pure-**merit cascade** so a tied prize can be decided **in-app**. Two batches, sequential —
+**U38** (🔴 Opus) does the scoring aggregation + strict ordering + cross-system consistency;
+**U39** (🟢 Sonnet) puts the tiebreak components into the leaderboard rows and relocates the
+points-source breakdown to the profile. U39 consumes U38's payload, so U38 ships first. Ship
+to staging per batch.
+
+> **Decisions (locked with the user):**
+> - **Settle tied prizes in-app**, via a pure-**merit** cascade: points → most **exact scores** → most **correct results** → most **correct goals** → most **specials correct** → most **knockout-winner picks correct**.
+> - **No timing-based or arbitrary break** — early-submission was explicitly rejected (rewards behaviour/timezone, not skill); no alphabetical/random either. A genuine all-axis tie is flagged for the **admin to settle** (split / one-off decider) — the only non-merit step, and essentially never reached.
+> - **Leaderboard rows show exact / result / goals** (the visible tiebreak rationale, scoped to the active round pill); the **Match / KO / Special** points decomposition (U29.7) **moves to the player profile**. Deeper tiebreakers (specials / KO-winner) live on the profile / an expanded row, not as permanent columns.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U38 | 🔴 Opus | ~4 h | U38.1–U38.5 | |
+| U39 | 🟢 Sonnet | ~2.5 h | U39.1–U39.5 | |
+
+---
+
+## U38 — Tiebreaker scoring + strict ordering 🔴 Opus · ~4 h
+
+The leaderboard today orders by `total_points` and **shares ranks** on a tie (standard
+competition ranking — see the `dedupedLeaderboard` helper, U3.10, and the backend leaderboard
+query). This batch replaces shared ranks with the merit cascade and makes the new order
+consistent everywhere rank is computed.
+
+> **Precondition:** confirm the per-prediction exact / result / goals components are persisted
+> (they drive the existing breakdowns, so near-certain). If only the per-match total is stored,
+> derive the counts from the scoring components / trigger. Likewise confirm specials-correct and
+> knockout-winner-correct are derivable.
+
+- **U38.1** Per-player tiebreak aggregates — counts of **exact scores**, **correct results**, **correct goals** across settled match-score predictions (group + knockout score), plus **specials correct** and **knockout-winner picks correct**. Expose them in the leaderboard payload, scoped to the round/stage filter where applicable (overall vs a selected round).
+- **U38.2** Strict ordering / sort key — `points DESC → exact DESC → correct results DESC → correct goals DESC → specials correct DESC → KO-winner correct DESC`. Replace shared-rank ordering with this cascade. If **all** axes tie, mark a genuine shared position flagged for admin resolution — **no** timing/alphabetical/random break.
+- **U38.3** Consistency across the rank system — apply the **same** sort key to leaderboard snapshots, rank-history, rank-delta / movement notifications, and the `dedupedLeaderboard` helper (U3.10), so rank never disagrees between the table, history, and pushes. Competition ranking now ties two players only when they're equal on every cascade axis.
+- **U38.4** Admin-settle backstop — surface the true all-tie state so a prize can still be settled in-app without an arbitrary rule (minimal: a tie flag + an admin manual-order / override field; a full playoff mechanism is out of scope).
+- **U38.5** Tests — aggregate correctness; the full cascade (fixtures that tie on points, then also on exact, then result, … asserting separation at each level); the all-axis-tie → shared/flagged case; snapshot / rank-history / notification consistency under the new key.
+
+**Acceptance:**
+- Two players level on points are separated by `exact → result → goals → specials → KO-winner`; the leaderboard reflects the new order.
+- The **same** ordering drives snapshots, rank-history, rank-delta notifications, and the dedupe helper — no rank disagreement across surfaces.
+- A genuine all-axis tie is marked a shared position and exposed for **admin settlement** (no timing/alphabetical/random break).
+- Per-player tiebreak counts (exact/result/goals + specials/KO-winner) are returned in the leaderboard payload, scoped to the selected round/stage where applicable.
+- `pytest` green (incl. cascade + consistency tests); staging CI green.
+
+---
+
+## U39 — Leaderboard tiebreaker columns + About rule 🟢 Sonnet · ~2.5 h
+
+Surfaces U38's tiebreak components on the leaderboard and relocates the points-source
+breakdown. Depends on U38's payload. All frontend.
+
+- **U39.1** Leaderboard rows → tiebreak columns — replace the inline **Match / KO / Special** columns (U29.7) with **exact / result / goals**, scoped to the active round pill, under a small **"Tiebreakers"** (or "Precision") header so they're not read as a points decomposition. Keep the caller-row highlight (U30.1), plain ranks (U30.2), column spacing (U30.3).
+- **U39.2** Relocate the points-source breakdown — move the full **Match / KO / Special** decomposition (incl. specials) to the **player profile** (`PlayerProfilePage`) as "how I earned my points," so nothing is lost. (Check whether the profile already shows part of this; enrich rather than duplicate.)
+- **U39.3** Mobile width — ensure rank + name + points + three tiebreak columns fit a phone; expose the deeper tiebreakers (specials / KO-winner) on an expanded/tapped row or the profile, **not** as permanent columns.
+- **U39.4** Document the rule — add a short **"How ties are broken"** section to `AboutPage` (points → exact → result → goals → specials → KO-winner → admin settles a genuine all-tie), consistent with the U37 Deadlines/About copy.
+- **U39.5** Tests — rows render the tiebreak columns from the payload and scope to the round pill; the profile shows the Match/KO/Special decomposition; the About tiebreak section renders.
+
+**Acceptance:**
+- Leaderboard rows show **exact / result / goals** (scoped to the round pill) under a clear "tiebreakers" label; when players are level on points, the visible row order matches the columns.
+- The **Match / KO / Special** points breakdown now lives on the **player profile** (incl. specials); nothing removed from the app, just relocated.
+- The mobile leaderboard isn't overflowed; deeper tiebreakers are reachable (profile / expanded row) without permanent columns.
+- `/about` documents the tiebreak order, consistent with existing copy.
+- Frontend typecheck, lint, tests green; staging CI green.
+
+---
+
+# Round 17 — Home dashboard redesign (U40–U41) — added 2026-06-07
+
+From a design chat (the home-screen rework): replace the stacked points hero +
+expanding accordions + full-width live hub with a **two-tile command center** —
+**Points** top-left, the **live/next match hub** top-right — that drills into
+existing screens, and enrich the live "points if this stands" projection. Two
+batches — **U40** (🟢 Sonnet) does the layout + match tile + drill-down rewiring
++ profile daily-recap; **U41** (🔴 Opus) adds the knockout advancement projection
+to the live provisional. U41 enriches U40's match tile, so U40 ships first. Ship
+to staging per batch.
+
+> **Decisions (locked with the user):**
+> - **Two-tile top row** — Points top-left (~38 %), the match hub top-right (~62 %), **side-by-side including on mobile** via an asymmetric split + a compact match card (the rejected first attempt only split at ≥lg).
+> - **Match hub = one tile, three states** — `live → next → last`, defaulting to **next** when nothing's live; **swipe** between cards when ≥2 are live (guaranteed on final group matchdays — group pairs kick off simultaneously).
+> - **Drill, don't expand** — kill the daily-summary and league accordions; every tile is a glanceable summary that taps through to an **existing** screen (`/players/:id`, `/leagues/:slug/leaderboard`, `/matches/:id`). The daily score moves onto the **profile**, covering both "today" and the full breakdown.
+> - **`scoreMatchPrediction` ignores stage** (match score only, max 10); knockout **advancement** is a separate winner-pick prediction, so the live provisional must project + add it explicitly (U41).
+> - **Bottom nav unchanged** this round — it's orthogonal (app sections vs dashboard shortcuts); the Schedule-vs-Predict overlap is noted for a possible later audit.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U40 | 🟢 Sonnet | ~3.5 h | U40.1–U40.6 | |
+| U41 | 🔴 Opus | ~2.5 h | U41.1–U41.4 | |
+
+---
+
+## U40 — Home dashboard redesign 🟢 Sonnet · ~3.5 h
+
+Replaces the stacked hero + accordions + full-width live hub with a two-tile
+command center that drills into existing screens. All frontend bar a small
+profile-data reuse.
+
+> **Precondition:** the home `rollup` (matchday `points_gained` + per-match breakdown,
+> from `/api/v1/me/home`) already drives the current daily summary — reuse it for the
+> profile's "latest matchday" block rather than adding a new endpoint. Confirm
+> `PlayerProfilePage` can take a daily-points block without new API (else expose the
+> rollup on the player endpoint).
+
+- **U40.1** Top row — full-width "Welcome back" h1, then an **asymmetric** grid: **PointsTile (~38 %, left)** + **MatchTile (~62 %, right)**, side-by-side **including on mobile** (375 px). Replaces `GreetingHero`; nothing live → MatchTile shows the next fixture so the row is never half-empty.
+- **U40.2** MatchTile state machine — `live → next → last`, defaulting to **next** when nothing's live (reuse `pickInlineSlot`). Compact card: team **codes** not names, scoreline, `LIVE · 67'`, condensed `You 2–1 · +10 if it stands`, with the provisional **breakdown** (result/goals/exact via `PointsBreakdownRow`).
+- **U40.3** Multi-live swipe — horizontal carousel with dots (+ arrows on desktop) when ≥2 matches are live; default card = the biggest-stake match (predicted / nearest full-time).
+- **U40.4** Restructure — remove `HeroDailySummary`, the standalone `LiveMatchHub` section, and the `CrossLeagueMovementSummary` line; fold "+N today" into PointsTile. Leagues become **compact rank rows** (no accordion). Final order: top row → leagues → upcoming → checklist/scoring.
+- **U40.5** Drill-downs + profile recap — PointsTile → `/players/:id`; league row → `/leagues/:slug/leaderboard`; MatchTile → `/matches/:id` (predict form pre-lock). Add a **"latest matchday" points block to `PlayerProfilePage`** (reuse home `rollup`) so the Points drill covers today + the full breakdown.
+- **U40.6** Tests — new layout structure; tile states (live/next/last); swipe renders one card per live match; drill-target links; profile daily block. Update the existing `DashboardPage.test.tsx` live-hub / inline-slot tests to the new shape.
+
+**Acceptance:**
+- Points sits top-left and the match hub top-right, side-by-side from mobile up (asymmetric split); with nothing live the MatchTile shows the next fixture.
+- ≥2 live matches are swipeable with a clear position affordance; the default card is the highest-stake match.
+- The daily-summary and standalone live-hub sections are gone; "+N today" lives in PointsTile and the full breakdown on the profile.
+- Tapping Points → profile (with today's gain), a league row → that league's leaderboard, the match → match detail / predict.
+- Frontend typecheck, lint, tests green; staging CI green.
+
+---
+
+## U41 — Live provisional: knockout advancement projection 🔴 Opus · ~2.5 h
+
+Enriches U40's "points if this stands" so knockout matches also reflect projected
+advancement points. Today the shared scorer is match-score-only; advancement is a
+separate winner-pick, so it must be projected and added explicitly — only when the
+live scoreline implies a definite advancer.
+
+- **U41.1** Advancement projection — when a live knockout scoreline implies a **definite advancer**, look up the caller's knockout winner-pick for that tie and add its points to the provisional total.
+- **U41.2** Edge cases — a level scoreline / draw heading to ET/pens → advancement **undetermined**: show match points only + an "advancement undecided" affordance; group-stage matches are unaffected (no advancement component).
+- **U41.3** Combined breakdown — the provisional breakdown shows the **match** component and the **advancement** component distinctly.
+- **U41.4** Tests — projection across won / level / ET states; group vs knockout; breakdown composition; the undecided state.
+
+**Acceptance:**
+- For a knockout match with a decisive live scoreline, "points if this stands" includes projected advancement points (from the caller's bracket pick), shown as a distinct breakdown line.
+- A level knockout scoreline shows match points only + an undecided affordance; group matches are unchanged.
+- Shared (`@wc2026/shared`) + web tests green; staging CI green.
