@@ -2053,7 +2053,7 @@ normal explicit `/phase-closeout U42` path after review, commit, push, and CI.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U42 | 🟢 Sonnet | ~2 h | U42.1–U42.6 | Implemented locally; pending commit/CI/close-out |
+| ~~U42~~ | ~~🟢 Sonnet~~ | ~~~2 h~~ | ~~U42.1–U42.6~~ | ✅ Shipped 2026-06-07 |
 
 ---
 
