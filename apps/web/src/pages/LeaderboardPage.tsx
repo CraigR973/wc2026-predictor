@@ -95,6 +95,42 @@ interface RowProps {
   onLongPress: () => void;
 }
 
+function TiebreakHeader({
+  pointsLabel,
+}: {
+  pointsLabel: string;
+}) {
+  return (
+    <thead>
+      <tr className="border-b border-border/60 text-[9px] font-mono uppercase tracking-[0.22em] text-text-muted">
+        <th rowSpan={2} className="py-2.5 pl-3 sm:pl-5 text-left w-7 align-bottom">
+          #
+        </th>
+        <th rowSpan={2} className="py-2.5 text-left align-bottom">
+          Player
+        </th>
+        <th colSpan={3} className="px-1 text-center align-bottom">
+          Tiebreakers
+        </th>
+        <th rowSpan={2} className="py-2.5 pr-3 sm:pr-5 pl-1 text-right w-12 align-bottom">
+          {pointsLabel}
+        </th>
+      </tr>
+      <tr className="border-b border-border text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+        <th className="py-2 px-1.5 sm:px-2.5 text-right" title="Exact scores">
+          Ex
+        </th>
+        <th className="py-2 px-1.5 sm:px-2.5 text-right" title="Correct results">
+          Res
+        </th>
+        <th className="py-2 px-1.5 sm:px-2.5 text-right" title="Correct goal totals">
+          Gls
+        </th>
+      </tr>
+    </thead>
+  );
+}
+
 function LeaderboardRow({
   entry,
   displayPoints,
@@ -160,13 +196,13 @@ function LeaderboardRow({
           )}
         </div>
       </td>
-      <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
+      <td className="py-3.5 px-1.5 sm:px-2.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.exact_count ?? 0}
       </td>
-      <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
+      <td className="py-3.5 px-1.5 sm:px-2.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_result_count ?? 0}
       </td>
-      <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
+      <td className="py-3.5 px-1.5 sm:px-2.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_goals_count ?? 0}
       </td>
       <td className="py-3.5 pr-3 sm:pr-5 pl-1 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">
@@ -485,37 +521,28 @@ export function LeaderboardPage() {
         <>
           <PeriodToggle period={period} onChange={setPeriod} />
           <div className="rounded-lg border border-border bg-surface overflow-hidden">
-          <table className="w-full text-sm font-sans">
-            <thead>
-              <tr className="border-b border-border text-text-muted text-[10px] font-mono uppercase tracking-[0.2em]">
-                <th className="py-2.5 pl-3 sm:pl-5 text-left w-7">#</th>
-                <th className="py-2.5 text-left">Player</th>
-                <th className="py-2.5 px-2.5 text-right" title="Exact scores — first tiebreaker">E</th>
-                <th className="py-2.5 px-2.5 text-right" title="Correct results — second tiebreaker">R</th>
-                <th className="py-2.5 px-2.5 text-right" title="Correct goal totals — third tiebreaker">G</th>
-                <th className="py-2.5 pr-3 sm:pr-5 pl-1 text-right w-12">{PERIOD_LABELS[period]}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayData.map((entry) => {
-                const isMe = entry.player_id === currentUser?.id;
-                return (
-                  <LeaderboardRow
-                    key={entry.player_id}
-                    entry={entry}
-                    displayPoints={periodPoints(entry, period)}
-                    showArrow={showArrow}
-                    prevRank={showArrow ? prevByPlayer[entry.player_id] : undefined}
-                    isMe={isMe}
-                    reduceMotion={reduceMotion}
-                    shouldPulse={showArrow && pulsingIds.has(entry.player_id)}
-                    onOpenProfile={() => navigate(`/players/${entry.player_id}`)}
-                    onLongPress={() => openCompare(entry.player_id)}
-                  />
-                );
-              })}
-            </tbody>
-          </table>
+            <table className="w-full table-fixed text-sm font-sans">
+              <TiebreakHeader pointsLabel={PERIOD_LABELS[period]} />
+              <tbody>
+                {displayData.map((entry) => {
+                  const isMe = entry.player_id === currentUser?.id;
+                  return (
+                    <LeaderboardRow
+                      key={entry.player_id}
+                      entry={entry}
+                      displayPoints={periodPoints(entry, period)}
+                      showArrow={showArrow}
+                      prevRank={showArrow ? prevByPlayer[entry.player_id] : undefined}
+                      isMe={isMe}
+                      reduceMotion={reduceMotion}
+                      shouldPulse={showArrow && pulsingIds.has(entry.player_id)}
+                      onOpenProfile={() => navigate(`/players/${entry.player_id}`)}
+                      onLongPress={() => openCompare(entry.player_id)}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </>
       )}

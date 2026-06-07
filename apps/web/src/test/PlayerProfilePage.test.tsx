@@ -26,6 +26,14 @@ const STATS: Record<string, unknown> = {
   worst_round_points: 14,
   current_streak: 3,
   avg_prediction_timing_mins: 180,
+  match_points: 40,
+  knockout_winner_points: 9,
+  special_points: 5,
+  exact_count: 4,
+  correct_result_count: 9,
+  correct_goals_count: 11,
+  specials_correct_count: 1,
+  ko_winner_correct_count: 2,
 };
 
 const MY_STATS: Record<string, unknown> = {
@@ -256,6 +264,20 @@ describe('PlayerProfilePage', () => {
       expect(screen.getByText('Recent Predictions')).toBeInTheDocument();
       expect(screen.getByText(/Brazil/)).toBeInTheDocument();
       expect(screen.getByText(/Germany/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows the relocated points-source breakdown on the profile', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('How I Earned My Points')).toBeInTheDocument();
+      expect(screen.getAllByText('Match').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Knockout').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Special').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Precision tiebreakers')).toBeInTheDocument();
+      expect(
+        screen.getByText(/order used when points are tied: exact, result, goals, specials, then knockout-winner picks/i),
+      ).toBeInTheDocument();
     });
   });
 

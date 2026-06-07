@@ -79,4 +79,16 @@ describe('AboutPage rules completion', () => {
 
     expect(markRulesRead).toHaveBeenCalledOnce();
   });
+
+  it('renders the tiebreak order in the rules', () => {
+    renderAboutPage();
+
+    expect(screen.getByText('How ties are broken')).toBeInTheDocument();
+    expect(screen.getByText(/exact scores/i)).toBeInTheDocument();
+    expect(screen.getByText(/correct results/i)).toBeInTheDocument();
+    expect(screen.getByText(/correct goal totals/i)).toBeInTheDocument();
+    expect(screen.getByText(/special predictions correct/i)).toBeInTheDocument();
+    expect(screen.getByText(/knockout-winner picks correct/i)).toBeInTheDocument();
+    expect(screen.getByText(/admin settles it manually/i)).toBeInTheDocument();
+  });
 });

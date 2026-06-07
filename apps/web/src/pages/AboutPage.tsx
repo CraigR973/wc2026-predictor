@@ -401,6 +401,26 @@ export function AboutPage() {
             </div>
           </div>
 
+          <div>
+            <h3 className="text-xs font-mono font-semibold tracking-[0.2em] uppercase text-text-muted mb-2">
+              How ties are broken
+            </h3>
+            <div className="rounded-lg border border-border bg-surface-elevated p-4 space-y-2">
+              <p className="text-sm font-sans leading-relaxed text-text-secondary">
+                League tables sort by total points first. If players are still level, we separate
+                them in this order:
+              </p>
+              <BulletList items={[
+                <>More <strong className="text-text-primary font-semibold">exact scores</strong>.</>,
+                <>Then more <strong className="text-text-primary font-semibold">correct results</strong>.</>,
+                <>Then more <strong className="text-text-primary font-semibold">correct goal totals</strong>.</>,
+                <>Then more <strong className="text-text-primary font-semibold">special predictions correct</strong>.</>,
+                <>Then more <strong className="text-text-primary font-semibold">knockout-winner picks correct</strong>.</>,
+                'If two players are still inseparable after every step, the table marks it as a genuine tie and an admin settles it manually.',
+              ]} />
+            </div>
+          </div>
+
         </div>
       </Section>
 

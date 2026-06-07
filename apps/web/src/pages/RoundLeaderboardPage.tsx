@@ -20,6 +20,38 @@ const STAGES = [
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
+function RoundTiebreakHeader() {
+  return (
+    <thead>
+      <tr className="border-b border-border/60 text-[9px] font-mono uppercase tracking-[0.22em] text-text-muted">
+        <th rowSpan={2} className="py-2.5 pl-3 sm:pl-4 text-left w-8 align-bottom">
+          #
+        </th>
+        <th rowSpan={2} className="py-2.5 text-left align-bottom">
+          Player
+        </th>
+        <th colSpan={3} className="px-1 text-center align-bottom">
+          Tiebreakers
+        </th>
+        <th rowSpan={2} className="py-2.5 pr-3 sm:pr-4 text-center w-14 align-bottom">
+          Pts
+        </th>
+      </tr>
+      <tr className="border-b border-border text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+        <th className="py-2 px-1.5 sm:px-2 text-center" title="Exact scores this round">
+          Ex
+        </th>
+        <th className="py-2 px-1.5 sm:px-2 text-center" title="Correct results this round">
+          Res
+        </th>
+        <th className="py-2 px-1.5 sm:px-2 text-center" title="Correct goal totals this round">
+          Gls
+        </th>
+      </tr>
+    </thead>
+  );
+}
+
 export function RoundLeaderboardPage() {
   const { slug = DEFAULT_LEAGUE_SLUG, stage = 'group' } = useParams<{ slug: string; stage: string }>();
   const leagueSlug = slug;
@@ -95,47 +127,44 @@ export function RoundLeaderboardPage() {
         />
       ) : (
         <div className="rounded-lg border border-border bg-surface overflow-hidden">
-          <table className="w-full text-sm font-sans">
-            <thead>
-              <tr className="border-b border-border text-text-muted text-xs">
-                <th className="py-3 pl-4 text-left w-8">#</th>
-                <th className="py-3 text-left">Player</th>
-                <th className="py-3 px-2 text-center font-mono" title="Exact scores this round">E</th>
-                <th className="py-3 px-2 text-center font-mono" title="Correct results this round">R</th>
-                <th className="py-3 px-2 text-center font-mono" title="Correct goal totals this round">G</th>
-                <th className="py-3 pr-4 text-center w-16 font-semibold">Pts</th>
-              </tr>
-            </thead>
+          <table className="w-full table-fixed text-sm font-sans">
+            <RoundTiebreakHeader />
             <tbody>
               {data.map((entry) => (
                 <tr
                   key={entry.player_id}
                   className="border-b border-border/50 last:border-0 hover:bg-surface-elevated transition-colors"
                 >
-                  <td className="py-3 pl-4 text-text-muted font-mono text-xs">
+                  <td className="py-3 pl-3 sm:pl-4 text-text-muted font-mono text-xs">
                     {MEDAL[entry.rank] ?? entry.rank}
                   </td>
-                  <td className="py-3 text-text-primary font-medium">
-                    {entry.player_name}
-                    {entry.tied && (
-                      <span
-                        className="ml-2 text-[9px] font-mono uppercase tracking-[0.15em] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded-sm"
-                        title="Level on every tiebreaker this round"
-                      >
-                        tied
+                  <td className="py-3 min-w-0">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-text-primary font-medium">
+                        {entry.player_name}
                       </span>
-                    )}
+                      {entry.tied && (
+                        <span
+                          className="shrink-0 text-[9px] font-mono uppercase tracking-[0.15em] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded-sm"
+                          title="Level on every tiebreaker this round"
+                        >
+                          tied
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="py-3 px-2 text-center font-mono text-xs text-text-secondary tabular-nums">
+                  <td className="py-3 px-1.5 sm:px-2 text-center font-mono text-[11px] text-text-secondary tabular-nums">
                     {entry.exact_count ?? 0}
                   </td>
-                  <td className="py-3 px-2 text-center font-mono text-xs text-text-secondary tabular-nums">
+                  <td className="py-3 px-1.5 sm:px-2 text-center font-mono text-[11px] text-text-secondary tabular-nums">
                     {entry.correct_result_count ?? 0}
                   </td>
-                  <td className="py-3 px-2 text-center font-mono text-xs text-text-secondary tabular-nums">
+                  <td className="py-3 px-1.5 sm:px-2 text-center font-mono text-[11px] text-text-secondary tabular-nums">
                     {entry.correct_goals_count ?? 0}
                   </td>
-                  <td className="py-3 pr-4 text-center font-bold text-primary">{entry.points}</td>
+                  <td className="py-3 pr-3 sm:pr-4 text-center font-bold text-primary tabular-nums">
+                    {entry.points}
+                  </td>
                 </tr>
               ))}
             </tbody>

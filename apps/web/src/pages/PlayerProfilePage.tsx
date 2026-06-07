@@ -73,8 +73,12 @@ function PointsBreakdownSection({ stats }: { stats: PlayerStats }) {
   ];
   return (
     <div>
-      <SectionTitle>Points Breakdown</SectionTitle>
+      <SectionTitle>How I Earned My Points</SectionTitle>
       <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
+        <p className="text-sm font-sans leading-relaxed text-text-secondary">
+          Full points-source breakdown for this player. Leaderboards use the precision counts below
+          to separate players who finish level on points.
+        </p>
         <div className="grid grid-cols-3 gap-3 text-center">
           {decomposition.map(([label, value]) => (
             <div key={label} className="flex flex-col gap-1.5">
@@ -88,8 +92,11 @@ function PointsBreakdownSection({ stats }: { stats: PlayerStats }) {
           ))}
         </div>
         <div className="border-t border-border/60 pt-3">
-          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-2">
-            Tiebreakers won
+          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-1.5">
+            Precision tiebreakers
+          </p>
+          <p className="mb-3 text-xs font-sans leading-relaxed text-text-muted">
+            Order used when points are tied: exact, result, goals, specials, then knockout-winner picks.
           </p>
           <div className="grid grid-cols-5 gap-2 text-center">
             {tiebreakers.map(([label, value]) => (
