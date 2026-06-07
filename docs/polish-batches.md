@@ -2111,7 +2111,7 @@ top tiles. 🟢 Sonnet.
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U43 | 🟢 Sonnet | ~1 h | U43.1–U43.3 | 🔲 Pending |
+| ~~U43~~ | ~~🟢 Sonnet~~ | ~~~1 h~~ | ~~U43.1–U43.3~~ | ✅ Shipped 2026-06-07 |
 
 ---
 
