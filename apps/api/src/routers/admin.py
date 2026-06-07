@@ -22,7 +22,11 @@ from src.models.league import League
 from src.models.league_membership import LeagueMembership
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
-from src.models.prediction import KnockoutPrediction, Prediction
+from src.models.prediction import (
+    KnockoutPrediction,
+    LeaderboardTiebreakOverride,
+    Prediction,
+)
 from src.models.profile import Profile
 from src.models.team import TournamentStage
 from src.rate_limit import limiter, per_player_key
@@ -77,6 +81,21 @@ class ResetPinResponse(BaseModel):
 
 class OverrideStandingsRequest(BaseModel):
     positions: list[str]  # ordered list of team codes, position 1 first
+
+
+class TiebreakOverrideRequest(BaseModel):
+    # Lower sorts higher (rank 1 first). Only the final ORDER BY key, so it only
+    # ever decides a genuine all-axis tie (U38.4).
+    manual_order: int
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class TiebreakOverrideResponse(BaseModel):
+    league_slug: str
+    player_id: str
+    player_name: str
+    manual_order: int
+    reason: str | None
 
 
 class AdminPlayerResponse(BaseModel):
@@ -357,6 +376,190 @@ async def override_standings(
     group.standings_override = body.positions
     await db.commit()
     log.info("standings override set", group=name.upper(), positions=body.positions)
+
+
+# ---------------------------------------------------------------------------
+# Tiebreak settlement (U38.4) — admin backstop for a genuine all-axis tie
+# ---------------------------------------------------------------------------
+
+
+async def _load_league_by_slug(db: AsyncSession, slug: str) -> League:
+    league = (await db.execute(select(League).where(League.slug == slug))).scalar_one_or_none()
+    if league is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+    return league
+
+
+async def _require_league_member(
+    db: AsyncSession, league_id: uuid.UUID, player_id: uuid.UUID
+) -> Profile:
+    profile = (
+        await db.execute(
+            select(Profile)
+            .join(
+                LeagueMembership,
+                (LeagueMembership.player_id == Profile.id)
+                & (LeagueMembership.league_id == league_id)
+                & (LeagueMembership.deleted_at.is_(None)),
+            )
+            .where(Profile.id == player_id, Profile.deleted_at.is_(None))
+        )
+    ).scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player is not an active member of this league",
+        )
+    return profile
+
+
+@router.get(
+    "/leagues/{slug}/tiebreak-overrides",
+    response_model=list[TiebreakOverrideResponse],
+)
+async def list_tiebreak_overrides(
+    slug: str,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[TiebreakOverrideResponse]:
+    """Current manual tiebreak orders for a league (normally empty)."""
+    league = await _load_league_by_slug(db, slug)
+    rows = (
+        await db.execute(
+            select(LeaderboardTiebreakOverride, Profile)
+            .join(Profile, Profile.id == LeaderboardTiebreakOverride.player_id)
+            .where(LeaderboardTiebreakOverride.league_id == league.id)
+            .order_by(LeaderboardTiebreakOverride.manual_order.asc())
+        )
+    ).all()
+    return [
+        TiebreakOverrideResponse(
+            league_slug=slug,
+            player_id=str(ovr.player_id),
+            player_name=profile.display_name,
+            manual_order=ovr.manual_order,
+            reason=ovr.reason,
+        )
+        for ovr, profile in rows
+    ]
+
+
+@router.put(
+    "/leagues/{slug}/tiebreak/{player_id}",
+    response_model=TiebreakOverrideResponse,
+)
+async def set_tiebreak_override(
+    slug: str,
+    player_id: uuid.UUID,
+    body: TiebreakOverrideRequest,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TiebreakOverrideResponse:
+    """Settle a genuine all-axis tie by pinning a player's manual order.
+
+    The merit cascade resolves every realistic tie; this is the no-arbitrary-
+    rule backstop for the case where two players are level on *every* axis.
+    Upserts the override, then recomputes snapshots so the new order flows to
+    the table, history, and any rank-derived surface immediately.
+    """
+    league = await _load_league_by_slug(db, slug)
+    profile = await _require_league_member(db, league.id, player_id)
+
+    existing = (
+        await db.execute(
+            select(LeaderboardTiebreakOverride).where(
+                LeaderboardTiebreakOverride.league_id == league.id,
+                LeaderboardTiebreakOverride.player_id == player_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is None:
+        db.add(
+            LeaderboardTiebreakOverride(
+                league_id=league.id,
+                player_id=player_id,
+                manual_order=body.manual_order,
+                reason=body.reason,
+            )
+        )
+    else:
+        existing.manual_order = body.manual_order
+        existing.reason = body.reason
+
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action_type=ActionType.tiebreaker_overridden,
+            target_table="leaderboard_tiebreak_overrides",
+            target_id=player_id,
+            changes={
+                "league": slug,
+                "manual_order": body.manual_order,
+                "reason": body.reason,
+            },
+        )
+    )
+    # Re-rank with the new override applied (writes fresh snapshots for everyone).
+    await recompute_leaderboard_snapshot(db, triggered_by_match_id=None)
+    await db.commit()
+    log.info(
+        "tiebreak override set",
+        league=slug,
+        player_id=str(player_id),
+        manual_order=body.manual_order,
+        admin_id=str(admin.id),
+    )
+    return TiebreakOverrideResponse(
+        league_slug=slug,
+        player_id=str(player_id),
+        player_name=profile.display_name,
+        manual_order=body.manual_order,
+        reason=body.reason,
+    )
+
+
+@router.delete(
+    "/leagues/{slug}/tiebreak/{player_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def clear_tiebreak_override(
+    slug: str,
+    player_id: uuid.UUID,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    """Remove a manual tiebreak order, restoring the pure merit cascade."""
+    league = await _load_league_by_slug(db, slug)
+    existing = (
+        await db.execute(
+            select(LeaderboardTiebreakOverride).where(
+                LeaderboardTiebreakOverride.league_id == league.id,
+                LeaderboardTiebreakOverride.player_id == player_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Override not found")
+    await db.delete(existing)
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action_type=ActionType.tiebreaker_overridden,
+            target_table="leaderboard_tiebreak_overrides",
+            target_id=player_id,
+            changes={"league": slug, "cleared": True},
+        )
+    )
+    await recompute_leaderboard_snapshot(db, triggered_by_match_id=None)
+    await db.commit()
+    log.info(
+        "tiebreak override cleared",
+        league=slug,
+        player_id=str(player_id),
+        admin_id=str(admin.id),
+    )
 
 
 @router.delete("/players/{player_id}", status_code=status.HTTP_204_NO_CONTENT)

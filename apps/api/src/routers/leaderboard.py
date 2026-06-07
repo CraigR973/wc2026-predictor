@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -60,6 +60,17 @@ class LeaderboardEntryOut(BaseModel):
     knockout_winner_points: int
     special_points: int
     is_active: bool
+    # U38 tiebreak counts — the merit cascade that orders players level on
+    # total_points (exact → result → goals → specials → KO-winner). Stored on
+    # the snapshot, so they always justify the rank shown alongside them.
+    exact_count: int = 0
+    correct_result_count: int = 0
+    correct_goals_count: int = 0
+    specials_correct_count: int = 0
+    ko_winner_correct_count: int = 0
+    # True when this player shares a rank with another — i.e. a genuine all-axis
+    # tie the cascade could not break, flagged for admin settlement (U38.4).
+    tied: bool = False
     # Temporal metrics (U22.2), derived at query time — never stored. Match-scoped
     # points only (scoreline + knockout winner); tournament-long specials excluded.
     last_match_points: int = 0  # points on the most recently settled match
@@ -86,6 +97,13 @@ class RoundEntryOut(BaseModel):
     player_id: str
     player_name: str
     points: int
+    # U38 tiebreak counts, scoped to this stage. Specials are tournament-long and
+    # not attributable to a round, so the round cascade stops at KO-winner picks.
+    exact_count: int = 0
+    correct_result_count: int = 0
+    correct_goals_count: int = 0
+    ko_winner_correct_count: int = 0
+    tied: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +151,12 @@ async def _leaderboard_entries(
     stmt = stmt.order_by(latest_snap.rank.asc(), Profile.display_name.asc())
 
     rows = (await db.execute(stmt)).all()
+    # A shared rank survives the merit cascade only when two players tie on every
+    # axis — the genuine all-axis tie flagged for admin settlement (U38.4). Count
+    # rank occurrences so each tied row can carry that flag.
+    rank_counts: dict[int, int] = defaultdict(int)
+    for _profile, snapshot in rows:
+        rank_counts[snapshot.rank] += 1
     return [
         LeaderboardEntryOut(
             rank=snapshot.rank,
@@ -142,6 +166,12 @@ async def _leaderboard_entries(
             match_points=snapshot.match_points,
             knockout_winner_points=snapshot.knockout_winner_points,
             special_points=snapshot.special_points,
+            exact_count=snapshot.exact_count,
+            correct_result_count=snapshot.correct_result_count,
+            correct_goals_count=snapshot.correct_goals_count,
+            specials_correct_count=snapshot.specials_correct_count,
+            ko_winner_correct_count=snapshot.ko_winner_correct_count,
+            tied=rank_counts[snapshot.rank] > 1,
             is_active=profile.is_active,
             avatar_url=profile.avatar_url,
         )
@@ -196,7 +226,7 @@ async def _round_leaderboard(
     *,
     include_inactive: bool,
 ) -> list[RoundEntryOut]:
-    """Points earned in one tournament stage, scoped to league members.
+    """Points + merit-cascade order for one tournament stage, scoped to members.
 
     Predictions are global, but the leaderboard only ranks this league's
     members — so the player set is constrained to active memberships.
@@ -205,68 +235,122 @@ async def _round_leaderboard(
     (``knockout_predictions``) points so a knockout stage's per-round total
     matches the leaderboard's "round" metric (U22.2). The group stage has no
     knockout predictions, so its total is unchanged.
-    """
-    pred_pts = (
-        select(
-            Prediction.player_id.label("player_id"),
-            Prediction.points_awarded.label("pts"),
-        )
-        .join(Match, Match.id == Prediction.match_id)
-        .where(
-            Match.stage == stage,
-            Match.deleted_at.is_(None),
-            Prediction.deleted_at.is_(None),
-            Prediction.points_awarded.is_not(None),
-        )
-    )
-    ko_pts = (
-        select(
-            KnockoutPrediction.player_id.label("player_id"),
-            KnockoutPrediction.points_awarded.label("pts"),
-        )
-        .join(Match, Match.id == KnockoutPrediction.match_id)
-        .where(
-            Match.stage == stage,
-            Match.deleted_at.is_(None),
-            KnockoutPrediction.points_awarded.is_not(None),
-        )
-    )
-    combined = pred_pts.union_all(ko_pts).subquery()
-    points_subq = (
-        select(
-            combined.c.player_id,
-            func.coalesce(func.sum(combined.c.pts), 0).label("points"),
-        )
-        .group_by(combined.c.player_id)
-        .subquery()
-    )
 
-    stmt = (
-        select(Profile, func.coalesce(points_subq.c.points, 0).label("points"))
+    Ties are broken by the same merit cascade as the overall standings, but
+    scoped to this stage: ``points → exact → result → goals → KO-winner``.
+    Specials are tournament-long, not attributable to a round, so the round
+    cascade omits them. Two players share a rank only when level on every
+    stage-scoped axis; display name is a pure output stabiliser, never a rank
+    differentiator.
+    """
+    member_stmt = (
+        select(Profile)
         .join(
             LeagueMembership,
             (LeagueMembership.player_id == Profile.id)
             & (LeagueMembership.league_id == league_id)
             & (LeagueMembership.deleted_at.is_(None)),
         )
-        .outerjoin(points_subq, points_subq.c.player_id == Profile.id)
         .where(Profile.deleted_at.is_(None))
     )
     if not include_inactive:
-        stmt = stmt.where(Profile.is_active.is_(True))
+        member_stmt = member_stmt.where(Profile.is_active.is_(True))
+    members = list((await db.execute(member_stmt)).scalars().all())
+    if not members:
+        return []
+    member_ids = [m.id for m in members]
 
-    rows = (await db.execute(stmt)).all()
-    sorted_rows = sorted(rows, key=lambda r: (-r.points, r.Profile.display_name))
-
-    return [
-        RoundEntryOut(
-            rank=rank_idx,
-            player_id=str(row.Profile.id),
-            player_name=row.Profile.display_name,
-            points=row.points,
+    # Stage-scoped scoreline predictions: points + the breakdown that feeds the
+    # exact/result/goals counts.
+    pred_rows = (
+        await db.execute(
+            select(
+                Prediction.player_id,
+                Prediction.points_awarded,
+                Prediction.points_breakdown,
+            )
+            .join(Match, Match.id == Prediction.match_id)
+            .where(
+                Match.stage == stage,
+                Match.deleted_at.is_(None),
+                Prediction.deleted_at.is_(None),
+                Prediction.points_awarded.is_not(None),
+                Prediction.player_id.in_(member_ids),
+            )
         )
-        for rank_idx, row in enumerate(sorted_rows, start=1)
-    ]
+    ).all()
+    # Stage-scoped knockout-winner picks: points only (a correct pick > 0).
+    ko_rows = (
+        await db.execute(
+            select(
+                KnockoutPrediction.player_id,
+                KnockoutPrediction.points_awarded,
+            )
+            .join(Match, Match.id == KnockoutPrediction.match_id)
+            .where(
+                Match.stage == stage,
+                Match.deleted_at.is_(None),
+                KnockoutPrediction.points_awarded.is_not(None),
+                KnockoutPrediction.player_id.in_(member_ids),
+            )
+        )
+    ).all()
+
+    # Aggregate per player: [points, exact, result, goals, ko_winner].
+    agg: dict[uuid.UUID, list[int]] = defaultdict(lambda: [0, 0, 0, 0, 0])
+    for player_id, pts, breakdown in pred_rows:
+        a = agg[player_id]
+        a[0] += pts
+        if breakdown:
+            if breakdown.get("exact", 0) > 0:
+                a[1] += 1
+            if breakdown.get("result", 0) > 0:
+                a[2] += 1
+            if breakdown.get("goals", 0) > 0:
+                a[3] += 1
+    for player_id, pts in ko_rows:
+        a = agg[player_id]
+        a[0] += pts
+        if pts > 0:
+            a[4] += 1
+
+    # Cascade key (higher is better on every axis); name is a stable tiebreak for
+    # output order only, so it never separates a genuine all-axis tie.
+    def cascade_key(m: Profile) -> tuple[int, int, int, int, int, str]:
+        a = agg[m.id]
+        return (-a[0], -a[1], -a[2], -a[3], -a[4], m.display_name.lower())
+
+    ordered = sorted(members, key=cascade_key)
+
+    entries: list[RoundEntryOut] = []
+    rank = 0
+    prev_merit: tuple[int, int, int, int, int] | None = None
+    for idx, m in enumerate(ordered, start=1):
+        a = agg[m.id]
+        merit = (a[0], a[1], a[2], a[3], a[4])
+        if merit != prev_merit:
+            rank = idx  # competition ranking: skip after a shared block
+            prev_merit = merit
+        entries.append(
+            RoundEntryOut(
+                rank=rank,
+                player_id=str(m.id),
+                player_name=m.display_name,
+                points=a[0],
+                exact_count=a[1],
+                correct_result_count=a[2],
+                correct_goals_count=a[3],
+                ko_winner_correct_count=a[4],
+            )
+        )
+
+    # Flag genuine ties (shared rank) so the round view can mark them too.
+    rank_counts: dict[int, int] = defaultdict(int)
+    for e in entries:
+        rank_counts[e.rank] += 1
+    for e in entries:
+        e.tied = rank_counts[e.rank] > 1
+    return entries
 
 
 def _viewer_day_bounds_utc(

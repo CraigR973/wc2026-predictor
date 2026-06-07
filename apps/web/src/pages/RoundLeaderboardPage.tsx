@@ -100,6 +100,9 @@ export function RoundLeaderboardPage() {
               <tr className="border-b border-border text-text-muted text-xs">
                 <th className="py-3 pl-4 text-left w-8">#</th>
                 <th className="py-3 text-left">Player</th>
+                <th className="py-3 px-2 text-center font-mono" title="Exact scores this round">E</th>
+                <th className="py-3 px-2 text-center font-mono" title="Correct results this round">R</th>
+                <th className="py-3 px-2 text-center font-mono" title="Correct goal totals this round">G</th>
                 <th className="py-3 pr-4 text-center w-16 font-semibold">Pts</th>
               </tr>
             </thead>
@@ -112,7 +115,26 @@ export function RoundLeaderboardPage() {
                   <td className="py-3 pl-4 text-text-muted font-mono text-xs">
                     {MEDAL[entry.rank] ?? entry.rank}
                   </td>
-                  <td className="py-3 text-text-primary font-medium">{entry.player_name}</td>
+                  <td className="py-3 text-text-primary font-medium">
+                    {entry.player_name}
+                    {entry.tied && (
+                      <span
+                        className="ml-2 text-[9px] font-mono uppercase tracking-[0.15em] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded-sm"
+                        title="Level on every tiebreaker this round"
+                      >
+                        tied
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono text-xs text-text-secondary tabular-nums">
+                    {entry.exact_count ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono text-xs text-text-secondary tabular-nums">
+                    {entry.correct_result_count ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono text-xs text-text-secondary tabular-nums">
+                    {entry.correct_goals_count ?? 0}
+                  </td>
                   <td className="py-3 pr-4 text-center font-bold text-primary">{entry.points}</td>
                 </tr>
               ))}

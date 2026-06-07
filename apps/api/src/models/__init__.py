@@ -16,6 +16,7 @@ from src.models.notification import (
 from src.models.prediction import (
     KnockoutPrediction,
     LeaderboardSnapshot,
+    LeaderboardTiebreakOverride,
     NotificationPreferences,
     Prediction,
     PushSubscription,
@@ -38,6 +39,7 @@ __all__ = [
     "JoinRequestStatus",
     "KnockoutPrediction",
     "LeaderboardSnapshot",
+    "LeaderboardTiebreakOverride",
     "League",
     "LeagueJoinRequest",
     "LeagueMemberRole",

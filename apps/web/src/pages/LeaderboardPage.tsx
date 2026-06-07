@@ -145,6 +145,14 @@ function LeaderboardRow({
           >
             {entry.player_name}
           </Link>
+          {entry.tied && (
+            <span
+              className="text-[9px] font-mono uppercase tracking-[0.15em] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded-sm shrink-0"
+              title="Level on every tiebreaker — awaiting admin settlement"
+            >
+              tied
+            </span>
+          )}
           {!entry.is_active && (
             <span className="text-[9px] font-mono uppercase tracking-[0.2em] text-text-muted bg-surface-elevated border border-border px-1.5 py-0.5 rounded-sm shrink-0">
               inactive
@@ -153,13 +161,13 @@ function LeaderboardRow({
         </div>
       </td>
       <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
-        {entry.match_points}
+        {entry.exact_count ?? 0}
       </td>
       <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
-        {entry.knockout_winner_points}
+        {entry.correct_result_count ?? 0}
       </td>
       <td className="py-3.5 px-2.5 text-right font-mono text-xs text-text-secondary tabular-nums">
-        {entry.special_points}
+        {entry.correct_goals_count ?? 0}
       </td>
       <td className="py-3.5 pr-3 sm:pr-5 pl-1 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">
         {displayPoints}
@@ -482,9 +490,9 @@ export function LeaderboardPage() {
               <tr className="border-b border-border text-text-muted text-[10px] font-mono uppercase tracking-[0.2em]">
                 <th className="py-2.5 pl-3 sm:pl-5 text-left w-7">#</th>
                 <th className="py-2.5 text-left">Player</th>
-                <th className="py-2.5 px-2.5 text-right" title="Match points">M</th>
-                <th className="py-2.5 px-2.5 text-right" title="Knockout points">KO</th>
-                <th className="py-2.5 px-2.5 text-right" title="Special points">SP</th>
+                <th className="py-2.5 px-2.5 text-right" title="Exact scores — first tiebreaker">E</th>
+                <th className="py-2.5 px-2.5 text-right" title="Correct results — second tiebreaker">R</th>
+                <th className="py-2.5 px-2.5 text-right" title="Correct goal totals — third tiebreaker">G</th>
                 <th className="py-2.5 pr-3 sm:pr-5 pl-1 text-right w-12">{PERIOD_LABELS[period]}</th>
               </tr>
             </thead>

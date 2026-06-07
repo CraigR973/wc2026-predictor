@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.match import Match
-from src.models.prediction import KnockoutPrediction, Prediction
+from src.models.prediction import KnockoutPrediction, Prediction, SpecialPrediction
 from src.models.profile import Profile
 
 
@@ -43,6 +43,17 @@ class PlayerStatsData:
     worst_round_points: int | None
     current_streak: int
     avg_prediction_timing_mins: float | None
+    # U38 — Match / Knockout / Special points decomposition (moved from the
+    # leaderboard) and the merit-cascade counts, surfaced on the player profile.
+    # Defaulted so existing direct constructions stay valid.
+    match_points: int = 0
+    knockout_winner_points: int = 0
+    special_points: int = 0
+    exact_count: int = 0
+    correct_result_count: int = 0
+    correct_goals_count: int = 0
+    specials_correct_count: int = 0
+    ko_winner_correct_count: int = 0
 
 
 def _compute_stats(
@@ -50,6 +61,8 @@ def _compute_stats(
     player_name: str,
     group_rows: list[_PredRow],
     ko_rows: list[_PredRow],
+    special_points: int = 0,
+    specials_correct_count: int = 0,
 ) -> PlayerStatsData:
     # Accuracy / exact — group predictions only (they have score breakdowns)
     scored_group = [
@@ -60,14 +73,22 @@ def _compute_stats(
         1 for r in scored_group if (r.points_breakdown or {}).get("result", 0) > 0
     )
     exact_score = sum(1 for r in scored_group if (r.points_breakdown or {}).get("exact", 0) > 0)
+    goals_correct = sum(1 for r in scored_group if (r.points_breakdown or {}).get("goals", 0) > 0)
     accuracy_pct = (correct_outcome / n_scored * 100) if n_scored else 0.0
     exact_rate_pct = (exact_score / n_scored * 100) if n_scored else 0.0
 
-    # Total points and avg across all settled predictions
+    # Total points and avg across all settled predictions. total_points stays
+    # scoreline + knockout (the avg-per-prediction denominator); tournament-long
+    # specials are reported separately in the decomposition below.
     all_rows = group_rows + ko_rows
     total_settled = len(all_rows)
-    total_points = sum(r.points_awarded for r in all_rows)
+    match_points = sum(r.points_awarded for r in group_rows)
+    knockout_winner_points = sum(r.points_awarded for r in ko_rows)
+    total_points = match_points + knockout_winner_points
     avg_pts = (total_points / total_settled) if total_settled else 0.0
+    # U38 merit-cascade counts — exact/result/goals from group breakdowns,
+    # KO-winner from scoring knockout picks.
+    ko_winner_correct_count = sum(1 for r in ko_rows if r.points_awarded > 0)
 
     # Best / worst round by stage
     round_points: dict[str, int] = defaultdict(int)
@@ -118,6 +139,14 @@ def _compute_stats(
         worst_round_points=worst_round_points,
         current_streak=current_streak,
         avg_prediction_timing_mins=round(avg_timing, 1) if avg_timing is not None else None,
+        match_points=match_points,
+        knockout_winner_points=knockout_winner_points,
+        special_points=special_points,
+        exact_count=exact_score,
+        correct_result_count=correct_outcome,
+        correct_goals_count=goals_correct,
+        specials_correct_count=specials_correct_count,
+        ko_winner_correct_count=ko_winner_correct_count,
     )
 
 
@@ -184,6 +213,29 @@ async def _fetch_ko_rows(
     ]
 
 
+async def _fetch_special_totals(
+    db: AsyncSession,
+    player_id: UUID | None = None,
+) -> dict[UUID, tuple[int, int]]:
+    """Per-player ``(special_points, specials_correct_count)`` from awarded specials.
+
+    ``points_awarded > 0`` is a correct special pick; awarded-but-zero rows
+    (a wrong pick that has been graded) count toward neither.
+    """
+    stmt = select(SpecialPrediction.player_id, SpecialPrediction.points_awarded).where(
+        SpecialPrediction.points_awarded.is_not(None)
+    )
+    if player_id is not None:
+        stmt = stmt.where(SpecialPrediction.player_id == player_id)
+    rows = (await db.execute(stmt)).all()
+    totals: dict[UUID, list[int]] = defaultdict(lambda: [0, 0])
+    for pid, pts in rows:
+        totals[pid][0] += pts
+        if pts > 0:
+            totals[pid][1] += 1
+    return {pid: (v[0], v[1]) for pid, v in totals.items()}
+
+
 async def get_player_stats(
     player_id: UUID,
     player_name: str,
@@ -191,7 +243,17 @@ async def get_player_stats(
 ) -> PlayerStatsData:
     group_rows = await _fetch_group_rows(db, player_id)
     ko_rows = await _fetch_ko_rows(db, player_id)
-    return _compute_stats(player_id, player_name, group_rows, ko_rows)
+    special_points, specials_correct = (await _fetch_special_totals(db, player_id)).get(
+        player_id, (0, 0)
+    )
+    return _compute_stats(
+        player_id,
+        player_name,
+        group_rows,
+        ko_rows,
+        special_points=special_points,
+        specials_correct_count=specials_correct,
+    )
 
 
 async def get_league_stats(
@@ -215,6 +277,7 @@ async def get_league_stats(
 
     all_group = await _fetch_group_rows(db)
     all_ko = await _fetch_ko_rows(db)
+    special_totals = await _fetch_special_totals(db)
 
     group_by_player: dict[UUID, list[_PredRow]] = defaultdict(list)
     for row in all_group:
@@ -230,6 +293,8 @@ async def get_league_stats(
             p.display_name,
             group_by_player.get(p.id, []),
             ko_by_player.get(p.id, []),
+            special_points=special_totals.get(p.id, (0, 0))[0],
+            specials_correct_count=special_totals.get(p.id, (0, 0))[1],
         )
         for p in players
     ]

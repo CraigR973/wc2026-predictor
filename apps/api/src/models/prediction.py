@@ -126,11 +126,49 @@ class LeaderboardSnapshot(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     match_points: Mapped[int] = mapped_column(Integer, nullable=False)
     knockout_winner_points: Mapped[int] = mapped_column(Integer, nullable=False)
     special_points: Mapped[int] = mapped_column(Integer, nullable=False)
+    # U38 tiebreak counts — the merit cascade that orders players level on
+    # total_points. Computed atomically with rank by the scoring trigger /
+    # recompute helper (migration 026), so the stored rank and the counts that
+    # justify it always agree.
+    exact_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    correct_result_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    correct_goals_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    specials_correct_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    ko_winner_correct_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
     snapshot_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
     triggered_by_match_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("matches.id", ondelete="SET NULL"), nullable=True
     )
+
+
+class LeaderboardTiebreakOverride(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
+    """Admin manual tiebreak order for a genuine all-axis tie (U38.4).
+
+    Normally empty. The merit cascade resolves every realistic tie; when
+    two players are level on *every* axis (essentially never), the cascade
+    leaves them sharing a rank, flagged for admin settlement. The admin
+    writes a row here so a prize can still be settled in-app without any
+    arbitrary (timing / alphabetical / random) rule. ``manual_order`` is
+    the final ORDER BY key (ascending, lower = higher rank, NULLS LAST),
+    so it only ever decides an otherwise-exact tie.
+    """
+
+    __tablename__ = "leaderboard_tiebreak_overrides"
+    __table_args__ = (
+        UniqueConstraint("league_id", "player_id", name="uq_tiebreak_override_league_player"),
+    )
+
+    league_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("leagues.id", ondelete="CASCADE"), nullable=False
+    )
+    player_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    manual_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class PushSubscription(Base, UUIDPrimaryKeyMixin, TimestampMixin):

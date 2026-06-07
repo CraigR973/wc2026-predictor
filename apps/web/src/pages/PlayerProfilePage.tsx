@@ -56,6 +56,59 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+// U38: the Match / Knockout / Special points decomposition (moved here from the
+// leaderboard) plus the deeper merit-cascade tiebreak counts.
+function PointsBreakdownSection({ stats }: { stats: PlayerStats }) {
+  const decomposition: [string, number][] = [
+    ['Match', stats.match_points ?? 0],
+    ['Knockout', stats.knockout_winner_points ?? 0],
+    ['Special', stats.special_points ?? 0],
+  ];
+  const tiebreakers: [string, number][] = [
+    ['Exact', stats.exact_count ?? 0],
+    ['Result', stats.correct_result_count ?? 0],
+    ['Goals', stats.correct_goals_count ?? 0],
+    ['Specials', stats.specials_correct_count ?? 0],
+    ['KO', stats.ko_winner_correct_count ?? 0],
+  ];
+  return (
+    <div>
+      <SectionTitle>Points Breakdown</SectionTitle>
+      <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
+        <div className="grid grid-cols-3 gap-3 text-center">
+          {decomposition.map(([label, value]) => (
+            <div key={label} className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-mono text-text-muted uppercase tracking-[0.2em]">
+                {label}
+              </span>
+              <span className="font-mono text-xl font-semibold text-primary tabular-nums leading-none">
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-border/60 pt-3">
+          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-2">
+            Tiebreakers won
+          </p>
+          <div className="grid grid-cols-5 gap-2 text-center">
+            {tiebreakers.map(([label, value]) => (
+              <div key={label} className="flex flex-col gap-1">
+                <span className="text-[9px] font-mono text-text-muted uppercase tracking-[0.15em]">
+                  {label}
+                </span>
+                <span className="font-mono text-base font-semibold text-text-secondary tabular-nums leading-none">
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function outcomeClass(pts: number | null, isUnfinished: boolean): string {
   if (isUnfinished || pts === null) return 'text-text-muted';
   if (pts === 0) return 'text-red-400';
@@ -411,6 +464,9 @@ export function PlayerProfilePage() {
           />
         </div>
       </div>
+
+      {/* U38: points decomposition + tiebreaker counts */}
+      <PointsBreakdownSection stats={stats} />
 
       {/* Best / worst round */}
       {hasRoundVariance ? (
