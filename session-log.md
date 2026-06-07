@@ -1807,3 +1807,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Feature visibility is runtime-gated by `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()` plus `navigator.credentials.create/get`; installed iOS/Android PWA support still needs real-device staging verification.
 
 **Next:** Polish batch U36 — First-run onboarding flow + About page + pre-tournament checklist (🟢 Sonnet)
+
+---
+
+## Polish batch U36 — First-run onboarding + About scroll-to-read
+**Commits:** ce3f25e · CI ✅
+
+### Key facts for future sessions
+- `FirstRunController` step order is `tour → notif → checklist → done`; the launchpad is gated by `sss_firstrun_launchpad_seen` (localStorage), same pattern as tour/notif.
+- Tour Back button shown only when `slide > 0`; Skip/Next/dots unchanged.
+- "Read the rules" in `PreTournamentChecklist` no longer auto-ticks on click — it fires only when the `IntersectionObserver` sentinel (`data-testid="about-rules-end"`) enters the viewport at threshold 0.6 on `/about`. Mount auto-tick also removed.
+- "About / How it works" added to the avatar dropdown in `TopBar.tsx` (only mobile entry point; desktop nav is hidden on `< md`).
+
+**Next:** Polish batch U38 — Tiebreaker scoring + strict ordering (🔴 Opus)

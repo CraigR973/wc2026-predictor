@@ -1747,7 +1747,7 @@ cold starts, per the orchestration discussion.)
 | ~~U33~~ | ~~🟢 Sonnet~~ | ~~3 h~~ | ~~U33.1–U33.4~~ | ✅ Shipped 2026-06-07 |
 | ~~U34~~ | ~~🔴 Opus~~ | ~~~4 h~~ | ~~U34.1–U34.5~~ | ✅ Shipped 2026-06-07 |
 | ~~U35~~ | ~~🔴 Opus~~ | ~~~4 h~~ | ~~U35.1–U35.5~~ | ✅ Shipped 2026-06-07 |
-| U36 | 🟢 Sonnet | ~3.5 h | U36.1–U36.7 | |
+| ~~U36~~ | ~~🟢 Sonnet~~ | ~~~3.5 h~~ | ~~U36.1–U36.7~~ | ✅ Shipped 2026-06-07 |
 
 ---
 
