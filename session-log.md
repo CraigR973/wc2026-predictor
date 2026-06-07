@@ -1885,3 +1885,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `CalcioLogo` is the reusable image component for `primary | gold | mark | mono`; `Brand` preserves old call sites while rendering the new primary icon.
 
 **Next:** none planned.
+
+---
+
+## Polish batch U43 — Dashboard home screen layout improvements
+**Commits:** 6e130c4 · CI ✅
+
+### Key facts for future sessions
+- `pickInlineSlot` now returns the latest completed match first; upcoming fixture is the fallback only when no results exist yet (pre-tournament).
+- `MatchTileFixtureCard` accepts `prediction?: PredictionResponse` — when `kind === 'last'` and `points_breakdown` is present it renders `YOUR PICK: X–Y` + `PointsBreakdownRow` in place of the generic CTA text.
+- `PointsTile` bottom section renders compact per-match score rows from `rollup.matches`; the inline-slot pill is only shown when `rollup` is null (pre-tournament).
+- `apps/web/index.html` has a **temporary** dev-only mock bootstrap `<script>` block — no-op unless `sessionStorage.__wc2026_dev_mock__` is set, but should be removed before shipping.
+
+**Next:** none planned.
