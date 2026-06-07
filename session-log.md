@@ -1769,3 +1769,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Shipped by the overnight runner (`~/.claude/overnight-wc2026/`), live session, Sonnet subagent.
 
 **Next:** Polish batch U33 — Frontend snags: public badge, responsive header, profile avatar, long-press (🟢 Sonnet)
+
+---
+
+## Polish batch U33 — Frontend snags: public badge, responsive header, profile avatar, long-press
+**Commits:** 6366c21 · CI ✅
+
+### Key facts for future sessions
+- Privacy enum keys are now `public_open` / `public_request` / `private` (real API values); stale `'open'`/`'request'` keys removed from types.ts + all pages.
+- `lib/leagues.ts` is the single source of truth for `privacyLabel` — used by MyLeaguesPage, DiscoverLeaguesPage, and LeagueSettingsPage; don't add a fourth call site elsewhere.
+- TopBar mobile layout: flex-row, justify-between — toggle far-left, brand centre (absolute), avatar far-right; desktop unchanged. Single toggle instance; no duplicate renders.
+- PlayerProfilePage avatar edit is gated on `isSelf` — same upload pipeline as SettingsPage (resizeAvatar + uploadAvatarImage → POST /api/v1/auth/me/avatar).
+
+**Next:** Polish batch U35 — Biometric unlock (🔴 Opus) [U34 HOLD; U35 is next non-HOLD]
