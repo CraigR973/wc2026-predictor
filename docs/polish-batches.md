@@ -2147,3 +2147,105 @@ top tiles. 🟢 Sonnet.
   (score + pts earned); no inline-slot pill is rendered when a rollup is present.
 - Pre-tournament state (no rollup): "Next fixture" pill still appears.
 - Frontend lint, typecheck, build, and tests green.
+
+---
+
+# Round 20 — Post-test snagging pass (U44–U47) — added 2026-06-07
+
+Captured from a live review after family testing on Android + iOS. Four batches:
+**U44** (🔴 Opus) hardens auth/session after a shared-device account leak; **U45–U47**
+(🟢 Sonnet) are onboarding, league-table/hub, and home/shell polish. Ship in order —
+U44 is security and time-sensitive (WC opens ~11 Jun). Review items 8, 9, 19 were
+already satisfied (U43 result-tile breakdown / existing back-nav + row click); the U21
+Young-Player filter was dropped (no squad birthdate data, not worth hand-sourcing).
+
+> **Why U44 is Opus / first:** a tester (owner's dad) re-downloaded the Android PWA and
+> landed in the owner's session — the `localStorage` refresh token (30 d) and the SW
+> `api-user-data` cache survive a PWA reinstall (same origin). Not a server leak, but it
+> exposes a dev auth-bypass shipping in `index.html`, no shared-device guard, and a long
+> silent-refresh session. The biometric "Face ID" unlock is being reworked into a PIN
+> re-lock regardless (WebAuthn on iOS always saves a passkey — testers found it
+> unexpected, and the credential isn't used as a real login), and that re-lock doubles
+> as the shared-device guard.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U44 | 🔴 Opus | ~4 h | U44.1–U44.6 | Pending |
+| U45 | 🟢 Sonnet | ~3 h | U45.1–U45.6 | Pending |
+| U46 | 🟢 Sonnet | ~3 h | U46.1–U46.6 | Pending |
+| U47 | 🟢 Sonnet | ~1.5 h | U47.1–U47.5 | Pending |
+
+---
+
+## U44 — Auth & session hardening 🔴 Opus · ~4 h
+
+Triggered by a shared-device account leak in testing. Removes a shipped dev backdoor,
+replaces the WebAuthn/passkey unlock with a PIN re-lock (which also guards shared
+devices), tightens cache/session hygiene, and fixes the avatar-reset bug in the auth
+response (same file, rides along).
+
+- **U44.1** Remove the dev-mock auth bypass — delete the `__wc2026_dev_mock__` block in `apps/web/index.html` (it injects fake tokens + a `fetch` interceptor and ships in prod), or guard it strictly behind `import.meta.env.DEV` so it can never run in a production build.
+- **U44.2** PIN re-lock replaces WebAuthn — remove `enrollBiometricUnlock`/`verifyBiometricUnlock` (`lib/biometricUnlock.ts`) and the Settings toggle; replace the `BiometricUnlockGate` (`ProtectedRoute`) with a "re-enter your PIN to unlock" gate on reopen. Keep "convenience only; PIN is the source of truth." Rationale: WebAuthn on iOS always saves a passkey to Apple Passwords (the `residentKey:'discouraged'` hint is ignored), which testers found unexpected, and the credential isn't used as a real login. [review item 12]
+- **U44.3** Shared-device guard + session — the U44.2 re-lock is the primary guard (a reopened app demands the PIN before any data renders). Add an obvious "Signed in as <name> — not you? Log out" affordance at the unlock/launch screen, and shorten the 30-day refresh lifetime (or require periodic PIN re-entry) — pick a value and document it. [review item 22]
+- **U44.4** Cache hygiene on identity change — clear the `api-user-data` (and `api-matches`) Cache Storage entries on **login**, not just logout/refresh-failure, so a previous user's cached leaderboard/stats can't be served offline to a new session (`AuthContext.login` → reuse `clearTokens`'s cache-delete). [review item 23]
+- **U44.5** Avatar-reset fix (backend) — include `avatar_url=player.avatar_url` in the `PlayerInfo` built by `/auth/login` and `/auth/signup` (`apps/api/src/routers/auth.py`); it's currently omitted, so `avatarUrl` resets to null on every login and the top bar shows initials. [review item 11]
+- **U44.6** Tests — PIN re-lock gate (locked → PIN → in; wrong PIN rejected); login clears the API caches; auth login/signup responses carry `avatar_url`; production build contains no dev-mock block; biometric code/tests removed.
+
+**Acceptance:**
+- No `__wc2026_dev_mock__` / fake-auth path in a production build.
+- Reopening the installed app (with a stored session) requires the PIN before any data renders; "Log out / not you" is reachable from that screen.
+- Logging in clears any prior user's `api-user-data`/`api-matches` cache.
+- An uploaded avatar persists across logout/login (top bar shows the photo, not initials).
+- Backend + frontend lint, typecheck, build, and tests green.
+
+## U45 — About-first onboarding 🟢 Sonnet · ~3 h
+
+Replaces the first-run swipe tour with landing directly on a reworked About page that
+states the multi-league model up front and lets users set Specials without leaving.
+
+- **U45.1** Land first-time users on About — drop the `IntroTour` swipe carousel from the first-run sequence and route new users to `/about` after auth (adjust `FirstRunController`/`FirstRunLaunchpad`). The tour's concepts already live in About. [review items 2 & 3]
+- **U45.2** Multi-league hero — a prominent callout at the very top of About: "Predict once · join as many leagues as you like — your picks count in all of them" (the facts exist mid-paragraph in "What is this?" today; elevate + make scannable). [review item 14]
+- **U45.3** Embed Specials in About — render the live Specials form (reuse `SpecialsPage`) at the bottom of About, with a top-of-page hint to scroll down and clear "editable until the opening match kicks off" messaging. First-match prediction stays on Home.
+- **U45.4** Pre-tournament tasks guardrail — a compact "Your 2 pre-tournament tasks" block near the top of About (Specials + first pick) so users can act without reading the whole page.
+- **U45.5** Checklist clarity — make the Pre-Tournament Checklist copy explicit that it's the only checklist and applies only before kickoff. [review item 4]
+- **U45.6** Tests — first-run lands on About; Specials submit works from About; hero + guardrail render; tour no longer shown on first run.
+
+**Acceptance:**
+- A brand-new user lands on About after signup; no swipe tour.
+- About's first screenful states "predict once / unlimited leagues" prominently.
+- A user can submit Specials from the bottom of About; copy says they stay editable until kickoff.
+- Frontend lint, typecheck, build, and tests green.
+
+## U46 — League table, hub & actions 🟢 Sonnet · ~3 h
+
+Makes leagues feel populated before results, consolidates league management, and tidies
+the hub and leaderboard row.
+
+- **U46.1** Roster from join — the league leaderboard lists every member at 0 pts as soon as they join (back-fill from the already-loaded member list, or default-0 server-side), so "No results entered yet" no longer shows for a populated league. [review item 17]
+- **U46.2** League-actions ⋯ menu — replace the standalone header "Members" button with a single overflow menu: Members, Leave league (any member), Settings / Delete league (admins). [review item 18]
+- **U46.3** Discoverable leave/delete — surface Leave (players) and Delete (admins) in that ⋯ menu, and optionally on the hub `LeagueCard`'s own ⋯; keep the existing type-to-confirm dialogs. [review item 20]
+- **U46.4** Hub density — give `MyLeaguesPage` a responsive grid (1-col → 2-col on `md+`) and/or denser cards to remove the dead space. [review item 13]
+- **U46.5** Row name fits — tighten the leaderboard tiebreaker column padding so the player's full name isn't truncated. [review item 10]
+- **U46.6** Tests — roster renders pre-results; ⋯ menu actions present and role-gated; leave/delete reachable; name column fits at 375 px.
+
+**Acceptance:**
+- A league with members but no results shows the full roster at 0, not the empty state.
+- Members / Leave / Settings / Delete are reachable from one ⋯ menu (role-gated), behind confirm dialogs.
+- Hub shows 2 columns on desktop; the leaderboard shows full names on a phone.
+- Frontend lint, typecheck, build, and tests green.
+
+## U47 — Home & shell polish 🟢 Sonnet · ~1.5 h
+
+Small, high-frequency tweaks to the dashboard top tiles, top bar, and metadata.
+
+- **U47.1** Scoring ref under points — move the `ScoringGuide` quick-ref to directly below the `PointsTile` on Home (revisits U40.4's bottom placement — intentional). [review item 6]
+- **U47.2** Drop the empty-state line — remove "Your tally starts when the first results land." from `PointsTile`. [review item 7]
+- **U47.3** Centre the points — centre the `PointsTile` number + "Points" label (top block only; leave the matchday breakdown below left-aligned). [review item 15]
+- **U47.4** Bigger logo — enlarge the Calcio logo in the top bar via a TopBar-specific size, not by changing the shared `Brand` compact variant. [review item 5]
+- **U47.5** Multi-league metadata — update `index.html` description / og / twitter copy and the PWA manifest description to reflect multi-league rather than a single tournament. [review item 1]
+
+**Acceptance:**
+- Scoring ref sits directly under the points tile; the "tally starts" line is gone; the points number is centred.
+- The top-bar logo is visibly larger with no regression to other `Brand` compact usages.
+- Browser/SEO/manifest copy reads multi-league.
+- Frontend lint, typecheck, build, and tests green.
