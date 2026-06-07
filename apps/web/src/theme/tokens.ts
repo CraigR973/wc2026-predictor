@@ -106,5 +106,6 @@ export const brand = {
   short: 'Calcio',
   wordmarkTop: 'Calcio',
   wordmarkBottom: '',
-  tagline: 'Still Email?',
+  tagline: 'Predict once, compete everywhere.',
+  taglineSub: 'Scotland qualify once every 28 years — best make it count.',
 } as const;

@@ -214,6 +214,10 @@ def test_create_scheduler_registers_fifteen_second_lock_job() -> None:
         assert job.trigger.interval == timedelta(seconds=15)
         assert job.coalesce is True
         assert job.max_instances == 1
+        assert scheduler.get_job("pick_confirmations") is not None
+        digest = scheduler.get_job("daily_prediction_digest")
+        assert digest is not None
+        assert str(digest.trigger) == "cron[hour='9', minute='0']"
     finally:
         # Scheduler is not started by create_scheduler; nothing to shut down.
         if scheduler.running:

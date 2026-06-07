@@ -1,14 +1,26 @@
+import { useCallback, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatInTimeZone } from 'date-fns-tz';
+import { toast } from 'sonner';
+import { Camera } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatSubmitTime } from '../lib/format';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { PointsBreakdownPopover } from '../components/PointsBreakdownPopover';
 import { Avatar } from '../components/ui/avatar';
+import {
+  ALLOWED_AVATAR_TYPES,
+  MAX_AVATAR_BYTES,
+  resizeAvatar,
+  uploadAvatarImage,
+} from '../lib/image';
 import type {
+  HomeResponse,
   PlayerStats,
   ProfilePredictions,
   RecentPrediction,
@@ -47,6 +59,66 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+// U38: the Match / Knockout / Special points decomposition (moved here from the
+// leaderboard) plus the deeper merit-cascade tiebreak counts.
+function PointsBreakdownSection({ stats }: { stats: PlayerStats }) {
+  const decomposition: [string, number][] = [
+    ['Match', stats.match_points ?? 0],
+    ['Knockout', stats.knockout_winner_points ?? 0],
+    ['Special', stats.special_points ?? 0],
+  ];
+  const tiebreakers: [string, number][] = [
+    ['Exact', stats.exact_count ?? 0],
+    ['Result', stats.correct_result_count ?? 0],
+    ['Goals', stats.correct_goals_count ?? 0],
+    ['Specials', stats.specials_correct_count ?? 0],
+    ['KO', stats.ko_winner_correct_count ?? 0],
+  ];
+  return (
+    <div>
+      <SectionTitle>How I Earned My Points</SectionTitle>
+      <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
+        <p className="text-sm font-sans leading-relaxed text-text-secondary">
+          Full points-source breakdown for this player. Leaderboards use the precision counts below
+          to separate players who finish level on points.
+        </p>
+        <div className="grid grid-cols-3 gap-3 text-center">
+          {decomposition.map(([label, value]) => (
+            <div key={label} className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-mono text-text-muted uppercase tracking-[0.2em]">
+                {label}
+              </span>
+              <span className="font-mono text-xl font-semibold text-primary tabular-nums leading-none">
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-border/60 pt-3">
+          <p className="text-[10px] font-mono text-text-muted uppercase tracking-[0.25em] mb-1.5">
+            Precision tiebreakers
+          </p>
+          <p className="mb-3 text-xs font-sans leading-relaxed text-text-muted">
+            Order used when points are tied: exact, result, goals, specials, then knockout-winner picks.
+          </p>
+          <div className="grid grid-cols-5 gap-2 text-center">
+            {tiebreakers.map(([label, value]) => (
+              <div key={label} className="flex flex-col gap-1">
+                <span className="text-[9px] font-mono text-text-muted uppercase tracking-[0.15em]">
+                  {label}
+                </span>
+                <span className="font-mono text-base font-semibold text-text-secondary tabular-nums leading-none">
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function outcomeClass(pts: number | null, isUnfinished: boolean): string {
   if (isUnfinished || pts === null) return 'text-text-muted';
   if (pts === 0) return 'text-red-400';
@@ -62,6 +134,65 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">
       {children}
     </h2>
+  );
+}
+
+function LatestMatchdaySection({
+  rollup,
+  timezone,
+}: {
+  rollup: NonNullable<HomeResponse['rollup']>;
+  timezone: string;
+}) {
+  return (
+    <div>
+      <SectionTitle>Latest Matchday</SectionTitle>
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/60 pb-3">
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-text-muted">
+              Matchday recap
+            </p>
+            <p className="mt-1 text-sm text-text-muted">
+              {formatInTimeZone(new Date(rollup.matchday + 'T00:00:00Z'), timezone, 'EEE d MMM')}
+            </p>
+          </div>
+          <p className="font-mono text-2xl font-semibold tabular-nums text-primary">
+            +{rollup.points_gained} pts
+          </p>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {rollup.matches.map((match) => (
+            <Link
+              key={match.match_id}
+              to={`/matches/${match.match_id}`}
+              className="block rounded-lg border border-border/50 bg-surface-elevated/40 px-3 py-3 transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
+            >
+              <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                <p className="min-w-0 truncate text-sm font-medium text-text-primary">
+                  {match.home_label} <span className="font-normal text-text-muted">vs</span> {match.away_label}
+                </p>
+                <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-muted">
+                  {formatInTimeZone(new Date(match.kickoff_utc), timezone, 'd MMM, HH:mm')}
+                </span>
+              </div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="font-mono text-base font-semibold tabular-nums text-text-primary">
+                  {match.actual_home ?? '?'}–{match.actual_away ?? '?'}
+                </span>
+                {match.predicted_home !== null && match.predicted_away !== null && (
+                  <span className="rounded-full border border-border bg-surface px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-text-muted">
+                    you {match.predicted_home}–{match.predicted_away}
+                  </span>
+                )}
+              </div>
+              {match.points_breakdown && <PointsBreakdownRow breakdown={match.points_breakdown} />}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -216,8 +347,48 @@ function SpecialPredictionsSection({
 
 export function PlayerProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { player: currentUser } = useAuth();
+  const { player: currentUser, updatePlayer } = useAuth();
   const isSelf = currentUser?.id === id;
+  const timezone = currentUser?.timezone ?? 'UTC';
+  const queryClient = useQueryClient();
+
+  // Avatar upload state — only active when isSelf
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleAvatarChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (fileRef.current) fileRef.current.value = '';
+      if (!file) return;
+      if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+        toast.error('Only JPEG, PNG, WebP, or GIF files are supported');
+        return;
+      }
+      if (file.size > MAX_AVATAR_BYTES * 2) {
+        toast.error('File too large. Please choose an image under 10 MB.');
+        return;
+      }
+      setUploading(true);
+      try {
+        const blob = await resizeAvatar(file);
+        if (blob.size > MAX_AVATAR_BYTES) {
+          toast.error('Resized image is too large. Please choose a smaller photo.');
+          return;
+        }
+        const newUrl = await uploadAvatarImage(blob);
+        updatePlayer({ avatarUrl: newUrl });
+        // Refresh stats so avatar_url reflects immediately
+        queryClient.invalidateQueries({ queryKey: ['stats', id] });
+        toast.success('Avatar updated');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Upload failed');
+      } finally {
+        setUploading(false);
+      }
+    },
+    [updatePlayer, queryClient, id],
+  );
 
   const { data: stats, isLoading, error } = useQuery<PlayerStats>({
     queryKey: ['stats', id],
@@ -235,6 +406,13 @@ export function PlayerProfilePage() {
     queryKey: ['player-recent-preds', id],
     queryFn: () => apiFetch<RecentPrediction[]>(`/api/v1/players/${id}/predictions/recent`),
     enabled: !!id,
+  });
+
+  const { data: home } = useQuery<HomeResponse>({
+    queryKey: ['me-home'],
+    queryFn: () => apiFetch<HomeResponse>('/api/v1/me/home'),
+    enabled: isSelf,
+    staleTime: 30_000,
   });
 
   // U24: full reveal-gated board (group + knockout + specials). The backend
@@ -305,7 +483,38 @@ export function PlayerProfilePage() {
   return (
     <div className="space-y-7">
       <div className="flex items-center gap-4">
-        <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+        {isSelf ? (
+          /* Own profile — avatar is a clickable upload trigger */
+          <div className="relative shrink-0">
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ALLOWED_AVATAR_TYPES.join(',')}
+              className="sr-only"
+              aria-label="Upload avatar photo"
+              onChange={handleAvatarChange}
+            />
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+              className="relative group rounded-full focus-visible:outline-none focus-visible:shadow-glow disabled:opacity-60"
+              aria-label={uploading ? 'Uploading…' : 'Change avatar photo'}
+            >
+              <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+              {/* Camera overlay on hover/focus */}
+              <span
+                aria-hidden
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"
+              >
+                <Camera className="h-5 w-5 text-white" />
+              </span>
+            </button>
+          </div>
+        ) : (
+          /* Other players — view-only */
+          <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+        )}
         <PageHeader
           title={stats.player_name}
           eyebrow={`${stats.total_predictions_settled} predictions settled`}
@@ -332,6 +541,11 @@ export function PlayerProfilePage() {
           />
         </div>
       </div>
+
+      {isSelf && home?.rollup && <LatestMatchdaySection rollup={home.rollup} timezone={timezone} />}
+
+      {/* U38: points decomposition + tiebreaker counts */}
+      <PointsBreakdownSection stats={stats} />
 
       {/* Best / worst round */}
       {hasRoundVariance ? (

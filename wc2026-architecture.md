@@ -230,7 +230,7 @@ One row per player per match. Immutable after `match.status` transitions to `loc
 
 ### 3.8 knockout_predictions
 
-Predictions for who will win each knockout match. Submitted round by round as teams are determined. Locked at the kickoff of the first match in that round.
+Predictions for who will win each knockout match. Submitted round by round as teams are determined. **Each pick locks at its own match's kickoff** (per-match since U22.1 — a sibling tie kicking off no longer locks the rest of the round).
 
 | Column | Type | Notes |
 |---|---|---|
@@ -572,9 +572,9 @@ Predictions lock automatically at each match's kickoff time. This is more fair t
 4. Players who haven't predicted that match receive a `deadline_warning` push 1 hour before kickoff
 5. Admin can manually lock a match early (e.g. if a game is moved up) via `POST /admin/matches/{id}/lock`
 
-**Knockout round locking:**
-- All knockout predictions for a given round lock at the kickoff of the first match in that round
-- e.g. R32 predictions lock when the first R32 match kicks off
+**Knockout locking (per-match since U22.1):**
+- Each knockout prediction locks at its own match's kickoff — siblings in the same round are independent
+- e.g. one R32 match kicking off no longer locks the other R32 predictions
 
 **Special predictions:**
 - All special predictions lock at the kickoff of the opening match of the tournament
@@ -1618,7 +1618,7 @@ The close-out protocol handles: acceptance criteria sign-off, session log update
 **Phase 7.4: Knockout Prediction UI** 🟢 Sonnet 4.6 ✅ 2026-05-15
 - `/predictions/knockout` with round tabs
 - Lock countdown per round
-- **Acceptance:** Player picks winners for all R32 matches; locked at first kickoff
+- **Acceptance:** Player picks winners for all R32 matches; locked at first kickoff *(superseded by U22.1 — now per-match)*
 
 ---
 

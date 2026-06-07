@@ -94,6 +94,17 @@ export interface LeaderboardEntry {
   knockout_winner_points: number;
   special_points: number;
   is_active: boolean;
+  // U38 tiebreak counts — the merit cascade that separates players level on
+  // points (exact → result → goals → specials → KO-winner). Optional so a stale
+  // pre-U38 cached payload still type-checks; the cascade coalesces missing to 0.
+  exact_count?: number;
+  correct_result_count?: number;
+  correct_goals_count?: number;
+  specials_correct_count?: number;
+  ko_winner_correct_count?: number;
+  // True when this player shares a rank with another — a genuine all-axis tie
+  // flagged for admin settlement (U38.4).
+  tied?: boolean;
   // Temporal metrics (U22.2), derived server-side. Match-scoped points only.
   last_match_points: number;
   today_points: number;
@@ -119,6 +130,13 @@ export interface RoundEntry {
   player_id: string;
   player_name: string;
   points: number;
+  // U38 tiebreak counts, scoped to this stage. Specials are tournament-long, so
+  // the round cascade stops at KO-winner picks.
+  exact_count?: number;
+  correct_result_count?: number;
+  correct_goals_count?: number;
+  ko_winner_correct_count?: number;
+  tied?: boolean;
 }
 
 export interface KnockoutPredictionResponse {
@@ -187,6 +205,16 @@ export interface PlayerStats {
   worst_round_points: number | null;
   current_streak: number;
   avg_prediction_timing_mins: number | null;
+  // U38 — the Match / Knockout / Special points decomposition (moved here from
+  // the leaderboard) plus the deeper tiebreak counts shown on the profile.
+  match_points?: number;
+  knockout_winner_points?: number;
+  special_points?: number;
+  exact_count?: number;
+  correct_result_count?: number;
+  correct_goals_count?: number;
+  specials_correct_count?: number;
+  ko_winner_correct_count?: number;
   // Avatar (U23.1) — null when player hasn't uploaded a photo
   avatar_url?: string | null;
 }
@@ -241,7 +269,7 @@ export interface LeagueSummary {
   slug: string;
   name: string;
   description: string | null;
-  privacy: 'open' | 'request' | 'private';
+  privacy: 'public_open' | 'public_request' | 'private';
   member_count: number;
   max_members: number | null;
   created_at: string;

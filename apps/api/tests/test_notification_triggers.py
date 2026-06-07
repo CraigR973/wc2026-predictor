@@ -16,6 +16,7 @@ from src.models.profile import Profile
 from src.services.notification_triggers import (
     MatchUpdate,
     check_deadline_warnings,
+    check_pick_confirmations,
     notify_auto_sync_failed,
     notify_invite_accepted,
     notify_kickoff_changed,
@@ -25,13 +26,18 @@ from src.services.notification_triggers import (
     notify_result_detected,
     notify_round_complete,
     notify_special_results_awarded,
+    send_daily_prediction_digest,
 )
+from src.services.prediction_reminders import PickConfirmationTarget, UnpredictedDigestTarget
 
 _NT = "src.services.notification_triggers"
 _SEND = f"{_NT}.send_notification"
 _TEAM = f"{_NT}._team_name"
 _LB_SHIFTS = f"{_NT}.notify_leaderboard_shifts"
 _RC = f"{_NT}.notify_round_complete"
+_ACTIVE_PLAYERS = f"{_NT}._active_players"
+_DIGEST_TARGETS = f"{_NT}.unpredicted_digest_targets_for_window"
+_PICK_TARGETS = f"{_NT}.submitted_prediction_targets_for_window"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -56,6 +62,7 @@ def _player(role: str = "player") -> MagicMock:
     p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "Alice"
+    p.timezone = "UTC"
     p.is_active = True
     p.deleted_at = None
     p.role = role
@@ -68,6 +75,20 @@ def _snap(player_id: uuid.UUID, rank: int, match_id: uuid.UUID) -> MagicMock:
     s.rank = rank
     s.triggered_by_match_id = match_id
     return s
+
+
+def _match(match_id: uuid.UUID | None = None) -> MagicMock:
+    m = MagicMock()
+    m.id = match_id or uuid.uuid4()
+    m.stage = "group"
+    m.status = MatchStatus.scheduled
+    m.kickoff_utc = datetime(2026, 6, 14, 18, 0)
+    m.home_team_id = None
+    m.away_team_id = None
+    m.home_team_placeholder = "England"
+    m.away_team_placeholder = "France"
+    m.deleted_at = None
+    return m
 
 
 # ── notify_match_locked ───────────────────────────────────────────────────────
@@ -364,3 +385,138 @@ async def test_deadline_warning_not_double_sent() -> None:
 
     assert count == 0
     mock_send.assert_not_awaited()
+
+
+# ── prediction reminders ─────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_daily_prediction_digest_sends_one_deep_linked_digest_per_target() -> None:
+    target_player = _player()
+    fully_predicted = _player()
+    target_match = _match()
+    session_mock = AsyncMock()
+
+    mock_factory = MagicMock()
+    mock_factory.return_value.__aenter__ = AsyncMock(return_value=session_mock)
+    mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch(
+            _ACTIVE_PLAYERS,
+            new_callable=AsyncMock,
+            return_value=[target_player, fully_predicted],
+        ),
+        patch(
+            _DIGEST_TARGETS,
+            new_callable=AsyncMock,
+            return_value=[
+                UnpredictedDigestTarget(player=target_player, matches=[target_match, _match()])
+            ],
+        ),
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+    ):
+        count = await send_daily_prediction_digest(
+            mock_factory,
+            now=datetime(2026, 6, 14, 9, 0),
+        )
+
+    assert count == 1
+    mock_send.assert_awaited_once()
+    call = mock_send.call_args
+    assert call.args[2] == NotificationType.predict_reminder
+    assert "2 matches" in call.args[4]
+    assert call.kwargs["data"] == {"url": "/predictions"}
+    session_mock.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_daily_prediction_digest_no_targets_no_commit() -> None:
+    player = _player()
+    session_mock = AsyncMock()
+
+    mock_factory = MagicMock()
+    mock_factory.return_value.__aenter__ = AsyncMock(return_value=session_mock)
+    mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch(_ACTIVE_PLAYERS, new_callable=AsyncMock, return_value=[player]),
+        patch(_DIGEST_TARGETS, new_callable=AsyncMock, return_value=[]),
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+    ):
+        count = await send_daily_prediction_digest(
+            mock_factory,
+            now=datetime(2026, 6, 14, 9, 0),
+        )
+
+    assert count == 0
+    mock_send.assert_not_awaited()
+    session_mock.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_pick_confirmation_sends_only_for_submitted_prediction_targets() -> None:
+    from src.services.notification_triggers import _pick_confirmed_match_player_ids
+
+    player = _player()
+    match = _match()
+    prediction = MagicMock()
+    prediction.predicted_home = 2
+    prediction.predicted_away = 1
+    target = PickConfirmationTarget(player=player, match=match, prediction=prediction)
+    session_mock = AsyncMock()
+
+    _pick_confirmed_match_player_ids.discard((match.id, player.id))
+    mock_factory = MagicMock()
+    mock_factory.return_value.__aenter__ = AsyncMock(return_value=session_mock)
+    mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch(_PICK_TARGETS, new_callable=AsyncMock, return_value=[target]),
+        patch(_TEAM, new_callable=AsyncMock, side_effect=["England", "France"]),
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+    ):
+        count = await check_pick_confirmations(mock_factory, now=datetime(2026, 6, 14, 17, 44))
+
+    assert count == 1
+    mock_send.assert_awaited_once()
+    call = mock_send.call_args
+    assert call.args[2] == NotificationType.pick_confirmation
+    assert "England v France" in call.args[3]
+    assert "2–1" in call.args[4]
+    assert call.kwargs["data"] == {"url": "/predictions"}
+    assert call.kwargs["match_id"] == match.id
+    session_mock.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_pick_confirmation_not_double_sent() -> None:
+    from src.services.notification_triggers import _pick_confirmed_match_player_ids
+
+    player = _player()
+    match = _match()
+    prediction = MagicMock()
+    prediction.predicted_home = 1
+    prediction.predicted_away = 1
+    _pick_confirmed_match_player_ids.add((match.id, player.id))
+    session_mock = AsyncMock()
+
+    mock_factory = MagicMock()
+    mock_factory.return_value.__aenter__ = AsyncMock(return_value=session_mock)
+    mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch(
+            _PICK_TARGETS,
+            new_callable=AsyncMock,
+            return_value=[
+                PickConfirmationTarget(player=player, match=match, prediction=prediction)
+            ],
+        ),
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+    ):
+        count = await check_pick_confirmations(mock_factory, now=datetime(2026, 6, 14, 17, 44))
+
+    assert count == 0
+    mock_send.assert_not_awaited()
+    session_mock.commit.assert_not_awaited()

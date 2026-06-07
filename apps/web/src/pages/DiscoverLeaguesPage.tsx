@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import type { LeagueSummary } from '@/lib/types';
+import { privacyLabel } from '@/lib/leagues';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,7 @@ export function DiscoverLeaguesPage() {
     setJoiningSlug(slug);
     try {
       await apiFetch(`/api/v1/leagues/${slug}/join`, { method: 'POST' });
-      if (privacy === 'open') {
+      if (privacy === 'public_open') {
         toast.success('Joined league!');
         queryClient.invalidateQueries({ queryKey: ['leagues', 'mine'] });
         queryClient.invalidateQueries({ queryKey: ['leagues', 'discover'] });
@@ -72,7 +73,7 @@ export function DiscoverLeaguesPage() {
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base">{league.name}</CardTitle>
                   <Badge variant="muted" className="text-xs shrink-0">
-                    {league.privacy === 'open' ? 'Open' : 'Request'}
+                    {privacyLabel(league.privacy)}
                   </Badge>
                 </div>
               </CardHeader>
@@ -94,7 +95,7 @@ export function DiscoverLeaguesPage() {
                   >
                     {joiningSlug === league.slug
                       ? 'Joining…'
-                      : league.privacy === 'open'
+                      : league.privacy === 'public_open'
                       ? 'Join'
                       : 'Request to join'}
                   </Button>

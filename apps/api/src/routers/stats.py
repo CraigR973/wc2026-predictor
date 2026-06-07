@@ -42,6 +42,16 @@ class PlayerStatsOut(BaseModel):
     worst_round_points: int | None
     current_streak: int
     avg_prediction_timing_mins: float | None
+    # U38 — Match / Knockout / Special decomposition + merit-cascade counts,
+    # surfaced on the player profile.
+    match_points: int = 0
+    knockout_winner_points: int = 0
+    special_points: int = 0
+    exact_count: int = 0
+    correct_result_count: int = 0
+    correct_goals_count: int = 0
+    specials_correct_count: int = 0
+    ko_winner_correct_count: int = 0
     # Avatar (U23.1) — null when the player hasn't uploaded a photo
     avatar_url: str | None = None
 
@@ -61,6 +71,14 @@ def _to_out(data: PlayerStatsData, avatar_url: str | None = None) -> PlayerStats
         worst_round_points=data.worst_round_points,
         current_streak=data.current_streak,
         avg_prediction_timing_mins=data.avg_prediction_timing_mins,
+        match_points=data.match_points,
+        knockout_winner_points=data.knockout_winner_points,
+        special_points=data.special_points,
+        exact_count=data.exact_count,
+        correct_result_count=data.correct_result_count,
+        correct_goals_count=data.correct_goals_count,
+        specials_correct_count=data.specials_correct_count,
+        ko_winner_correct_count=data.ko_winner_correct_count,
         avatar_url=avatar_url,
     )
 

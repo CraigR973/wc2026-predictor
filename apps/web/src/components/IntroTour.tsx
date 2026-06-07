@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, Trophy, RefreshCw, BarChart2, ChevronRight, X } from 'lucide-react';
+import { Lock, Trophy, RefreshCw, BarChart2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -30,8 +30,10 @@ const SLIDES: Slide[] = [
         Correct result earns <strong className="text-text-primary">3 pts</strong>, correct goals
         total adds <strong className="text-text-primary">2 pts</strong>, and the exact score is worth{' '}
         <strong className="text-text-primary">5 pts</strong> — up to{' '}
-        <strong className="text-text-primary">10 per match</strong>. Specials and knockout bonus
-        predictions can push your total higher.
+        <strong className="text-text-primary">10 per match</strong>. Predict 2–1 but it ends 1–2?
+        {' '}You still bank <strong className="text-text-primary">2 pts</strong> for the right total
+        goals — result + exact stack on top. Full worked examples live on{' '}
+        <strong className="text-text-primary">/about</strong>.
       </>
     ),
   },
@@ -95,6 +97,10 @@ export function IntroTour({ onClose }: Props) {
     onClose();
   }
 
+  function handleBack() {
+    setSlide((s) => Math.max(0, s - 1));
+  }
+
   const { icon: Icon, title, body, label } = SLIDES[slide];
 
   return (
@@ -146,6 +152,12 @@ export function IntroTour({ onClose }: Props) {
           </div>
 
           <div className="flex items-center gap-3">
+            {slide > 0 && (
+              <Button size="sm" variant="ghost" onClick={handleBack} className="gap-1.5">
+                <ChevronLeft className="h-4 w-4" aria-hidden />
+                Back
+              </Button>
+            )}
             {!isLast && (
               <button
                 onClick={handleSkip}

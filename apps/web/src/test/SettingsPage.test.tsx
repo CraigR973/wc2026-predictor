@@ -43,6 +43,8 @@ vi.mock('@/lib/supabase', () => ({
 
 const DEFAULT_PREFS = {
   deadline_warning: true,
+  predict_reminder: true,
+  pick_confirmation: false,
   match_locked: true,
   result_detected: true,
   leaderboard_shift: true,
@@ -80,21 +82,57 @@ const STORED_PLAYER = JSON.stringify({
   timezone: 'UTC',
 });
 
-function renderPage(fetchMock?: ReturnType<typeof makeFetch>) {
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => {
-      if (k === 'wc2026_player') return STORED_PLAYER;
-      if (k === 'wc2026_access') return FAKE_JWT;
-      return null;
-    },
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
+function makeStorage(initial: Record<string, string> = {}) {
+  const values = new Map(Object.entries(initial));
+  return {
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      values.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      values.delete(key);
+    }),
+    clear: vi.fn(() => {
+      values.clear();
+    }),
+  };
+}
+
+function mockWebAuthnSupport(supported: boolean) {
+  const create = vi.fn(() =>
+    Promise.resolve({
+      rawId: new Uint8Array([1, 2, 3, 4]).buffer,
+      type: 'public-key',
+    }),
+  );
+  const get = vi.fn();
+  const PublicKeyCredentialMock = {
+    isUserVerifyingPlatformAuthenticatorAvailable: vi.fn(() => Promise.resolve(supported)),
+  };
+
+  Object.defineProperty(window, 'PublicKeyCredential', {
+    value: supported ? PublicKeyCredentialMock : undefined,
+    configurable: true,
   });
+  vi.stubGlobal('PublicKeyCredential', supported ? PublicKeyCredentialMock : undefined);
+  Object.defineProperty(navigator, 'credentials', {
+    value: supported ? { create, get } : undefined,
+    configurable: true,
+  });
+
+  return { create, get };
+}
+
+function renderPage(fetchMock?: ReturnType<typeof makeFetch>) {
+  const storage = makeStorage({
+    wc2026_player: STORED_PLAYER,
+    wc2026_access: FAKE_JWT,
+  });
+  vi.stubGlobal('localStorage', storage);
 
   vi.stubGlobal('fetch', fetchMock ?? makeFetch());
 
-  return render(
+  const view = render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter>
         <AuthProvider>
@@ -103,10 +141,12 @@ function renderPage(fetchMock?: ReturnType<typeof makeFetch>) {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return { ...view, storage };
 }
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  mockWebAuthnSupport(false);
   // Stub browser push APIs so PushSection doesn't bail out with "not supported"
   Object.defineProperty(window, 'PushManager', { value: {}, writable: true, configurable: true });
   Object.defineProperty(navigator, 'serviceWorker', { value: {}, writable: true, configurable: true });
@@ -145,10 +185,12 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('renders all 7 category toggles', async () => {
+  it('renders all 9 category toggles', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByRole('switch', { name: /deadline warning/i })).toBeInTheDocument();
+      expect(screen.getByRole('switch', { name: /daily prediction reminder/i })).toBeInTheDocument();
+      expect(screen.getByRole('switch', { name: /pick confirmation/i })).toBeInTheDocument();
       expect(screen.getByRole('switch', { name: /predictions locked/i })).toBeInTheDocument();
       expect(screen.getByRole('switch', { name: /match result posted/i })).toBeInTheDocument();
       expect(screen.getByRole('switch', { name: /leaderboard rank/i })).toBeInTheDocument();
@@ -173,6 +215,13 @@ describe('SettingsPage', () => {
     });
   });
 
+  it('renders pick confirmation off by default', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: /pick confirmation/i })).toHaveAttribute('aria-checked', 'false');
+    });
+  });
+
   it('global mute toggle disables category switches', async () => {
     renderPage(makeFetch(MUTED_PREFS));
     await waitFor(() => {
@@ -192,6 +241,37 @@ describe('SettingsPage', () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Profile Photo')).toBeInTheDocument();
+    });
+  });
+
+  it('hides biometric unlock when no platform authenticator is available', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.queryByRole('switch', { name: /unlock with face id/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it('enables and disables biometric unlock from the Settings toggle when supported', async () => {
+    const { create } = mockWebAuthnSupport(true);
+    const { storage } = renderPage();
+
+    const toggle = await screen.findByRole('switch', { name: /unlock with face id/i });
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(storage.setItem).toHaveBeenCalledWith(
+        'wc2026_biometric_unlock',
+        expect.stringContaining('"playerId":"p1"'),
+      );
+    });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(storage.removeItem).toHaveBeenCalledWith('wc2026_biometric_unlock');
+      expect(toggle).toHaveAttribute('aria-checked', 'false');
     });
   });
 

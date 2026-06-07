@@ -248,10 +248,11 @@
     letter-spacing: -0.01em;
   }
 
-  /* Native-app feel: disable user-select on chrome, allow on content */
+  /* Native-app feel: disable user-select + long-press callout on chrome, allow on content */
   header, nav, button, [role='tab'], [role='button'] {
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 }
 

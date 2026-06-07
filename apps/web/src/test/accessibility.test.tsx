@@ -163,6 +163,8 @@ describe('Accessibility — SettingsPage', () => {
           json: () =>
             Promise.resolve({
               deadline_warning: true,
+              predict_reminder: true,
+              pick_confirmation: false,
               match_locked: true,
               result_detected: true,
               leaderboard_shift: true,

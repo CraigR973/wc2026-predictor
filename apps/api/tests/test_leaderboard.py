@@ -65,6 +65,11 @@ def _make_snapshot(
     match_points: int = 10,
     knockout_winner_points: int = 0,
     special_points: int = 0,
+    exact_count: int = 0,
+    correct_result_count: int = 0,
+    correct_goals_count: int = 0,
+    specials_correct_count: int = 0,
+    ko_winner_correct_count: int = 0,
     rank: int = 1,
     snapshot_at: datetime | None = None,
 ) -> MagicMock:
@@ -74,6 +79,13 @@ def _make_snapshot(
     s.match_points = match_points
     s.knockout_winner_points = knockout_winner_points
     s.special_points = special_points
+    # U38 tiebreak counts — must be real ints (Pydantic int fields), not the
+    # MagicMock children spec= would otherwise hand back.
+    s.exact_count = exact_count
+    s.correct_result_count = correct_result_count
+    s.correct_goals_count = correct_goals_count
+    s.specials_correct_count = specials_correct_count
+    s.ko_winner_correct_count = ko_winner_correct_count
     s.rank = rank
     s.snapshot_at = snapshot_at or datetime(2026, 6, 11, 18, 0, 0)
     return s
@@ -286,18 +298,18 @@ async def test_league_round_leaderboard_returns_sorted_points() -> None:
     bob = _make_player(display_name="Bob")
 
     mock_db = AsyncMock()
-    result = MagicMock()
-
-    row_alice = MagicMock()
-    row_alice.Profile = alice
-    row_alice.points = 30
-
-    row_bob = MagicMock()
-    row_bob.Profile = bob
-    row_bob.points = 10
-
-    result.all.return_value = [row_bob, row_alice]
-    mock_db.execute = AsyncMock(return_value=result)
+    # The round endpoint now executes three queries: members, then stage-scoped
+    # scoreline rows, then knockout rows (U38 cascade + per-stage counts).
+    members_result = MagicMock()
+    members_result.scalars.return_value.all.return_value = [alice, bob]
+    pred_result = MagicMock()
+    pred_result.all.return_value = [
+        (alice.id, 30, {"exact": 5, "result": 3, "goals": 2}),
+        (bob.id, 10, {"exact": 0, "result": 3, "goals": 0}),
+    ]
+    ko_result = MagicMock()
+    ko_result.all.return_value = []
+    mock_db.execute = AsyncMock(side_effect=[members_result, pred_result, ko_result])
 
     _override_member()
     app.dependency_overrides[get_db] = _db_with(mock_db)
@@ -313,6 +325,7 @@ async def test_league_round_leaderboard_returns_sorted_points() -> None:
     assert data[0]["player_name"] == "Alice"
     assert data[0]["points"] == 30
     assert data[0]["rank"] == 1
+    assert data[0]["exact_count"] == 1
     assert data[1]["rank"] == 2
 
 

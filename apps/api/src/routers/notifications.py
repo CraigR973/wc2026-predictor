@@ -40,6 +40,8 @@ class UnsubscribeRequest(BaseModel):
 
 class PreferencesOut(BaseModel):
     deadline_warning: bool
+    predict_reminder: bool
+    pick_confirmation: bool
     match_locked: bool
     result_detected: bool
     leaderboard_shift: bool
@@ -53,6 +55,8 @@ class PreferencesOut(BaseModel):
 
 class PreferencesPatch(BaseModel):
     deadline_warning: bool | None = None
+    predict_reminder: bool | None = None
+    pick_confirmation: bool | None = None
     match_locked: bool | None = None
     result_detected: bool | None = None
     leaderboard_shift: bool | None = None
@@ -192,6 +196,8 @@ async def get_preferences(player: CurrentPlayer, db: Db) -> PreferencesOut:
 
     return PreferencesOut(
         deadline_warning=prefs.deadline_warning,
+        predict_reminder=prefs.predict_reminder,
+        pick_confirmation=prefs.pick_confirmation,
         match_locked=prefs.match_locked,
         result_detected=prefs.result_detected,
         leaderboard_shift=prefs.leaderboard_shift,
@@ -223,6 +229,10 @@ async def patch_preferences(
 
     if body.deadline_warning is not None:
         prefs.deadline_warning = body.deadline_warning
+    if body.predict_reminder is not None:
+        prefs.predict_reminder = body.predict_reminder
+    if body.pick_confirmation is not None:
+        prefs.pick_confirmation = body.pick_confirmation
     if body.match_locked is not None:
         prefs.match_locked = body.match_locked
     if body.result_detected is not None:
@@ -263,6 +273,8 @@ async def patch_preferences(
 
     return PreferencesOut(
         deadline_warning=prefs.deadline_warning,
+        predict_reminder=prefs.predict_reminder,
+        pick_confirmation=prefs.pick_confirmation,
         match_locked=prefs.match_locked,
         result_detected=prefs.result_detected,
         leaderboard_shift=prefs.leaderboard_shift,

@@ -54,6 +54,8 @@ def _is_quiet(prefs: NotificationPreferences, now: datetime) -> bool:
 def _pref_enabled(prefs: NotificationPreferences, ntype: NotificationType) -> bool:
     mapping: dict[NotificationType, bool] = {
         NotificationType.deadline_warning: prefs.deadline_warning,
+        NotificationType.predict_reminder: prefs.predict_reminder,
+        NotificationType.pick_confirmation: prefs.pick_confirmation,
         NotificationType.match_locked: prefs.match_locked,
         NotificationType.result_detected: prefs.result_detected,
         NotificationType.leaderboard_shift: prefs.leaderboard_shift,
@@ -66,6 +68,13 @@ def _pref_enabled(prefs: NotificationPreferences, ntype: NotificationType) -> bo
         NotificationType.auto_sync_failed: True,
     }
     return mapping.get(ntype, True)
+
+
+def _default_pref_enabled(ntype: NotificationType) -> bool:
+    defaults: dict[NotificationType, bool] = {
+        NotificationType.pick_confirmation: False,
+    }
+    return defaults.get(ntype, True)
 
 
 def _send_push_sync(subscription_data: dict[str, Any], payload: str) -> None:
@@ -107,8 +116,8 @@ async def send_notification(
     prefs = prefs_result.scalar_one_or_none()
 
     if prefs is None:
-        # Player hasn't customised preferences — treat as all-defaults (all enabled)
-        suppressed = False
+        # Player hasn't customised preferences — respect model defaults.
+        suppressed = not _default_pref_enabled(notification_type)
     else:
         suppressed = (
             prefs.global_mute

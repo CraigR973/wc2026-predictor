@@ -72,6 +72,79 @@ describe('dedupedLeaderboard', () => {
   });
 });
 
+describe('dedupedLeaderboard merit cascade (U38)', () => {
+  // Each case: two players level on points, separated by exactly one cascade
+  // axis (the higher value must win even when a *lower* axis favours the other).
+  const cases: {
+    axis: string;
+    a: Partial<LeaderboardEntry>;
+    b: Partial<LeaderboardEntry>;
+  }[] = [
+    {
+      axis: 'exact',
+      a: { exact_count: 2, correct_result_count: 0 },
+      b: { exact_count: 1, correct_result_count: 9 },
+    },
+    {
+      axis: 'result',
+      a: { exact_count: 1, correct_result_count: 3, correct_goals_count: 0 },
+      b: { exact_count: 1, correct_result_count: 2, correct_goals_count: 9 },
+    },
+    {
+      axis: 'goals',
+      a: { exact_count: 1, correct_result_count: 2, correct_goals_count: 5, specials_correct_count: 0 },
+      b: { exact_count: 1, correct_result_count: 2, correct_goals_count: 3, specials_correct_count: 9 },
+    },
+    {
+      axis: 'specials',
+      a: { exact_count: 1, correct_result_count: 1, correct_goals_count: 1, specials_correct_count: 2, ko_winner_correct_count: 0 },
+      b: { exact_count: 1, correct_result_count: 1, correct_goals_count: 1, specials_correct_count: 1, ko_winner_correct_count: 9 },
+    },
+    {
+      axis: 'ko-winner',
+      a: { exact_count: 1, correct_result_count: 1, correct_goals_count: 1, specials_correct_count: 1, ko_winner_correct_count: 2 },
+      b: { exact_count: 1, correct_result_count: 1, correct_goals_count: 1, specials_correct_count: 1, ko_winner_correct_count: 1 },
+    },
+  ];
+
+  it.each(cases)('separates equal points by $axis', ({ a, b }) => {
+    // Feed b first so a only leads if the cascade (not input order) decides it.
+    const entries = [
+      makeEntry({ player_id: 'b', total_points: 10, ...b }),
+      makeEntry({ player_id: 'a', total_points: 10, ...a }),
+    ];
+    const result = dedupedLeaderboard(entries, SLUG);
+    expect(result.map((e) => e.player_id)).toEqual(['a', 'b']);
+    expect(result.map((e) => e.rank)).toEqual([1, 2]);
+  });
+
+  it('shares a rank only on a genuine all-axis tie', () => {
+    const axes = {
+      exact_count: 1,
+      correct_result_count: 1,
+      correct_goals_count: 1,
+      specials_correct_count: 1,
+      ko_winner_correct_count: 1,
+    };
+    const entries = [
+      makeEntry({ player_id: 'a', total_points: 10, ...axes }),
+      makeEntry({ player_id: 'b', total_points: 10, ...axes }),
+    ];
+    const result = dedupedLeaderboard(entries, SLUG);
+    expect(result.map((e) => e.rank)).toEqual([1, 1]);
+  });
+
+  it('points still dominate every tiebreak axis', () => {
+    const entries = [
+      makeEntry({ player_id: 'low', total_points: 9, exact_count: 99 }),
+      makeEntry({ player_id: 'high', total_points: 10, exact_count: 0 }),
+    ];
+    const result = dedupedLeaderboard(entries, SLUG);
+    expect(result[0].player_id).toBe('high');
+    expect(result.map((e) => e.rank)).toEqual([1, 2]);
+  });
+});
+
 describe('rankByPeriod', () => {
   // Same three players; the leader differs per period.
   const entries = [

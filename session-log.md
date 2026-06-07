@@ -1744,3 +1744,144 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Committed on `chore/calcio-logo` (branched off `feat/snagging-photo-leaderboard`), merged into `staging`.
 
 **Next:** none planned.
+
+---
+
+## Polish batch U37 — Marketing copy + About multi-league refresh
+**Commits:** 8dd5246, 5f783c1 · CI ✅
+
+### Key facts for future sessions
+- Tagline lives in the `brand` token (`tagline` + `taglineSub`, `tokens.ts`), rendered on `/login` + `/welcome`; replaces the dead `'Still Email?'`. The Scotland subhead is intentionally seasonal — retire post-tournament.
+- Knockout locking is **per-match** (each match's own kickoff), per **U22.1** — NOT per-round. The architecture doc (§3.8 + locking rules) and About copy were both stale on this and were corrected here. Each knockout match has two predictions: 90-min score + a separate "who advances" pick (split because a penalty draw can't imply the advancer).
+- About says "4-digit PIN" to match the live `SignupPage` (enforces exactly 4); backend is still `^\d{4,8}$` — latent FE(4)/BE(4–8) mismatch (see U6.3).
+- `/about` joke images (`public/about/`) are personal in-jokes on third-party imagery under an "Executive Sponsors" frame + "Thanks for playing." sign-off — copyright risk if Calcio ever goes public.
+- Footer "A Prestige Worldwide LLC Application" + credit order ("Lewis Steele and Craig Robinson") are intentional gags — don't "correct" them.
+
+**Next:** U32 — Scoring quick-ref placement (🟢 Sonnet) — lowest unshipped of the U32–U36 backlog.
+
+---
+
+## Polish batch U32 — Scoring quick-ref placement
+**Commits:** cbf3d2d · CI ✅
+
+### Key facts for future sessions
+- ScoringGuide now uses two independent storageKeys — `sss_scoring_guide_home_open` (Home, moved above `UpcomingMatchesCarousel`) and `sss_scoring_guide_predict_open` (Predict tab); both default collapsed. Don't re-merge the keys.
+- Shipped by the overnight runner (`~/.claude/overnight-wc2026/`), live session, Sonnet subagent.
+
+**Next:** Polish batch U33 — Frontend snags: public badge, responsive header, profile avatar, long-press (🟢 Sonnet)
+
+---
+
+## Polish batch U33 — Frontend snags: public badge, responsive header, profile avatar, long-press
+**Commits:** 6366c21 · CI ✅
+
+### Key facts for future sessions
+- Privacy enum keys are now `public_open` / `public_request` / `private` (real API values); stale `'open'`/`'request'` keys removed from types.ts + all pages.
+- `lib/leagues.ts` is the single source of truth for `privacyLabel` — used by MyLeaguesPage, DiscoverLeaguesPage, and LeagueSettingsPage; don't add a fourth call site elsewhere.
+- TopBar mobile layout: flex-row, justify-between — toggle far-left, brand centre (absolute), avatar far-right; desktop unchanged. Single toggle instance; no duplicate renders.
+- PlayerProfilePage avatar edit is gated on `isSelf` — same upload pipeline as SettingsPage (resizeAvatar + uploadAvatarImage → POST /api/v1/auth/me/avatar).
+
+**Next:** Polish batch U35 — Biometric unlock (🔴 Opus) [U34 HOLD; U35 is next non-HOLD]
+
+---
+
+## Polish batch U34 — Pre-match prediction reminders
+**Commits:** 93a6812 · CI ✅
+
+### Key facts for future sessions
+- Daily prediction digest runs at 09:00 UTC and computes "today" from each player's IANA timezone before querying same-day scheduled matches.
+- Reminder targeting treats only `predictions.submitted_at IS NOT NULL` as predicted; draft rows still count as unpredicted.
+- `predict_reminder` defaults ON, but `pick_confirmation` defaults OFF even when a player has no explicit prefs row (`send_notification` now respects that default).
+- `pick_confirmation` reuses the 15-minute pre-kickoff window but is a separate scheduler job from the existing all-player `deadline_warning` broadcast.
+
+**Next:** Polish batch U35 — Biometric unlock (local gate) (🔴 Opus)
+
+---
+
+## Polish batch U35 — Biometric unlock (local gate)
+**Commits:** b3ef138 · CI ✅
+
+### Key facts for future sessions
+- This is a local convenience gate, not server-side passkeys: only the credential id is stored locally; no server challenge/assertion verification exists.
+- `AuthContext` withholds `player` when `wc2026_biometric_unlock` matches the stored player, so protected routes render the unlock gate until WebAuthn succeeds or the user signs in with PIN.
+- Feature visibility is runtime-gated by `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()` plus `navigator.credentials.create/get`; installed iOS/Android PWA support still needs real-device staging verification.
+
+**Next:** Polish batch U36 — First-run onboarding flow + About page + pre-tournament checklist (🟢 Sonnet)
+
+---
+
+## Polish batch U36 — First-run onboarding + About scroll-to-read
+**Commits:** ce3f25e · CI ✅
+
+### Key facts for future sessions
+- `FirstRunController` step order is `tour → notif → checklist → done`; the launchpad is gated by `sss_firstrun_launchpad_seen` (localStorage), same pattern as tour/notif.
+- Tour Back button shown only when `slide > 0`; Skip/Next/dots unchanged.
+- "Read the rules" in `PreTournamentChecklist` no longer auto-ticks on click — it fires only when the `IntersectionObserver` sentinel (`data-testid="about-rules-end"`) enters the viewport at threshold 0.6 on `/about`. Mount auto-tick also removed.
+- "About / How it works" added to the avatar dropdown in `TopBar.tsx` (only mobile entry point; desktop nav is hidden on `< md`).
+
+**Next:** Polish batch U38 — Tiebreaker scoring + strict ordering (🔴 Opus)
+
+---
+
+## Polish batch U38 — Tiebreaker scoring + strict ordering
+**Commits:** 4dc6b86 · CI ✅
+
+### Key facts for future sessions
+- Migration `026_tiebreak_cascade` adds five persisted tiebreak-count columns to `leaderboard_snapshots` plus `leaderboard_tiebreak_overrides`; the merit cascade is now `points → exact → result → goals → specials → KO-winner`, with `manual_order` only as the final genuine-tie backstop.
+- `recompute_leaderboard_snapshot()` was updated to mirror the trigger logic, so non-match paths like specials awards, cancellations, and manual tiebreak settlement stay consistent with trigger-written ranks/history.
+- Admin settlement now lives under `/api/v1/admin/leagues/{slug}/tiebreak-overrides` and `/api/v1/admin/leagues/{slug}/tiebreak/{player_id}`; set/clear both audit via `ActionType.tiebreaker_overridden` and immediately rerank snapshots.
+- Leaderboard payloads now expose exact/result/goals/specials/KO-winner counts plus `tied`; round leaderboard counts are stage-scoped, while the Match/KO/Special points decomposition was moved to the player profile for the next UI pass.
+
+**Next:** Polish batch U39 — Leaderboard tiebreaker columns + About rule (🟢 Sonnet)
+
+---
+
+## Polish batch U39 — Leaderboard tiebreaker columns + About rule
+**Commits:** a88f8bf · CI ✅
+
+### Key facts for future sessions
+- Overall and round leaderboards now group `Ex / Res / Gls` under a `Tiebreakers` header, so those columns read as rank separators rather than a points-source breakdown.
+- The Match / Knockout / Special decomposition now lives on `PlayerProfilePage` as "How I Earned My Points", alongside the full precision cascade counts.
+- Mobile fit was handled by tightening the permanent leaderboard columns and keeping deeper cascade axes off the always-visible table.
+- `/about` now documents the full tie order `points → exact → result → goals → specials → KO-winner → admin settlement`, with render coverage in page tests.
+
+**Next:** Polish batch U40 — Home dashboard redesign (🟢 Sonnet)
+
+---
+
+## Polish batch U40 — Home dashboard redesign
+**Commits:** 78a93a1 · CI ✅
+
+### Key facts for future sessions
+- Home now opens with a two-tile command row: `PointsTile` drills into `/players/:id`, and the right-hand `MatchTile` runs the `live → next → last` state machine without a standalone live-hub section below.
+- Multi-live support is a lightweight in-page carousel with swipe, dots, and desktop arrows; the default live card is chosen by predicted status first, then later elapsed minute.
+- The old home daily summary and cross-league movement summary were removed; `+N today` now lives inside the points tile, while the full per-match breakdown moved to the self-profile recap.
+- `PlayerProfilePage` reuses `/api/v1/me/home` only for `isSelf`, so the latest-matchday block ships without a new player endpoint or stats payload change.
+- Dashboard and profile tests now cover the drill targets, tile-state fallbacks, and the latest-matchday recap rather than the retired hero/live-hub shape.
+
+**Next:** Polish batch U41 — Live provisional: knockout advancement projection (🔴 Opus)
+
+---
+
+## Polish batch U41 — Live provisional: knockout advancement projection
+**Commits:** 4c371b4 · CI ✅
+
+### Key facts for future sessions
+- Live provisional scoring now uses shared `scoreLiveProvisionalPrediction`, which combines match-score points with stage-based knockout advancement points.
+- Dashboard fetches `/api/v1/matches` instead of group-only matches so live knockout ties can appear in the home match tile.
+- `/api/v1/knockout-predictions/me` is fetched only when at least one live match is a knockout stage.
+- Level knockout scorelines deliberately keep advancement `undecided`; penalties are not inferred from a live draw.
+
+**Next:** none planned — no remaining unshipped polish batch is listed in `docs/polish-batches.md`.
+
+---
+
+## Polish batch U42 — Calcio primary target-ball logo system
+**Commits:** 6bd4a02 · CI ✅
+
+### Key facts for future sessions
+- `apps/web/public/brand/calcio-icon-primary.svg` is now the master logo source; `generate-icons.mjs` reads it and regenerates the app PNG/ICO outputs.
+- Primary app icon direction is the navy target-ball tile; the gold tile exists only as a secondary premium variant.
+- `CalcioLogo` is the reusable image component for `primary | gold | mark | mono`; `Brand` preserves old call sites while rendering the new primary icon.
+
+**Next:** none planned.

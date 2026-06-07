@@ -12,6 +12,8 @@ from src.models.base import Base, UUIDPrimaryKeyMixin
 
 class NotificationType(StrEnum):
     deadline_warning = "deadline_warning"
+    predict_reminder = "predict_reminder"
+    pick_confirmation = "pick_confirmation"
     match_locked = "match_locked"
     result_detected = "result_detected"
     leaderboard_shift = "leaderboard_shift"

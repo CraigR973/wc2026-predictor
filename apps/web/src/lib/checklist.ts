@@ -2,7 +2,7 @@
 //
 // A single localStorage key (`sss_checklist_v1`) holds the two client-owned
 // facts the checklist can't derive from the server:
-//   - rulesRead:  item 1 satisfied (visited /about, or ticked manually)
+//   - rulesRead:  item 1 satisfied (reached the end of the rules on /about)
 //   - dismissed:  hard latch — set on explicit Dismiss, or once all three
 //                 items are complete, so the section never reappears.
 //
@@ -38,7 +38,7 @@ export function writeChecklist(patch: Partial<ChecklistState>): void {
   }
 }
 
-/** Mark the "Read the rules" item done. Called when the About page is viewed. */
+/** Mark the "Read the rules" item done. Called once the About page is read to the end. */
 export function markRulesRead(): void {
   writeChecklist({ rulesRead: true });
 }

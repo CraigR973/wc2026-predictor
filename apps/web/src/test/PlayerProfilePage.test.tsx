@@ -26,6 +26,14 @@ const STATS: Record<string, unknown> = {
   worst_round_points: 14,
   current_streak: 3,
   avg_prediction_timing_mins: 180,
+  match_points: 40,
+  knockout_winner_points: 9,
+  special_points: 5,
+  exact_count: 4,
+  correct_result_count: 9,
+  correct_goals_count: 11,
+  specials_correct_count: 1,
+  ko_winner_correct_count: 2,
 };
 
 const MY_STATS: Record<string, unknown> = {
@@ -119,6 +127,35 @@ const PROFILE_PREDS_HIDDEN: Record<string, unknown> = {
   specials: [],
 };
 
+const HOME_WITH_ROLLUP: Record<string, unknown> = {
+  todo: {
+    specials_submitted: true,
+    specials_lock_at: null,
+    upcoming_unpredicted: 0,
+    next_match: null,
+  },
+  rollup: {
+    matchday: '2026-06-11',
+    points_gained: 10,
+    match_count: 2,
+    matches: [
+      {
+        match_id: 'match-1',
+        kickoff_utc: '2026-06-11T18:00:00Z',
+        home_label: '🇧🇷 Brazil',
+        away_label: '🇲🇽 Mexico',
+        home_flag: '🇧🇷',
+        away_flag: '🇲🇽',
+        actual_home: 2,
+        actual_away: 1,
+        predicted_home: 2,
+        predicted_away: 1,
+        points_breakdown: { goals: 2, result: 3, exact: 5, total: 10, no_prediction: false },
+      },
+    ],
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -137,6 +174,9 @@ function makeFetch(
     }
     if (url.includes('/api/v1/stats/me')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(MY_STATS) });
+    }
+    if (url.includes('/api/v1/me/home')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_WITH_ROLLUP) });
     }
     if (url.includes('/predictions/recent')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(RECENT_PREDS) });
@@ -250,12 +290,36 @@ describe('PlayerProfilePage', () => {
     });
   });
 
+  it('shows the latest matchday block on your own profile using the home rollup', async () => {
+    renderPage(MY_ID, MY_ID);
+    await waitFor(() => {
+      expect(screen.getByText('Latest Matchday')).toBeInTheDocument();
+      expect(screen.getByText('+10 pts')).toBeInTheDocument();
+      expect(screen.getAllByText(/Brazil/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/you 2.1/i)).toBeInTheDocument();
+    });
+  });
+
   it('shows recent predictions table with match info', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Recent Predictions')).toBeInTheDocument();
       expect(screen.getByText(/Brazil/)).toBeInTheDocument();
       expect(screen.getByText(/Germany/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows the relocated points-source breakdown on the profile', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('How I Earned My Points')).toBeInTheDocument();
+      expect(screen.getAllByText('Match').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Knockout').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Special').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Precision tiebreakers')).toBeInTheDocument();
+      expect(
+        screen.getByText(/order used when points are tied: exact, result, goals, specials, then knockout-winner picks/i),
+      ).toBeInTheDocument();
     });
   });
 
@@ -311,5 +375,23 @@ describe('PlayerProfilePage', () => {
     expect(screen.queryByText('Special Predictions')).not.toBeInTheDocument();
     expect(screen.queryByText('Group Predictions')).not.toBeInTheDocument();
     expect(screen.queryByText('Knockout Predictions')).not.toBeInTheDocument();
+  });
+
+  // U33.3 — avatar is a button when viewing own profile, view-only otherwise
+  it('avatar is a button when viewing own profile (isSelf)', async () => {
+    renderPage(MY_ID, MY_ID);
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    });
+    const avatarBtn = screen.getByRole('button', { name: /change avatar photo/i });
+    expect(avatarBtn).toBeInTheDocument();
+  });
+
+  it('avatar is NOT a button when viewing another player', async () => {
+    renderPage(PLAYER_ID, MY_ID);
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Bob');
+    });
+    expect(screen.queryByRole('button', { name: /change avatar photo/i })).not.toBeInTheDocument();
   });
 });

@@ -138,7 +138,7 @@ export function PredictionsPage() {
     <div>
       <PageHeader title="My Predictions" eyebrow="Group stage" />
       <PredictionsSubNav />
-      <ScoringGuide />
+      <ScoringGuide storageKey="sss_scoring_guide_predict_open" defaultOpen={false} />
 
       {isLoading && (
         <div className="space-y-4" aria-label="Loading predictions">

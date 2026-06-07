@@ -9,9 +9,10 @@ send_notification() but do NOT commit — the caller is responsible.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import structlog
 from sqlalchemy import func, select
@@ -22,6 +23,11 @@ from src.models.notification import NotificationType
 from src.models.prediction import LeaderboardSnapshot
 from src.models.profile import PlayerRole, Profile
 from src.models.team import Team
+from src.services.prediction_reminders import (
+    PickConfirmationTarget,
+    submitted_prediction_targets_for_window,
+    unpredicted_digest_targets_for_window,
+)
 from src.services.push_notification_service import send_notification
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -347,3 +353,121 @@ async def check_deadline_warnings(
             log.info("deadline warnings sent", count=warned)
 
     return warned
+
+
+# ── Prediction reminder scheduler jobs ───────────────────────────────────────
+
+_pick_confirmed_match_player_ids: set[tuple[UUID, UUID]] = set()
+
+
+def _player_day_window(player: Profile, current: datetime) -> tuple[datetime, datetime]:
+    try:
+        tz = ZoneInfo(player.timezone)
+    except ZoneInfoNotFoundError:
+        tz = ZoneInfo("UTC")
+    local_now = current.replace(tzinfo=UTC).astimezone(tz)
+    local_start = datetime.combine(local_now.date(), time.min, tzinfo=tz)
+    local_end = local_start + timedelta(days=1)
+    return (
+        local_start.astimezone(UTC).replace(tzinfo=None),
+        local_end.astimezone(UTC).replace(tzinfo=None),
+    )
+
+
+async def send_daily_prediction_digest(
+    session_factory: async_sessionmaker[AsyncSession],
+    now: datetime | None = None,
+) -> int:
+    """Send one same-day unpredicted-match digest per targeted active player."""
+    current = now if now is not None else _utc_now()
+    sent_targets = 0
+
+    async with session_factory() as session:
+        players = await _active_players(session)
+        players_by_window: dict[tuple[datetime, datetime], set[UUID]] = {}
+        for player in players:
+            window = _player_day_window(player, current)
+            players_by_window.setdefault(window, set()).add(player.id)
+
+        for (window_start, window_end), player_ids in players_by_window.items():
+            targets = await unpredicted_digest_targets_for_window(
+                session,
+                window_start,
+                window_end,
+            )
+            for target in targets:
+                if target.player.id not in player_ids:
+                    continue
+                count = len(target.matches)
+                body = (
+                    "You have 1 match to predict today"
+                    if count == 1
+                    else f"You have {count} matches to predict today"
+                )
+                await send_notification(
+                    session,
+                    target.player.id,
+                    NotificationType.predict_reminder,
+                    "Prediction reminder",
+                    body,
+                    data={"url": "/predictions"},
+                )
+                sent_targets += 1
+
+        if sent_targets:
+            await session.commit()
+            log.info("daily prediction digests sent", count=sent_targets)
+
+    return sent_targets
+
+
+async def check_pick_confirmations(
+    session_factory: async_sessionmaker[AsyncSession],
+    now: datetime | None = None,
+    warning_minutes: int = 15,
+) -> int:
+    """Send opt-in per-match pick confirmations before kickoff."""
+    current = (now if now is not None else _utc_now()).replace(second=0, microsecond=0)
+    window_start = current + timedelta(minutes=warning_minutes - 1)
+    window_end = current + timedelta(minutes=warning_minutes + 1)
+
+    sent_targets = 0
+    async with session_factory() as session:
+        targets = await submitted_prediction_targets_for_window(session, window_start, window_end)
+        for target in targets:
+            key = (target.match.id, target.player.id)
+            if key in _pick_confirmed_match_player_ids:
+                continue
+            _pick_confirmed_match_player_ids.add(key)
+            await _send_pick_confirmation(session, target)
+            sent_targets += 1
+
+        if sent_targets:
+            await session.commit()
+            log.info("pick confirmations sent", count=sent_targets)
+
+    return sent_targets
+
+
+async def _send_pick_confirmation(session: AsyncSession, target: PickConfirmationTarget) -> None:
+    home = await _team_name(
+        session,
+        target.match.home_team_id,
+        target.match.home_team_placeholder,
+    )
+    away = await _team_name(
+        session,
+        target.match.away_team_id,
+        target.match.away_team_placeholder,
+    )
+    score = f"{target.prediction.predicted_home}–{target.prediction.predicted_away}"
+    kickoff = target.match.kickoff_utc.strftime("%H:%M UTC")
+    await send_notification(
+        session,
+        target.player.id,
+        NotificationType.pick_confirmation,
+        f"Your pick for {home} v {away}",
+        f"{score} · kicks off {kickoff}",
+        data={"url": "/predictions"},
+        match_id=target.match.id,
+    )
