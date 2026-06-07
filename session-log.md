@@ -1820,3 +1820,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - "About / How it works" added to the avatar dropdown in `TopBar.tsx` (only mobile entry point; desktop nav is hidden on `< md`).
 
 **Next:** Polish batch U38 — Tiebreaker scoring + strict ordering (🔴 Opus)
+
+---
+
+## Polish batch U38 — Tiebreaker scoring + strict ordering
+**Commits:** 4dc6b86 · CI ✅
+
+### Key facts for future sessions
+- Migration `026_tiebreak_cascade` adds five persisted tiebreak-count columns to `leaderboard_snapshots` plus `leaderboard_tiebreak_overrides`; the merit cascade is now `points → exact → result → goals → specials → KO-winner`, with `manual_order` only as the final genuine-tie backstop.
+- `recompute_leaderboard_snapshot()` was updated to mirror the trigger logic, so non-match paths like specials awards, cancellations, and manual tiebreak settlement stay consistent with trigger-written ranks/history.
+- Admin settlement now lives under `/api/v1/admin/leagues/{slug}/tiebreak-overrides` and `/api/v1/admin/leagues/{slug}/tiebreak/{player_id}`; set/clear both audit via `ActionType.tiebreaker_overridden` and immediately rerank snapshots.
+- Leaderboard payloads now expose exact/result/goals/specials/KO-winner counts plus `tied`; round leaderboard counts are stage-scoped, while the Match/KO/Special points decomposition was moved to the player profile for the next UI pass.
+
+**Next:** Polish batch U39 — Leaderboard tiebreaker columns + About rule (🟢 Sonnet)
