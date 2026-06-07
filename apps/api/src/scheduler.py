@@ -23,8 +23,10 @@ from src.services.backup import create_backup
 from src.services.notification_triggers import (
     MatchUpdate,
     check_deadline_warnings,
+    check_pick_confirmations,
     notify_backup_failed,
     notify_match_locked,
+    send_daily_prediction_digest,
 )
 from src.services.result_sync import sync_results
 
@@ -195,11 +197,32 @@ def create_scheduler() -> AsyncIOScheduler:
         max_instances=1,
     )
     scheduler.add_job(
+        check_pick_confirmations,
+        kwargs={"session_factory": AsyncSessionLocal},
+        trigger="interval",
+        minutes=1,
+        id="pick_confirmations",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
         run_scheduled_backup,
         trigger="cron",
         hour=3,
         minute=0,
         id="daily_backup",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        send_daily_prediction_digest,
+        kwargs={"session_factory": AsyncSessionLocal},
+        trigger="cron",
+        hour=9,
+        minute=0,
+        id="daily_prediction_digest",
         replace_existing=True,
         coalesce=True,
         max_instances=1,

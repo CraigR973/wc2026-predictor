@@ -507,6 +507,8 @@ def test_notification_preferences_columns() -> None:
     assert {
         "player_id",
         "deadline_warning",
+        "predict_reminder",
+        "pick_confirmation",
         "match_locked",
         "result_detected",
         "leaderboard_shift",
@@ -529,6 +531,8 @@ def test_notification_preferences_pk_is_player_id() -> None:
 def test_notification_preferences_defaults() -> None:
     t = NotificationPreferences.__table__
     assert t.c["deadline_warning"].server_default is not None
+    assert t.c["predict_reminder"].server_default is not None
+    assert t.c["pick_confirmation"].server_default is not None
     assert t.c["global_mute"].server_default is not None
 
 
@@ -554,6 +558,8 @@ def test_notification_log_columns() -> None:
 def test_notification_type_values() -> None:
     assert {n.value for n in NotificationType} == {
         "deadline_warning",
+        "predict_reminder",
+        "pick_confirmation",
         "match_locked",
         "result_detected",
         "leaderboard_shift",

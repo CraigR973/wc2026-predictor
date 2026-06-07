@@ -156,6 +156,8 @@ class NotificationPreferences(Base, UpdatedAtMixin):
         primary_key=True,
     )
     deadline_warning: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    predict_reminder: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    pick_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     match_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     result_detected: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     leaderboard_shift: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")

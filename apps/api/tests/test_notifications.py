@@ -59,6 +59,8 @@ def _prefs(player_id: uuid.UUID, **overrides: Any) -> MagicMock:
     p = MagicMock(spec=NotificationPreferences)
     p.player_id = player_id
     p.deadline_warning = True
+    p.predict_reminder = True
+    p.pick_confirmation = False
     p.match_locked = True
     p.result_detected = True
     p.leaderboard_shift = True
@@ -117,6 +119,14 @@ class TestPrefEnabled:
         prefs = _prefs(uuid.uuid4())
         assert _pref_enabled(prefs, NotificationType.auto_sync_failed) is True
 
+    def test_predict_reminder_defaults_to_enabled(self) -> None:
+        prefs = _prefs(uuid.uuid4(), predict_reminder=True)
+        assert _pref_enabled(prefs, NotificationType.predict_reminder) is True
+
+    def test_pick_confirmation_defaults_to_disabled(self) -> None:
+        prefs = _prefs(uuid.uuid4(), pick_confirmation=False)
+        assert _pref_enabled(prefs, NotificationType.pick_confirmation) is False
+
 
 # ── Unit tests: send_notification ─────────────────────────────────────────────
 
@@ -155,6 +165,115 @@ async def test_send_notification_suppressed_when_global_mute() -> None:
         )
     assert sent == 0
     session.add.assert_called()
+    log_call = session.add.call_args[0][0]
+    assert log_call.delivery_status == DeliveryStatus.suppressed
+
+
+@pytest.mark.asyncio
+async def test_send_notification_suppressed_when_predict_reminder_disabled() -> None:
+    player_id = uuid.uuid4()
+    sub = _sub(player_id)
+    prefs = _prefs(player_id, predict_reminder=False)
+
+    session = AsyncMock()
+    session.execute.side_effect = [
+        MagicMock(scalar_one_or_none=MagicMock(return_value=prefs)),
+        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[sub])))),
+    ]
+
+    with (
+        patch.object(settings, "vapid_private_key", "private"),
+        patch.object(settings, "vapid_public_key", "public"),
+    ):
+        sent = await send_notification(
+            session, player_id, NotificationType.predict_reminder, "T", "B"
+        )
+    assert sent == 0
+    log_call = session.add.call_args[0][0]
+    assert log_call.notification_type == NotificationType.predict_reminder
+    assert log_call.delivery_status == DeliveryStatus.suppressed
+
+
+@pytest.mark.asyncio
+async def test_send_notification_suppressed_when_pick_confirmation_default_off() -> None:
+    player_id = uuid.uuid4()
+    sub = _sub(player_id)
+    prefs = _prefs(player_id, pick_confirmation=False)
+
+    session = AsyncMock()
+    session.execute.side_effect = [
+        MagicMock(scalar_one_or_none=MagicMock(return_value=prefs)),
+        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[sub])))),
+    ]
+
+    with (
+        patch.object(settings, "vapid_private_key", "private"),
+        patch.object(settings, "vapid_public_key", "public"),
+    ):
+        sent = await send_notification(
+            session, player_id, NotificationType.pick_confirmation, "T", "B"
+        )
+    assert sent == 0
+    log_call = session.add.call_args[0][0]
+    assert log_call.notification_type == NotificationType.pick_confirmation
+    assert log_call.delivery_status == DeliveryStatus.suppressed
+
+
+@pytest.mark.asyncio
+async def test_send_notification_delivers_pick_confirmation_when_enabled() -> None:
+    player_id = uuid.uuid4()
+    sub = _sub(player_id)
+    prefs = _prefs(player_id, pick_confirmation=True)
+
+    session = AsyncMock()
+    session.execute.side_effect = [
+        MagicMock(scalar_one_or_none=MagicMock(return_value=prefs)),
+        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[sub])))),
+    ]
+
+    with (
+        patch.object(settings, "vapid_private_key", "priv"),
+        patch.object(settings, "vapid_public_key", "pub"),
+        patch("src.services.push_notification_service._send_push_sync"),
+    ):
+        sent = await send_notification(
+            session, player_id, NotificationType.pick_confirmation, "Title", "Body"
+        )
+
+    assert sent == 1
+    log_call = session.add.call_args[0][0]
+    assert log_call.notification_type == NotificationType.pick_confirmation
+    assert log_call.delivery_status == DeliveryStatus.sent
+
+
+@pytest.mark.asyncio
+async def test_send_notification_suppressed_during_quiet_hours_for_predict_reminder() -> None:
+    player_id = uuid.uuid4()
+    sub = _sub(player_id)
+    prefs = _prefs(
+        player_id,
+        quiet_hours_start=datetime(2000, 1, 1, 9, 0),
+        quiet_hours_end=datetime(2000, 1, 1, 17, 0),
+    )
+
+    session = AsyncMock()
+    session.execute.side_effect = [
+        MagicMock(scalar_one_or_none=MagicMock(return_value=prefs)),
+        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[sub])))),
+    ]
+
+    with (
+        patch.object(settings, "vapid_private_key", "private"),
+        patch.object(settings, "vapid_public_key", "public"),
+        patch(
+            "src.services.push_notification_service._utc_now",
+            return_value=datetime(2026, 6, 1, 10, 0),
+        ),
+    ):
+        sent = await send_notification(
+            session, player_id, NotificationType.predict_reminder, "T", "B"
+        )
+    assert sent == 0
     log_call = session.add.call_args[0][0]
     assert log_call.delivery_status == DeliveryStatus.suppressed
 
@@ -296,6 +415,8 @@ async def test_get_preferences_creates_defaults() -> None:
         if isinstance(obj, NotificationPreferences):
             # Simulate the DB setting defaults
             obj.deadline_warning = True
+            obj.predict_reminder = True
+            obj.pick_confirmation = False
             obj.match_locked = True
             obj.result_detected = True
             obj.leaderboard_shift = True
@@ -318,6 +439,8 @@ async def test_get_preferences_creates_defaults() -> None:
         data = r.json()
         assert data["global_mute"] is False
         assert data["deadline_warning"] is True
+        assert data["predict_reminder"] is True
+        assert data["pick_confirmation"] is False
         mock_db.add.assert_called_once()
     finally:
         app.dependency_overrides.clear()
@@ -329,6 +452,8 @@ async def test_patch_preferences() -> None:
     prefs = MagicMock(spec=NotificationPreferences)
     prefs.player_id = player.id
     prefs.deadline_warning = True
+    prefs.predict_reminder = True
+    prefs.pick_confirmation = False
     prefs.match_locked = True
     prefs.result_detected = True
     prefs.leaderboard_shift = True
@@ -355,6 +480,8 @@ async def test_patch_preferences() -> None:
                 "/api/v1/notifications/preferences",
                 json={
                     "global_mute": True,
+                    "predict_reminder": False,
+                    "pick_confirmation": True,
                     "result_detected": False,
                     "quiet_hours_start": "22:00",
                     "quiet_hours_end": "07:00",
@@ -362,6 +489,8 @@ async def test_patch_preferences() -> None:
             )
         assert r.status_code == 200
         assert prefs.global_mute is True
+        assert prefs.predict_reminder is False
+        assert prefs.pick_confirmation is True
         assert prefs.result_detected is False
     finally:
         app.dependency_overrides.clear()

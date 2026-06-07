@@ -43,6 +43,8 @@ vi.mock('@/lib/supabase', () => ({
 
 const DEFAULT_PREFS = {
   deadline_warning: true,
+  predict_reminder: true,
+  pick_confirmation: false,
   match_locked: true,
   result_detected: true,
   leaderboard_shift: true,
@@ -145,10 +147,12 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('renders all 7 category toggles', async () => {
+  it('renders all 9 category toggles', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByRole('switch', { name: /deadline warning/i })).toBeInTheDocument();
+      expect(screen.getByRole('switch', { name: /daily prediction reminder/i })).toBeInTheDocument();
+      expect(screen.getByRole('switch', { name: /pick confirmation/i })).toBeInTheDocument();
       expect(screen.getByRole('switch', { name: /predictions locked/i })).toBeInTheDocument();
       expect(screen.getByRole('switch', { name: /match result posted/i })).toBeInTheDocument();
       expect(screen.getByRole('switch', { name: /leaderboard rank/i })).toBeInTheDocument();
@@ -170,6 +174,13 @@ describe('SettingsPage', () => {
       expect(patchCall).toBeDefined();
       const body = JSON.parse(patchCall![1]!.body as string);
       expect(body).toHaveProperty('deadline_warning');
+    });
+  });
+
+  it('renders pick confirmation off by default', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: /pick confirmation/i })).toHaveAttribute('aria-checked', 'false');
     });
   });
 

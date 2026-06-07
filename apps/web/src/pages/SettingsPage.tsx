@@ -23,6 +23,8 @@ import {
 
 interface NotificationPreferences {
   deadline_warning: boolean;
+  predict_reminder: boolean;
+  pick_confirmation: boolean;
   match_locked: boolean;
   result_detected: boolean;
   leaderboard_shift: boolean;
@@ -38,6 +40,8 @@ interface NotificationPreferences {
 
 const CATEGORY_LABELS: Array<{ key: keyof NotificationPreferences; label: string }> = [
   { key: 'deadline_warning', label: 'Deadline warning (15 min before kickoff)' },
+  { key: 'predict_reminder', label: 'Daily prediction reminder' },
+  { key: 'pick_confirmation', label: 'Pick confirmation (opt-in)' },
   { key: 'match_locked', label: 'Predictions locked' },
   { key: 'result_detected', label: 'Match result posted' },
   { key: 'leaderboard_shift', label: 'Leaderboard rank change' },

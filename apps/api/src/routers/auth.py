@@ -221,6 +221,8 @@ async def signup(
     prefs = NotificationPreferences(
         player_id=new_player.id,
         deadline_warning=True,
+        predict_reminder=True,
+        pick_confirmation=False,
         match_locked=True,
         result_detected=True,
         leaderboard_shift=True,
@@ -584,6 +586,8 @@ async def join(
     prefs = NotificationPreferences(
         player_id=new_player.id,
         deadline_warning=True,
+        predict_reminder=True,
+        pick_confirmation=False,
         match_locked=True,
         result_detected=True,
         leaderboard_shift=True,
@@ -691,6 +695,8 @@ async def join_by_code(
     prefs = NotificationPreferences(
         player_id=new_player.id,
         deadline_warning=True,
+        predict_reminder=True,
+        pick_confirmation=False,
         match_locked=True,
         result_detected=True,
         leaderboard_shift=True,
