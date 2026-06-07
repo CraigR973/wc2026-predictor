@@ -7,6 +7,7 @@ const KEYS = {
 export interface StoredPlayer {
   id: string;
   displayName: string;
+  email?: string | null;
   role: 'player' | 'admin';
   timezone: string;
   avatarUrl?: string | null;
@@ -36,14 +37,18 @@ export function getStoredPlayer(): StoredPlayer | null {
   }
 }
 
-export async function clearTokens(): Promise<void> {
-  Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+export async function clearApiCaches(): Promise<void> {
   if (typeof caches !== 'undefined') {
     await Promise.all([
       caches.delete('api-user-data'),
       caches.delete('api-matches'),
     ]);
   }
+}
+
+export async function clearTokens(): Promise<void> {
+  Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+  await clearApiCaches();
 }
 
 /** Decode JWT payload without verifying — used only to read exp for proactive refresh. */

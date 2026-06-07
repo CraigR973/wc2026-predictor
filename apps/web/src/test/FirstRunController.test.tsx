@@ -72,8 +72,8 @@ beforeEach(() => {
   mockedUseAuth.mockReturnValue({
     player,
     isLoading: false,
-    biometricUnlockRequired: false,
-    biometricUnlockFailed: false,
+    sessionUnlockRequired: false,
+    sessionUnlockError: null,
     login: vi.fn(),
     signup: vi.fn(),
     logout: vi.fn(),

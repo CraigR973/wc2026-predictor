@@ -175,6 +175,8 @@ async def test_signup_happy_path(client: AsyncClient) -> None:
     assert "access_token" in data
     assert "refresh_token" in data
     assert data["player"]["display_name"] == "Alice W."
+    assert "avatar_url" in data["player"]
+    assert data["player"]["avatar_url"] is None
     assert mock_db.add.call_count >= 2  # Profile + NotificationPreferences
 
 

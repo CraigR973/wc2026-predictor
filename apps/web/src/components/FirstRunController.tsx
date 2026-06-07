@@ -15,11 +15,11 @@ function initialStep(): Step {
 }
 
 export function FirstRunController() {
-  const { player } = useAuth();
+  const { player, sessionUnlockRequired } = useAuth();
   const [step, setStep] = useState<Step>(initialStep);
 
   // Only active when authenticated
-  if (!player || step === 'done') return null;
+  if (!player || sessionUnlockRequired || step === 'done') return null;
 
   if (step === 'tour') {
     return (
