@@ -1,5 +1,8 @@
+import { useCallback, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Camera } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatSubmitTime } from '../lib/format';
@@ -8,6 +11,12 @@ import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { PointsBreakdownPopover } from '../components/PointsBreakdownPopover';
 import { Avatar } from '../components/ui/avatar';
+import {
+  ALLOWED_AVATAR_TYPES,
+  MAX_AVATAR_BYTES,
+  resizeAvatar,
+  uploadAvatarImage,
+} from '../lib/image';
 import type {
   PlayerStats,
   ProfilePredictions,
@@ -216,8 +225,47 @@ function SpecialPredictionsSection({
 
 export function PlayerProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { player: currentUser } = useAuth();
+  const { player: currentUser, updatePlayer } = useAuth();
   const isSelf = currentUser?.id === id;
+  const queryClient = useQueryClient();
+
+  // Avatar upload state — only active when isSelf
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleAvatarChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (fileRef.current) fileRef.current.value = '';
+      if (!file) return;
+      if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+        toast.error('Only JPEG, PNG, WebP, or GIF files are supported');
+        return;
+      }
+      if (file.size > MAX_AVATAR_BYTES * 2) {
+        toast.error('File too large. Please choose an image under 10 MB.');
+        return;
+      }
+      setUploading(true);
+      try {
+        const blob = await resizeAvatar(file);
+        if (blob.size > MAX_AVATAR_BYTES) {
+          toast.error('Resized image is too large. Please choose a smaller photo.');
+          return;
+        }
+        const newUrl = await uploadAvatarImage(blob);
+        updatePlayer({ avatarUrl: newUrl });
+        // Refresh stats so avatar_url reflects immediately
+        queryClient.invalidateQueries({ queryKey: ['stats', id] });
+        toast.success('Avatar updated');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Upload failed');
+      } finally {
+        setUploading(false);
+      }
+    },
+    [updatePlayer, queryClient, id],
+  );
 
   const { data: stats, isLoading, error } = useQuery<PlayerStats>({
     queryKey: ['stats', id],
@@ -305,7 +353,38 @@ export function PlayerProfilePage() {
   return (
     <div className="space-y-7">
       <div className="flex items-center gap-4">
-        <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+        {isSelf ? (
+          /* Own profile — avatar is a clickable upload trigger */
+          <div className="relative shrink-0">
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ALLOWED_AVATAR_TYPES.join(',')}
+              className="sr-only"
+              aria-label="Upload avatar photo"
+              onChange={handleAvatarChange}
+            />
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+              className="relative group rounded-full focus-visible:outline-none focus-visible:shadow-glow disabled:opacity-60"
+              aria-label={uploading ? 'Uploading…' : 'Change avatar photo'}
+            >
+              <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+              {/* Camera overlay on hover/focus */}
+              <span
+                aria-hidden
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"
+              >
+                <Camera className="h-5 w-5 text-white" />
+              </span>
+            </button>
+          </div>
+        ) : (
+          /* Other players — view-only */
+          <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+        )}
         <PageHeader
           title={stats.player_name}
           eyebrow={`${stats.total_predictions_settled} predictions settled`}

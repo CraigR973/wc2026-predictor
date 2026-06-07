@@ -241,7 +241,7 @@ export interface LeagueSummary {
   slug: string;
   name: string;
   description: string | null;
-  privacy: 'open' | 'request' | 'private';
+  privacy: 'public_open' | 'public_request' | 'private';
   member_count: number;
   max_members: number | null;
   created_at: string;

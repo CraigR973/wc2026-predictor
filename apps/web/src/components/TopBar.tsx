@@ -30,6 +30,49 @@ export function TopBar() {
     setMode(resolved === 'dark' ? 'light' : 'dark');
   }
 
+  const themeToggle = (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="tap-target inline-flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
+    >
+      {resolved === 'dark' ? (
+        <Sun className="h-4 w-4" aria-hidden />
+      ) : (
+        <Moon className="h-4 w-4" aria-hidden />
+      )}
+    </button>
+  );
+
+  const avatarMenu = player ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Account menu (${player.displayName})`}
+        className="inline-flex items-center gap-2 press-down rounded-full focus-visible:outline-none focus-visible:shadow-glow"
+      >
+        <span className="hidden sm:inline text-sm text-text-secondary font-sans">
+          {player.displayName}
+        </span>
+        <Avatar name={player.displayName} size="sm" src={player.avatarUrl} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link to={`/players/${player.id}`}>
+            <User className="h-4 w-4" aria-hidden />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/settings">
+            <Settings className="h-4 w-4" aria-hidden />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
+
   return (
     <header
       className={cn(
@@ -38,12 +81,22 @@ export function TopBar() {
         'pt-safe',
       )}
     >
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-        <NavLink to="/" aria-label="Home" className="press-down">
+      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
+        {/* ── Mobile layout (< md): toggle | centred brand | avatar ── */}
+        <div className="flex md:hidden items-center w-full justify-between">
+          {themeToggle}
+          <NavLink to="/" aria-label="Home" className="press-down absolute left-1/2 -translate-x-1/2">
+            <Brand variant="compact" />
+          </NavLink>
+          {avatarMenu}
+        </div>
+
+        {/* ── Desktop layout (md+): brand | nav | toggle + badge + avatar ── */}
+        <NavLink to="/" aria-label="Home" className="press-down hidden md:block shrink-0">
           <Brand variant="compact" />
         </NavLink>
 
-        <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1">
+        <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1 flex-1">
           {DESKTOP_NAV.map(({ to, label, exact }) => (
             <NavLink
               key={to}
@@ -80,51 +133,14 @@ export function TopBar() {
           )}
         </nav>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="tap-target inline-flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary press-down focus-visible:outline-none focus-visible:shadow-glow"
-          >
-            {resolved === 'dark' ? (
-              <Sun className="h-4 w-4" aria-hidden />
-            ) : (
-              <Moon className="h-4 w-4" aria-hidden />
-            )}
-          </button>
+        <div className="hidden md:flex items-center gap-3">
+          {themeToggle}
           {player?.role === 'admin' && (
-            <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full bg-accent/15 text-accent text-[10px] font-mono uppercase tracking-[0.2em]">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-accent/15 text-accent text-[10px] font-mono uppercase tracking-[0.2em]">
               Admin
             </span>
           )}
-          {player && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label={`Account menu (${player.displayName})`}
-                className="inline-flex items-center gap-2 press-down rounded-full focus-visible:outline-none focus-visible:shadow-glow"
-              >
-                <span className="hidden sm:inline text-sm text-text-secondary font-sans">
-                  {player.displayName}
-                </span>
-                <Avatar name={player.displayName} size="sm" src={player.avatarUrl} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link to={`/players/${player.id}`}>
-                    <User className="h-4 w-4" aria-hidden />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">
-                    <Settings className="h-4 w-4" aria-hidden />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          {avatarMenu}
         </div>
       </div>
     </header>

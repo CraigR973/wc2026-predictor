@@ -22,7 +22,7 @@ export function LeagueSettingsPage() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [privacy, setPrivacy] = useState<'open' | 'request' | 'private'>('open');
+  const [privacy, setPrivacy] = useState<'public_open' | 'public_request' | 'private'>('public_open');
   const [maxMembers, setMaxMembers] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -110,8 +110,8 @@ export function LeagueSettingsPage() {
                 onChange={(e) => setPrivacy(e.target.value as typeof privacy)}
                 className="flex h-10 w-full items-center rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary font-sans focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="open">Open — anyone can join instantly</option>
-                <option value="request">Request — anyone can request to join</option>
+                <option value="public_open">Public — anyone can join instantly</option>
+                <option value="public_request">Public · request — anyone can request to join</option>
                 <option value="private">Private — invite only</option>
               </select>
             </div>

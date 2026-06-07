@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { dedupedLeaderboard } from '@/lib/leaderboard';
 import type { LeagueSummary, LeaderboardEntry } from '@/lib/types';
+import { privacyLabel } from '@/lib/leagues';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,12 +24,6 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
     ? dedupedLeaderboard(leaderboard, league.slug).find((e) => e.player_id === player.id)
     : undefined;
 
-  const privacyLabel: Record<string, string> = {
-    open: 'Open',
-    request: 'Request to join',
-    private: 'Private',
-  };
-
   return (
     <Link to={`/leagues/${league.slug}`} className="block group">
       <Card className="hover:border-primary/40 transition-colors group-hover:border-primary/40">
@@ -38,7 +33,7 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
               {league.name}
             </CardTitle>
             <Badge variant="muted" className="shrink-0 text-xs">
-              {privacyLabel[league.privacy]}
+              {privacyLabel(league.privacy)}
             </Badge>
           </div>
         </CardHeader>

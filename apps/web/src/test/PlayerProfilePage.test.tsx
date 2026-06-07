@@ -312,4 +312,22 @@ describe('PlayerProfilePage', () => {
     expect(screen.queryByText('Group Predictions')).not.toBeInTheDocument();
     expect(screen.queryByText('Knockout Predictions')).not.toBeInTheDocument();
   });
+
+  // U33.3 — avatar is a button when viewing own profile, view-only otherwise
+  it('avatar is a button when viewing own profile (isSelf)', async () => {
+    renderPage(MY_ID, MY_ID);
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    });
+    const avatarBtn = screen.getByRole('button', { name: /change avatar photo/i });
+    expect(avatarBtn).toBeInTheDocument();
+  });
+
+  it('avatar is NOT a button when viewing another player', async () => {
+    renderPage(PLAYER_ID, MY_ID);
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Bob');
+    });
+    expect(screen.queryByRole('button', { name: /change avatar photo/i })).not.toBeInTheDocument();
+  });
 });
