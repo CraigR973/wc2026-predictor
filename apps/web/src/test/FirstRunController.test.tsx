@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { FirstRunController } from '@/components/FirstRunController';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -8,6 +8,8 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
+// IntroTour is no longer rendered by FirstRunController, but we keep the
+// mock so the import of markTourSeen / isTourSeen still resolves.
 vi.mock('@/components/IntroTour', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components/IntroTour')>();
   return {
@@ -59,10 +61,19 @@ const player = {
   avatarUrl: null,
 };
 
-function renderController() {
+/** Captures the current location so we can assert on navigation. */
+function LocationDisplay() {
+  const loc = useLocation();
+  return <span data-testid="location">{loc.pathname}</span>;
+}
+
+function renderController(initialPath = '/') {
   return render(
-    <MemoryRouter>
-      <FirstRunController />
+    <MemoryRouter initialEntries={[initialPath]}>
+      <LocationDisplay />
+      <Routes>
+        <Route path="*" element={<FirstRunController />} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -83,11 +94,35 @@ beforeEach(() => {
 });
 
 describe('FirstRunController', () => {
-  it('runs tour → notif → checklist → done in order', () => {
-    renderController();
+  it('navigates a brand-new user to /about instead of showing the tour', async () => {
+    renderController('/');
 
-    expect(screen.getByRole('button', { name: 'close-tour' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'close-tour' }));
+    // After the useEffect fires, location should be /about
+    await act(async () => {});
+
+    expect(screen.getByTestId('location').textContent).toBe('/about');
+    expect(screen.queryByRole('button', { name: 'close-tour' })).toBeNull();
+  });
+
+  it('marks tour as seen after the /about redirect so it never redirects again', async () => {
+    renderController('/');
+    await act(async () => {});
+
+    expect(localStorage.getItem('sss_tour_seen')).toBe('1');
+  });
+
+  it('shows notif modal after the /about redirect for a brand-new user', async () => {
+    renderController('/');
+    await act(async () => {});
+
+    // After redirect, notif modal should be visible
+    expect(screen.getByRole('button', { name: 'close-notif' })).toBeTruthy();
+  });
+
+  it('runs notif → checklist → done for returning user (tour already seen)', () => {
+    localStorage.setItem('sss_tour_seen', '1');
+
+    renderController();
 
     expect(screen.getByRole('button', { name: 'close-notif' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'close-notif' }));
@@ -95,12 +130,11 @@ describe('FirstRunController', () => {
     expect(screen.getByRole('button', { name: 'close-launchpad' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'close-launchpad' }));
 
-    expect(screen.queryByRole('button', { name: 'close-tour' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'close-notif' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'close-launchpad' })).toBeNull();
   });
 
-  it('shows the launchpad only once after tour and notifications are already seen', () => {
+  it('shows the launchpad only once after notif is already seen', () => {
     localStorage.setItem('sss_tour_seen', '1');
     localStorage.setItem('sss_notif_prompt_seen', '1');
 
@@ -114,6 +148,20 @@ describe('FirstRunController', () => {
     );
 
     expect(localStorage.getItem('sss_firstrun_launchpad_seen')).toBe('1');
+    expect(screen.queryByRole('button', { name: 'close-launchpad' })).toBeNull();
+  });
+
+  it('renders nothing when all steps are done', () => {
+    localStorage.setItem('sss_tour_seen', '1');
+    localStorage.setItem('sss_notif_prompt_seen', '1');
+    localStorage.setItem('sss_firstrun_launchpad_seen', '1');
+
+    const { container } = renderController();
+
+    // Only the LocationDisplay span — no modals
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'close-tour' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'close-notif' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'close-launchpad' })).toBeNull();
   });
 });

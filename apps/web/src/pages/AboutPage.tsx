@@ -12,8 +12,9 @@
 
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Sparkles, Target } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
+import { SpecialsForm } from '@/components/SpecialsForm';
 import { markRulesRead } from '@/lib/checklist';
 import { cn } from '@/lib/utils';
 import {
@@ -56,8 +57,6 @@ function Pill({ children, accent = false }: { children: React.ReactNode; accent?
 // ── Scoring tables ─────────────────────────────────────────────────────────────
 
 function GroupScoringTable() {
-  // Exclude the "Maximum per match" accent row from the About page table —
-  // the grand total section already covers it.
   const rows = MATCH_SCORING_ROWS.filter((r) => !r.accent);
   return (
     <div className="overflow-x-auto -mx-1">
@@ -303,10 +302,65 @@ export function AboutPage() {
     <div className="max-w-xl space-y-6">
       <PageHeader title="About" eyebrow="Calcio" showBack />
 
+      {/* U45.2 — Multi-league hero */}
+      <div
+        data-testid="about-multi-league-hero"
+        className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 space-y-1"
+      >
+        <p className="text-base font-semibold font-sans text-text-primary">
+          Predict once &middot; join as many leagues as you like
+        </p>
+        <p className="text-sm font-sans text-text-secondary leading-relaxed">
+          One set of picks, every league you&rsquo;re in — your predictions count in all of them
+          automatically.
+        </p>
+      </div>
+
+      {/* U45.4 — Pre-tournament tasks guardrail */}
+      <div
+        data-testid="about-pretournament-guardrail"
+        className="rounded-lg border border-border bg-surface p-4 space-y-3"
+      >
+        <p className="text-xs font-mono font-semibold tracking-[0.2em] uppercase text-text-muted">
+          Your 2 pre-tournament tasks
+        </p>
+        <div className="space-y-2">
+          <a
+            href="#specials-form"
+            className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-overlay focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Sparkles className="h-4 w-4 text-primary" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold font-sans text-text-primary">Set your Specials</span>
+              <span className="block text-xs font-sans text-text-secondary mt-0.5">
+                6 bonus picks — editable until the opening match kicks off
+              </span>
+            </span>
+            <span className="text-xs font-sans text-text-muted shrink-0">↓ scroll</span>
+          </a>
+          <Link
+            to="/predictions"
+            className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-overlay focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Target className="h-4 w-4 text-primary" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold font-sans text-text-primary">Predict your first match</span>
+              <span className="block text-xs font-sans text-text-secondary mt-0.5">
+                Any match before it kicks off — no single deadline
+              </span>
+            </span>
+          </Link>
+        </div>
+      </div>
+
       <div className="rounded-lg border border-border bg-surface-elevated px-4 py-3">
         <p className="text-sm font-sans leading-relaxed text-text-secondary">
-          Scroll for the full rules. We only tick off “Read the rules” once you reach the end of
-          the tournament guide below.
+          Scroll for the full rules. We only tick off &ldquo;Read the rules&rdquo; once you reach
+          the end of the tournament guide below.
         </p>
       </div>
 
@@ -487,6 +541,7 @@ export function AboutPage() {
         </div>
       </Section>
 
+      {/* End-of-rules sentinel — triggers "Read the rules" checklist tick */}
       <div
         ref={rulesEndRef}
         data-testid="about-rules-end"
@@ -496,11 +551,33 @@ export function AboutPage() {
           That&apos;s everything.
         </p>
         <p className="mt-1 text-sm font-sans leading-relaxed text-text-secondary">
-          Your Specials and first match pick stay open until the opening match kicks off, and you
-          can jump back here any time from the menu → About.
+          Set your Specials below — editable until the opening match kicks off.
         </p>
-        <ButtonLink to="/predictions/specials">Set your Specials →</ButtonLink>
       </div>
+
+      {/* U45.3 — Embedded Specials form */}
+      <section
+        id="specials-form"
+        data-testid="about-specials-section"
+        aria-labelledby="about-specials-heading"
+        className="space-y-4"
+      >
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary mb-1">
+            Pre-tournament bonus
+          </p>
+          <h2
+            id="about-specials-heading"
+            className="text-lg font-semibold font-sans text-text-primary tracking-tight"
+          >
+            Your Specials
+          </h2>
+          <p className="mt-1 text-sm font-sans text-text-secondary leading-relaxed">
+            Six bonus predictions worth up to 80 points — editable until the opening match kicks off.
+          </p>
+        </div>
+        <SpecialsForm />
+      </section>
 
       {/* How it was built */}
       <Section title="How it was built">
@@ -567,16 +644,5 @@ export function AboutPage() {
         </p>
       </div>
     </div>
-  );
-}
-
-function ButtonLink({ to, children }: { to: string; children: React.ReactNode }) {
-  return (
-    <Link
-      to={to}
-      className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold font-sans text-on-primary transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:shadow-glow"
-    >
-      {children}
-    </Link>
   );
 }

@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { isFirstRunLaunchpadSeen } from '@/lib/firstRunLaunchpad';
-import { IntroTour, isTourSeen } from './IntroTour';
+import { markTourSeen, isTourSeen } from './IntroTour';
 import { FirstRunLaunchpad } from './FirstRunLaunchpad';
 import { NotificationsPromptModal, isNotifPromptSeen } from './NotificationsPromptModal';
 
-type Step = 'tour' | 'notif' | 'checklist' | 'done';
+type Step = 'about' | 'notif' | 'checklist' | 'done';
 
 function initialStep(): Step {
-  if (!isTourSeen()) return 'tour';
+  if (!isTourSeen()) return 'about';
   if (!isNotifPromptSeen()) return 'notif';
   if (!isFirstRunLaunchpadSeen()) return 'checklist';
   return 'done';
@@ -16,18 +17,18 @@ function initialStep(): Step {
 
 export function FirstRunController() {
   const { player, sessionUnlockRequired } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState<Step>(initialStep);
 
-  // Only active when authenticated
-  if (!player || sessionUnlockRequired || step === 'done') return null;
+  // New users land on About instead of the swipe tour.
+  useEffect(() => {
+    if (step !== 'about' || !player || sessionUnlockRequired) return;
+    markTourSeen();
+    navigate('/about');
+    setStep(!isNotifPromptSeen() ? 'notif' : (!isFirstRunLaunchpadSeen() ? 'checklist' : 'done'));
+  }, [step, navigate, player, sessionUnlockRequired]);
 
-  if (step === 'tour') {
-    return (
-      <IntroTour
-        onClose={() => setStep(isNotifPromptSeen() ? (isFirstRunLaunchpadSeen() ? 'done' : 'checklist') : 'notif')}
-      />
-    );
-  }
+  if (!player || sessionUnlockRequired || step === 'done' || step === 'about') return null;
 
   if (step === 'notif') {
     return (
