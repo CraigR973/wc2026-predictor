@@ -127,6 +127,35 @@ const PROFILE_PREDS_HIDDEN: Record<string, unknown> = {
   specials: [],
 };
 
+const HOME_WITH_ROLLUP: Record<string, unknown> = {
+  todo: {
+    specials_submitted: true,
+    specials_lock_at: null,
+    upcoming_unpredicted: 0,
+    next_match: null,
+  },
+  rollup: {
+    matchday: '2026-06-11',
+    points_gained: 10,
+    match_count: 2,
+    matches: [
+      {
+        match_id: 'match-1',
+        kickoff_utc: '2026-06-11T18:00:00Z',
+        home_label: '🇧🇷 Brazil',
+        away_label: '🇲🇽 Mexico',
+        home_flag: '🇧🇷',
+        away_flag: '🇲🇽',
+        actual_home: 2,
+        actual_away: 1,
+        predicted_home: 2,
+        predicted_away: 1,
+        points_breakdown: { goals: 2, result: 3, exact: 5, total: 10, no_prediction: false },
+      },
+    ],
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -145,6 +174,9 @@ function makeFetch(
     }
     if (url.includes('/api/v1/stats/me')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(MY_STATS) });
+    }
+    if (url.includes('/api/v1/me/home')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_WITH_ROLLUP) });
     }
     if (url.includes('/predictions/recent')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(RECENT_PREDS) });
@@ -255,6 +287,16 @@ describe('PlayerProfilePage', () => {
     renderPage(MY_ID, MY_ID);
     await waitFor(() => {
       expect(screen.queryByText(/You vs/)).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows the latest matchday block on your own profile using the home rollup', async () => {
+    renderPage(MY_ID, MY_ID);
+    await waitFor(() => {
+      expect(screen.getByText('Latest Matchday')).toBeInTheDocument();
+      expect(screen.getByText('+10 pts')).toBeInTheDocument();
+      expect(screen.getAllByText(/Brazil/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/you 2.1/i)).toBeInTheDocument();
     });
   });
 

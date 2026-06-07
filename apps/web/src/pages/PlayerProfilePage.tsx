@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatInTimeZone } from 'date-fns-tz';
 import { toast } from 'sonner';
 import { Camera } from 'lucide-react';
 import { apiFetch } from '../lib/api';
@@ -9,6 +10,7 @@ import { formatSubmitTime } from '../lib/format';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { PointsBreakdownPopover } from '../components/PointsBreakdownPopover';
 import { Avatar } from '../components/ui/avatar';
 import {
@@ -18,6 +20,7 @@ import {
   uploadAvatarImage,
 } from '../lib/image';
 import type {
+  HomeResponse,
   PlayerStats,
   ProfilePredictions,
   RecentPrediction,
@@ -131,6 +134,65 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h2 className="text-base font-semibold text-text-primary font-sans tracking-tight mb-3">
       {children}
     </h2>
+  );
+}
+
+function LatestMatchdaySection({
+  rollup,
+  timezone,
+}: {
+  rollup: NonNullable<HomeResponse['rollup']>;
+  timezone: string;
+}) {
+  return (
+    <div>
+      <SectionTitle>Latest Matchday</SectionTitle>
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/60 pb-3">
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-text-muted">
+              Matchday recap
+            </p>
+            <p className="mt-1 text-sm text-text-muted">
+              {formatInTimeZone(new Date(rollup.matchday + 'T00:00:00Z'), timezone, 'EEE d MMM')}
+            </p>
+          </div>
+          <p className="font-mono text-2xl font-semibold tabular-nums text-primary">
+            +{rollup.points_gained} pts
+          </p>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {rollup.matches.map((match) => (
+            <Link
+              key={match.match_id}
+              to={`/matches/${match.match_id}`}
+              className="block rounded-lg border border-border/50 bg-surface-elevated/40 px-3 py-3 transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
+            >
+              <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                <p className="min-w-0 truncate text-sm font-medium text-text-primary">
+                  {match.home_label} <span className="font-normal text-text-muted">vs</span> {match.away_label}
+                </p>
+                <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-muted">
+                  {formatInTimeZone(new Date(match.kickoff_utc), timezone, 'd MMM, HH:mm')}
+                </span>
+              </div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="font-mono text-base font-semibold tabular-nums text-text-primary">
+                  {match.actual_home ?? '?'}–{match.actual_away ?? '?'}
+                </span>
+                {match.predicted_home !== null && match.predicted_away !== null && (
+                  <span className="rounded-full border border-border bg-surface px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-text-muted">
+                    you {match.predicted_home}–{match.predicted_away}
+                  </span>
+                )}
+              </div>
+              {match.points_breakdown && <PointsBreakdownRow breakdown={match.points_breakdown} />}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -287,6 +349,7 @@ export function PlayerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { player: currentUser, updatePlayer } = useAuth();
   const isSelf = currentUser?.id === id;
+  const timezone = currentUser?.timezone ?? 'UTC';
   const queryClient = useQueryClient();
 
   // Avatar upload state — only active when isSelf
@@ -343,6 +406,13 @@ export function PlayerProfilePage() {
     queryKey: ['player-recent-preds', id],
     queryFn: () => apiFetch<RecentPrediction[]>(`/api/v1/players/${id}/predictions/recent`),
     enabled: !!id,
+  });
+
+  const { data: home } = useQuery<HomeResponse>({
+    queryKey: ['me-home'],
+    queryFn: () => apiFetch<HomeResponse>('/api/v1/me/home'),
+    enabled: isSelf,
+    staleTime: 30_000,
   });
 
   // U24: full reveal-gated board (group + knockout + specials). The backend
@@ -471,6 +541,8 @@ export function PlayerProfilePage() {
           />
         </div>
       </div>
+
+      {isSelf && home?.rollup && <LatestMatchdaySection rollup={home.rollup} timezone={timezone} />}
 
       {/* U38: points decomposition + tiebreaker counts */}
       <PointsBreakdownSection stats={stats} />
