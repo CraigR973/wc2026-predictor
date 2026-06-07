@@ -1743,7 +1743,7 @@ cold starts, per the orchestration discussion.)
 
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
-| U32 | 🟢 Sonnet | ~45 min | U32.1–U32.2 | |
+| ~~U32~~ | ~~🟢 Sonnet~~ | ~~~45 min~~ | ~~U32.1–U32.2~~ | ✅ Shipped 2026-06-07 |
 | U33 | 🟢 Sonnet | ~3 h | U33.1–U33.4 | |
 | U34 | 🔴 Opus | ~4 h | U34.1–U34.5 | |
 | U35 | 🔴 Opus | ~4 h | U35.1–U35.5 | |

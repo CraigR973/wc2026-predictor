@@ -1758,3 +1758,14 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Footer "A Prestige Worldwide LLC Application" + credit order ("Lewis Steele and Craig Robinson") are intentional gags — don't "correct" them.
 
 **Next:** U32 — Scoring quick-ref placement (🟢 Sonnet) — lowest unshipped of the U32–U36 backlog.
+
+---
+
+## Polish batch U32 — Scoring quick-ref placement
+**Commits:** cbf3d2d · CI ✅
+
+### Key facts for future sessions
+- ScoringGuide now uses two independent storageKeys — `sss_scoring_guide_home_open` (Home, moved above `UpcomingMatchesCarousel`) and `sss_scoring_guide_predict_open` (Predict tab); both default collapsed. Don't re-merge the keys.
+- Shipped by the overnight runner (`~/.claude/overnight-wc2026/`), live session, Sonnet subagent.
+
+**Next:** Polish batch U33 — Frontend snags: public badge, responsive header, profile avatar, long-press (🟢 Sonnet)
