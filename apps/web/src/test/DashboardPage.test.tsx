@@ -638,19 +638,18 @@ describe('DashboardPage — Pre-tournament checklist', () => {
     expect(screen.getByText('Predict your first match').className).not.toMatch(/line-through/);
   });
 
-  it('auto-ticks "Read the rules" when the row link is clicked', async () => {
+  it('does not auto-tick "Read the rules" when the row link is clicked', async () => {
     stubAuth({ checklistDismissed: false });
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY));
     render(<Wrapper />);
     await waitFor(() => expect(screen.queryByText('Pre-Tournament Checklist')).toBeTruthy());
 
-    // Click the "Read the rules" link — it auto-ticks on navigation.
+    // Clicking the row should navigate, but completion now comes from reading
+    // the About page to the sentinel rather than this click.
     fireEvent.click(screen.getByText('Read the rules'));
 
-    await waitFor(() =>
-      expect(screen.getByText('Read the rules').className).toMatch(/line-through/),
-    );
-    expect(localStorage.setItem).toHaveBeenCalledWith(
+    expect(screen.getByText('Read the rules').className).not.toMatch(/line-through/);
+    expect(localStorage.setItem).not.toHaveBeenCalledWith(
       'sss_checklist_v1',
       expect.stringContaining('"rulesRead":true'),
     );

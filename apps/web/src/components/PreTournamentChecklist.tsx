@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Circle, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../lib/api';
-import { readChecklist, writeChecklist, markRulesRead } from '../lib/checklist';
+import { readChecklist, writeChecklist } from '../lib/checklist';
 import { cn } from '../lib/utils';
 import type { PredictionResponse } from '../lib/types';
 
@@ -11,7 +11,7 @@ import type { PredictionResponse } from '../lib/types';
 // PreTournamentChecklist (U20.4)
 //
 // A one-time setup checklist shown above the carousel. Three items:
-//   1. Read the rules  → /about              (auto-ticks on visit, or manual)
+//   1. Read the rules  → /about              (ticks once the user reaches the end)
 //   2. Submit Specials → /predictions/specials (ticks when specials_submitted)
 //   3. Predict a match → /predictions          (ticks when ≥1 prediction)
 //
@@ -29,7 +29,7 @@ function ChecklistItem({
   done: boolean;
   to: string;
   children: ReactNode;
-  /** Called when the row link is clicked (e.g. to auto-tick on navigation). */
+  /** Called when the row link is clicked. */
   onLinkClick?: () => void;
 }) {
   return (
@@ -99,11 +99,6 @@ export function PreTournamentChecklist({
 
   if (state.dismissed) return null;
 
-  function tickRules() {
-    markRulesRead();
-    setState((s) => ({ ...s, rulesRead: true }));
-  }
-
   function dismiss() {
     writeChecklist({ dismissed: true });
     setState((s) => ({ ...s, dismissed: true }));
@@ -112,12 +107,18 @@ export function PreTournamentChecklist({
   return (
     <section aria-labelledby="home-checklist-label">
       <div className="mb-2 flex items-center justify-between px-0.5">
-        <h2
-          id="home-checklist-label"
-          className="text-lg font-bold tracking-tight text-text-primary"
-        >
-          Pre-Tournament Checklist
-        </h2>
+        <div className="space-y-1">
+          <h2
+            id="home-checklist-label"
+            className="text-lg font-bold tracking-tight text-text-primary"
+          >
+            Pre-Tournament Checklist
+          </h2>
+          <p className="text-sm font-sans leading-relaxed text-text-secondary">
+            Your Specials and first match pick stay open until the opening match kicks off, so you
+            can set both any time before then.
+          </p>
+        </div>
         <button
           type="button"
           onClick={dismiss}
@@ -128,7 +129,7 @@ export function PreTournamentChecklist({
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
-        <ChecklistItem done={rulesDone} to="/about" onLinkClick={tickRules}>
+        <ChecklistItem done={rulesDone} to="/about">
           Read the rules
         </ChecklistItem>
         <ChecklistItem done={specialsDone} to="/predictions/specials">

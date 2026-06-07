@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { isFirstRunLaunchpadSeen } from '@/lib/firstRunLaunchpad';
 import { IntroTour, isTourSeen } from './IntroTour';
+import { FirstRunLaunchpad } from './FirstRunLaunchpad';
 import { NotificationsPromptModal, isNotifPromptSeen } from './NotificationsPromptModal';
 
-type Step = 'tour' | 'notif' | 'done';
+type Step = 'tour' | 'notif' | 'checklist' | 'done';
 
 function initialStep(): Step {
   if (!isTourSeen()) return 'tour';
   if (!isNotifPromptSeen()) return 'notif';
+  if (!isFirstRunLaunchpadSeen()) return 'checklist';
   return 'done';
 }
 
@@ -21,14 +24,18 @@ export function FirstRunController() {
   if (step === 'tour') {
     return (
       <IntroTour
-        onClose={() => setStep(isNotifPromptSeen() ? 'done' : 'notif')}
+        onClose={() => setStep(isNotifPromptSeen() ? (isFirstRunLaunchpadSeen() ? 'done' : 'checklist') : 'notif')}
       />
     );
   }
 
-  return (
-    <NotificationsPromptModal
-      onClose={() => setStep('done')}
-    />
-  );
+  if (step === 'notif') {
+    return (
+      <NotificationsPromptModal
+        onClose={() => setStep(isFirstRunLaunchpadSeen() ? 'done' : 'checklist')}
+      />
+    );
+  }
+
+  return <FirstRunLaunchpad onClose={() => setStep('done')} />;
 }

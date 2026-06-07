@@ -25,10 +25,6 @@ const AXE_CONFIG = { rules: { 'color-contrast': { enabled: false } } };
 
 // ── Mocks required by AboutPage ───────────────────────────────────────────────
 
-vi.mock('@/lib/checklist', () => ({
-  markRulesRead: vi.fn(),
-}));
-
 vi.mock('@/lib/api', () => ({
   apiFetch: vi.fn(),
 }));
@@ -101,6 +97,14 @@ describe('ScoringGuide — worked examples', () => {
 // ── AboutPage ─────────────────────────────────────────────────────────────────
 
 describe('AboutPage — scoring clarity', () => {
+  beforeEach(() => {
+    vi.stubGlobal('IntersectionObserver', class {
+      observe = vi.fn();
+      disconnect = vi.fn();
+      unobserve = vi.fn();
+    });
+  });
+
   it('renders all five achievable totals in the worked examples table', () => {
     renderAboutPage();
     // Each total rendered in a Pill — look for all five in the document.
@@ -130,6 +134,11 @@ describe('AboutPage — scoring clarity', () => {
     renderAboutPage();
     // Grand total pill renders "1,415"
     expect(screen.getByText('1,415')).toBeTruthy();
+  });
+
+  it('includes the end-of-rules launch CTA', () => {
+    renderAboutPage();
+    expect(screen.getByRole('link', { name: /set your specials/i })).toBeTruthy();
   });
 
   it('has no axe violations', async () => {

@@ -1,5 +1,5 @@
 import { NavLink, Link } from 'react-router-dom';
-import { Moon, Sun, User, Settings } from 'lucide-react';
+import { Moon, Sun, User, Settings, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Brand } from '@/components/Brand';
@@ -67,6 +67,12 @@ export function TopBar() {
           <Link to="/settings">
             <Settings className="h-4 w-4" aria-hidden />
             Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/about">
+            <Info className="h-4 w-4" aria-hidden />
+            About / How it works
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -10,7 +10,8 @@
  * golden_glove) → 80 pts total. Grand total = 720 + 320 + 295 + 80 = 1,415.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { markRulesRead } from '@/lib/checklist';
@@ -278,15 +279,36 @@ function JokeFigure({
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export function AboutPage() {
-  // Viewing the rules satisfies the pre-tournament checklist's "Read the rules"
-  // item (U20.4).
+  const rulesEndRef = useRef<HTMLDivElement | null>(null);
+  const hasMarkedReadRef = useRef(false);
+
   useEffect(() => {
-    markRulesRead();
+    const node = rulesEndRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return undefined;
+
+    const observer = new IntersectionObserver((entries) => {
+      const reachedEnd = entries.some((entry) => entry.isIntersecting);
+      if (!reachedEnd || hasMarkedReadRef.current) return;
+
+      hasMarkedReadRef.current = true;
+      markRulesRead();
+      observer.disconnect();
+    }, { threshold: 0.6 });
+
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   return (
     <div className="max-w-xl space-y-6">
       <PageHeader title="About" eyebrow="Calcio" showBack />
+
+      <div className="rounded-lg border border-border bg-surface-elevated px-4 py-3">
+        <p className="text-sm font-sans leading-relaxed text-text-secondary">
+          Scroll for the full rules. We only tick off “Read the rules” once you reach the end of
+          the tournament guide below.
+        </p>
+      </div>
 
       {/* What this is */}
       <Section title="What is this?">
@@ -445,6 +467,21 @@ export function AboutPage() {
         </div>
       </Section>
 
+      <div
+        ref={rulesEndRef}
+        data-testid="about-rules-end"
+        className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-4"
+      >
+        <p className="text-sm font-sans font-semibold text-text-primary">
+          That&apos;s everything.
+        </p>
+        <p className="mt-1 text-sm font-sans leading-relaxed text-text-secondary">
+          Your Specials and first match pick stay open until the opening match kicks off, and you
+          can jump back here any time from the menu → About.
+        </p>
+        <ButtonLink to="/predictions/specials">Set your Specials →</ButtonLink>
+      </div>
+
       {/* How it was built */}
       <Section title="How it was built">
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
@@ -510,5 +547,16 @@ export function AboutPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+function ButtonLink({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold font-sans text-on-primary transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:shadow-glow"
+    >
+      {children}
+    </Link>
   );
 }
