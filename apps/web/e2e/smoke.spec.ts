@@ -8,7 +8,7 @@
  * Scoring expectation: predicted 1-0, actual 1-0, group stage → 7 pts
  *   (3 pts correct result + 4 pts exact score bonus).
  */
-import { type APIRequestContext, expect, test } from '@playwright/test';
+import { type APIRequestContext, type Locator, type Page, expect, test } from '@playwright/test';
 import { blockSupabase } from './helpers';
 
 const API_URL = 'http://localhost:8000';
@@ -20,6 +20,22 @@ const LEAGUE_SLUG = 'steele-spreadsheet';
 
 // Run all tests in this file in declaration order — each step feeds the next.
 test.describe.configure({ mode: 'serial' });
+
+async function fillPinGroup(group: Locator, pin: string) {
+  for (let i = 0; i < pin.length; i++) {
+    await group.getByLabel(`PIN digit ${i + 1}`).fill(pin[i]);
+  }
+}
+
+async function unlockStoredSessionIfNeeded(page: Page) {
+  const unlockHeading = page.getByRole('heading', { name: 'Unlock Calcio' });
+  const isLocked = await unlockHeading.isVisible({ timeout: 3_000 }).catch(() => false);
+  if (!isLocked) return;
+
+  const pinEntry = page.getByRole('group', { name: 'PIN', exact: true });
+  await fillPinGroup(pinEntry, PLAYER_PIN);
+  await page.getByRole('button', { name: 'Unlock with PIN' }).click();
+}
 
 test.describe('Smoke: join → predict → lock → score → leaderboard', () => {
   let api: APIRequestContext;
@@ -83,12 +99,8 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     // exact: true is required; without it 'PIN' substring-matches 'Confirm PIN' too
     const pinEntry = page.getByRole('group', { name: 'PIN', exact: true });
     const pinConfirm = page.getByRole('group', { name: 'Confirm PIN', exact: true });
-    for (let i = 0; i < PLAYER_PIN.length; i++) {
-      await pinEntry.getByLabel(`PIN digit ${i + 1}`).fill(PLAYER_PIN[i]);
-    }
-    for (let i = 0; i < PLAYER_PIN.length; i++) {
-      await pinConfirm.getByLabel(`PIN digit ${i + 1}`).fill(PLAYER_PIN[i]);
-    }
+    await fillPinGroup(pinEntry, PLAYER_PIN);
+    await fillPinGroup(pinConfirm, PLAYER_PIN);
     await page.getByRole('button', { name: /join league/i }).click();
 
     // If the join POST fails the page shows a [role="alert"] and stays put.
@@ -159,6 +171,7 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     );
 
     await page.goto(`/leagues/${LEAGUE_SLUG}/leaderboard`);
+    await unlockStoredSessionIfNeeded(page);
 
     // Wait for a row containing the smoke player's name.
     const playerRow = page

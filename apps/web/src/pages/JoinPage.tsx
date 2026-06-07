@@ -48,6 +48,19 @@ interface LeaguePreview {
   privacy: string;
 }
 
+interface JoinAuthResponse {
+  access_token: string;
+  refresh_token: string;
+  player: {
+    id: string;
+    display_name: string;
+    email?: string | null;
+    role: 'player' | 'admin';
+    timezone: string;
+    avatar_url?: string | null;
+  };
+}
+
 // Browser onboarding is handled by the shared BrowserOnboarding component.
 
 // ─── Installed PWA join flow ──────────────────────────────────────────────────
@@ -191,13 +204,16 @@ function AppJoinFlow() {
         const body = await resp.json().catch(() => ({}));
         throw new Error(body.detail ?? 'Join failed');
       }
-      const data = await resp.json();
-      const { storeTokens } = await import('@/lib/tokens');
+      const data = await resp.json() as JoinAuthResponse;
+      const { clearApiCaches, storeTokens } = await import('@/lib/tokens');
+      await clearApiCaches();
       storeTokens(data.access_token, data.refresh_token, {
         id: data.player.id,
         displayName: data.player.display_name,
+        email: data.player.email ?? null,
         role: data.player.role,
         timezone: data.player.timezone,
+        avatarUrl: data.player.avatar_url ?? null,
       });
       window.location.href = '/';
     } catch (err) {
