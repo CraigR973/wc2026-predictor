@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { clearApiCaches, clearTokens, getAccessToken, getRefreshToken, getStoredPlayer, isAccessTokenExpiringSoon, storeTokens, StoredPlayer } from '../lib/tokens';
+import { clearApiCaches, clearTokens, getAccessToken, getRefreshToken, getStoredPlayer, isAccessTokenExpired, storeTokens, StoredPlayer } from '../lib/tokens';
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   throw new Error('VITE_API_URL is required in production builds');
@@ -45,7 +45,7 @@ function playerFromApiResponse(data: {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initialPlayer = getStoredPlayer();
-  const initialRequiresUnlock = !!initialPlayer && !!getRefreshToken() && isAccessTokenExpiringSoon();
+  const initialRequiresUnlock = !!initialPlayer && !!getRefreshToken() && isAccessTokenExpired();
   const [lockedPlayer, setLockedPlayer] = useState<StoredPlayer | null>(
     initialRequiresUnlock ? initialPlayer : null,
   );

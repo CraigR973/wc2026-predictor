@@ -69,3 +69,12 @@ export function isAccessTokenExpiringSoon(): boolean {
   if (!payload || typeof payload.exp !== 'number') return true;
   return payload.exp - Date.now() / 1000 < 60;
 }
+
+/** Returns true only when the access token has actually passed its expiry. */
+export function isAccessTokenExpired(): boolean {
+  const token = getAccessToken();
+  if (!token) return true;
+  const payload = jwtPayload(token);
+  if (!payload || typeof payload.exp !== 'number') return true;
+  return payload.exp < Date.now() / 1000;
+}
