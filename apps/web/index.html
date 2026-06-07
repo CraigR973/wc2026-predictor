@@ -44,6 +44,39 @@
     <meta name="twitter:title" content="Calcio" />
     <meta name="twitter:description" content="A private prediction league for the 2026 FIFA World Cup. Invite-only." />
     <meta name="twitter:image" content="/brand/calcio-icon-primary-512.png" />
+    <!-- Dev-only mock bypass: if __wc2026_dev_mock__ is in sessionStorage this
+         script sets up fake auth + a fetch interceptor before React mounts so
+         the dashboard can be previewed without real credentials.
+         Remove this block (and the sessionStorage entry) before shipping. -->
+    <script>
+      (function () {
+        try {
+          var raw = sessionStorage.getItem('__wc2026_dev_mock__');
+          if (!raw) return;
+          var cfg = JSON.parse(raw);
+          localStorage.setItem('wc2026_access', cfg.token);
+          localStorage.setItem('wc2026_refresh', 'dev-refresh');
+          localStorage.setItem('wc2026_player', JSON.stringify(cfg.player));
+          var _f = window.fetch;
+          window.fetch = function (input, init) {
+            var url = (input instanceof Request ? input.url : String(input));
+            var ok = function (d) {
+              return Promise.resolve(new Response(JSON.stringify(d), {
+                status: 200, headers: { 'Content-Type': 'application/json' }
+              }));
+            };
+            var routes = cfg.routes;
+            for (var i = 0; i < routes.length; i++) {
+              if (url.indexOf(routes[i].match) !== -1) return ok(routes[i].data);
+            }
+            if (url.indexOf('/api/v1/auth/') !== -1) {
+              return ok({ access_token: cfg.token, refresh_token: 'dev-refresh' });
+            }
+            return _f.call(this, input, init);
+          };
+        } catch (e) { /* silent */ }
+      })();
+    </script>
     <!-- Preload the splash-critical font weight so the LCP wordmark paints
          without a render-blocking round-trip. The woff2 is self-hosted and
          precached by the service worker. -->

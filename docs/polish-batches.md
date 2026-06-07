@@ -2100,3 +2100,50 @@ normal explicit `/phase-closeout U42` path after review, commit, push, and CI.
   gradients, random recolours, or AI PNGs as masters.
 - Frontend lint, typecheck, build, and tests green; local browser verification
   confirms `/login` and the brand preview use `/brand/calcio-icon-primary.svg`.
+
+---
+
+# Round 19 — Dashboard home screen layout (U43) — added 2026-06-07
+
+Three UX improvements to the dashboard top row, designed during a live preview
+session. Surfaces more useful information and removes duplication between the two
+top tiles. 🟢 Sonnet.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U43 | 🟢 Sonnet | ~1 h | U43.1–U43.3 | 🔲 Pending |
+
+---
+
+## U43 — Dashboard home screen layout improvements 🟢 Sonnet · ~1 h
+
+- **U43.1** Latest result priority — invert `pickInlineSlot` in `DashboardPage`
+  so the top-right tile defaults to the most recently completed match (with score,
+  prediction, and points breakdown) rather than the next upcoming fixture. Fall
+  back to upcoming only when no matches have been completed yet. The carousel
+  below already covers upcoming prediction actions so showing it twice in the top
+  row was redundant.
+- **U43.2** Prediction + breakdown in result tile — extend `MatchTileFixtureCard`
+  to accept an optional `prediction?: PredictionResponse` prop. When `kind === 'last'`
+  and a prediction with a points breakdown is present, replace the generic "Tap
+  through…" CTA with: a `YOUR PICK: X–Y` label and a `PointsBreakdownRow`
+  (✓/✗ Result / Goals / Exact + total pts). Wire up `predByMatch[inlineSlot.match.id]`
+  at the call site. Fall back to the plain CTA text when no prediction exists.
+- **U43.3** Matchday summary in points tile — replace the single inline-slot pill
+  at the bottom of `PointsTile` with a compact per-match score list drawn from
+  `rollup.matches`. Each row shows `FLAG CODE X–Y CODE FLAG` (left) and the
+  points earned (right, green if > 0, muted dash if 0). The date + day total
+  (`FRI 5 JUN · +12 pts`) sits as a header above the rows. When no rollup exists
+  yet (pre-tournament), retain the "Next fixture" pill as the fall-back so new
+  users still see something useful.
+
+**Acceptance:**
+- Top-right tile shows the latest completed match (score, prediction, breakdown)
+  whenever at least one match has finished; shows upcoming fixture only
+  pre-tournament.
+- `MatchTileFixtureCard` renders `YOUR PICK: X–Y` + `PointsBreakdownRow` when a
+  scored prediction exists for that match; falls back gracefully when it doesn't.
+- `PointsTile` bottom section shows one compact row per `rollup.matches` entry
+  (score + pts earned); no inline-slot pill is rendered when a rollup is present.
+- Pre-tournament state (no rollup): "Next fixture" pill still appears.
+- Frontend lint, typecheck, build, and tests green.
