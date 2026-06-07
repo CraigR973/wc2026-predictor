@@ -1873,3 +1873,15 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Level knockout scorelines deliberately keep advancement `undecided`; penalties are not inferred from a live draw.
 
 **Next:** none planned — no remaining unshipped polish batch is listed in `docs/polish-batches.md`.
+
+---
+
+## Polish batch U42 — Calcio primary target-ball logo system
+**Commits:** 6bd4a02 · CI ✅
+
+### Key facts for future sessions
+- `apps/web/public/brand/calcio-icon-primary.svg` is now the master logo source; `generate-icons.mjs` reads it and regenerates the app PNG/ICO outputs.
+- Primary app icon direction is the navy target-ball tile; the gold tile exists only as a secondary premium variant.
+- `CalcioLogo` is the reusable image component for `primary | gold | mark | mono`; `Brand` preserves old call sites while rendering the new primary icon.
+
+**Next:** none planned.
