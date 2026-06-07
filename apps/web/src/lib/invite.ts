@@ -20,10 +20,11 @@ export function buildInviteMessage({ leagueName, joinCode, origin }: InviteMessa
     `New to the app?`,
     `1. Install it: ${origin}`,
     `2. Open it from your home screen`,
-    `3. Tap Leagues → Join by code → enter: ${joinCode}`,
-    `4. Go to Predict → Specials before the tournament kicks off`,
+    `3. Create your account`,
+    `4. Tap Leagues → Join by code → enter: ${joinCode}`,
+    `5. Complete your pre-tournament checklist (Specials + first match pick) before the tournament kicks off`,
     ``,
-    `Already have the app? Open it, tap Leagues → Join by code, enter: ${joinCode} — then go to Predict → Specials before the tournament starts.`,
+    `Already have the app? Open it, tap Leagues → Join by code, enter: ${joinCode} — then finish your pre-tournament checklist (Specials + first match pick) before the tournament starts.`,
   ].join('\n');
 }
 

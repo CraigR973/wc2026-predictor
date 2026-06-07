@@ -35,10 +35,16 @@ describe('buildInviteMessage', () => {
     expect(msg).toContain('Join by code');
   });
 
-  it('mentions Specials and the pre-tournament deadline', () => {
+  it('mentions the pre-tournament checklist and Specials', () => {
     const msg = buildInviteMessage(PARAMS);
-    expect(msg).toContain('Predict → Specials');
+    expect(msg.toLowerCase()).toContain('pre-tournament checklist');
+    expect(msg).toContain('Specials');
     expect(msg.toLowerCase()).toContain('tournament');
+  });
+
+  it('includes a create-account step for new users', () => {
+    const msg = buildInviteMessage(PARAMS);
+    expect(msg).toContain('Create your account');
   });
 
   it('contains an "already have the app" hint with the code', () => {
