@@ -1832,6 +1832,10 @@ unlock over the already-stored session — **not** full server-side passkeys.
 - The security model is documented (guards re-entry to a stored session; not a server-side passkey).
 - Tests cover capability gating, enable/disable, and unlock → PIN fallback; frontend (and any backend) tests green; staging CI green.
 
+**U35 security model implemented:** the biometric switch is a local convenience gate only. The app checks `window.PublicKeyCredential`, `navigator.credentials.create/get`, and `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()` before showing the feature. Enrollment creates a platform WebAuthn credential with `authenticatorAttachment: 'platform'` and `userVerification: 'required'`, then stores only the credential id in `localStorage`. Re-entry calls `navigator.credentials.get()` with that local credential id before releasing the already-stored player into React auth state. There is no server challenge, public-key registration, assertion verification, phishing resistance claim, or replacement for the PIN login flow. The JWT refresh token still lives in `localStorage`; the gate merely hides authed UI until the local device ceremony succeeds or the user signs in with their PIN again.
+
+**U35 spike note:** MDN documents `isUserVerifyingPlatformAuthenticatorAvailable()` as the cross-browser signal for a user-verifying platform authenticator in a secure, top-level context, including Face ID/Touch ID on Apple devices and device unlock on Android. Apple documents passkey/WebAuthn platform credentials for iOS/macOS browser apps. This implementation therefore uses WebAuthn `create`/`get` behind runtime detection, but installed iOS/Android PWA behavior still needs on-device staging verification because installed iOS web apps can differ from Safari tab behavior.
+
 ---
 
 ## U36 — First-run onboarding flow + About page + pre-tournament checklist 🟢 Sonnet · ~3.5 h

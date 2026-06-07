@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { clearTokens, getAccessToken, getRefreshToken, getStoredPlayer, storeTokens, StoredPlayer } from '../lib/tokens';
+import { isBiometricUnlockEnabled, verifyBiometricUnlock } from '../lib/biometricUnlock';
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   throw new Error('VITE_API_URL is required in production builds');
@@ -9,6 +10,8 @@ const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 interface AuthState {
   player: StoredPlayer | null;
   isLoading: boolean;
+  biometricUnlockRequired: boolean;
+  biometricUnlockFailed: boolean;
 }
 
 interface AuthContextValue extends AuthState {
@@ -23,6 +26,7 @@ interface AuthContextValue extends AuthState {
   logout: () => Promise<void>;
   /** Update a subset of the stored player (e.g. after avatar upload). */
   updatePlayer: (patch: Partial<StoredPlayer>) => void;
+  unlockStoredSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,9 +44,16 @@ function playerFromApiResponse(data: {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const initialPlayer = getStoredPlayer();
+  const initialRequiresUnlock = !!initialPlayer && isBiometricUnlockEnabled(initialPlayer.id);
+  const [lockedPlayer, setLockedPlayer] = useState<StoredPlayer | null>(
+    initialRequiresUnlock ? initialPlayer : null,
+  );
   const [state, setState] = useState<AuthState>({
-    player: getStoredPlayer(),
+    player: initialRequiresUnlock ? null : initialPlayer,
     isLoading: false,
+    biometricUnlockRequired: initialRequiresUnlock,
+    biometricUnlockFailed: false,
   });
 
   const login = useCallback(async (email: string, pin: string) => {
@@ -60,7 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await resp.json();
       const player = playerFromApiResponse(data);
       storeTokens(data.access_token, data.refresh_token, player);
-      setState({ player, isLoading: false });
+      setLockedPlayer(null);
+      setState({ player, isLoading: false, biometricUnlockRequired: false, biometricUnlockFailed: false });
     } catch (err) {
       setState((s) => ({ ...s, isLoading: false }));
       throw err;
@@ -88,7 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await resp.json();
       const player = playerFromApiResponse(data);
       storeTokens(data.access_token, data.refresh_token, player);
-      setState({ player, isLoading: false });
+      setLockedPlayer(null);
+      setState({ player, isLoading: false, biometricUnlockRequired: false, biometricUnlockFailed: false });
     } catch (err) {
       setState((s) => ({ ...s, isLoading: false }));
       throw err;
@@ -106,7 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }).catch(() => {});
     }
     await clearTokens();
-    setState({ player: null, isLoading: false });
+    setLockedPlayer(null);
+    setState({ player: null, isLoading: false, biometricUnlockRequired: false, biometricUnlockFailed: false });
   }, []);
 
   const updatePlayer = useCallback((patch: Partial<StoredPlayer>) => {
@@ -120,8 +134,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const unlockStoredSession = useCallback(async () => {
+    if (!lockedPlayer) return;
+    setState((s) => ({ ...s, isLoading: true, biometricUnlockFailed: false }));
+    try {
+      await verifyBiometricUnlock(lockedPlayer.id);
+      setState({
+        player: lockedPlayer,
+        isLoading: false,
+        biometricUnlockRequired: false,
+        biometricUnlockFailed: false,
+      });
+      setLockedPlayer(null);
+    } catch (err) {
+      setState((s) => ({
+        ...s,
+        isLoading: false,
+        biometricUnlockRequired: true,
+        biometricUnlockFailed: true,
+      }));
+      throw err;
+    }
+  }, [lockedPlayer]);
+
   return (
-    <AuthContext.Provider value={{ ...state, login, signup, logout, updatePlayer }}>
+    <AuthContext.Provider value={{ ...state, login, signup, logout, updatePlayer, unlockStoredSession }}>
       {children}
     </AuthContext.Provider>
   );
