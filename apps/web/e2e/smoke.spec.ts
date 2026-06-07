@@ -115,8 +115,8 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     }
 
     // After joining, new users are redirected to /about (U45 first-run flow).
-    // The intermediate / may be too brief to observe — match either.
-    await expect(page).toHaveURL(/^\/(about)?$/, { timeout: 10_000 });
+    // Match the full URL — the intermediate / may be too brief to observe.
+    await expect(page).toHaveURL(/\/(about)?$/, { timeout: 10_000 });
 
     // Capture all 3 auth keys so the leaderboard test can restore a full session.
     const stored = await page.evaluate(() => ({
