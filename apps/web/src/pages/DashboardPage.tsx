@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { scoreMatchPrediction, type Stage } from '@wc2026/shared';
+import { isKnockoutStage, scoreLiveProvisionalPrediction, type Stage } from '@wc2026/shared';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
@@ -12,7 +12,13 @@ import { ScoringGuide } from '../components/ScoringGuide';
 import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { useCountdown } from '../hooks/useCountdown';
 import { Skeleton } from '../components/ui/skeleton';
-import type { CrossLeagueSummary, HomeResponse, MatchResponse, PredictionResponse } from '../lib/types';
+import type {
+  CrossLeagueSummary,
+  HomeResponse,
+  KnockoutPredictionResponse,
+  MatchResponse,
+  PredictionResponse,
+} from '../lib/types';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
@@ -158,10 +164,12 @@ function PointsTile({
 function MatchTileLiveCard({
   match,
   prediction,
+  knockoutPrediction,
   timezone,
 }: {
   match: MatchResponse;
   prediction: PredictionResponse | undefined;
+  knockoutPrediction: KnockoutPredictionResponse | undefined;
   timezone: string;
 }) {
   const home = chipTeam(match.home_team, match.home_team_placeholder);
@@ -173,13 +181,19 @@ function MatchTileLiveCard({
     prediction != null &&
     prediction.predicted_home !== null &&
     prediction.predicted_away !== null;
-  const provisionalBreakdown = hasPrediction
-    ? scoreMatchPrediction(
-        { homeScore: prediction.predicted_home!, awayScore: prediction.predicted_away! },
-        { homeScore: hs, awayScore: as },
-        match.stage as Stage,
-      )
-    : null;
+  const provisionalBreakdown = scoreLiveProvisionalPrediction({
+    prediction: hasPrediction
+      ? { homeScore: prediction.predicted_home!, awayScore: prediction.predicted_away! }
+      : null,
+    actual: { homeScore: hs, awayScore: as },
+    stage: match.stage as Stage,
+    homeTeamId: match.home_team?.id,
+    awayTeamId: match.away_team?.id,
+    predictedWinnerId: knockoutPrediction?.predicted_winner_id,
+  });
+  const hasProvisionalBreakdown = hasPrediction && !provisionalBreakdown.match.noPrediction;
+  const advancement = provisionalBreakdown.advancement;
+  const showAdvancementLine = advancement.status !== 'not_applicable';
 
   return (
     <Link
@@ -220,25 +234,43 @@ function MatchTileLiveCard({
               <span className="font-mono font-medium tabular-nums">
                 {prediction.predicted_home}–{prediction.predicted_away}
               </span>
-              {provisionalBreakdown && (
-                <>
-                  <span className="text-text-muted"> · </span>
-                  <span className="font-mono font-semibold tabular-nums text-primary">
-                    +{provisionalBreakdown.total} if it stands
-                  </span>
-                </>
-              )}
+              <span className="text-text-muted"> · </span>
+              <span className="font-mono font-semibold tabular-nums text-primary">
+                +{provisionalBreakdown.total} if it stands
+              </span>
             </>
           ) : (
             <span className="text-text-muted">No prediction on this one.</span>
           )}
         </p>
-        {provisionalBreakdown && (
+        {hasProvisionalBreakdown && showAdvancementLine && (
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 font-mono text-[11px] tabular-nums"
+            data-testid="provisional-combined-breakdown"
+          >
+            <span className="text-text-muted">
+              Match{' '}
+              <span className="font-semibold text-text-primary">
+                +{provisionalBreakdown.match.total}
+              </span>
+            </span>
+            {advancement.status === 'determined' ? (
+              <span className="text-text-muted">
+                Advancement{' '}
+                <span className="font-semibold text-text-primary">+{advancement.points}</span>
+              </span>
+            ) : (
+              <span className="text-live">Advancement undecided</span>
+            )}
+            <span className="ml-auto font-semibold text-primary">{provisionalBreakdown.total} pts</span>
+          </div>
+        )}
+        {hasProvisionalBreakdown && (
           <PointsBreakdownRow
             breakdown={{
-              result: provisionalBreakdown.correctResult,
-              goals: provisionalBreakdown.totalGoals,
-              exact: provisionalBreakdown.exactScore,
+              result: provisionalBreakdown.match.correctResult,
+              goals: provisionalBreakdown.match.totalGoals,
+              exact: provisionalBreakdown.match.exactScore,
               total: provisionalBreakdown.total,
             }}
           />
@@ -306,10 +338,12 @@ function MatchTileFixtureCard({
 function LiveMatchCarousel({
   matches,
   predByMatch,
+  knockoutPredByMatch,
   timezone,
 }: {
   matches: MatchResponse[];
   predByMatch: Record<string, PredictionResponse>;
+  knockoutPredByMatch: Record<string, KnockoutPredictionResponse>;
   timezone: string;
 }) {
   const orderedMatches = [...matches].sort(
@@ -386,6 +420,7 @@ function LiveMatchCarousel({
           key={currentMatch.id}
           match={currentMatch}
           prediction={predByMatch[currentMatch.id]}
+          knockoutPrediction={knockoutPredByMatch[currentMatch.id]}
           timezone={timezone}
         />
       </div>
@@ -477,8 +512,8 @@ export function DashboardPage() {
   });
 
   const { data: matches = [] } = useQuery<MatchResponse[]>({
-    queryKey: ['matches', 'group'],
-    queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches?stage=group'),
+    queryKey: ['matches', 'all'],
+    queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches'),
     staleTime: 30_000,
   });
 
@@ -488,11 +523,24 @@ export function DashboardPage() {
     staleTime: 30_000,
   });
 
+  const liveHasKnockout = matches.some(
+    (m) => m.status === 'live' && isKnockoutStage(m.stage as Stage),
+  );
+  const { data: knockoutPredictions = [] } = useQuery<KnockoutPredictionResponse[]>({
+    queryKey: ['knockout-predictions', 'me'],
+    queryFn: () => apiFetch<KnockoutPredictionResponse[]>('/api/v1/knockout-predictions/me'),
+    enabled: liveHasKnockout,
+    staleTime: 30_000,
+  });
+
   const perLeague = summary?.per_league ?? [];
   const liveMatches = matches.filter((m) => m.status === 'live');
   const inlineSlot = pickInlineSlot(matches);
   const predByMatch: Record<string, PredictionResponse> = Object.fromEntries(
     predictions.map((prediction) => [prediction.match_id, prediction]),
+  );
+  const knockoutPredByMatch: Record<string, KnockoutPredictionResponse> = Object.fromEntries(
+    knockoutPredictions.map((prediction) => [prediction.match_id, prediction]),
   );
   const points = summary?.total_points ?? 0;
   const loadingTopRow = summaryLoading || homeLoading;
@@ -516,7 +564,12 @@ export function DashboardPage() {
             isLoading={loadingTopRow}
           />
           {liveMatches.length > 0 ? (
-            <LiveMatchCarousel matches={liveMatches} predByMatch={predByMatch} timezone={timezone} />
+            <LiveMatchCarousel
+              matches={liveMatches}
+              predByMatch={predByMatch}
+              knockoutPredByMatch={knockoutPredByMatch}
+              timezone={timezone}
+            />
           ) : inlineSlot ? (
             <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} timezone={timezone} />
           ) : (

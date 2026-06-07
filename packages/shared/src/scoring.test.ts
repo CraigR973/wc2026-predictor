@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { scoreMatchPrediction } from './scoring';
+import {
+  knockoutWinnerPointsForStage,
+  projectKnockoutAdvancement,
+  scoreLiveProvisionalPrediction,
+  scoreMatchPrediction,
+} from './scoring';
 
 describe('scoreMatchPrediction', () => {
   describe('no prediction', () => {
@@ -173,5 +178,117 @@ describe('scoreMatchPrediction', () => {
       expect(result.exactScore).toBe(0);
       expect(result.total).toBe(3);
     });
+  });
+});
+
+describe('live knockout advancement projection', () => {
+  it('returns no advancement component for group-stage matches', () => {
+    const result = scoreLiveProvisionalPrediction({
+      prediction: { homeScore: 2, awayScore: 1 },
+      actual: { homeScore: 2, awayScore: 1 },
+      stage: 'group',
+      homeTeamId: 'home',
+      awayTeamId: 'away',
+      predictedWinnerId: 'home',
+    });
+
+    expect(result.match.total).toBe(10);
+    expect(result.advancement).toEqual({
+      status: 'not_applicable',
+      advancerId: null,
+      points: 0,
+      availablePoints: 0,
+      noPrediction: false,
+    });
+    expect(result.total).toBe(10);
+  });
+
+  it('adds round points when a decisive knockout scoreline matches the winner pick', () => {
+    const result = scoreLiveProvisionalPrediction({
+      prediction: { homeScore: 2, awayScore: 1 },
+      actual: { homeScore: 2, awayScore: 1 },
+      stage: 'r16',
+      homeTeamId: 'france',
+      awayTeamId: 'usa',
+      predictedWinnerId: 'france',
+    });
+
+    expect(result.match.total).toBe(10);
+    expect(result.advancement.status).toBe('determined');
+    expect(result.advancement.advancerId).toBe('france');
+    expect(result.advancement.points).toBe(10);
+    expect(result.total).toBe(20);
+  });
+
+  it('adds zero advancement points when the projected advancer differs from the winner pick', () => {
+    const result = scoreLiveProvisionalPrediction({
+      prediction: { homeScore: 0, awayScore: 2 },
+      actual: { homeScore: 2, awayScore: 1 },
+      stage: 'qf',
+      homeTeamId: 'brazil',
+      awayTeamId: 'spain',
+      predictedWinnerId: 'spain',
+    });
+
+    expect(result.advancement.status).toBe('determined');
+    expect(result.advancement.advancerId).toBe('brazil');
+    expect(result.advancement.points).toBe(0);
+    expect(result.advancement.availablePoints).toBe(15);
+    expect(result.total).toBe(result.match.total);
+  });
+
+  it('keeps advancement undecided for a level knockout scoreline', () => {
+    const result = scoreLiveProvisionalPrediction({
+      prediction: { homeScore: 1, awayScore: 1 },
+      actual: { homeScore: 1, awayScore: 1 },
+      stage: 'sf',
+      homeTeamId: 'argentina',
+      awayTeamId: 'england',
+      predictedWinnerId: 'argentina',
+    });
+
+    expect(result.match.total).toBe(10);
+    expect(result.advancement.status).toBe('undecided');
+    expect(result.advancement.points).toBe(0);
+    expect(result.advancement.availablePoints).toBe(20);
+    expect(result.total).toBe(10);
+  });
+
+  it('treats a decisive extra-time scoreline as a definite projected advancer', () => {
+    const result = projectKnockoutAdvancement({
+      actual: { homeScore: 1, awayScore: 2 },
+      stage: 'final',
+      homeTeamId: 'netherlands',
+      awayTeamId: 'japan',
+      predictedWinnerId: 'japan',
+    });
+
+    expect(result.status).toBe('determined');
+    expect(result.advancerId).toBe('japan');
+    expect(result.points).toBe(25);
+  });
+
+  it('keeps a level extra-time scoreline undecided because penalties are not resolved in live score', () => {
+    const result = projectKnockoutAdvancement({
+      actual: { homeScore: 2, awayScore: 2 },
+      stage: 'third_place',
+      homeTeamId: 'mexico',
+      awayTeamId: 'canada',
+      predictedWinnerId: 'mexico',
+    });
+
+    expect(result.status).toBe('undecided');
+    expect(result.points).toBe(0);
+    expect(result.availablePoints).toBe(10);
+  });
+
+  it('exposes knockout winner points by stage', () => {
+    expect(knockoutWinnerPointsForStage('r32')).toBe(5);
+    expect(knockoutWinnerPointsForStage('r16')).toBe(10);
+    expect(knockoutWinnerPointsForStage('qf')).toBe(15);
+    expect(knockoutWinnerPointsForStage('sf')).toBe(20);
+    expect(knockoutWinnerPointsForStage('third_place')).toBe(10);
+    expect(knockoutWinnerPointsForStage('final')).toBe(25);
+    expect(knockoutWinnerPointsForStage('group')).toBe(0);
   });
 });

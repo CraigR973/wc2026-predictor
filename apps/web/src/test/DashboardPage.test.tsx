@@ -164,6 +164,7 @@ function mockFetch(
   home: object = HOME_EMPTY,
   predictions: unknown[] = [],
   matches: unknown[] = [],
+  knockoutPredictions: unknown[] = [],
 ) {
   return (url: string) => {
     if (url.includes('/leagues/mine')) {
@@ -178,6 +179,9 @@ function mockFetch(
     if (url.includes('/api/v1/matches')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(matches) });
     }
+    if (url.includes('/knockout-predictions/me')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(knockoutPredictions) });
+    }
     if (url.includes('/predictions/me')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(predictions) });
     }
@@ -190,8 +194,11 @@ function buildMatch(
   status: string,
   kickoffOffsetMs: number,
   options?: {
+    stage?: string;
     scores?: { hs: number; as: number };
     elapsed?: number;
+    extraTime?: boolean;
+    penalties?: boolean;
     home?: { name: string; code: string; flag: string };
     away?: { name: string; code: string; flag: string };
   },
@@ -199,8 +206,8 @@ function buildMatch(
   return {
     id,
     match_number: 1,
-    stage: 'group',
-    group_id: 'g',
+    stage: options?.stage ?? 'group',
+    group_id: options?.stage == null || options.stage === 'group' ? 'g' : null,
     home_team: {
       id: `home-${id}`,
       name: options?.home?.name ?? 'Spain',
@@ -220,8 +227,8 @@ function buildMatch(
     status,
     actual_home_score: options?.scores?.hs ?? null,
     actual_away_score: options?.scores?.as ?? null,
-    extra_time: false,
-    penalties: false,
+    extra_time: options?.extraTime ?? false,
+    penalties: options?.penalties ?? false,
     postponed_reason: null,
     elapsed_minutes: options?.elapsed ?? null,
   };
@@ -238,6 +245,19 @@ function buildPrediction(matchId: string, predictedHome: number, predictedAway: 
     update_count: 1,
     points_awarded: null,
     points_breakdown: null,
+    updated_at: '2026-06-11T00:00:00Z',
+  };
+}
+
+function buildKnockoutPrediction(matchId: string, predictedWinnerId: string | null) {
+  return {
+    id: `ko-pred-${matchId}`,
+    player_id: 'p1',
+    match_id: matchId,
+    predicted_winner_id: predictedWinnerId,
+    submitted_at: '2026-06-11T00:00:00Z',
+    update_count: 1,
+    points_awarded: null,
     updated_at: '2026-06-11T00:00:00Z',
   };
 }
@@ -307,6 +327,84 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).toHaveTextContent('Result');
     expect(liveCard).toHaveTextContent('Goals');
     expect(liveCard).toHaveTextContent('Exact');
+  });
+
+  it('adds projected knockout advancement points for a decisive live scoreline', async () => {
+    stubAuth();
+    const matches = [
+      buildMatch('ko-live-1', 'live', -600_000, {
+        stage: 'r16',
+        scores: { hs: 2, as: 1 },
+        elapsed: 88,
+        home: { name: 'France', code: 'FRA', flag: '🇫🇷' },
+        away: { name: 'USA', code: 'USA', flag: '🇺🇸' },
+      }),
+    ];
+    const predictions = [buildPrediction('ko-live-1', 2, 1)];
+    const knockoutPredictions = [buildKnockoutPrediction('ko-live-1', 'home-ko-live-1')];
+    const Wrapper = makeWrapper(
+      mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches, knockoutPredictions),
+    );
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('match-tile-live-card')).toHaveTextContent('+20 if it stands'),
+    );
+    const liveCard = screen.getByTestId('match-tile-live-card');
+    expect(liveCard).toHaveTextContent('+20 if it stands');
+    expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent('Match +10');
+    expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent(
+      'Advancement +10',
+    );
+  });
+
+  it('keeps knockout advancement undecided for a level live scoreline', async () => {
+    stubAuth();
+    const matches = [
+      buildMatch('ko-live-level', 'live', -600_000, {
+        stage: 'sf',
+        scores: { hs: 1, as: 1 },
+        elapsed: 92,
+        extraTime: true,
+        home: { name: 'Argentina', code: 'ARG', flag: '🇦🇷' },
+        away: { name: 'England', code: 'ENG', flag: '🏴' },
+      }),
+    ];
+    const predictions = [buildPrediction('ko-live-level', 1, 1)];
+    const knockoutPredictions = [buildKnockoutPrediction('ko-live-level', 'home-ko-live-level')];
+    const Wrapper = makeWrapper(
+      mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches, knockoutPredictions),
+    );
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('match-tile-live-card')).toHaveTextContent('+10 if it stands'),
+    );
+    const liveCard = screen.getByTestId('match-tile-live-card');
+    expect(liveCard).toHaveTextContent('+10 if it stands');
+    expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent('Match +10');
+    expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent(
+      'Advancement undecided',
+    );
+  });
+
+  it('leaves group-stage live provisional scoring unchanged', async () => {
+    stubAuth();
+    const matches = [buildMatch('group-live', 'live', -600_000, { scores: { hs: 2, as: 0 } })];
+    const predictions = [buildPrediction('group-live', 2, 0)];
+    const knockoutPredictions = [buildKnockoutPrediction('group-live', 'home-group-live')];
+    const Wrapper = makeWrapper(
+      mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches, knockoutPredictions),
+    );
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument());
+    const liveCard = screen.getByTestId('match-tile-live-card');
+    expect(liveCard).toHaveTextContent('+10 if it stands');
+    expect(screen.queryByTestId('provisional-combined-breakdown')).not.toBeInTheDocument();
+    expect(liveCard).not.toHaveTextContent('Advancement');
   });
 
   it('defaults the multi-live carousel to the highest-stake card and exposes dots plus desktop arrows', async () => {
