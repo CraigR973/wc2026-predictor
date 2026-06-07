@@ -1833,3 +1833,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Leaderboard payloads now expose exact/result/goals/specials/KO-winner counts plus `tied`; round leaderboard counts are stage-scoped, while the Match/KO/Special points decomposition was moved to the player profile for the next UI pass.
 
 **Next:** Polish batch U39 — Leaderboard tiebreaker columns + About rule (🟢 Sonnet)
+
+---
+
+## Polish batch U39 — Leaderboard tiebreaker columns + About rule
+**Commits:** a88f8bf · CI ✅
+
+### Key facts for future sessions
+- Overall and round leaderboards now group `Ex / Res / Gls` under a `Tiebreakers` header, so those columns read as rank separators rather than a points-source breakdown.
+- The Match / Knockout / Special decomposition now lives on `PlayerProfilePage` as "How I Earned My Points", alongside the full precision cascade counts.
+- Mobile fit was handled by tightening the permanent leaderboard columns and keeping deeper cascade axes off the always-visible table.
+- `/about` now documents the full tie order `points → exact → result → goals → specials → KO-winner → admin settlement`, with render coverage in page tests.
+
+**Next:** Polish batch U40 — Home dashboard redesign (🟢 Sonnet)
