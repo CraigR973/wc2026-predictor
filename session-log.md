@@ -1795,3 +1795,15 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `pick_confirmation` reuses the 15-minute pre-kickoff window but is a separate scheduler job from the existing all-player `deadline_warning` broadcast.
 
 **Next:** Polish batch U35 — Biometric unlock (local gate) (🔴 Opus)
+
+---
+
+## Polish batch U35 — Biometric unlock (local gate)
+**Commits:** b3ef138 · CI ✅
+
+### Key facts for future sessions
+- This is a local convenience gate, not server-side passkeys: only the credential id is stored locally; no server challenge/assertion verification exists.
+- `AuthContext` withholds `player` when `wc2026_biometric_unlock` matches the stored player, so protected routes render the unlock gate until WebAuthn succeeds or the user signs in with PIN.
+- Feature visibility is runtime-gated by `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()` plus `navigator.credentials.create/get`; installed iOS/Android PWA support still needs real-device staging verification.
+
+**Next:** Polish batch U36 — First-run onboarding flow + About page + pre-tournament checklist (🟢 Sonnet)
