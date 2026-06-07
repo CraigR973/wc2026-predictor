@@ -1898,3 +1898,20 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `apps/web/index.html` has a **temporary** dev-only mock bootstrap `<script>` block — no-op unless `sessionStorage.__wc2026_dev_mock__` is set, but should be removed before shipping.
 
 **Next:** none planned.
+
+---
+
+## Polish batch U44 — Auth & session hardening
+**Commits:** 0dc4a5b, 45d2993, cdc1dfd, 12b305b, b06aee2 · CI ✅
+
+### Key facts for future sessions
+- `biometricUnlock.ts` and `BiometricUnlock.test.tsx` are deleted; WebAuthn enrolment/verification is gone entirely. The Settings toggle is removed.
+- `ProtectedRoute` now renders `PinUnlockGate` when `sessionUnlockRequired`; the gate calls `/api/v1/auth/login` with the PIN (not a dedicated unlock endpoint — re-login is the unlock).
+- `initialRequiresUnlock = !!player && !!refreshToken && isAccessTokenExpired()` — the gate only fires when the JWT has actually expired (not merely expiring soon); proactive refresh uses `isAccessTokenExpiringSoon()` with a 60 s lookahead.
+- `isAccessTokenExpired()` was added to `tokens.ts`; keep `isAccessTokenExpiringSoon()` for the separate proactive-refresh path.
+- `seedAuth` in `e2e/helpers.ts` no longer seeds `wc2026_refresh` — the far-future FAKE_JWT never expires so refresh is never needed in mocked tests. `PinRelock.test.tsx` uses an explicitly expired JWT (`exp=1`) to trigger the gate.
+- `AuthContext.login` now calls `clearApiCaches()` before storing new tokens, clearing any prior user's `api-user-data`/`api-matches` Service Worker cache.
+- Avatar URL is now included in `PlayerInfo` on `/auth/login` and `/auth/signup` in `auth.py`; initials-only top bar after login is fixed.
+- The `__wc2026_dev_mock__` script block in `index.html` was removed (U44.1) — prod-bundle e2e test asserts it's absent.
+
+**Next:** Polish batch U45 — About-first onboarding (🟢 Sonnet)
