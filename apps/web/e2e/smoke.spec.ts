@@ -163,11 +163,15 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     // Restore all three auth keys so ProtectedRoute sees an authenticated session.
     // AuthContext reads wc2026_player synchronously on mount — setting only
     // wc2026_access would leave player=null and trigger a redirect to /login.
+    // Also set firstrun keys so FirstRunController doesn't redirect to /about.
     await page.addInitScript(
       ({ access, refresh, player }: { access: string; refresh: string; player: string }) => {
         localStorage.setItem('wc2026_access', access);
         localStorage.setItem('wc2026_refresh', refresh);
         localStorage.setItem('wc2026_player', player);
+        localStorage.setItem('sss_tour_seen', '1');
+        localStorage.setItem('sss_notif_prompt_seen', '1');
+        localStorage.setItem('sss_firstrun_launchpad_seen', '1');
       },
       { access: playerJwt, refresh: playerRefresh, player: playerStoredJson },
     );

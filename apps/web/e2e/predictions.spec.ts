@@ -178,6 +178,14 @@ test.describe('Login → predict flow', () => {
     await catchAllApi(page);
     await blockSupabase(page);
 
+    // Suppress first-run onboarding so FirstRunController doesn't redirect to /about
+    // after login completes (this test exercises JWT/predictions, not onboarding).
+    await page.addInitScript(() => {
+      localStorage.setItem('sss_tour_seen', '1');
+      localStorage.setItem('sss_notif_prompt_seen', '1');
+      localStorage.setItem('sss_firstrun_launchpad_seen', '1');
+    });
+
     await page.route('**/api/v1/auth/login', (route) =>
       route.fulfill({
         status: 200,
