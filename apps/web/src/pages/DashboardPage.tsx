@@ -553,6 +553,9 @@ export function DashboardPage() {
         isLoading={homeLoading}
       />
 
+      {/* Scoring quick-reference — collapsed by default on Home (U32.1) */}
+      <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
+
       {/* Upcoming-matches carousel — inline group-stage prediction editing (U19) */}
       <UpcomingMatchesCarousel />
 
@@ -574,8 +577,6 @@ export function DashboardPage() {
         </section>
       ) : null}
 
-      {/* Scoring quick-reference — collapsed by default on Home */}
-      <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
     </div>
   );
 }
