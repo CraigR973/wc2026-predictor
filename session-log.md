@@ -1860,3 +1860,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Dashboard and profile tests now cover the drill targets, tile-state fallbacks, and the latest-matchday recap rather than the retired hero/live-hub shape.
 
 **Next:** Polish batch U41 — Live provisional: knockout advancement projection (🔴 Opus)
+
+---
+
+## Polish batch U41 — Live provisional: knockout advancement projection
+**Commits:** 4c371b4 · CI ✅
+
+### Key facts for future sessions
+- Live provisional scoring now uses shared `scoreLiveProvisionalPrediction`, which combines match-score points with stage-based knockout advancement points.
+- Dashboard fetches `/api/v1/matches` instead of group-only matches so live knockout ties can appear in the home match tile.
+- `/api/v1/knockout-predictions/me` is fetched only when at least one live match is a knockout stage.
+- Level knockout scorelines deliberately keep advancement `undecided`; penalties are not inferred from a live draw.
+
+**Next:** none planned — no remaining unshipped polish batch is listed in `docs/polish-batches.md`.

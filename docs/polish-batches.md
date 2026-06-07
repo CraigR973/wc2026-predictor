@@ -1989,7 +1989,7 @@ to staging per batch.
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
 | ~~U40~~ | ~~🟢 Sonnet~~ | ~~~3.5 h~~ | ~~U40.1–U40.6~~ | ~~Shipped 78a93a1~~ |
-| U41 | 🔴 Opus | ~2.5 h | U41.1–U41.4 | |
+| ~~U41~~ | ~~🔴 Opus~~ | ~~~2.5 h~~ | ~~U41.1–U41.4~~ | ~~Shipped 4c371b4~~ |
 
 ---
 
