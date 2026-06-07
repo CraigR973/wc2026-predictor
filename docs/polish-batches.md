@@ -1917,7 +1917,7 @@ to staging per batch.
 | Batch | Model | Effort | Items | Status |
 |---|---|---|---|---|
 | ~~U38~~ | ~~🔴 Opus~~ | ~~~4 h~~ | ~~U38.1–U38.5~~ | ✅ Shipped 2026-06-07 |
-| U39 | 🟢 Sonnet | ~2.5 h | U39.1–U39.5 | |
+| ~~U39~~ | ~~🟢 Sonnet~~ | ~~~2.5 h~~ | ~~U39.1–U39.5~~ | ✅ Shipped 2026-06-07 |
 
 ---
 
