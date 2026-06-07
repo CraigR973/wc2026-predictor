@@ -1846,3 +1846,17 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `/about` now documents the full tie order `points → exact → result → goals → specials → KO-winner → admin settlement`, with render coverage in page tests.
 
 **Next:** Polish batch U40 — Home dashboard redesign (🟢 Sonnet)
+
+---
+
+## Polish batch U40 — Home dashboard redesign
+**Commits:** 78a93a1 · CI ✅
+
+### Key facts for future sessions
+- Home now opens with a two-tile command row: `PointsTile` drills into `/players/:id`, and the right-hand `MatchTile` runs the `live → next → last` state machine without a standalone live-hub section below.
+- Multi-live support is a lightweight in-page carousel with swipe, dots, and desktop arrows; the default live card is chosen by predicted status first, then later elapsed minute.
+- The old home daily summary and cross-league movement summary were removed; `+N today` now lives inside the points tile, while the full per-match breakdown moved to the self-profile recap.
+- `PlayerProfilePage` reuses `/api/v1/me/home` only for `isSelf`, so the latest-matchday block ships without a new player endpoint or stats payload change.
+- Dashboard and profile tests now cover the drill targets, tile-state fallbacks, and the latest-matchday recap rather than the retired hero/live-hub shape.
+
+**Next:** Polish batch U41 — Live provisional: knockout advancement projection (🔴 Opus)
