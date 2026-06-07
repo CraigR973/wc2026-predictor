@@ -30,7 +30,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 const STORAGE_KEY = 'sss_theme';
 const LIGHT_THEME_COLOR = '#F7F8FA';
-const DARK_THEME_COLOR = '#0B0E13';
+const DARK_THEME_COLOR = '#071A3D';
 
 function readStoredMode(): ThemeMode {
   if (typeof window === 'undefined') return 'dark';

@@ -2037,3 +2037,66 @@ live scoreline implies a definite advancer.
 - For a knockout match with a decisive live scoreline, "points if this stands" includes projected advancement points (from the caller's bracket pick), shown as a distinct breakdown line.
 - A level knockout scoreline shows match points only + an undecided affordance; group matches are unchanged.
 - Shared (`@wc2026/shared`) + web tests green; staging CI green.
+
+---
+
+# Round 18 — Calcio primary logo system (U42) — added 2026-06-07
+
+Retrospective batch from the final logo approval session. U31 shipped the interim
+gold "Calcio C" direction; this batch replaces it as the **primary app icon** with
+the approved premium football prediction target: deep navy rounded-square tile,
+white football/target mark, and one champagne-gold winning-prediction segment.
+The gold tile remains available only as a secondary premium variant. 🟢 Sonnet.
+
+Implementation began before this row was written; close-out still follows the
+normal explicit `/phase-closeout U42` path after review, commit, push, and CI.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U42 | 🟢 Sonnet | ~2 h | U42.1–U42.6 | Implemented locally; pending commit/CI/close-out |
+
+---
+
+## U42 — Calcio primary target-ball logo system 🟢 Sonnet · ~2 h
+
+- **U42.1** Master SVG — create `apps/web/public/brand/calcio-icon-primary.svg` as the
+  hand-authored source of truth. Requirements: pure vector, `viewBox="0 0 512 512"`,
+  rounded-square `#071A3D` tile, warm-white football/target mark, one right-side
+  `#D4A44B` prediction segment, no text, no raster, no filters, no shadows.
+- **U42.2** Brand asset variants — add `calcio-icon-dark.svg`, `calcio-icon-gold.svg`,
+  `calcio-mark.svg`, `calcio-mark-mono.svg`, and `calcio-mark-gold.svg` under
+  `apps/web/public/brand/`. Gold tile is a secondary variant only, not the primary
+  app icon.
+- **U42.3** Generated raster exports — use existing lightweight tooling
+  (`@resvg/resvg-js`, already present) to generate PNG exports from the master SVG:
+  32, 64, 128, 180, 192, 512, and 1024 px. Do not add heavy image dependencies.
+- **U42.4** App integration — wire the primary navy target-ball logo into favicon,
+  Apple touch icon, PWA manifest icons, install/splash theme colours, notification
+  icons where applicable, and social preview metadata. Existing app paths remain
+  stable (`/favicon.svg`, `/favicon.ico`, `/apple-touch-icon.png`,
+  `/icon-192.png`, `/icon-512.png`, etc.).
+- **U42.5** Reusable component — add `CalcioLogo` (or existing naming convention)
+  with `size`, `variant: primary | gold | mark | mono`, accessible label, and
+  decorative mode. Update the existing `Brand` component so login/signup/welcome
+  splash and TopBar/header branding use the primary navy target-ball icon while
+  preserving current call sites (`variant="splash"`, `variant="compact"`, etc.).
+- **U42.6** Brand note + verification — add `apps/web/public/brand/README.md` with
+  primary-choice, palette, secondary gold variant, and usage rules. Validate SVGs,
+  render at small sizes, run frontend lint/typecheck/build/tests, and do a local
+  browser check of splash/header/preview assets.
+
+**Acceptance:**
+- `calcio-icon-primary.svg` is the master asset and remains pure vector; no
+  AI-generated PNG or raster trace is used as source of truth.
+- Primary app surfaces use the navy target-ball icon: favicon, PWA manifest icons,
+  Apple touch icon, splash/loading/install contexts, visible splash/header brand,
+  and social preview metadata.
+- Gold tile variant exists but is not used as the primary app icon.
+- `CalcioLogo` supports `primary`, `gold`, `mark`, and `mono`, including size,
+  accessible label, and decorative mode.
+- PNG exports exist for 32, 64, 128, 180, 192, 512, and 1024 px, generated from
+  the SVG with existing tooling.
+- Brand README documents palette and usage rules: no shadows, textures, outlines,
+  gradients, random recolours, or AI PNGs as masters.
+- Frontend lint, typecheck, build, and tests green; local browser verification
+  confirms `/login` and the brand preview use `/brand/calcio-icon-primary.svg`.
