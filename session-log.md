@@ -1782,3 +1782,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - PlayerProfilePage avatar edit is gated on `isSelf` — same upload pipeline as SettingsPage (resizeAvatar + uploadAvatarImage → POST /api/v1/auth/me/avatar).
 
 **Next:** Polish batch U35 — Biometric unlock (🔴 Opus) [U34 HOLD; U35 is next non-HOLD]
+
+---
+
+## Polish batch U34 — Pre-match prediction reminders
+**Commits:** 93a6812 · CI ✅
+
+### Key facts for future sessions
+- Daily prediction digest runs at 09:00 UTC and computes "today" from each player's IANA timezone before querying same-day scheduled matches.
+- Reminder targeting treats only `predictions.submitted_at IS NOT NULL` as predicted; draft rows still count as unpredicted.
+- `predict_reminder` defaults ON, but `pick_confirmation` defaults OFF even when a player has no explicit prefs row (`send_notification` now respects that default).
+- `pick_confirmation` reuses the 15-minute pre-kickoff window but is a separate scheduler job from the existing all-player `deadline_warning` broadcast.
+
+**Next:** Polish batch U35 — Biometric unlock (local gate) (🔴 Opus)
