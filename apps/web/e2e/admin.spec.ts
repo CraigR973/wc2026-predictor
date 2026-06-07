@@ -133,7 +133,11 @@ test.describe('Admin override', () => {
         deleteCalled = true;
         route.fulfill({ status: 204 });
       } else {
-        route.continue();
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(LEAGUES[0]),
+        });
       }
     });
 
