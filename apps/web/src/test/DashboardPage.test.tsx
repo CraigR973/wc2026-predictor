@@ -284,7 +284,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     const Wrapper = makeWrapper(mockFetch(SUMMARY_TWO_LEAGUES, HOME_WITH_ROLLUP, [], []));
     render(<Wrapper />);
 
-    await waitFor(() => expect(screen.getByText(/\+10 today/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/\+10 pts/)).toBeInTheDocument());
     expect(screen.queryByText('Daily summary')).not.toBeInTheDocument();
     expect(screen.queryByText('Live now')).not.toBeInTheDocument();
     expect(screen.queryByText(/Across your leagues:/)).not.toBeInTheDocument();

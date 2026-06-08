@@ -1,4 +1,4 @@
-import type { LeaderboardEntry } from './types';
+import type { LeaderboardEntry, LeagueDetail } from './types';
 
 const num = (x: number | undefined): number => x ?? 0;
 
@@ -105,4 +105,37 @@ export function rankByPeriod(
     }
     return { ...e, rank };
   });
+}
+
+/**
+ * U46.1: leagues should feel populated before the first result lands. The
+ * backend may legitimately return no leaderboard snapshots yet, so fold in the
+ * already-loaded league roster as default-zero entries and let the standard
+ * ranking pipeline place everyone deterministically.
+ */
+export function withLeagueRoster(
+  entries: LeaderboardEntry[],
+  leagueSlug: string,
+  leagueMembers: LeagueDetail['members'],
+): LeaderboardEntry[] {
+  if (!leagueMembers?.length) return dedupedLeaderboard(entries, leagueSlug);
+
+  const knownPlayerIds = new Set(entries.map((entry) => entry.player_id));
+  const missingMembers = leagueMembers
+    .filter((member) => !knownPlayerIds.has(member.id))
+    .map((member, index) => ({
+      rank: entries.length + index + 1,
+      player_id: member.id,
+      player_name: member.display_name,
+      total_points: 0,
+      match_points: 0,
+      knockout_winner_points: 0,
+      special_points: 0,
+      is_active: true,
+      last_match_points: 0,
+      today_points: 0,
+      round_points: 0,
+    }));
+
+  return dedupedLeaderboard([...entries, ...missingMembers], leagueSlug);
 }
