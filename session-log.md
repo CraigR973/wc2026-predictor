@@ -1986,3 +1986,19 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - e2e gotcha: `admin.spec.ts` asserts `getByText('Override')` for the source badge → the override action button is labelled **"Edit"** to avoid a strict-mode collision. Don't reintroduce an "Override"-labelled control on ResultsPage.
 
 **Next:** Review batch R3 — P1 remediation (🔴 Opus)
+
+---
+
+## Review batch R3 — P1 remediation
+**Commits:** c8c7da0, 8c867cc · CI ✅
+
+### Key facts for future sessions
+- `login_key` now keys on `f"{email}:{ip}"`. `slowapi` key funcs must be **sync** (not async) — confirmed by the installed version.
+- CSP is added via `SecurityHeadersMiddleware` (Starlette `BaseHTTPMiddleware`) as a single `Content-Security-Policy` header; documented as single-instance (no Redis-backed counter sharing). `rate_limit.py` exports one `limiter` + three key helpers.
+- `_consecutive_failures` starts as `None` at module import → first-call DB load from `AuditLog`. `reset_failure_counter()` sets to `0` (not `None`) so tests avoid AsyncMock contamination of the int arithmetic. After a successful sync it's also set to `0` directly.
+- Pick-confirmation dedup is now DB-backed: `NotificationLog` query replaces the removed `_pick_confirmed_match_player_ids` set. `_warned_match_ids` dedup key changed from `UUID` to `(UUID, warning_minutes)` so a 60-min warning no longer silences the 15-min one.
+- E2E strict-mode gotcha: `getByText('Override')` matched 4 elements once the GAP-05 "Group standings override" section was added — fix is `{ exact: true }`. Similarly `getByText('Edit')` for the action button must match exactly.
+- `PATCH /api/v1/auth/me` validates timezone via `ZoneInfo(tz)` (raises `ZoneInfoNotFoundError` or `KeyError` on unknown identifier).
+- All P1 checkboxes in `docs/final-review-plan.md` are now ticked except: flaky-test-suite cleanup + public-repo git-history secret scan (both deferred).
+
+**Next:** Review batch P2 — polish + prod launch prep (🟢 Sonnet)
