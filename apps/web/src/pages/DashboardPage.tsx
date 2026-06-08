@@ -472,46 +472,31 @@ function LiveMatchCarousel({
 
 type PerLeagueEntry = CrossLeagueSummary['per_league'][number];
 
-function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta === null) return null;
-  if (delta === 0) return <span className="font-mono text-xs text-text-muted tabular-nums">▬</span>;
-  if (delta > 0) {
-    return (
-      <span className="font-mono text-xs text-success tabular-nums" aria-label={`up ${delta}`}>
-        ↑{delta}
-      </span>
-    );
-  }
-  return (
-    <span className="font-mono text-xs text-live tabular-nums" aria-label={`down ${Math.abs(delta)}`}>
-      ↓{Math.abs(delta)}
-    </span>
-  );
+
+function rankColor(delta: number | null): string {
+  if (delta === null || delta === 0) return 'text-text-muted';
+  return delta > 0 ? 'text-success' : 'text-live';
 }
 
 function CompactLeagueCard({ entry }: { entry: PerLeagueEntry }) {
-  const { rank, member_count, name, slug, rank_delta } = entry;
+  const { rank, name, slug, rank_delta } = entry;
 
   return (
     <Link
       to={`/leagues/${slug}/leaderboard`}
       aria-label={`Open ${name} leaderboard`}
-      className="flex flex-col justify-between gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-2.5 transition-colors hover:border-primary/50 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
+      className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-2.5 transition-colors hover:border-primary/50 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
       data-testid="league-row-link"
     >
-      <span className="truncate font-sans text-sm font-semibold text-text-primary leading-tight">
+      <span className="truncate font-sans text-sm font-semibold text-text-primary leading-tight flex-1">
         {name}
       </span>
-      <div className="flex items-center justify-between gap-1">
-        {rank !== null && (
-          <span className="flex items-center gap-1 font-mono text-xs tabular-nums text-text-muted">
-            <span className="text-text-primary font-semibold">#{rank}</span>
-            <span className="opacity-60">of {member_count}</span>
-            <DeltaBadge delta={rank_delta} />
-          </span>
-        )}
-        <ChevronRight className="h-3 w-3 shrink-0 text-text-muted ml-auto" aria-hidden />
-      </div>
+      {rank !== null && (
+        <span className={`shrink-0 font-mono text-xs tabular-nums font-semibold ${rankColor(rank_delta)}`}>
+          #{rank}{rank_delta !== null && rank_delta !== 0 ? (rank_delta > 0 ? ' ↑' : ' ↓') : ''}
+        </span>
+      )}
+      <ChevronRight className="h-3 w-3 shrink-0 text-text-muted" aria-hidden />
     </Link>
   );
 }
