@@ -336,35 +336,28 @@ export function AboutPage() {
           Your 2 pre-tournament tasks
         </p>
         <div className="space-y-2">
-          <a
-            href="#specials-form"
-            className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-overlay focus-visible:outline-none focus-visible:shadow-glow"
-          >
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <Sparkles className="h-4 w-4 text-primary" aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold font-sans text-text-primary">Set your Specials</span>
               <span className="block text-xs font-sans text-text-secondary mt-0.5">
-                6 bonus picks — editable until the opening match kicks off
+                Scroll down on this page to the Specials form
               </span>
             </span>
-            <span className="text-xs font-sans text-text-muted shrink-0">↓ scroll</span>
-          </a>
-          <Link
-            to="/predictions"
-            className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-overlay focus-visible:outline-none focus-visible:shadow-glow"
-          >
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <Target className="h-4 w-4 text-primary" aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold font-sans text-text-primary">Predict your first match</span>
               <span className="block text-xs font-sans text-text-secondary mt-0.5">
-                Any match before it kicks off — no single deadline
+                Go to Predict &rsaquo; Matches
               </span>
             </span>
-          </Link>
+          </div>
         </div>
       </div>
 
