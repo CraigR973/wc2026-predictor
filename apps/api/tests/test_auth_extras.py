@@ -1,4 +1,4 @@
-"""Tests for GET /auth/me, PATCH /auth/me, PUT /auth/me/pin, and POST /admin/players/{id}/reset-pin."""
+"""Tests for GET /auth/me, PATCH /auth/me, PUT /auth/me/pin, POST /admin/players/{id}/reset-pin."""
 
 import uuid
 from collections.abc import AsyncGenerator
@@ -203,7 +203,9 @@ async def test_reset_pin_requires_admin(client: AsyncClient) -> None:
 
 
 @asynccontextmanager
-async def _override_db_and_player(mock_db: AsyncMock, player: Profile) -> AsyncGenerator[None, None]:
+async def _override_db_and_player(
+    mock_db: AsyncMock, player: Profile
+) -> AsyncGenerator[None, None]:
     async def _fake_db() -> AsyncGenerator[AsyncSession, None]:
         yield mock_db
 

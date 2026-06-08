@@ -332,7 +332,7 @@ async def test_deadline_warning_fires_for_imminent_match() -> None:
     match.away_team_placeholder = "Germany"
     match.deleted_at = None
 
-    _warned_match_ids.discard(match_id)
+    _warned_match_ids.discard((match_id, 15))
 
     players = [_player()]
     session_mock = AsyncMock()
@@ -354,7 +354,7 @@ async def test_deadline_warning_fires_for_imminent_match() -> None:
 
     assert count == 1
     mock_send.assert_awaited()
-    assert match_id in _warned_match_ids
+    assert (match_id, 15) in _warned_match_ids
 
 
 @pytest.mark.asyncio
@@ -362,7 +362,7 @@ async def test_deadline_warning_not_double_sent() -> None:
     from src.services.notification_triggers import _warned_match_ids
 
     match_id = uuid.uuid4()
-    _warned_match_ids.add(match_id)  # already warned
+    _warned_match_ids.add((match_id, 15))  # already warned
 
     match = MagicMock()
     match.id = match_id
@@ -456,8 +456,6 @@ async def test_daily_prediction_digest_no_targets_no_commit() -> None:
 
 @pytest.mark.asyncio
 async def test_pick_confirmation_sends_only_for_submitted_prediction_targets() -> None:
-    from src.services.notification_triggers import _pick_confirmed_match_player_ids
-
     player = _player()
     match = _match()
     prediction = MagicMock()
@@ -465,8 +463,7 @@ async def test_pick_confirmation_sends_only_for_submitted_prediction_targets() -
     prediction.predicted_away = 1
     target = PickConfirmationTarget(player=player, match=match, prediction=prediction)
     session_mock = AsyncMock()
-
-    _pick_confirmed_match_player_ids.discard((match.id, player.id))
+    session_mock.scalar = AsyncMock(return_value=0)  # not yet sent
     mock_factory = MagicMock()
     mock_factory.return_value.__aenter__ = AsyncMock(return_value=session_mock)
     mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -491,15 +488,13 @@ async def test_pick_confirmation_sends_only_for_submitted_prediction_targets() -
 
 @pytest.mark.asyncio
 async def test_pick_confirmation_not_double_sent() -> None:
-    from src.services.notification_triggers import _pick_confirmed_match_player_ids
-
     player = _player()
     match = _match()
     prediction = MagicMock()
     prediction.predicted_home = 1
     prediction.predicted_away = 1
-    _pick_confirmed_match_player_ids.add((match.id, player.id))
     session_mock = AsyncMock()
+    session_mock.scalar = AsyncMock(return_value=1)  # already sent
 
     mock_factory = MagicMock()
     mock_factory.return_value.__aenter__ = AsyncMock(return_value=session_mock)

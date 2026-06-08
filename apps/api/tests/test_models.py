@@ -614,6 +614,7 @@ def test_action_type_values() -> None:
         "match_postponed",
         "match_rescheduled",
         "match_cancelled",
+        "match_locked",
         "kickoff_changed",
         "predictions_locked",
         "player_removed",

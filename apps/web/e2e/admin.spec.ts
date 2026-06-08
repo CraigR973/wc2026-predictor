@@ -72,7 +72,7 @@ test.describe('Admin override', () => {
     await page.goto('/admin/results');
 
     await expect(page.getByText('Brazil')).toBeVisible();
-    await expect(page.getByText('Override')).toBeVisible();
+    await expect(page.getByText('Override', { exact: true })).toBeVisible();
   });
 
   test('non-admin is redirected away from admin pages', async ({ page }) => {

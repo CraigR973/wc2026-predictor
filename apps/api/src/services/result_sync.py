@@ -440,6 +440,6 @@ async def _record_failure(session_factory: SessionFactory, reason: str) -> None:
 
 
 def reset_failure_counter() -> None:
-    """Test helper — reset the in-process counter so the next call reloads from DB."""
+    """Test helper — reset the in-process counter to 0."""
     global _consecutive_failures
-    _consecutive_failures = None
+    _consecutive_failures = 0
