@@ -1957,3 +1957,17 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `Brand.tsx` logo size is now configurable; `TopBar` passes a larger value for the shell logo.
 
 **Next:** Polish batch U48 — next planned (🟢 Sonnet)
+
+---
+
+## Review batch R1 — Security P0s
+**Commits:** dd9caeb, ff9aa5a · CI ✅
+
+### Key facts for future sessions
+- `GET /knockout-predictions/match/{id}` previously leaked picks + player names to users in unrelated leagues once a match locked. Now filtered via `shared_league_player_ids`, matching the group-prediction endpoint pattern.
+- `leaderboard_tiebreak_overrides` (added in migration 026) was missing RLS — migration 027 covers it (same REVOKE + ENABLE RLS pattern as 015; no permissive SELECT policy → deny-all for anon/authenticated).
+- PyJWT bumped to ≥2.13.0; Starlette added explicitly ≥1.0.1 (was undeclared transitive dep). Both in `requirements.txt` + `pyproject.toml`.
+- Migration 028 uses `ALTER FUNCTION … SET search_path = public` (non-destructive) on the four scoring functions flagged by the Supabase advisor. Downgrade uses `RESET search_path`.
+- Three existing tests in `test_knockout_predictions.py` (post-lock / kickoff-passed / completed visible) needed `patch("src.routers.knockout_predictions.shared_league_player_ids", ...)` added after the IDOR fix.
+
+**Next:** Review batch R2 — Tournament ops (🟢 Sonnet)
