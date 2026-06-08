@@ -1918,6 +1918,19 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 
 ---
 
+## Polish batch U46 — League table, hub & actions
+**Commits:** 17ff63b · CI ✅
+
+### Key facts for future sessions
+- `withLeagueRoster()` in `apps/web/src/lib/leaderboard.ts` now synthesizes zero-point rows from `league.members`, so pre-results leaderboards render a full roster instead of the empty state.
+- `LeagueActionsMenu` centralises `Members` / `Leave league` / `Settings` / `Delete league`, keeping the existing type-to-confirm dialogs but making them reachable from the leaderboard header.
+- `LeaderboardPage` tightens the tiebreaker columns and lets the player-name cell wrap (`break-words`) so long names fit on a 375 px layout without truncation.
+- `MyLeaguesPage` now uses a `md:grid-cols-2` hub layout; the new leaderboard/menu behaviour is covered in `LeaderboardPage.test.tsx`, and the dashboard points-tile copy assertion was updated to match current UI text.
+
+**Next:** Polish batch U47 — Home & shell polish (🟢 Sonnet)
+
+---
+
 ## Polish batch U45 — About-first onboarding
 **Commits:** 9fdf29c, 53729f5, 5befaa2, 8deb150, 344350f · CI ✅
 
