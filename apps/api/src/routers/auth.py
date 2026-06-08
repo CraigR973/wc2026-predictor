@@ -644,7 +644,7 @@ async def join(
 
 
 @router.post("/join-by-code", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/hour")
+@limiter.limit("30/hour")
 async def join_by_code(
     request: Request,
     body: JoinByCodeRequest,

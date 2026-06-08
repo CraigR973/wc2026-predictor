@@ -93,6 +93,8 @@ export function JoinByCodePage() {
                   inputMode="text"
                   autoCapitalize="characters"
                   autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="e.g. ABCD23"
                   maxLength={8}
                   value={code}

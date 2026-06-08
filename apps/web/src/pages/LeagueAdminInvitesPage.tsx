@@ -58,7 +58,10 @@ export function LeagueAdminInvitesPage() {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
       if (resp.ok) {
-        queryClient.invalidateQueries({ queryKey: ['league', slug] });
+        const data = await resp.json() as { join_code: string };
+        queryClient.setQueryData(['league', slug], (old: LeagueDetail | undefined) =>
+          old ? { ...old, join_code: data.join_code } : old,
+        );
         toast.success('New join code generated');
       } else {
         toast.error('Failed to rotate join code');
