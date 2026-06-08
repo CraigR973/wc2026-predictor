@@ -86,11 +86,13 @@ describe('Accessibility — LoginPage', () => {
   it('has no axe violations on initial render (text input fallback)', async () => {
     vi.stubGlobal('fetch', () => Promise.resolve({ ok: false }));
     const { container } = render(
-      <MemoryRouter>
-        <AuthProvider>
-          <LoginPage />
-        </AuthProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={makeQueryClient()}>
+        <MemoryRouter>
+          <AuthProvider>
+            <LoginPage />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     await new Promise((r) => setTimeout(r, 50));
     const results = await axe(container, AXE_CONFIG);
@@ -99,11 +101,13 @@ describe('Accessibility — LoginPage', () => {
 
   it('has no axe violations on the email+PIN form', async () => {
     const { container } = render(
-      <MemoryRouter>
-        <AuthProvider>
-          <LoginPage />
-        </AuthProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={makeQueryClient()}>
+        <MemoryRouter>
+          <AuthProvider>
+            <LoginPage />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     await new Promise((r) => setTimeout(r, 50));
     const results = await axe(container, AXE_CONFIG);

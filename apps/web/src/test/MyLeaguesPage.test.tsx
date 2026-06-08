@@ -97,7 +97,7 @@ describe('MyLeaguesPage hub', () => {
     renderHub();
     await waitFor(() => expect(screen.getByText('My Leagues')).toBeTruthy());
     expect(screen.getByText(/your league hubs/i)).toBeTruthy();
-    await waitFor(() => expect(screen.getByText('Open league')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('View →')).toBeTruthy());
   });
 
   it('uses a two-column desktop grid for league cards', async () => {

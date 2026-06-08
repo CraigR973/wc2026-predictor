@@ -3,6 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import bcrypt as _bcrypt
 import structlog
@@ -780,6 +781,41 @@ async def me(player: CurrentPlayer) -> PlayerInfo:
         email=_player_email(player),
         role=player.role.value,
         timezone=player.timezone,
+        avatar_url=player.avatar_url,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PATCH /me — update mutable profile fields (currently: timezone)
+# ---------------------------------------------------------------------------
+
+
+class ProfileUpdateRequest(BaseModel):
+    timezone: str = Field(..., min_length=1, max_length=64)
+
+
+@router.patch("/me", response_model=PlayerInfo)
+async def update_profile(
+    body: ProfileUpdateRequest,
+    player: CurrentPlayer,
+    db: AsyncSession = Depends(get_db),
+) -> PlayerInfo:
+    """Update the authenticated player's mutable profile fields."""
+    try:
+        ZoneInfo(body.timezone)
+    except (ZoneInfoNotFoundError, KeyError):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid IANA timezone identifier",
+        )
+    await db.execute(update(Profile).where(Profile.id == player.id).values(timezone=body.timezone))
+    await db.commit()
+    return PlayerInfo(
+        id=str(player.id),
+        display_name=player.display_name,
+        email=_player_email(player),
+        role=player.role.value,
+        timezone=body.timezone,
         avatar_url=player.avatar_url,
     )
 

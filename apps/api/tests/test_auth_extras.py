@@ -1,4 +1,4 @@
-"""Tests for GET /auth/me and PUT /auth/me/pin, and POST /admin/players/{id}/reset-pin."""
+"""Tests for GET /auth/me, PATCH /auth/me, PUT /auth/me/pin, and POST /admin/players/{id}/reset-pin."""
 
 import uuid
 from collections.abc import AsyncGenerator
@@ -194,4 +194,54 @@ async def test_reset_pin_player_not_found(client: AsyncClient) -> None:
 
 async def test_reset_pin_requires_admin(client: AsyncClient) -> None:
     resp = await client.post(f"/api/v1/admin/players/{uuid.uuid4()}/reset-pin")
+    assert resp.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/v1/auth/me — update profile (GAP-06: timezone)
+# ---------------------------------------------------------------------------
+
+
+@asynccontextmanager
+async def _override_db_and_player(mock_db: AsyncMock, player: Profile) -> AsyncGenerator[None, None]:
+    async def _fake_db() -> AsyncGenerator[AsyncSession, None]:
+        yield mock_db
+
+    async def _fake_player() -> Profile:
+        return player
+
+    app.dependency_overrides[get_db] = _fake_db
+    app.dependency_overrides[get_current_player] = _fake_player
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_player, None)
+
+
+async def test_update_profile_timezone_success(client: AsyncClient) -> None:
+    player = _make_player()
+    mock_db = _stub_db([MagicMock()])  # execute() for the UPDATE
+
+    async with _override_db_and_player(mock_db, player):
+        resp = await client.patch("/api/v1/auth/me", json={"timezone": "America/New_York"})
+
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["timezone"] == "America/New_York"
+    mock_db.commit.assert_called_once()
+
+
+async def test_update_profile_invalid_timezone_returns_422(client: AsyncClient) -> None:
+    player = _make_player()
+    mock_db = _stub_db([])
+
+    async with _override_db_and_player(mock_db, player):
+        resp = await client.patch("/api/v1/auth/me", json={"timezone": "Not/ATimezone"})
+
+    assert resp.status_code == 422
+
+
+async def test_update_profile_requires_auth(client: AsyncClient) -> None:
+    resp = await client.patch("/api/v1/auth/me", json={"timezone": "UTC"})
     assert resp.status_code in (401, 403)

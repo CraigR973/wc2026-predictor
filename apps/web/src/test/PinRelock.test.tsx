@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -46,18 +47,21 @@ function fillPin(digits: string) {
 function renderProtectedApp(fetchMock: ReturnType<typeof vi.fn>) {
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('caches', { delete: vi.fn().mockResolvedValue(true) });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   return render(
-    <MemoryRouter initialEntries={['/']}>
-      <AuthProvider>
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<div>Authed content</div>} />
-          </Route>
-          <Route path="/login" element={<div>PIN login</div>} />
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <Routes>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<div>Authed content</div>} />
+            </Route>
+            <Route path="/login" element={<div>PIN login</div>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

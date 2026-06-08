@@ -485,8 +485,9 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     render(<Wrapper />);
 
     await waitFor(() => expect(screen.getAllByTestId('league-row-link')).toHaveLength(2));
-    expect(screen.getByText('↑2')).toBeInTheDocument();
-    expect(screen.getByText('↓1')).toBeInTheDocument();
+    // Component renders rank + direction arrow (delta magnitude not shown inline)
+    expect(screen.getByText('#1 ↑')).toBeInTheDocument();
+    expect(screen.getByText('#3 ↓')).toBeInTheDocument();
   });
 
   it('still renders the pre-tournament checklist and scoring guide below upcoming matches', async () => {

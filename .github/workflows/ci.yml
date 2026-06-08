@@ -120,6 +120,20 @@ jobs:
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/wc2026_migration
 
+  test-web:
+    name: Unit tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm test
+        working-directory: apps/web
+
   build-web:
     name: Build web (lint + typecheck + vite)
     runs-on: ubuntu-latest
@@ -298,7 +312,7 @@ jobs:
   deploy-staging:
     name: Deploy → wc2026-staging.vercel.app
     if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
-    needs: [lint-api, typecheck-api, test-api, migration-check, build-web, prod-bundle-check, e2e, smoke]
+    needs: [lint-api, typecheck-api, test-api, migration-check, build-web, test-web, prod-bundle-check, e2e, smoke]
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-staging

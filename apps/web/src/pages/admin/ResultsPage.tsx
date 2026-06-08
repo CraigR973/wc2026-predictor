@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Toggle } from '@/components/ui/toggle';
@@ -77,10 +78,22 @@ interface ResultForm {
   penaltyWinnerId: string | null;
 }
 
+type OpsAction = 'lock' | 'postpone' | 'reschedule' | 'cancel';
+
+interface MatchOpsForm {
+  match: AdminMatchResult;
+  action: OpsAction;
+  postponeReason: string;
+  rescheduleKickoff: string; // local datetime-local input value
+}
+
 export function AdminResultsPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<ResultForm | null>(null);
   const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [ops, setOps] = useState<MatchOpsForm | null>(null);
+  const [groupName, setGroupName] = useState('');
+  const [groupPositions, setGroupPositions] = useState(['', '', '', '']);
 
   const completed = useQuery<AdminMatchResult[]>({
     queryKey: ['admin', 'results'],
@@ -179,6 +192,69 @@ export function AdminResultsPage() {
     },
   });
 
+  const matchOps = useMutation({
+    mutationFn: async (o: MatchOpsForm) => {
+      const id = o.match.match_id;
+      if (o.action === 'lock') {
+        return apiFetch(`/api/v1/admin/matches/${id}/lock`, { method: 'POST' });
+      }
+      if (o.action === 'postpone') {
+        return apiFetch(`/api/v1/admin/matches/${id}/postpone`, {
+          method: 'POST',
+          body: JSON.stringify({ reason: o.postponeReason }),
+        });
+      }
+      if (o.action === 'reschedule') {
+        const kickoff = new Date(o.rescheduleKickoff).toISOString();
+        return apiFetch(`/api/v1/admin/matches/${id}/reschedule`, {
+          method: 'POST',
+          body: JSON.stringify({ kickoff_utc: kickoff }),
+        });
+      }
+      // cancel
+      return apiFetch(`/api/v1/admin/matches/${id}/cancel`, { method: 'POST' });
+    },
+    onSuccess: (_data, o) => {
+      const labels: Record<OpsAction, string> = {
+        lock: 'Match locked',
+        postpone: 'Match postponed',
+        reschedule: 'Match rescheduled',
+        cancel: 'Match cancelled',
+      };
+      toast.success(labels[o.action]);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'results'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'results', 'pending'] });
+      setOps(null);
+    },
+    onError: (err) => {
+      const s = apiErrorStatus(err);
+      if (s === 409) toast.error('Match is already in that state.');
+      else if (s === 422) toast.error('Operation not valid for current match status.');
+      else toast.error('Operation failed.');
+    },
+  });
+
+  const overrideStandings = useMutation({
+    mutationFn: async () => {
+      const positions = groupPositions.map((p) => p.trim().toUpperCase()).filter(Boolean);
+      return apiFetch(`/api/v1/admin/groups/${encodeURIComponent(groupName.trim())}/override-standings`, {
+        method: 'POST',
+        body: JSON.stringify({ positions }),
+      });
+    },
+    onSuccess: () => {
+      toast.success('Group standings overridden');
+      setGroupName('');
+      setGroupPositions(['', '', '', '']);
+    },
+    onError: (err) => {
+      const s = apiErrorStatus(err);
+      if (s === 404) toast.error('Group not found.');
+      else if (s === 422) toast.error('Invalid team codes or group data.');
+      else toast.error('Override failed.');
+    },
+  });
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form) return;
@@ -247,7 +323,7 @@ export function AdminResultsPage() {
           {pendingList.map((m) => (
             <Card key={m.match_id}>
               <CardContent className="p-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
                   <span className="text-xs font-mono text-text-muted w-10 shrink-0">
                     #{m.match_number}
                   </span>
@@ -264,9 +340,50 @@ export function AdminResultsPage() {
                   <span className="text-xs font-mono text-text-muted shrink-0 hidden sm:block">
                     {fmtKickoff(m.kickoff_utc)}
                   </span>
-                  <Button size="sm" onClick={() => openEnter(m)}>
-                    Enter result
-                  </Button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {m.status === 'scheduled' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setOps({ match: m, action: 'lock', postponeReason: '', rescheduleKickoff: '' })
+                        }
+                      >
+                        Lock
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setOps({ match: m, action: 'postpone', postponeReason: '', rescheduleKickoff: '' })
+                      }
+                    >
+                      Postpone
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setOps({ match: m, action: 'reschedule', postponeReason: '', rescheduleKickoff: '' })
+                      }
+                    >
+                      Reschedule
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-error/40 text-error hover:bg-error/10"
+                      onClick={() =>
+                        setOps({ match: m, action: 'cancel', postponeReason: '', rescheduleKickoff: '' })
+                      }
+                    >
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={() => openEnter(m)}>
+                      Enter result
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -452,6 +569,55 @@ export function AdminResultsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* GAP-05 — group standings override */}
+      <Card className="mb-6 mt-6">
+        <CardHeader>
+          <CardTitle className="text-base">Group standings override</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-text-secondary font-sans">
+            Override the final standings for a group (e.g. after a tiebreaker ruling). Enter the
+            group name (A–H) and team codes in final order (1st to 4th).
+          </p>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="group-name" className="shrink-0 w-16">Group</Label>
+            <Input
+              id="group-name"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value.toUpperCase())}
+              placeholder="A"
+              maxLength={2}
+              className="w-20"
+            />
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {groupPositions.map((pos, i) => (
+              <div key={i} className="space-y-1">
+                <Label htmlFor={`gpos-${i}`} className="text-xs text-text-muted">{i + 1}{['st','nd','rd','th'][i]}</Label>
+                <Input
+                  id={`gpos-${i}`}
+                  value={pos}
+                  onChange={(e) => {
+                    const next = [...groupPositions];
+                    next[i] = e.target.value.toUpperCase();
+                    setGroupPositions(next);
+                  }}
+                  placeholder="ENG"
+                  maxLength={3}
+                />
+              </div>
+            ))}
+          </div>
+          <Button
+            size="sm"
+            disabled={overrideStandings.isPending || !groupName.trim() || groupPositions.some((p) => !p.trim())}
+            onClick={() => overrideStandings.mutate()}
+          >
+            {overrideStandings.isPending ? 'Saving…' : 'Override standings'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Advance-bracket confirmation */}
       <Dialog open={advanceOpen} onOpenChange={setAdvanceOpen}>
         <DialogContent className="max-w-sm">
@@ -470,6 +636,93 @@ export function AdminResultsPage() {
               {advance.isPending ? 'Advancing…' : 'Advance'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* GAP-04/07 — match operations dialog */}
+      <Dialog open={!!ops} onOpenChange={(open) => { if (!open) setOps(null); }}>
+        <DialogContent className="max-w-sm">
+          {ops && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {ops.action === 'lock' && 'Lock match'}
+                  {ops.action === 'postpone' && 'Postpone match'}
+                  {ops.action === 'reschedule' && 'Reschedule match'}
+                  {ops.action === 'cancel' && 'Cancel match'}
+                </DialogTitle>
+                <DialogDescription>
+                  #{ops.match.match_number} · {ops.match.home_team ?? '?'} vs{' '}
+                  {ops.match.away_team ?? '?'}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-4 space-y-4">
+                {ops.action === 'lock' && (
+                  <p className="text-sm text-text-secondary font-sans">
+                    Locking this match will close predictions immediately, before the
+                    automatic kickoff-time lock. This cannot be undone without rescheduling.
+                  </p>
+                )}
+
+                {ops.action === 'cancel' && (
+                  <p className="text-sm text-text-secondary font-sans">
+                    Cancelling removes the match from scoring. Existing predictions are
+                    preserved but will not score.
+                  </p>
+                )}
+
+                {ops.action === 'postpone' && (
+                  <div className="space-y-1">
+                    <Label htmlFor="postpone-reason">Reason</Label>
+                    <Input
+                      id="postpone-reason"
+                      value={ops.postponeReason}
+                      onChange={(e) => setOps({ ...ops, postponeReason: e.target.value })}
+                      placeholder="e.g. Weather conditions"
+                    />
+                  </div>
+                )}
+
+                {ops.action === 'reschedule' && (
+                  <div className="space-y-1">
+                    <Label htmlFor="reschedule-kickoff">New kickoff (UTC)</Label>
+                    <Input
+                      id="reschedule-kickoff"
+                      type="datetime-local"
+                      value={ops.rescheduleKickoff}
+                      onChange={(e) => setOps({ ...ops, rescheduleKickoff: e.target.value })}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="mt-6">
+                <Button variant="ghost" onClick={() => setOps(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant={ops.action === 'cancel' ? 'destructive' : 'default'}
+                  disabled={
+                    matchOps.isPending ||
+                    (ops.action === 'postpone' && !ops.postponeReason.trim()) ||
+                    (ops.action === 'reschedule' && !ops.rescheduleKickoff)
+                  }
+                  onClick={() => matchOps.mutate(ops)}
+                >
+                  {matchOps.isPending
+                    ? 'Saving…'
+                    : ops.action === 'lock'
+                    ? 'Lock match'
+                    : ops.action === 'postpone'
+                    ? 'Postpone'
+                    : ops.action === 'reschedule'
+                    ? 'Reschedule'
+                    : 'Cancel match'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

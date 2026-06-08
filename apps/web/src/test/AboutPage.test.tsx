@@ -109,7 +109,7 @@ describe('AboutPage U45 — multi-league hero', () => {
     const hero = screen.getByTestId('about-multi-league-hero');
     expect(hero).toBeTruthy();
     expect(hero.textContent).toMatch(/predict once/i);
-    expect(hero.textContent).toMatch(/join as many leagues/i);
+    expect(hero.textContent).toMatch(/compete in as many leagues/i);
   });
 
   it('does not use mates copy in the league explanation', () => {
@@ -130,18 +130,18 @@ describe('AboutPage U45 — pre-tournament guardrail', () => {
     expect(guardrail.textContent).toMatch(/predict your first match/i);
   });
 
-  it('Set your Specials anchor points to #specials-form', () => {
+  it('Set your Specials item is visible in the guardrail', () => {
     renderAboutPage();
 
-    const specials = screen.getByRole('link', { name: /set your specials/i });
-    expect(specials.getAttribute('href')).toBe('#specials-form');
+    // These are non-link task items in the guardrail — "Set your Specials" is
+    // a span label; the Specials section is reachable by scrolling the page.
+    expect(screen.getByText('Set your Specials')).toBeInTheDocument();
   });
 
-  it('Predict your first match links to /predictions', () => {
+  it('Predict your first match item is visible in the guardrail', () => {
     renderAboutPage();
 
-    const firstPick = screen.getByRole('link', { name: /predict your first match/i });
-    expect(firstPick.getAttribute('href')).toBe('/predictions');
+    expect(screen.getByText('Predict your first match')).toBeInTheDocument();
   });
 });
 

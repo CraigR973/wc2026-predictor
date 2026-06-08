@@ -40,7 +40,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.config import settings
@@ -78,11 +78,29 @@ _SCHEDULED_STATUSES = {FDMatchStatus.SCHEDULED, FDMatchStatus.TIMED}
 
 _FAILURE_ALERT_THRESHOLD = 3
 
+# Process-lifetime counter. None means "not yet loaded from DB this process".
+# Persists across job invocations within a single process (fast path) and is
+# recovered from the audit log after a restart (DB path).
+_consecutive_failures: int | None = None
 
-# Module-level counter survives across job invocations within a single
-# process. Reset to 0 on every successful sync. We alert exactly once
-# per breach by checking equality with the threshold.
-_consecutive_failures = 0
+
+async def _load_consecutive_failures(session: AsyncSession) -> int:
+    """Return the current failure count, loading from DB on first call."""
+    global _consecutive_failures
+    if _consecutive_failures is not None:
+        return _consecutive_failures
+    # DB recovery: count sync_failed rows since the last sync_triggered row.
+    last_success_ts = await session.scalar(
+        select(AuditLog.timestamp)
+        .where(AuditLog.action_type == ActionType.sync_triggered)
+        .order_by(AuditLog.timestamp.desc())
+        .limit(1)
+    )
+    q = select(func.count()).where(AuditLog.action_type == ActionType.sync_failed)
+    if last_success_ts is not None:
+        q = q.where(AuditLog.timestamp > last_success_ts)
+    _consecutive_failures = (await session.scalar(q)) or 0
+    return _consecutive_failures
 
 
 def _now() -> datetime:
@@ -115,8 +133,6 @@ async def sync_results(
     and counted; the function does not re-raise so an APScheduler-driven
     invocation never terminates the scheduler.
     """
-    global _consecutive_failures
-
     client = client_factory()
     try:
         if fetcher is None:
@@ -171,6 +187,7 @@ async def sync_results(
             except Exception:
                 log.exception("knockout bracket sync failed")
 
+    global _consecutive_failures
     _consecutive_failures = 0
     log.info("auto sync complete", updated=updates, total=len(fd_matches))
 
@@ -390,14 +407,15 @@ def _apply_kickoff_drift(
 
 async def _record_failure(session_factory: SessionFactory, reason: str) -> None:
     global _consecutive_failures
-    _consecutive_failures += 1
-    log.warning(
-        "auto sync failed",
-        consecutive_failures=_consecutive_failures,
-        reason=reason,
-    )
-
     async with session_factory() as session:
+        consecutive_failures = await _load_consecutive_failures(session) + 1
+        _consecutive_failures = consecutive_failures
+        log.warning(
+            "auto sync failed",
+            consecutive_failures=consecutive_failures,
+            reason=reason,
+        )
+
         session.add(
             AuditLog(
                 actor_id=None,
@@ -407,12 +425,12 @@ async def _record_failure(session_factory: SessionFactory, reason: str) -> None:
                 target_id=None,
                 changes={
                     "reason": reason,
-                    "consecutive_failures": _consecutive_failures,
+                    "consecutive_failures": consecutive_failures,
                 },
             )
         )
 
-        if _consecutive_failures == _FAILURE_ALERT_THRESHOLD:
+        if consecutive_failures == _FAILURE_ALERT_THRESHOLD:
             try:
                 await notify_auto_sync_failed(session, reason)
             except Exception:
@@ -422,6 +440,6 @@ async def _record_failure(session_factory: SessionFactory, reason: str) -> None:
 
 
 def reset_failure_counter() -> None:
-    """Test helper — clear the in-process consecutive-failure counter."""
+    """Test helper — reset the in-process counter so the next call reloads from DB."""
     global _consecutive_failures
-    _consecutive_failures = 0
+    _consecutive_failures = None

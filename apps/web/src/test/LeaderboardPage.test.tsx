@@ -129,28 +129,26 @@ describe('LeaderboardPage', () => {
 
     renderLeaderboard();
 
-    await waitFor(() => expect(screen.getByText('Alice Example')).toBeInTheDocument());
-    expect(screen.getByText('Bob Example')).toBeInTheDocument();
+    // shortenName renders "First L." format; members panel shows full names
+    await waitFor(() => expect(screen.getByText('Alice E.')).toBeInTheDocument());
+    expect(screen.getByText('Bob E.')).toBeInTheDocument();
     expect(screen.queryByText('No results entered yet')).not.toBeInTheDocument();
     expect(screen.getAllByText('0').length).toBeGreaterThan(2);
   });
 
-  it('shows role-gated actions in one overflow menu for members', async () => {
-    const user = userEvent.setup({ delay: null });
+  it('shows role-gated actions as inline buttons for members', async () => {
     stubFetch({ leaderboard: [] });
 
     renderLeaderboard();
 
-    await waitFor(() => expect(screen.getByLabelText('The Steele Spreadsheet actions')).toBeInTheDocument());
-    await user.click(screen.getByLabelText('The Steele Spreadsheet actions'));
-
-    expect(screen.getByText('Members')).toBeInTheDocument();
-    expect(screen.getByText('Leave league')).toBeInTheDocument();
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
-    expect(screen.queryByText('Delete league')).not.toBeInTheDocument();
+    // LeagueActionsMenu renders inline buttons (not an overflow/kebab menu)
+    await waitFor(() => expect(screen.getByRole('link', { name: /members/i })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /leave/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /settings/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
   });
 
-  it('shows settings and delete for admins and opens the leave confirm dialog from the menu', async () => {
+  it('shows settings and delete for admins and opens the leave confirm dialog', async () => {
     const user = userEvent.setup({ delay: null });
     stubFetch({
       leaderboard: [],
@@ -162,19 +160,19 @@ describe('LeaderboardPage', () => {
 
     renderLeaderboard();
 
-    await waitFor(() => expect(screen.getByLabelText('The Steele Spreadsheet actions')).toBeInTheDocument());
+    // Wait for league data to load — Settings/Delete only appear once isLeagueAdmin resolves.
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /members/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /settings/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /leave/i })).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText('The Steele Spreadsheet actions'));
-    expect(screen.getByText('Members')).toBeInTheDocument();
-    expect(screen.getByText('Leave league')).toBeInTheDocument();
-    expect(screen.getByText('Settings')).toBeInTheDocument();
-    expect(screen.getByText('Delete league')).toBeInTheDocument();
-
-    await user.click(screen.getByText('Leave league'));
+    await user.click(screen.getByRole('button', { name: /leave/i }));
     expect(await screen.findByRole('dialog', { name: 'Leave league' })).toBeInTheDocument();
   });
 
-  it('opens the delete confirm dialog for admins from the overflow menu', async () => {
+  it('opens the delete confirm dialog for admins', async () => {
     const user = userEvent.setup({ delay: null });
     stubFetch({
       leaderboard: [],
@@ -186,10 +184,8 @@ describe('LeaderboardPage', () => {
 
     renderLeaderboard();
 
-    await waitFor(() => expect(screen.getByLabelText('The Steele Spreadsheet actions')).toBeInTheDocument());
-
-    await user.click(screen.getByLabelText('The Steele Spreadsheet actions'));
-    await user.click(screen.getByText('Delete league'));
+    await waitFor(() => expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /delete/i }));
     expect(await screen.findByRole('dialog', { name: 'Delete league' })).toBeInTheDocument();
   });
 
@@ -218,7 +214,8 @@ describe('LeaderboardPage', () => {
 
     renderLeaderboard();
 
-    const nameLink = await screen.findByRole('link', { name: 'Alexandria Spreadsheet-Cunningham' });
+    // shortenName("Alexandria Spreadsheet-Cunningham") → "Alexandria S."
+    const nameLink = await screen.findByRole('link', { name: 'Alexandria S.' });
     expect(nameLink.className).toContain('break-normal');
     expect(nameLink.className).toContain('whitespace-normal');
     expect(nameLink.className).not.toContain('truncate');
@@ -228,6 +225,6 @@ describe('LeaderboardPage', () => {
     expect(cols[1].className).toBe('');
 
     const exHeader = screen.getByTitle('Exact scores');
-    expect(exHeader.className).toContain('px-1');
+    expect(exHeader.className).toContain('px-3');
   });
 });

@@ -29,4 +29,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        # Mitigate XSS-based exfiltration of the long-lived localStorage refresh
+        # token. The frontend is a single-page app served from Vercel; this API
+        # only serves JSON so there is no script/style/img surface here.
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
         return response

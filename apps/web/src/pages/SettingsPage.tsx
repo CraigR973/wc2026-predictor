@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info, Camera, Trash2 } from 'lucide-react';
+import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info, Camera, Trash2, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { usePushSubscription } from '../hooks/usePushSubscription';
@@ -355,6 +355,85 @@ function AppearanceSection() {
   );
 }
 
+// ── Timezone section ──────────────────────────────────────────────────────────
+
+const TIMEZONES = [
+  'Europe/London',
+  'Europe/Dublin',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Madrid',
+  'Europe/Rome',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'America/Vancouver',
+  'America/Mexico_City',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+  'UTC',
+];
+
+function TimezoneSection() {
+  const { player, updatePlayer } = useAuth();
+  const [tz, setTz] = useState(player?.timezone ?? 'UTC');
+  const [saving, setSaving] = useState(false);
+
+  const isDirty = tz !== player?.timezone;
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await apiFetch('/api/v1/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ timezone: tz }),
+      });
+      updatePlayer({ timezone: tz });
+      toast.success('Timezone updated');
+    } catch {
+      toast.error('Failed to update timezone');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm text-text-secondary font-sans">
+        <Globe size={14} aria-hidden />
+        <span>Used for kickoff times and notification scheduling.</span>
+      </div>
+      <select
+        id="timezone"
+        value={tz}
+        onChange={(e) => setTz(e.target.value)}
+        aria-label="Timezone"
+        className="flex h-10 w-full items-center rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary font-sans focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+        {TIMEZONES.map((t) => (
+          <option key={t} value={t}>
+            {t.replace(/_/g, ' ')}
+          </option>
+        ))}
+      </select>
+      {isDirty && (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={handleSave}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-sans border border-border bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          <Check size={14} aria-hidden />
+          {saving ? 'Saving…' : 'Save timezone'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Avatar section ────────────────────────────────────────────────────────────
 
 function AvatarSection() {
@@ -473,6 +552,10 @@ export function SettingsPage() {
 
       <SectionCard title="Profile Photo">
         <AvatarSection />
+      </SectionCard>
+
+      <SectionCard title="Timezone">
+        <TimezoneSection />
       </SectionCard>
 
       <SectionCard title="Appearance">

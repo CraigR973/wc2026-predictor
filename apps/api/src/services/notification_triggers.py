@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.models.match import Match, MatchStatus
-from src.models.notification import NotificationType
+from src.models.notification import NotificationLog, NotificationType
 from src.models.prediction import LeaderboardSnapshot
 from src.models.profile import PlayerRole, Profile
 from src.models.team import Team
@@ -298,9 +298,9 @@ async def notify_backup_failed(session: AsyncSession, reason: str) -> None:
 
 # ── Deadline warning scheduler job ───────────────────────────────────────────
 
-# Module-level set of match IDs that have already had a warning sent this
-# process lifetime. Prevents double-firing within the same minute window.
-_warned_match_ids: set[UUID] = set()
+# Module-level set keyed by (match_id, warning_minutes) so the 60-min and
+# 15-min jobs each get their own bucket and neither suppresses the other.
+_warned_match_ids: set[tuple[UUID, int]] = set()
 
 
 async def check_deadline_warnings(
@@ -333,9 +333,9 @@ async def check_deadline_warnings(
         matches = list(result.scalars().all())
 
         for match in matches:
-            if match.id in _warned_match_ids:
+            if (match.id, warning_minutes) in _warned_match_ids:
                 continue
-            _warned_match_ids.add(match.id)
+            _warned_match_ids.add((match.id, warning_minutes))
             home = await _team_name(session, match.home_team_id, match.home_team_placeholder)
             away = await _team_name(session, match.away_team_id, match.away_team_placeholder)
             desc = f"{home} vs {away}"
@@ -356,8 +356,6 @@ async def check_deadline_warnings(
 
 
 # ── Prediction reminder scheduler jobs ───────────────────────────────────────
-
-_pick_confirmed_match_player_ids: set[tuple[UUID, UUID]] = set()
 
 
 def _player_day_window(player: Profile, current: datetime) -> tuple[datetime, datetime]:
@@ -435,10 +433,16 @@ async def check_pick_confirmations(
     async with session_factory() as session:
         targets = await submitted_prediction_targets_for_window(session, window_start, window_end)
         for target in targets:
-            key = (target.match.id, target.player.id)
-            if key in _pick_confirmed_match_player_ids:
+            # Check the NotificationLog (DB-backed) so dedup survives restarts.
+            already_sent = await session.scalar(
+                select(func.count()).where(
+                    NotificationLog.notification_type == NotificationType.pick_confirmation,
+                    NotificationLog.match_id == target.match.id,
+                    NotificationLog.player_id == target.player.id,
+                )
+            )
+            if already_sent:
                 continue
-            _pick_confirmed_match_player_ids.add(key)
             await _send_pick_confirmation(session, target)
             sent_targets += 1
 

@@ -108,7 +108,8 @@ describe('FirstRunController', () => {
     renderController('/');
     await act(async () => {});
 
-    expect(localStorage.getItem('sss_tour_seen')).toBe('1');
+    // markTourSeen writes the per-user key (since U49)
+    expect(localStorage.getItem('sss_tour_seen_p1')).toBe('1');
   });
 
   it('does not stack first-run popups over the /about redirect', async () => {

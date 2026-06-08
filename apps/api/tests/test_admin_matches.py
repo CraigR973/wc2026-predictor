@@ -285,6 +285,62 @@ async def test_cancel_match_not_found(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Lock (GAP-07)
+# ---------------------------------------------------------------------------
+
+
+async def test_lock_match_sets_status_and_writes_audit(client: AsyncClient) -> None:
+    admin = _make_admin()
+    match = _make_match(status=MatchStatus.scheduled)
+    db = _stub_db([_scalar(match)])
+
+    async with _override(db, admin):
+        resp = await client.post(f"/api/v1/admin/matches/{match.id}/lock")
+
+    assert resp.status_code == 200, resp.text
+    assert match.status == MatchStatus.locked
+    rows = _audit_rows(db)
+    assert len(rows) == 1
+    assert rows[0].action_type == ActionType.match_locked
+    assert rows[0].actor_type == ActorType.admin
+
+
+async def test_lock_already_locked_is_idempotent(client: AsyncClient) -> None:
+    admin = _make_admin()
+    match = _make_match(status=MatchStatus.locked)
+    db = _stub_db([_scalar(match)])
+
+    async with _override(db, admin):
+        resp = await client.post(f"/api/v1/admin/matches/{match.id}/lock")
+
+    assert resp.status_code == 200
+    # No new audit row because it was already locked — just returns the match.
+    rows = _audit_rows(db)
+    assert len(rows) == 0
+
+
+async def test_lock_completed_match_is_conflict(client: AsyncClient) -> None:
+    admin = _make_admin()
+    match = _make_match(status=MatchStatus.completed)
+    db = _stub_db([_scalar(match)])
+
+    async with _override(db, admin):
+        resp = await client.post(f"/api/v1/admin/matches/{match.id}/lock")
+
+    assert resp.status_code == 409
+
+
+async def test_lock_match_not_found(client: AsyncClient) -> None:
+    admin = _make_admin()
+    db = _stub_db([_scalar(None)])
+
+    async with _override(db, admin):
+        resp = await client.post(f"/api/v1/admin/matches/{uuid.uuid4()}/lock")
+
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # Auth guard
 # ---------------------------------------------------------------------------
 

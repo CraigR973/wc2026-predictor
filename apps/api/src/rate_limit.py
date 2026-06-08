@@ -13,6 +13,9 @@ from src.config import settings
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
+# Counters are in-process and reset on restart. This is acceptable for a
+# single-instance Railway deployment — the DB lockout (max_attempts) is the
+# durable brute-force guard; these counters add a short-term rate layer.
 limiter = Limiter(key_func=get_remote_address)
 
 
@@ -41,7 +44,7 @@ def per_player_key(request: Request) -> str:
 
 
 def login_key(request: Request) -> str:
-    """Key for login: display_name + IP to limit per-credential brute-force.
+    """Key for login: email + IP to limit per-credential brute-force.
 
     FastAPI reads and caches the request body in request._body before calling
     the route handler, so accessing it synchronously here is safe.
@@ -49,10 +52,10 @@ def login_key(request: Request) -> str:
     try:
         body_bytes: bytes = getattr(request, "_body", b"") or b""
         data = json.loads(body_bytes)
-        display_name = str(data.get("display_name", ""))
+        email = str(data.get("email", "")).lower()
     except Exception:
-        display_name = ""
-    return f"login:{display_name}:{get_remote_address(request)}"
+        email = ""
+    return f"login:{email}:{get_remote_address(request)}"
 
 
 def refresh_token_key(request: Request) -> str:

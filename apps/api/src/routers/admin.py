@@ -763,6 +763,51 @@ async def cancel_match(
     return _match_admin_response(match)
 
 
+@router.post(
+    "/matches/{match_id}/lock",
+    response_model=MatchAdminResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def lock_match(
+    match_id: uuid.UUID,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MatchAdminResponse:
+    """Manually lock a scheduled match before its kickoff (GAP-07).
+
+    Useful when the actual kickoff moves earlier than the stored kickoff_utc
+    and the periodic lock job hasn't yet caught up.  Idempotent — locking an
+    already-locked match is a no-op (returns the unchanged record).
+    """
+    match = await _load_match(db, match_id)
+    if match.status == MatchStatus.locked:
+        return _match_admin_response(match)
+
+    if match.status not in {MatchStatus.scheduled}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot lock a match with status '{match.status.value}'",
+        )
+
+    match.status = MatchStatus.locked
+    match.locked_at = _now()
+
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action_type=ActionType.match_locked,
+            target_table="matches",
+            target_id=match.id,
+            changes={"manual": True},
+        )
+    )
+    await db.commit()
+    await db.refresh(match)
+    log.info("match manually locked", match_id=str(match.id), admin_id=str(admin.id))
+    return _match_admin_response(match)
+
+
 # ---------------------------------------------------------------------------
 # Results endpoints (5.1)
 # ---------------------------------------------------------------------------

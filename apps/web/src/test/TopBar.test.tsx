@@ -13,6 +13,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   ),
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuSeparator: () => <hr />,
 }));
 
 const FAKE_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwMSIsImV4cCI6OTk5OTk5OTk5OX0.fake';
@@ -74,8 +75,8 @@ describe('TopBar avatar menu', () => {
 
     expect(brandIcons.length).toBeGreaterThan(0);
     brandIcons.forEach((icon) => {
-      expect(icon).toHaveAttribute('width', '30');
-      expect(icon).toHaveAttribute('height', '30');
+      expect(icon).toHaveAttribute('width', '46');
+      expect(icon).toHaveAttribute('height', '46');
     });
   });
 });

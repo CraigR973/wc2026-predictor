@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { JoinPage } from '@/pages/JoinPage';
 import { AuthProvider } from '@/contexts/AuthContext';
 
@@ -21,14 +22,17 @@ vi.mock('@/hooks/useInstallPrompt', () => ({
 }));
 
 function renderJoin(token: string) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[`/join/${token}`]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/join/:token" element={<JoinPage />} />
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[`/join/${token}`]}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/join/:token" element={<JoinPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

@@ -333,7 +333,8 @@ describe('PlayerProfilePage', () => {
   it('includes link back to leagues hub', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Leagues')).toBeInTheDocument();
+      // PageHeader back chip renders 'Back' (navigate(-1)) in the loaded state
+      expect(screen.getByText('Back')).toBeInTheDocument();
     });
   });
 

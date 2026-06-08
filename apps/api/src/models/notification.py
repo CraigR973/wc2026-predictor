@@ -45,6 +45,7 @@ class ActionType(StrEnum):
     match_postponed = "match_postponed"
     match_rescheduled = "match_rescheduled"
     match_cancelled = "match_cancelled"
+    match_locked = "match_locked"
     kickoff_changed = "kickoff_changed"
     predictions_locked = "predictions_locked"
     player_removed = "player_removed"

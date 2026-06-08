@@ -8,8 +8,11 @@ type Step = 'about' | 'done';
 export function FirstRunController() {
   const { player, sessionUnlockRequired } = useAuth();
   const navigate = useNavigate();
-  // Start as 'done' if global key set (returning user); re-evaluated per-user below.
-  const [step, setStep] = useState<Step>(() => (isTourSeen() ? 'done' : 'about'));
+  // Start as 'done'; the per-user effect below sets 'about' for new users once
+  // the player identity is known. The global key (isTourSeen() without id) was
+  // never written after U49, so using it here caused every return visit to
+  // redirect to /about on every load.
+  const [step, setStep] = useState<Step>('done');
 
   // Re-check with per-user key once player identity is known.
   // This catches new accounts on a device where a different account already exists.
