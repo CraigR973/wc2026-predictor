@@ -500,7 +500,7 @@ function CompactLeagueRow({ entry }: { entry: PerLeagueEntry }) {
       className="flex items-center gap-3 border-b border-border/50 px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
       data-testid="league-row-link"
     >
-      <span className="min-w-0 flex-1 truncate font-sans text-sm font-medium text-text-primary">
+      <span className="min-w-[9rem] flex-1 truncate font-sans text-sm font-medium text-text-primary">
         {name}
       </span>
       {rank !== null ? (
@@ -580,7 +580,7 @@ export function DashboardPage() {
           className="grid grid-cols-[minmax(0,0.92fr)_minmax(0,1.48fr)] gap-3"
           data-testid="dashboard-top-row"
         >
-          <div className="space-y-3" data-testid="dashboard-points-column">
+          <div data-testid="dashboard-points-column">
             <PointsTile
               playerId={player?.id}
               points={points}
@@ -589,7 +589,6 @@ export function DashboardPage() {
               timezone={timezone}
               isLoading={loadingTopRow}
             />
-            <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
           </div>
           <div>
             {liveMatches.length > 0 ? (
@@ -605,6 +604,9 @@ export function DashboardPage() {
               <Skeleton className="h-full min-h-[184px] rounded-[1.25rem]" />
             )}
           </div>
+        </div>
+        <div className="mt-3" data-testid="dashboard-scoring-ref">
+          <ScoringGuide storageKey="sss_scoring_guide_home_v2_open" defaultOpen={false} />
         </div>
       </div>
 

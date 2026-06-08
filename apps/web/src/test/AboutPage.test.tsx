@@ -75,6 +75,7 @@ describe('AboutPage rules completion', () => {
     renderAboutPage();
 
     expect(screen.getByText(/scroll for the full rules/i)).toBeTruthy();
+    expect(screen.getByText(/Pre-Tournament Checklist/i)).toBeTruthy();
     expect(screen.getByText(/that's everything\./i)).toBeTruthy();
   });
 
@@ -109,6 +110,12 @@ describe('AboutPage U45 — multi-league hero', () => {
     expect(hero).toBeTruthy();
     expect(hero.textContent).toMatch(/predict once/i);
     expect(hero.textContent).toMatch(/join as many leagues/i);
+  });
+
+  it('does not use mates copy in the league explanation', () => {
+    renderAboutPage();
+
+    expect(screen.queryByText(/for your mates/i)).toBeNull();
   });
 });
 

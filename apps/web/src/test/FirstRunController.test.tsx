@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { FirstRunController } from '@/components/FirstRunController';
 import { useAuth } from '@/contexts/AuthContext';
@@ -111,44 +111,23 @@ describe('FirstRunController', () => {
     expect(localStorage.getItem('sss_tour_seen')).toBe('1');
   });
 
-  it('shows notif modal after the /about redirect for a brand-new user', async () => {
+  it('does not stack first-run popups over the /about redirect', async () => {
     renderController('/');
     await act(async () => {});
 
-    // After redirect, notif modal should be visible
-    expect(screen.getByRole('button', { name: 'close-notif' })).toBeTruthy();
-  });
-
-  it('runs notif → checklist → done for returning user (tour already seen)', () => {
-    localStorage.setItem('sss_tour_seen', '1');
-
-    renderController();
-
-    expect(screen.getByRole('button', { name: 'close-notif' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'close-notif' }));
-
-    expect(screen.getByRole('button', { name: 'close-launchpad' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'close-launchpad' }));
-
+    expect(screen.getByTestId('location').textContent).toBe('/about');
     expect(screen.queryByRole('button', { name: 'close-notif' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'close-launchpad' })).toBeNull();
   });
 
-  it('shows the launchpad only once after notif is already seen', () => {
+  it('renders nothing for a returning user once the about redirect has happened', () => {
     localStorage.setItem('sss_tour_seen', '1');
-    localStorage.setItem('sss_notif_prompt_seen', '1');
 
-    const { rerender } = renderController();
-    fireEvent.click(screen.getByRole('button', { name: 'close-launchpad' }));
+    const { container } = renderController();
 
-    rerender(
-      <MemoryRouter>
-        <FirstRunController />
-      </MemoryRouter>,
-    );
-
-    expect(localStorage.getItem('sss_firstrun_launchpad_seen')).toBe('1');
+    expect(screen.queryByRole('button', { name: 'close-notif' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'close-launchpad' })).toBeNull();
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('renders nothing when all steps are done', () => {
