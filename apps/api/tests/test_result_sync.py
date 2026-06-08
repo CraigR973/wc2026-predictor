@@ -9,6 +9,7 @@ integration job that runs against a real database in CI.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -147,6 +148,21 @@ def _no_notify(monkeypatch: pytest.MonkeyPatch) -> None:
         patch("src.services.result_sync.notify_match_postponed", new_callable=AsyncMock),
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _no_bracket_sync() -> Iterator[AsyncMock]:
+    """Stub the knockout bracket resolver for every sync test.
+
+    ``sync_results`` now calls ``sync_knockout_bracket`` after a finished
+    result settles. The resolver issues several ``session.execute`` queries,
+    which would exhaust this module's fixed mock ``execute`` side-effect queue,
+    so it is patched to a no-op by default. Tests that assert on the call
+    request this fixture and inspect the returned mock.
+    """
+    with patch("src.services.result_sync.sync_knockout_bracket", new_callable=AsyncMock) as mock:
+        mock.return_value = 0
+        yield mock
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +458,53 @@ async def test_push_failure_does_not_block_match_commit(caplog: pytest.LogCaptur
     error_records = [r for r in caplog.records if r.levelname == "ERROR"]
     assert error_records, "expected at least one ERROR log record"
     assert any(r.exc_info is not None for r in error_records)
+
+
+# ---------------------------------------------------------------------------
+# Auto-advance — knockout bracket resolves on the auto-fetch path (C-P0)
+# ---------------------------------------------------------------------------
+
+
+async def test_finished_result_triggers_knockout_bracket_sync(
+    _no_bracket_sync: AsyncMock,
+) -> None:
+    """A settled result on the auto path resolves the next knockout round.
+
+    Regression for the C-P0 where ``sync_results`` never called
+    ``sync_knockout_bracket`` (only manual admin paths did), so R16+ fixtures
+    stayed on TBD placeholders and could never be scored.
+    """
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=2, away_score=1)
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    _no_bracket_sync.assert_awaited_once()
+
+
+async def test_no_finished_result_skips_knockout_bracket_sync(
+    _no_bracket_sync: AsyncMock,
+) -> None:
+    """A cycle with only kickoff drift (no settled result) leaves the bracket alone."""
+    kickoff = datetime(2026, 6, 15, 18, 0, 0)
+    new_kickoff = datetime(2026, 6, 15, 20, 0, 0)
+    match = _make_match(status=MatchStatus.scheduled, kickoff=kickoff)
+    fd = _fd_match(
+        status=FDMatchStatus.TIMED,
+        utc_date=new_kickoff.replace(tzinfo=UTC),
+        home_score=None,
+        away_score=None,
+    )
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    _no_bracket_sync.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

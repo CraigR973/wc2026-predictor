@@ -129,7 +129,25 @@ class FootballDataClient:
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         backoff = _INITIAL_BACKOFF
         for attempt in range(_MAX_RETRIES + 1):
-            response = await self._client.get(path, params=params)
+            try:
+                response = await self._client.get(path, params=params)
+            except httpx.RequestError as exc:
+                # Connection / timeout / DNS errors. Retry with backoff, then
+                # surface as FootballDataError so the sync loop's
+                # consecutive-failure counter + admin alert engage — a raw
+                # httpx error would bypass them (it is not a FootballDataError).
+                if attempt == _MAX_RETRIES:
+                    raise FootballDataError(
+                        f"Network error after {_MAX_RETRIES} retries: {exc!r}"
+                    ) from exc
+                log.warning(
+                    "football-data network error",
+                    attempt=attempt,
+                    error=repr(exc),
+                )
+                await asyncio.sleep(backoff)
+                backoff *= 2
+                continue
 
             if response.status_code == 429:
                 if attempt == _MAX_RETRIES:
@@ -147,12 +165,31 @@ class FootballDataClient:
                 continue
 
             if response.status_code >= 500:
-                raise FootballDataServerError(
-                    f"Server error {response.status_code}: {response.text[:200]}"
+                # Transient upstream failure. Retry with exponential backoff
+                # instead of aborting the whole sync cycle on the first 5xx.
+                if attempt == _MAX_RETRIES:
+                    raise FootballDataServerError(
+                        f"Server error {response.status_code} after "
+                        f"{_MAX_RETRIES} retries: {response.text[:200]}"
+                    )
+                log.warning(
+                    "football-data server error",
+                    attempt=attempt,
+                    status_code=response.status_code,
                 )
+                await asyncio.sleep(backoff)
+                backoff *= 2
+                continue
 
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                # Non-retryable client error (e.g. 403 bad key, 404). Wrap so it
+                # too feeds the failure counter/alert rather than escaping raw.
+                raise FootballDataError(
+                    f"Unexpected status {response.status_code}: {response.text[:200]}"
+                ) from exc
             data: dict[str, Any] = response.json()
             return data
 
-        raise FootballDataRateLimitError("Exhausted retries")
+        raise FootballDataError("Exhausted retries")

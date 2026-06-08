@@ -20,6 +20,14 @@ run with unchanged feed is a no-op because we skip matches where
 ``result_source IS NOT NULL`` for FINISHED handling and avoid redundant
 writes elsewhere.
 
+After any finished result is applied we call
+:func:`sync_knockout_bracket` so the next knockout round's seeded
+placeholder rows resolve to real teams on this — the tournament's primary,
+automatic — path. Without it R16+ fixtures stayed on ``TBD`` until an admin
+manually entered a result (only the manual admin paths called it before).
+The bracket resolver is idempotent and monotonic, so the call is a cheap
+no-op when nothing new has settled.
+
 On three consecutive API failures we write an ``auto_sync_failed``
 notification for every admin and an ``audit_log`` row with
 ``action_type = sync_failed``. The counter resets on the next successful
@@ -49,6 +57,7 @@ from src.services.football_data import (
     FootballDataClient,
     FootballDataError,
 )
+from src.services.knockout_advancement import sync_knockout_bracket
 from src.services.notification_triggers import (
     MatchUpdate,
     notify_auto_sync_failed,
@@ -150,6 +159,17 @@ async def sync_results(
                 )
         if match_updates:
             await session.commit()
+
+        # Resolve seeded knockout placeholders into real teams whenever a
+        # result has settled — group results fill the R32, knockout results
+        # cascade to the next round. This is the auto path's equivalent of the
+        # ``_maybe_resync_knockout`` call the manual admin result endpoints make.
+        # Best-effort: bracket resolution must never abort the sync cycle.
+        if any(u.event_type == "finished" for u in match_updates):
+            try:
+                await sync_knockout_bracket(session)
+            except Exception:
+                log.exception("knockout bracket sync failed")
 
     _consecutive_failures = 0
     log.info("auto sync complete", updated=updates, total=len(fd_matches))

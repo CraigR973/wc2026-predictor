@@ -17,6 +17,7 @@ from src.main import app
 from src.models.match import Match, MatchStatus, ResultSource
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.profile import PlayerRole, Profile
+from src.models.team import TournamentStage
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -58,6 +59,7 @@ def _make_match(
     m.id = uuid.uuid4()
     m.match_number = 1
     m.status = MatchStatus.completed
+    m.stage = TournamentStage.group
     m.result_source = result_source
     m.actual_home_score = home_score
     m.actual_away_score = away_score
@@ -322,4 +324,58 @@ async def test_list_results_empty() -> None:
 async def test_list_results_requires_admin() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/admin/results")
+    assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/admin/results/pending (GAP-02 manual-entry fallback)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_pending_results_returns_matches_awaiting_result() -> None:
+    """Returns locked/live matches that have no result, with team ids + stage."""
+    admin = _make_admin()
+    mock_db = AsyncMock(spec=AsyncSession)
+
+    m = _make_match(result_source=None, home_score=None, away_score=None)
+    m.status = MatchStatus.locked
+    m.stage = TournamentStage.r16
+    home_id = uuid.uuid4()
+    away_id = uuid.uuid4()
+    m.home_team_id = home_id
+    m.away_team_id = away_id
+
+    matches_result = MagicMock()
+    matches_result.scalars.return_value.all.return_value = [m]
+    teams_result = MagicMock()
+    teams_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(side_effect=[matches_result, teams_result])
+
+    async def _db_override() -> AsyncGenerator[AsyncMock, None]:
+        yield mock_db
+
+    app.dependency_overrides[get_db] = _db_override
+    app.dependency_overrides[require_admin] = lambda: admin
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/v1/admin/results/pending")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(require_admin, None)
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["result_source"] is None
+    assert data[0]["stage"] == "r16"
+    assert data[0]["home_team_id"] == str(home_id)
+    assert data[0]["away_team_id"] == str(away_id)
+
+
+@pytest.mark.asyncio
+async def test_list_pending_results_requires_admin() -> None:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/api/v1/admin/results/pending")
     assert resp.status_code == 401

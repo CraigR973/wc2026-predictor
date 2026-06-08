@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, DEFAULT_LEAGUE_SLUG } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +18,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+// Per-league invite shape (POST/GET /api/v1/leagues/{slug}/invites). The
+// admin-create route under /api/v1/admin/invites was removed in M8 (per-league
+// invites only), so this page targets the per-league endpoints — a site
+// superadmin bypasses the league-admin check, so any league slug works.
 interface Invite {
   id: string;
   token: string;
@@ -28,6 +32,11 @@ interface Invite {
   expires_at: string | null;
   is_active: boolean;
   created_at: string;
+}
+
+interface AdminLeague {
+  slug: string;
+  name: string;
 }
 
 function inviteLink(token: string) {
@@ -43,6 +52,10 @@ function statusBadge(invite: Invite) {
 }
 
 export function AdminInvitesPage() {
+  const [leagues, setLeagues] = useState<AdminLeague[]>([]);
+  const [slug, setSlug] = useState('');
+  const [leaguesLoaded, setLeaguesLoaded] = useState(false);
+
   const [invites, setInvites] = useState<Invite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,9 +74,34 @@ export function AdminInvitesPage() {
   // Copy feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  async function load() {
+  // Resolve which league to manage invites for. Invites are per-league since
+  // M8; pick the canonical league by default, fall back to the first.
+  useEffect(() => {
+    async function loadLeagues() {
+      try {
+        const all = await apiFetch<AdminLeague[]>('/api/v1/admin/leagues');
+        setLeagues(all);
+        if (all.length > 0) {
+          const preferred = all.find((l) => l.slug === DEFAULT_LEAGUE_SLUG);
+          setSlug(preferred?.slug ?? all[0].slug);
+        } else {
+          setIsLoading(false);
+        }
+      } catch {
+        setError('Failed to load leagues.');
+        setIsLoading(false);
+      } finally {
+        setLeaguesLoaded(true);
+      }
+    }
+    loadLeagues();
+  }, []);
+
+  async function load(targetSlug: string) {
+    setIsLoading(true);
+    setError('');
     try {
-      const data = await apiFetch<Invite[]>('/api/v1/admin/invites');
+      const data = await apiFetch<Invite[]>(`/api/v1/leagues/${targetSlug}/invites`);
       setInvites(data);
     } catch {
       setError('Failed to load invites.');
@@ -73,18 +111,19 @@ export function AdminInvitesPage() {
   }
 
   useEffect(() => {
-    load();
-  }, []);
+    if (slug) load(slug);
+  }, [slug]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (!slug) return;
     setCreateError('');
     setCreating(true);
     try {
       const body: Record<string, unknown> = {};
       if (hint.trim()) body.display_name_hint = hint.trim();
       body.expires_in_days = expiryDays === '' ? null : parseInt(expiryDays);
-      const invite = await apiFetch<Invite>('/api/v1/admin/invites', {
+      const invite = await apiFetch<Invite>(`/api/v1/leagues/${slug}/invites`, {
         method: 'POST',
         body: JSON.stringify(body),
       });
@@ -100,9 +139,9 @@ export function AdminInvitesPage() {
   }
 
   async function confirmRevoke() {
-    if (!revokeTarget) return;
+    if (!revokeTarget || !slug) return;
     try {
-      await apiFetch(`/api/v1/admin/invites/${revokeTarget.id}`, { method: 'DELETE' });
+      await apiFetch(`/api/v1/leagues/${slug}/invites/${revokeTarget.id}`, { method: 'DELETE' });
       setInvites((prev) =>
         prev.map((i) => (i.id === revokeTarget.id ? { ...i, is_active: false } : i)),
       );
@@ -132,10 +171,34 @@ export function AdminInvitesPage() {
             >
               Players →
             </Link>
-            <Button size="sm" onClick={() => setShowCreate(true)}>New invite</Button>
+            <Button size="sm" onClick={() => setShowCreate(true)} disabled={!slug}>
+              New invite
+            </Button>
           </div>
         }
       />
+        {/* League selector — invites are per-league; show a picker when the
+            admin manages more than one league. */}
+        {leagues.length > 1 && (
+          <div className="mb-4 flex items-center gap-2">
+            <Label htmlFor="league" className="text-xs text-text-muted shrink-0">
+              League
+            </Label>
+            <select
+              id="league"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-sans text-text-primary focus-visible:outline-none focus-visible:shadow-glow"
+            >
+              {leagues.map((l) => (
+                <option key={l.slug} value={l.slug}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {isLoading && (
           <div className="space-y-3" aria-label="Loading invites">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -145,6 +208,12 @@ export function AdminInvitesPage() {
         )}
         {error && (
           <EmptyState title="Couldn't load invites" description={error} />
+        )}
+        {leaguesLoaded && leagues.length === 0 && !error && (
+          <EmptyState
+            title="No leagues yet"
+            description="Create a league before generating invites."
+          />
         )}
 
         <div className="space-y-3">
@@ -196,7 +265,7 @@ export function AdminInvitesPage() {
               </CardContent>
             </Card>
           ))}
-          {!isLoading && invites.length === 0 && (
+          {!isLoading && !error && slug && invites.length === 0 && (
             <EmptyState
               title="No invites yet"
               description="Create an invite to let a new player join."
@@ -254,11 +323,12 @@ export function AdminInvitesPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="expiry">Expires in (days, blank = no expiry)</Label>
+              <Label htmlFor="expiry">Expires in (days, 1–30, blank = no expiry)</Label>
               <Input
                 id="expiry"
                 type="number"
                 min="1"
+                max="30"
                 value={expiryDays}
                 onChange={(e) => setExpiryDays(e.target.value)}
                 placeholder="7"

@@ -156,9 +156,14 @@ class AdminMatchResultResponse(BaseModel):
     match_id: str
     match_number: int
     status: str
+    # Knockout matches (stage != "group") may need a penalty winner; the admin
+    # result form uses ``stage`` + the team ids below to offer that choice.
+    stage: str | None = None
     kickoff_utc: datetime
     home_team: str | None
     away_team: str | None
+    home_team_id: str | None = None
+    away_team_id: str | None = None
     actual_home_score: int | None
     actual_away_score: int | None
     extra_time: bool
@@ -1126,26 +1131,17 @@ async def trigger_sync(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/results", response_model=list[AdminMatchResultResponse])
-async def list_results(
-    _admin: AdminPlayer,
-    db: Annotated[AsyncSession, Depends(get_db)],
+async def _build_match_result_responses(
+    db: AsyncSession, matches: list[Match]
 ) -> list[AdminMatchResultResponse]:
-    """List all completed matches with their result sources."""
+    """Resolve team names for ``matches`` and build the admin result rows.
+
+    Shared by the completed-results list and the pending-results list so both
+    expose the same shape (including team ids + stage, which the admin entry
+    form needs to offer a penalty-winner choice on knockout draws).
+    """
     from src.models.team import Team
 
-    result = await db.execute(
-        select(Match)
-        .where(
-            Match.status == MatchStatus.completed,
-            Match.deleted_at.is_(None),
-        )
-        .order_by(desc(Match.result_entered_at))
-        .limit(100)
-    )
-    matches = list(result.scalars().all())
-
-    # Build team name map
     all_team_ids = {m.home_team_id for m in matches} | {m.away_team_id for m in matches}
     all_team_ids.discard(None)
     team_map: dict[uuid.UUID, str] = {}
@@ -1159,9 +1155,12 @@ async def list_results(
             match_id=str(m.id),
             match_number=m.match_number,
             status=m.status.value,
+            stage=m.stage.value,
             kickoff_utc=m.kickoff_utc,
             home_team=team_map.get(m.home_team_id) if m.home_team_id else m.home_team_placeholder,
             away_team=team_map.get(m.away_team_id) if m.away_team_id else m.away_team_placeholder,
+            home_team_id=str(m.home_team_id) if m.home_team_id else None,
+            away_team_id=str(m.away_team_id) if m.away_team_id else None,
             actual_home_score=m.actual_home_score,
             actual_away_score=m.actual_away_score,
             extra_time=m.extra_time,
@@ -1171,6 +1170,48 @@ async def list_results(
         )
         for m in matches
     ]
+
+
+@router.get("/results", response_model=list[AdminMatchResultResponse])
+async def list_results(
+    _admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[AdminMatchResultResponse]:
+    """List all completed matches with their result sources."""
+    result = await db.execute(
+        select(Match)
+        .where(
+            Match.status == MatchStatus.completed,
+            Match.deleted_at.is_(None),
+        )
+        .order_by(desc(Match.result_entered_at))
+        .limit(100)
+    )
+    return await _build_match_result_responses(db, list(result.scalars().all()))
+
+
+@router.get("/results/pending", response_model=list[AdminMatchResultResponse])
+async def list_pending_results(
+    _admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[AdminMatchResultResponse]:
+    """List matches awaiting a result — locked or live with no result yet.
+
+    This is the manual-entry fallback surface for when auto-fetch has not
+    populated a result (the C-P0 auto-fetch path can stall on upstream
+    outages). The admin enters a result here via ``POST /admin/results/{id}``.
+    """
+    result = await db.execute(
+        select(Match)
+        .where(
+            Match.status.in_([MatchStatus.locked, MatchStatus.live]),
+            Match.result_source.is_(None),
+            Match.deleted_at.is_(None),
+        )
+        .order_by(Match.kickoff_utc)
+        .limit(100)
+    )
+    return await _build_match_result_responses(db, list(result.scalars().all()))
 
 
 # ---------------------------------------------------------------------------

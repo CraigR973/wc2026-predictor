@@ -15,6 +15,7 @@ import pytest
 from src.services.football_data import (
     FDMatchStatus,
     FootballDataClient,
+    FootballDataError,
     FootballDataRateLimitError,
     FootballDataServerError,
 )
@@ -121,16 +122,23 @@ _MATCHES_RESPONSE = {
 
 
 class _MockTransport(httpx.AsyncBaseTransport):
-    """Replays a pre-built list of httpx.Response objects in order."""
+    """Replays queued httpx.Response objects in order.
 
-    def __init__(self, responses: list[httpx.Response]) -> None:
-        self._iter: Iterator[httpx.Response] = iter(responses)
+    A queued ``Exception`` is raised instead of returned, so transport-level
+    network failures (httpx.RequestError subclasses) can be simulated.
+    """
+
+    def __init__(self, responses: list[httpx.Response | Exception]) -> None:
+        self._iter: Iterator[httpx.Response | Exception] = iter(responses)
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        return next(self._iter)
+        item = next(self._iter)
+        if isinstance(item, Exception):
+            raise item
+        return item
 
 
-def _make_client(responses: list[httpx.Response]) -> FootballDataClient:
+def _make_client(responses: list[httpx.Response | Exception]) -> FootballDataClient:
     transport = _MockTransport(responses)
     inner = httpx.AsyncClient(
         base_url="https://api.football-data.org/v4",
@@ -274,23 +282,89 @@ async def test_429_retries_then_succeeds() -> None:
 
 
 @pytest.mark.asyncio
-async def test_500_raises_server_error() -> None:
-    client = _make_client([_server_error(500)])
+async def test_500_retries_then_raises_server_error() -> None:
+    """5xx is retried (not aborted on the first one); 4 in a row exhaust retries."""
+    responses: list[httpx.Response | Exception] = [_server_error(500)] * 4
+    client = _make_client(responses)
 
-    with pytest.raises(FootballDataServerError) as exc_info:
-        await client.get_competition_matches()
+    with patch("src.services.football_data.asyncio.sleep", new_callable=AsyncMock):
+        with pytest.raises(FootballDataServerError) as exc_info:
+            await client.get_competition_matches()
 
     assert "500" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
-async def test_503_raises_server_error() -> None:
-    client = _make_client([_server_error(503)])
+async def test_503_retries_then_raises_server_error() -> None:
+    responses: list[httpx.Response | Exception] = [_server_error(503)] * 4
+    client = _make_client(responses)
 
-    with pytest.raises(FootballDataServerError) as exc_info:
-        await client.get_competition_matches()
+    with patch("src.services.football_data.asyncio.sleep", new_callable=AsyncMock):
+        with pytest.raises(FootballDataServerError) as exc_info:
+            await client.get_competition_matches()
 
     assert "503" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_5xx_retries_then_succeeds() -> None:
+    """A couple of 5xx responses followed by a 200 should recover, not abort."""
+    responses: list[httpx.Response | Exception] = [
+        _server_error(500),
+        _server_error(502),
+        _ok({"count": 0, "matches": []}),
+    ]
+    client = _make_client(responses)
+
+    with patch("src.services.football_data.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        result = await client.get_competition_matches()
+
+    assert result.count == 0
+    assert mock_sleep.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_network_error_retries_then_wraps_as_football_data_error() -> None:
+    """httpx network errors are retried, then surfaced as FootballDataError.
+
+    A raw httpx error would bypass the sync loop's consecutive-failure counter
+    and admin alert (it is not a FootballDataError); wrapping fixes that.
+    """
+    err = httpx.ConnectError("connection refused")
+    responses: list[httpx.Response | Exception] = [err, err, err, err]
+    client = _make_client(responses)
+
+    with patch("src.services.football_data.asyncio.sleep", new_callable=AsyncMock):
+        with pytest.raises(FootballDataError) as exc_info:
+            await client.get_competition_matches()
+
+    # Wrapped — not a raw httpx error escaping the client.
+    assert not isinstance(exc_info.value, httpx.HTTPError)
+    assert "Network error" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_network_error_retries_then_succeeds() -> None:
+    responses: list[httpx.Response | Exception] = [
+        httpx.ConnectError("boom"),
+        _ok({"count": 0, "matches": []}),
+    ]
+    client = _make_client(responses)
+
+    with patch("src.services.football_data.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        result = await client.get_competition_matches()
+
+    assert result.count == 0
+    assert mock_sleep.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_4xx_wrapped_as_football_data_error() -> None:
+    """A non-retryable client error (e.g. 403 bad key) surfaces as FootballDataError."""
+    client = _make_client([httpx.Response(403, text="Forbidden")])
+
+    with pytest.raises(FootballDataError):
+        await client.get_competition_matches()
 
 
 @pytest.mark.asyncio
