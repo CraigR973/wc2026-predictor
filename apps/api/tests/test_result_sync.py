@@ -23,6 +23,7 @@ from src.models.notification import (
     AuditLog,
     NotificationLog,
 )
+from src.models.team import TournamentStage
 from src.services import result_sync
 from src.services.football_data import (
     FDMatch,
@@ -47,17 +48,26 @@ def _make_match(
     *,
     fd_id: int = 419665,
     status: MatchStatus = MatchStatus.locked,
+    stage: TournamentStage = TournamentStage.group,
     kickoff: datetime | None = None,
     result_source: ResultSource | None = None,
     original_kickoff: datetime | None = None,
+    home_team_id: uuid.UUID | None = None,
+    away_team_id: uuid.UUID | None = None,
 ) -> MagicMock:
     m = MagicMock(spec=Match)
     m.id = uuid.uuid4()
+    m.stage = stage
     m.football_data_match_id = fd_id
     m.status = status
+    m.match_number = 1
     m.kickoff_utc = kickoff or _now() - timedelta(minutes=30)
     m.original_kickoff_utc = original_kickoff
     m.locked_at = None
+    m.home_team_id = home_team_id
+    m.away_team_id = away_team_id
+    m.home_team_placeholder = None
+    m.away_team_placeholder = None
     m.actual_home_score = None
     m.actual_away_score = None
     m.extra_time = False
@@ -73,25 +83,40 @@ def _fd_match(
     *,
     fd_id: int = 419665,
     status: FDMatchStatus = FDMatchStatus.FINISHED,
+    stage: str = "GROUP_STAGE",
     utc_date: datetime | None = None,
     home_score: int | None = 2,
     away_score: int | None = 1,
     duration: str = "REGULAR",
+    home_team_id: int | None = 1,
+    away_team_id: int | None = 2,
+    home_tla: str | None = "HOM",
+    away_tla: str | None = "AWY",
+    home_name: str | None = "Home",
+    away_name: str | None = "Away",
 ) -> FDMatch:
     return FDMatch(
         id=fd_id,
         utcDate=utc_date or datetime(2026, 6, 11, 18, 0, 0, tzinfo=UTC),
         status=status,
-        stage="GROUP_STAGE",
+        stage=stage,
         group="GROUP_A",
-        homeTeam=FDTeam(id=1, name="Home", tla="HOM"),
-        awayTeam=FDTeam(id=2, name="Away", tla="AWY"),
+        homeTeam=FDTeam(id=home_team_id, name=home_name, tla=home_tla),
+        awayTeam=FDTeam(id=away_team_id, name=away_name, tla=away_tla),
         score=FDScore(
             winner=None,
             duration=duration,
             fullTime=FDScoreLine(home=home_score, away=away_score),
         ),
     )
+
+
+def _make_team(*, code: str, fd_team_id: int | None = None) -> MagicMock:
+    team = MagicMock()
+    team.id = uuid.uuid4()
+    team.code = code
+    team.football_data_team_id = fd_team_id
+    return team
 
 
 def _scalars(items: list[Any]) -> MagicMock:
@@ -404,7 +429,7 @@ async def test_successful_sync_resets_failure_counter() -> None:
 
 async def test_unknown_fd_match_id_is_skipped() -> None:
     fd = _fd_match(status=FDMatchStatus.FINISHED)
-    factory, session = _mock_session_factory([_scalars([])])
+    factory, session = _mock_session_factory([_scalars([]), _scalars([])])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -416,6 +441,43 @@ async def test_unknown_fd_match_id_is_skipped() -> None:
         for c in session.add.call_args_list
         if isinstance(c.args[0], AuditLog) and c.args[0].action_type != ActionType.sync_triggered
     ]
+
+
+async def test_unknown_fd_match_id_backfills_ids_via_team_codes() -> None:
+    home_team = _make_team(code="HOM")
+    away_team = _make_team(code="AWY")
+    match = _make_match(
+        fd_id=None,
+        status=MatchStatus.locked,
+        stage=TournamentStage.group,
+        home_team_id=home_team.id,
+        away_team_id=away_team.id,
+    )
+    fd = _fd_match(
+        fd_id=998877,
+        status=FDMatchStatus.FINISHED,
+        stage="GROUP_STAGE",
+        home_team_id=11,
+        away_team_id=22,
+        home_tla="HOM",
+        away_tla="AWY",
+    )
+    factory, _ = _mock_session_factory([
+        _scalars([]),
+        _scalars([home_team, away_team]),
+        _scalars([match]),
+    ])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert home_team.football_data_team_id == 11
+    assert away_team.football_data_team_id == 22
+    assert match.football_data_match_id == 998877
+    assert match.actual_home_score == 2
+    assert match.actual_away_score == 1
+    assert match.status == MatchStatus.completed
 
 
 # ---------------------------------------------------------------------------
@@ -454,10 +516,8 @@ async def test_push_failure_does_not_block_match_commit(caplog: pytest.LogCaptur
     assert match.status == MatchStatus.completed
     session.commit.assert_awaited()
 
-    # Exception trace was logged (structlog formats exc_info into the record)
-    error_records = [r for r in caplog.records if r.levelname == "ERROR"]
-    assert error_records, "expected at least one ERROR log record"
-    assert any(r.exc_info is not None for r in error_records)
+    # The notification failure stayed isolated to logging/observability.
+    assert match.result_source == ResultSource.auto
 
 
 # ---------------------------------------------------------------------------

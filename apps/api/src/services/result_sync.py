@@ -51,6 +51,7 @@ from src.models.notification import (
     ActorType,
     AuditLog,
 )
+from src.models.team import Team, TournamentStage
 from src.services.football_data import (
     FDMatch,
     FDMatchStatus,
@@ -75,6 +76,18 @@ _LIVE_STATUSES = {
     FDMatchStatus.SUSPENDED,
 }
 _SCHEDULED_STATUSES = {FDMatchStatus.SCHEDULED, FDMatchStatus.TIMED}
+_FD_STAGE_TO_LOCAL_STAGE = {
+    "GROUP_STAGE": TournamentStage.group,
+    "LAST_32": TournamentStage.r32,
+    "ROUND_OF_32": TournamentStage.r32,
+    "PRELIMINARY_ROUND": TournamentStage.r32,
+    "LAST_16": TournamentStage.r16,
+    "ROUND_OF_16": TournamentStage.r16,
+    "QUARTER_FINALS": TournamentStage.qf,
+    "SEMI_FINALS": TournamentStage.sf,
+    "THIRD_PLACE": TournamentStage.third_place,
+    "FINAL": TournamentStage.final,
+}
 
 _FAILURE_ALERT_THRESHOLD = 3
 
@@ -211,15 +224,7 @@ async def _sync_one_match(
     session: AsyncSession, fd_match: FDMatch
 ) -> tuple[bool, MatchUpdate | None]:
     """Apply the feed's view of a single match. Returns (changed, MatchUpdate|None)."""
-    row = await session.execute(
-        select(Match)
-        .where(
-            Match.football_data_match_id == fd_match.id,
-            Match.deleted_at.is_(None),
-        )
-        .with_for_update()
-    )
-    match = row.scalar_one_or_none()
+    match = await _resolve_match(session, fd_match)
     if match is None:
         return False, None
 
@@ -269,6 +274,95 @@ async def _sync_one_match(
         return False, None
 
     return False, None
+
+
+async def _resolve_match(session: AsyncSession, fd_match: FDMatch) -> Match | None:
+    row = await session.execute(
+        select(Match)
+        .where(
+            Match.football_data_match_id == fd_match.id,
+            Match.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    match = row.scalar_one_or_none()
+    if match is not None:
+        return match
+    return await _resolve_match_by_teams(session, fd_match)
+
+
+async def _resolve_match_by_teams(session: AsyncSession, fd_match: FDMatch) -> Match | None:
+    local_stage = _FD_STAGE_TO_LOCAL_STAGE.get(fd_match.stage)
+    home_code = fd_match.homeTeam.tla
+    away_code = fd_match.awayTeam.tla
+    if local_stage is None or not home_code or not away_code:
+        return None
+
+    teams_row = await session.execute(select(Team).where(Team.code.in_([home_code, away_code])))
+    teams = {team.code: team for team in teams_row.scalars().all()}
+    home_team = teams.get(home_code)
+    away_team = teams.get(away_code)
+    if home_team is None or away_team is None:
+        return None
+
+    _maybe_backfill_team_id(home_team, fd_match.homeTeam.id)
+    _maybe_backfill_team_id(away_team, fd_match.awayTeam.id)
+
+    match_row = await session.execute(
+        select(Match)
+        .where(
+            Match.stage == local_stage,
+            Match.home_team_id == home_team.id,
+            Match.away_team_id == away_team.id,
+            Match.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    matches = list(match_row.scalars().all())
+    if len(matches) != 1:
+        if len(matches) > 1:
+            log.warning(
+                "ambiguous fallback match resolution",
+                fd_id=fd_match.id,
+                fd_stage=fd_match.stage,
+                home_code=home_code,
+                away_code=away_code,
+                candidate_count=len(matches),
+            )
+        return None
+
+    match = matches[0]
+    _maybe_backfill_match_id(match, fd_match.id)
+    return match
+
+
+def _maybe_backfill_team_id(team: Team, fd_team_id: int | None) -> None:
+    if fd_team_id is None:
+        return
+    if team.football_data_team_id is None:
+        team.football_data_team_id = fd_team_id
+        return
+    if team.football_data_team_id != fd_team_id:
+        log.warning(
+            "football-data team id mismatch",
+            team_code=team.code,
+            current=team.football_data_team_id,
+            incoming=fd_team_id,
+        )
+
+
+def _maybe_backfill_match_id(match: Match, fd_match_id: int) -> None:
+    if match.football_data_match_id is None:
+        match.football_data_match_id = fd_match_id
+        return
+    if match.football_data_match_id != fd_match_id:
+        log.warning(
+            "football-data match id mismatch",
+            match_id=str(match.id),
+            match_number=match.match_number,
+            current=match.football_data_match_id,
+            incoming=fd_match_id,
+        )
 
 
 def _apply_finished(session: AsyncSession, match: Match, fd_match: FDMatch, now: datetime) -> bool:
