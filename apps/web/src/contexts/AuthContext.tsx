@@ -1,6 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { clearTokens, getAccessToken, getRefreshToken, getStoredPlayer, storeTokens, StoredPlayer } from '../lib/tokens';
-import { isBiometricUnlockEnabled, verifyBiometricUnlock } from '../lib/biometricUnlock';
+import { clearApiCaches, clearTokens, getAccessToken, getRefreshToken, getStoredPlayer, isAccessTokenExpired, storeTokens, StoredPlayer } from '../lib/tokens';
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   throw new Error('VITE_API_URL is required in production builds');
@@ -10,8 +9,8 @@ const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 interface AuthState {
   player: StoredPlayer | null;
   isLoading: boolean;
-  biometricUnlockRequired: boolean;
-  biometricUnlockFailed: boolean;
+  sessionUnlockRequired: boolean;
+  sessionUnlockError: string | null;
 }
 
 interface AuthContextValue extends AuthState {
@@ -26,17 +25,18 @@ interface AuthContextValue extends AuthState {
   logout: () => Promise<void>;
   /** Update a subset of the stored player (e.g. after avatar upload). */
   updatePlayer: (patch: Partial<StoredPlayer>) => void;
-  unlockStoredSession: () => Promise<void>;
+  unlockStoredSession: (pin: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function playerFromApiResponse(data: {
-  player: { id: string; display_name: string; role: string; timezone: string; avatar_url?: string | null };
+  player: { id: string; display_name: string; email?: string | null; role: string; timezone: string; avatar_url?: string | null };
 }): StoredPlayer {
   return {
     id: data.player.id,
     displayName: data.player.display_name,
+    email: data.player.email ?? null,
     role: data.player.role as 'player' | 'admin',
     timezone: data.player.timezone,
     avatarUrl: data.player.avatar_url ?? null,
@@ -45,15 +45,15 @@ function playerFromApiResponse(data: {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initialPlayer = getStoredPlayer();
-  const initialRequiresUnlock = !!initialPlayer && isBiometricUnlockEnabled(initialPlayer.id);
+  const initialRequiresUnlock = !!initialPlayer && !!getRefreshToken() && isAccessTokenExpired();
   const [lockedPlayer, setLockedPlayer] = useState<StoredPlayer | null>(
     initialRequiresUnlock ? initialPlayer : null,
   );
   const [state, setState] = useState<AuthState>({
-    player: initialRequiresUnlock ? null : initialPlayer,
+    player: initialPlayer,
     isLoading: false,
-    biometricUnlockRequired: initialRequiresUnlock,
-    biometricUnlockFailed: false,
+    sessionUnlockRequired: initialRequiresUnlock,
+    sessionUnlockError: null,
   });
 
   const login = useCallback(async (email: string, pin: string) => {
@@ -70,9 +70,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const data = await resp.json();
       const player = playerFromApiResponse(data);
+      await clearApiCaches();
       storeTokens(data.access_token, data.refresh_token, player);
       setLockedPlayer(null);
-      setState({ player, isLoading: false, biometricUnlockRequired: false, biometricUnlockFailed: false });
+      setState({ player, isLoading: false, sessionUnlockRequired: false, sessionUnlockError: null });
     } catch (err) {
       setState((s) => ({ ...s, isLoading: false }));
       throw err;
@@ -99,9 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const data = await resp.json();
       const player = playerFromApiResponse(data);
+      await clearApiCaches();
       storeTokens(data.access_token, data.refresh_token, player);
       setLockedPlayer(null);
-      setState({ player, isLoading: false, biometricUnlockRequired: false, biometricUnlockFailed: false });
+      setState({ player, isLoading: false, sessionUnlockRequired: false, sessionUnlockError: null });
     } catch (err) {
       setState((s) => ({ ...s, isLoading: false }));
       throw err;
@@ -120,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     await clearTokens();
     setLockedPlayer(null);
-    setState({ player: null, isLoading: false, biometricUnlockRequired: false, biometricUnlockFailed: false });
+    setState({ player: null, isLoading: false, sessionUnlockRequired: false, sessionUnlockError: null });
   }, []);
 
   const updatePlayer = useCallback((patch: Partial<StoredPlayer>) => {
@@ -134,24 +136,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const unlockStoredSession = useCallback(async () => {
+  const unlockStoredSession = useCallback(async (pin: string) => {
     if (!lockedPlayer) return;
-    setState((s) => ({ ...s, isLoading: true, biometricUnlockFailed: false }));
+    if (!lockedPlayer.email) {
+      const message = 'Please sign in again to refresh this saved session.';
+      setState((s) => ({ ...s, isLoading: false, sessionUnlockRequired: true, sessionUnlockError: message }));
+      throw new Error(message);
+    }
+
+    setState((s) => ({ ...s, isLoading: true, sessionUnlockError: null }));
     try {
-      await verifyBiometricUnlock(lockedPlayer.id);
+      const resp = await fetch(`${BASE}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: lockedPlayer.email, pin }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail ?? 'Invalid PIN');
+      }
+      const data = await resp.json();
+      const player = playerFromApiResponse(data);
+      await clearApiCaches();
+      storeTokens(data.access_token, data.refresh_token, player);
       setState({
-        player: lockedPlayer,
+        player,
         isLoading: false,
-        biometricUnlockRequired: false,
-        biometricUnlockFailed: false,
+        sessionUnlockRequired: false,
+        sessionUnlockError: null,
       });
       setLockedPlayer(null);
     } catch (err) {
       setState((s) => ({
         ...s,
         isLoading: false,
-        biometricUnlockRequired: true,
-        biometricUnlockFailed: true,
+        sessionUnlockRequired: true,
+        sessionUnlockError: 'Invalid PIN. Try again or log out if this is not your account.',
       }));
       throw err;
     }

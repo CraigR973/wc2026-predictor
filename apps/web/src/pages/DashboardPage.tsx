@@ -46,15 +46,15 @@ function formatCountdown(cd: {
 type InlineSlot = { kind: 'next' | 'last'; match: MatchResponse };
 
 function pickInlineSlot(matches: MatchResponse[]): InlineSlot | null {
-  const upcoming = matches
-    .filter((m) => m.status === 'scheduled' || m.status === 'locked')
-    .sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc));
-  if (upcoming[0]) return { kind: 'next', match: upcoming[0] };
-
   const completed = matches
     .filter((m) => m.status === 'completed')
     .sort((a, b) => b.kickoff_utc.localeCompare(a.kickoff_utc));
   if (completed[0]) return { kind: 'last', match: completed[0] };
+
+  const upcoming = matches
+    .filter((m) => m.status === 'scheduled' || m.status === 'locked')
+    .sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc));
+  if (upcoming[0]) return { kind: 'next', match: upcoming[0] };
 
   return null;
 }
@@ -107,54 +107,55 @@ function PointsTile({
       className="flex h-full min-h-[184px] flex-col justify-between rounded-[1.25rem] border border-border bg-gradient-to-br from-surface-elevated via-surface to-surface p-4 shadow-sm transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:shadow-glow sm:p-5"
       data-testid="points-tile"
     >
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">Points</p>
+      <div className="text-center">
         <p className="mt-2 font-mono text-4xl font-semibold leading-none tabular-nums text-primary sm:text-5xl">
           {points}
         </p>
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">Points</p>
       </div>
 
-      <div className="space-y-3 border-t border-border/60 pt-3">
+      <div className="space-y-2 border-t border-border/60 pt-3">
         {rollup ? (
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
-              Latest matchday
-            </p>
-            <p className="mt-1 text-sm text-text-primary">
-              <span className="font-mono font-semibold tabular-nums text-primary">
-                +{rollup.points_gained} today
-              </span>
-              <span className="text-text-muted">
-                {' '}
-                · {formatInTimeZone(new Date(rollup.matchday + 'T00:00:00Z'), timezone, 'EEE d MMM')}
-              </span>
-            </p>
-          </div>
+          <>
+            <div className="flex items-baseline justify-between">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                {formatInTimeZone(new Date(rollup.matchday + 'T00:00:00Z'), timezone, 'EEE d MMM')}
+              </p>
+              <p className="font-mono text-[10px] font-semibold tabular-nums text-primary">
+                +{rollup.points_gained} pts
+              </p>
+            </div>
+            <div className="space-y-1">
+              {rollup.matches.map((m) => (
+                <div key={m.match_id} className="flex items-center justify-between gap-1">
+                  <p className="min-w-0 truncate font-mono text-xs tabular-nums text-text-primary">
+                    {m.home_flag ?? ''} {m.home_label.slice(0, 3).toUpperCase()} {m.actual_home ?? 0}–{m.actual_away ?? 0} {m.away_label.slice(0, 3).toUpperCase()} {m.away_flag ?? ''}
+                  </p>
+                  <p className={`shrink-0 font-mono text-xs tabular-nums font-medium ${(m.points_breakdown?.total ?? 0) > 0 ? 'text-primary' : 'text-text-muted'}`}>
+                    {(m.points_breakdown?.total ?? 0) > 0 ? `+${m.points_breakdown!.total}` : '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </>
         ) : (
-          <p className="text-sm leading-relaxed text-text-muted">
-            Your tally starts when the first results land.
-          </p>
-        )}
-
-        {inlineSlot && (
-          <div
-            className="rounded-2xl border border-border/60 bg-surface/80 px-3 py-2.5"
-            data-testid={inlineSlot.kind === 'next' ? 'points-tile-inline-next' : 'points-tile-inline-last'}
-          >
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
-              {inlineSlot.kind === 'next' ? 'Next fixture' : 'Latest final'}
-            </p>
-            <p className="mt-1 font-mono text-sm tabular-nums text-text-primary">
-              {(() => {
-                const home = chipTeam(inlineSlot.match.home_team, inlineSlot.match.home_team_placeholder);
-                const away = chipTeam(inlineSlot.match.away_team, inlineSlot.match.away_team_placeholder);
-                if (inlineSlot.kind === 'next') {
-                  return `${home.flag} ${home.code} v ${away.code} ${away.flag}`;
-                }
-                return `${home.flag} ${home.code} ${inlineSlot.match.actual_home_score ?? 0}–${inlineSlot.match.actual_away_score ?? 0} ${away.code} ${away.flag}`;
-              })()}
-            </p>
-          </div>
+          <>
+            {inlineSlot?.kind === 'next' && (
+              <div
+                className="rounded-2xl border border-border/60 bg-surface/80 px-3 py-2.5"
+                data-testid="points-tile-inline-next"
+              >
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">Next fixture</p>
+                <p className="mt-1 font-mono text-sm tabular-nums text-text-primary">
+                  {(() => {
+                    const home = chipTeam(inlineSlot.match.home_team, inlineSlot.match.home_team_placeholder);
+                    const away = chipTeam(inlineSlot.match.away_team, inlineSlot.match.away_team_placeholder);
+                    return `${home.flag} ${home.code} v ${away.code} ${away.flag}`;
+                  })()}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </Link>
@@ -283,15 +284,23 @@ function MatchTileLiveCard({
 function MatchTileFixtureCard({
   kind,
   match,
+  prediction,
   timezone,
 }: {
   kind: 'next' | 'last';
   match: MatchResponse;
+  prediction?: PredictionResponse;
   timezone: string;
 }) {
   const countdown = useCountdown(match.kickoff_utc);
   const home = chipTeam(match.home_team, match.home_team_placeholder);
   const away = chipTeam(match.away_team, match.away_team_placeholder);
+
+  const hasPrediction =
+    kind === 'last' &&
+    prediction != null &&
+    prediction.predicted_home !== null &&
+    prediction.predicted_away !== null;
 
   return (
     <Link
@@ -326,11 +335,27 @@ function MatchTileFixtureCard({
         </span>
       </div>
 
-      <p className="mt-5 border-t border-border/60 pt-3 text-sm text-text-muted">
-        {kind === 'next'
-          ? 'Tap through to check the match detail and prediction form before lock.'
-          : 'Tap through for the full result and your prediction outcome.'}
-      </p>
+      <div className="mt-5 border-t border-border/60 pt-3">
+        {hasPrediction && prediction!.points_breakdown ? (
+          <div className="space-y-1.5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
+              Your pick:{' '}
+              <span className="text-text-primary">
+                {prediction!.predicted_home}–{prediction!.predicted_away}
+              </span>
+            </p>
+            <PointsBreakdownRow breakdown={prediction!.points_breakdown} />
+          </div>
+        ) : (
+          <p className="text-sm text-text-muted">
+            {kind === 'next'
+              ? 'Tap through to check the match detail and prediction form before lock.'
+              : hasPrediction
+                ? 'Tap through for the full result and your prediction outcome.'
+                : 'Tap through for the full result.'}
+          </p>
+        )}
+      </div>
     </Link>
   );
 }
@@ -555,26 +580,31 @@ export function DashboardPage() {
           className="grid grid-cols-[minmax(0,0.92fr)_minmax(0,1.48fr)] gap-3"
           data-testid="dashboard-top-row"
         >
-          <PointsTile
-            playerId={player?.id}
-            points={points}
-            rollup={home?.rollup ?? null}
-            inlineSlot={inlineSlot}
-            timezone={timezone}
-            isLoading={loadingTopRow}
-          />
-          {liveMatches.length > 0 ? (
-            <LiveMatchCarousel
-              matches={liveMatches}
-              predByMatch={predByMatch}
-              knockoutPredByMatch={knockoutPredByMatch}
+          <div className="space-y-3" data-testid="dashboard-points-column">
+            <PointsTile
+              playerId={player?.id}
+              points={points}
+              rollup={home?.rollup ?? null}
+              inlineSlot={inlineSlot}
               timezone={timezone}
+              isLoading={loadingTopRow}
             />
-          ) : inlineSlot ? (
-            <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} timezone={timezone} />
-          ) : (
-            <Skeleton className="h-full min-h-[184px] rounded-[1.25rem]" />
-          )}
+            <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
+          </div>
+          <div>
+            {liveMatches.length > 0 ? (
+              <LiveMatchCarousel
+                matches={liveMatches}
+                predByMatch={predByMatch}
+                knockoutPredByMatch={knockoutPredByMatch}
+                timezone={timezone}
+              />
+            ) : inlineSlot ? (
+              <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} prediction={predByMatch[inlineSlot.match.id]} timezone={timezone} />
+            ) : (
+              <Skeleton className="h-full min-h-[184px] rounded-[1.25rem]" />
+            )}
+          </div>
         </div>
       </div>
 
@@ -600,8 +630,6 @@ export function DashboardPage() {
         specialsSubmitted={home?.todo?.specials_submitted}
         isLoading={homeLoading}
       />
-
-      <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
     </div>
   );
 }

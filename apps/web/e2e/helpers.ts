@@ -41,9 +41,11 @@ export async function seedAuth(
   player: typeof PLAYER | typeof ADMIN_PLAYER = PLAYER,
 ) {
   await page.addInitScript(
-    ({ jwt, refresh, p }) => {
+    ({ jwt, p }) => {
       localStorage.setItem('wc2026_access', jwt);
-      localStorage.setItem('wc2026_refresh', refresh);
+      // No refresh token — the fake JWT expires in 2286, so refresh is never
+      // needed. Omitting it keeps initialRequiresUnlock = false so the PIN
+      // relock gate doesn't block mocked-API tests.
       localStorage.setItem('wc2026_player', JSON.stringify(p));
       // Suppress first-run modals so focused page tests are not blocked by onboarding UI.
       localStorage.setItem('sss_tour_seen', '1');
@@ -51,7 +53,7 @@ export async function seedAuth(
       localStorage.setItem('sss_firstrun_launchpad_seen', '1');
       localStorage.setItem('sss_join_install_dismissed', '1');
     },
-    { jwt: FAKE_JWT, refresh: FAKE_REFRESH, p: player },
+    { jwt: FAKE_JWT, p: player },
   );
 }
 

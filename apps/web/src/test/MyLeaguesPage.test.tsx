@@ -97,4 +97,11 @@ describe('MyLeaguesPage hub', () => {
     renderHub();
     await waitFor(() => expect(screen.getByText('My Leagues')).toBeTruthy());
   });
+
+  it('uses a two-column desktop grid for league cards', async () => {
+    stubFetch();
+    const { container } = renderHub();
+    await waitFor(() => expect(screen.getByText('The Steele Spreadsheet')).toBeTruthy());
+    expect(container.querySelector('.md\\:grid-cols-2')).toBeTruthy();
+  });
 });

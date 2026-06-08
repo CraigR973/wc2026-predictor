@@ -98,31 +98,6 @@ function makeStorage(initial: Record<string, string> = {}) {
   };
 }
 
-function mockWebAuthnSupport(supported: boolean) {
-  const create = vi.fn(() =>
-    Promise.resolve({
-      rawId: new Uint8Array([1, 2, 3, 4]).buffer,
-      type: 'public-key',
-    }),
-  );
-  const get = vi.fn();
-  const PublicKeyCredentialMock = {
-    isUserVerifyingPlatformAuthenticatorAvailable: vi.fn(() => Promise.resolve(supported)),
-  };
-
-  Object.defineProperty(window, 'PublicKeyCredential', {
-    value: supported ? PublicKeyCredentialMock : undefined,
-    configurable: true,
-  });
-  vi.stubGlobal('PublicKeyCredential', supported ? PublicKeyCredentialMock : undefined);
-  Object.defineProperty(navigator, 'credentials', {
-    value: supported ? { create, get } : undefined,
-    configurable: true,
-  });
-
-  return { create, get };
-}
-
 function renderPage(fetchMock?: ReturnType<typeof makeFetch>) {
   const storage = makeStorage({
     wc2026_player: STORED_PLAYER,
@@ -146,7 +121,6 @@ function renderPage(fetchMock?: ReturnType<typeof makeFetch>) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  mockWebAuthnSupport(false);
   // Stub browser push APIs so PushSection doesn't bail out with "not supported"
   Object.defineProperty(window, 'PushManager', { value: {}, writable: true, configurable: true });
   Object.defineProperty(navigator, 'serviceWorker', { value: {}, writable: true, configurable: true });
@@ -244,34 +218,10 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('hides biometric unlock when no platform authenticator is available', async () => {
+  it('does not render a passkey unlock setting', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.queryByRole('switch', { name: /unlock with face id/i })).not.toBeInTheDocument();
-    });
-  });
-
-  it('enables and disables biometric unlock from the Settings toggle when supported', async () => {
-    const { create } = mockWebAuthnSupport(true);
-    const { storage } = renderPage();
-
-    const toggle = await screen.findByRole('switch', { name: /unlock with face id/i });
-    fireEvent.click(toggle);
-
-    await waitFor(() => {
-      expect(create).toHaveBeenCalledTimes(1);
-      expect(storage.setItem).toHaveBeenCalledWith(
-        'wc2026_biometric_unlock',
-        expect.stringContaining('"playerId":"p1"'),
-      );
-    });
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-
-    fireEvent.click(toggle);
-
-    await waitFor(() => {
-      expect(storage.removeItem).toHaveBeenCalledWith('wc2026_biometric_unlock');
-      expect(toggle).toHaveAttribute('aria-checked', 'false');
     });
   });
 

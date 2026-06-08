@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info, Camera, Trash2, Fingerprint } from 'lucide-react';
+import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info, Camera, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { usePushSubscription } from '../hooks/usePushSubscription';
@@ -9,12 +9,6 @@ import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import { Skeleton } from '../components/ui/skeleton';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  disableBiometricUnlock,
-  enrollBiometricUnlock,
-  hasPlatformAuthenticator,
-  isBiometricUnlockEnabled,
-} from '../lib/biometricUnlock';
 import { cn } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar } from '../components/ui/avatar';
@@ -216,86 +210,6 @@ function InstallSection() {
       <Download size={14} />
       Install app
     </button>
-  );
-}
-
-// ── Local biometric unlock section ───────────────────────────────────────────
-
-function BiometricUnlockSection() {
-  const { player } = useAuth();
-  const [isSupported, setIsSupported] = useState(false);
-  const [isCheckingSupport, setIsCheckingSupport] = useState(true);
-  const [enabled, setEnabled] = useState(() => (player ? isBiometricUnlockEnabled(player.id) : false));
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setIsCheckingSupport(true);
-    hasPlatformAuthenticator()
-      .then((supported) => {
-        if (!cancelled) setIsSupported(supported);
-      })
-      .finally(() => {
-        if (!cancelled) setIsCheckingSupport(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    setEnabled(player ? isBiometricUnlockEnabled(player.id) : false);
-  }, [player]);
-
-  const handleToggle = useCallback(
-    async (next: boolean) => {
-      if (!player) return;
-      setSaving(true);
-      try {
-        if (next) {
-          await enrollBiometricUnlock(player);
-          setEnabled(true);
-          toast.success('Biometric unlock enabled');
-        } else {
-          disableBiometricUnlock();
-          setEnabled(false);
-          toast.success('Biometric unlock disabled');
-        }
-      } catch (err) {
-        setEnabled(isBiometricUnlockEnabled(player.id));
-        toast.error(
-          err instanceof Error
-            ? `${err.message} Your PIN still works.`
-            : 'Biometric unlock was cancelled. Your PIN still works.',
-        );
-      } finally {
-        setSaving(false);
-      }
-    },
-    [player],
-  );
-
-  if (!player || isCheckingSupport || !isSupported) return null;
-
-  return (
-    <SectionCard title="Account Unlock">
-      <div className="flex items-start gap-3">
-        <Fingerprint className="mt-0.5 h-5 w-5 text-primary" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <Toggle
-            checked={enabled}
-            onChange={(next) => void handleToggle(next)}
-            label="Unlock with Face ID / fingerprint"
-            disabled={saving}
-          />
-          <p className="text-xs text-text-muted font-sans leading-relaxed">
-            Convenience only: this verifies the person holding this device before reopening the saved session.
-            Your refresh token still lives in localStorage, and your PIN remains the source of truth.
-          </p>
-        </div>
-      </div>
-    </SectionCard>
   );
 }
 
@@ -564,8 +478,6 @@ export function SettingsPage() {
       <SectionCard title="Appearance">
         <AppearanceSection />
       </SectionCard>
-
-      <BiometricUnlockSection />
 
       <SectionCard title="Push Notifications">
         <PushSection />

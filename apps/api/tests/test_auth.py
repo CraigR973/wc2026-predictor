@@ -39,9 +39,10 @@ def _make_player(
     role: PlayerRole = PlayerRole.player,
     failed: int = 0,
     locked_until: datetime | None = None,
+    avatar_url: str | None = None,
 ) -> Profile:
     p = MagicMock(spec=Profile)
-    p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
+    p.avatar_url = avatar_url
     p.id = uuid.uuid4()
     p.display_name = "Test Player"
     p.email = "testplayer@example.com"
@@ -137,7 +138,8 @@ def test_refresh_token_roundtrip() -> None:
 
 
 async def test_login_success(client: AsyncClient) -> None:
-    player = _make_player(role=PlayerRole.admin)
+    avatar_url = "https://example.supabase.co/storage/v1/object/public/avatars/p1/face.jpg"
+    player = _make_player(role=PlayerRole.admin, avatar_url=avatar_url)
     mock_db = _stub_db([_scalar(player), _scalar(None)])  # login lookup + any extra
     # add() + commit() will be called for the refresh token record
 
@@ -153,6 +155,7 @@ async def test_login_success(client: AsyncClient) -> None:
     assert "refresh_token" in data
     assert data["player"]["role"] == "admin"
     assert data["player"]["display_name"] == "Test Player"
+    assert data["player"]["avatar_url"] == avatar_url
 
 
 async def test_login_wrong_pin(client: AsyncClient) -> None:

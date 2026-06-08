@@ -284,7 +284,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     const Wrapper = makeWrapper(mockFetch(SUMMARY_TWO_LEAGUES, HOME_WITH_ROLLUP, [], []));
     render(<Wrapper />);
 
-    await waitFor(() => expect(screen.getByText(/\+10 today/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/\+10 pts/)).toBeInTheDocument());
     expect(screen.queryByText('Daily summary')).not.toBeInTheDocument();
     expect(screen.queryByText('Live now')).not.toBeInTheDocument();
     expect(screen.queryByText(/Across your leagues:/)).not.toBeInTheDocument();
@@ -496,7 +496,11 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
 
     await waitFor(() => expect(screen.getByText('Pre-Tournament Checklist')).toBeInTheDocument());
     expect(screen.getByText('Read the rules')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Scoring quick-ref/i })).toBeInTheDocument();
+    const pointsColumn = screen.getByTestId('dashboard-points-column');
+    const scoringGuideButton = screen.getByRole('button', { name: /Scoring quick-ref/i });
+
+    expect(pointsColumn).toContainElement(scoringGuideButton);
+    expect(screen.queryByText('Your tally starts when the first results land.')).not.toBeInTheDocument();
   });
 });
 

@@ -8,13 +8,14 @@ import type { LeaderboardEntry, LeagueDetail } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useLongPress } from '../hooks/useLongPress';
-import { dedupedLeaderboard, rankByPeriod, type LeaderboardPeriod } from '../lib/leaderboard';
+import { rankByPeriod, type LeaderboardPeriod, withLeagueRoster } from '../lib/leaderboard';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar } from '../components/ui/avatar';
 import { buildInviteMessage, shareInvite } from '../lib/invite';
+import { LeagueActionsMenu } from '../components/LeagueActionsMenu';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
@@ -106,24 +107,24 @@ function TiebreakHeader({
         <th rowSpan={2} className="py-2.5 pl-3 sm:pl-5 text-left w-7 align-bottom">
           #
         </th>
-        <th rowSpan={2} className="py-2.5 text-left align-bottom">
+        <th rowSpan={2} className="py-2.5 pr-1 text-left align-bottom">
           Player
         </th>
-        <th colSpan={3} className="px-1 text-center align-bottom">
+        <th colSpan={3} className="px-0.5 sm:px-1 text-center align-bottom">
           Tiebreakers
         </th>
-        <th rowSpan={2} className="py-2.5 pr-3 sm:pr-5 pl-1 text-right w-12 align-bottom">
+        <th rowSpan={2} className="py-2.5 pr-3 sm:pr-5 pl-0.5 text-right w-12 align-bottom">
           {pointsLabel}
         </th>
       </tr>
       <tr className="border-b border-border text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-        <th className="py-2 px-1.5 sm:px-2.5 text-right" title="Exact scores">
+        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Exact scores">
           Ex
         </th>
-        <th className="py-2 px-1.5 sm:px-2.5 text-right" title="Correct results">
+        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Correct results">
           Res
         </th>
-        <th className="py-2 px-1.5 sm:px-2.5 text-right" title="Correct goal totals">
+        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Correct goal totals">
           Gls
         </th>
       </tr>
@@ -162,7 +163,7 @@ function LeaderboardRow({
           {entry.rank}
         </span>
       </td>
-      <td className="py-3.5 min-w-0">
+      <td className="py-3.5 pr-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <Avatar name={entry.player_name} size="sm" src={entry.avatar_url} className="shrink-0" />
           {showArrow && (
@@ -173,7 +174,7 @@ function LeaderboardRow({
           <Link
             to={`/players/${entry.player_id}`}
             className={cn(
-              'font-medium hover:text-primary transition-colors truncate min-w-0',
+              'font-medium hover:text-primary transition-colors min-w-0 leading-tight break-words',
               isMe ? 'text-primary' : 'text-text-primary',
             )}
             onPointerDown={(e) => e.stopPropagation()}
@@ -196,16 +197,16 @@ function LeaderboardRow({
           )}
         </div>
       </td>
-      <td className="py-3.5 px-1.5 sm:px-2.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.exact_count ?? 0}
       </td>
-      <td className="py-3.5 px-1.5 sm:px-2.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_result_count ?? 0}
       </td>
-      <td className="py-3.5 px-1.5 sm:px-2.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_goals_count ?? 0}
       </td>
-      <td className="py-3.5 pr-3 sm:pr-5 pl-1 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">
+      <td className="py-3.5 pr-3 sm:pr-5 pl-0.5 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">
         {displayPoints}
       </td>
     </motion.tr>
@@ -290,14 +291,9 @@ function PeriodToggle({
   );
 }
 
-function LeagueLeaderboardHeader({ slug }: { slug: string }) {
+function LeagueLeaderboardHeader({ league, slug }: { league?: LeagueDetail; slug: string }) {
   const { player } = useAuth();
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
-
-  const { data: league } = useQuery<LeagueDetail>({
-    queryKey: ['league', slug],
-    queryFn: () => apiFetch<LeagueDetail>(`/api/v1/leagues/${slug}`),
-  });
 
   const isLeagueAdmin =
     league?.members?.some((m) => m.id === player?.id && m.role === 'admin') ?? false;
@@ -332,26 +328,19 @@ function LeagueLeaderboardHeader({ slug }: { slug: string }) {
       {league?.description && (
         <p className="text-text-secondary font-sans text-sm mt-1">{league.description}</p>
       )}
-      <div className="mt-3 flex gap-2 flex-wrap">
+      <div className="mt-3 flex items-start gap-2 flex-wrap">
         {league?.join_code && (
           <Button size="sm" variant="accent" onClick={handleShare} className="gap-1.5">
             <Share2 className="h-3.5 w-3.5" aria-hidden />
             {shareStatus === 'copied' ? 'Copied!' : 'Invite'}
           </Button>
         )}
-        <Button asChild size="sm" variant="outline">
-          <Link to={`/leagues/${slug}/admin/members`}>Members</Link>
-        </Button>
         {isLeagueAdmin && (
-          <>
-            <Button asChild size="sm" variant="outline">
-              <Link to={`/leagues/${slug}/admin/invites`}>Invites</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link to={`/leagues/${slug}/admin/settings`}>Settings</Link>
-            </Button>
-          </>
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/leagues/${slug}/admin/invites`}>Invites</Link>
+          </Button>
         )}
+        <LeagueActionsMenu slug={slug} leagueName={league?.name ?? 'League'} isAdmin={isLeagueAdmin} />
       </div>
     </div>
   );
@@ -373,6 +362,10 @@ export function LeaderboardPage() {
   const [pulsingIds, setPulsingIds] = useState<ReadonlySet<string>>(() => new Set());
   // U22.3: which points period the rows show. 'total' is the default standings.
   const [period, setPeriod] = useState<LeaderboardPeriod>('total');
+  const { data: league } = useQuery<LeagueDetail>({
+    queryKey: ['league', leagueSlug],
+    queryFn: () => apiFetch<LeagueDetail>(`/api/v1/leagues/${leagueSlug}`),
+  });
 
   const { data = [], isLoading, error, refetch, isRefetching } = useQuery<LeaderboardEntry[]>({
     queryKey: ['leaderboard', leagueSlug],
@@ -384,7 +377,7 @@ export function LeaderboardPage() {
   // `ranked` is the canonical total-order standings — it drives the rank-change
   // pulse so toggling period never pulses. `displayData` is what we render,
   // re-sorted for the active period (idempotent for 'total').
-  const ranked = dedupedLeaderboard(data, leagueSlug);
+  const ranked = withLeagueRoster(data, leagueSlug, league?.members ?? null);
   const displayData = rankByPeriod(ranked, period);
   const showArrow = period === 'total';
 
@@ -446,7 +439,7 @@ export function LeaderboardPage() {
   if (isLoading) {
     return (
       <div>
-        <LeagueLeaderboardHeader slug={leagueSlug} />
+        <LeagueLeaderboardHeader league={league} slug={leagueSlug} />
         {!hintDismissed && (
           <div className="mb-4 flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-mono text-text-muted">
             <span>Long-press a row to compare</span>
@@ -479,7 +472,7 @@ export function LeaderboardPage() {
   if (error) {
     return (
       <div>
-        <LeagueLeaderboardHeader slug={leagueSlug} />
+        <LeagueLeaderboardHeader league={league} slug={leagueSlug} />
         <EmptyState
           title="Couldn't load the leaderboard"
           description="Refresh the page or check your connection."
@@ -495,7 +488,7 @@ export function LeaderboardPage() {
 
   return (
     <div>
-      <LeagueLeaderboardHeader slug={leagueSlug} />
+      <LeagueLeaderboardHeader league={league} slug={leagueSlug} />
 
       {!hintDismissed && (
         <div className="mb-4 flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-mono text-text-muted">

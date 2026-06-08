@@ -7,6 +7,7 @@ const KEYS = {
 export interface StoredPlayer {
   id: string;
   displayName: string;
+  email?: string | null;
   role: 'player' | 'admin';
   timezone: string;
   avatarUrl?: string | null;
@@ -36,14 +37,18 @@ export function getStoredPlayer(): StoredPlayer | null {
   }
 }
 
-export async function clearTokens(): Promise<void> {
-  Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+export async function clearApiCaches(): Promise<void> {
   if (typeof caches !== 'undefined') {
     await Promise.all([
       caches.delete('api-user-data'),
       caches.delete('api-matches'),
     ]);
   }
+}
+
+export async function clearTokens(): Promise<void> {
+  Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+  await clearApiCaches();
 }
 
 /** Decode JWT payload without verifying — used only to read exp for proactive refresh. */
@@ -63,4 +68,13 @@ export function isAccessTokenExpiringSoon(): boolean {
   const payload = jwtPayload(token);
   if (!payload || typeof payload.exp !== 'number') return true;
   return payload.exp - Date.now() / 1000 < 60;
+}
+
+/** Returns true only when the access token has actually passed its expiry. */
+export function isAccessTokenExpired(): boolean {
+  const token = getAccessToken();
+  if (!token) return true;
+  const payload = jwtPayload(token);
+  if (!payload || typeof payload.exp !== 'number') return true;
+  return payload.exp < Date.now() / 1000;
 }

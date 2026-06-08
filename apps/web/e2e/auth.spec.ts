@@ -17,6 +17,10 @@ test.describe('JWT refresh', () => {
       localStorage.setItem('wc2026_access', expiringJwt);
       localStorage.setItem('wc2026_refresh', 'old-refresh-token');
       localStorage.setItem('wc2026_player', JSON.stringify(player));
+      // Suppress first-run onboarding so FirstRunController doesn't redirect away
+      localStorage.setItem('sss_tour_seen', '1');
+      localStorage.setItem('sss_notif_prompt_seen', '1');
+      localStorage.setItem('sss_firstrun_launchpad_seen', '1');
     }, PLAYER);
 
     let refreshCalled = false;
@@ -70,6 +74,10 @@ test.describe('JWT refresh', () => {
       );
       localStorage.setItem('wc2026_refresh', 'valid-refresh-token');
       localStorage.setItem('wc2026_player', JSON.stringify(player));
+      // Suppress first-run onboarding so FirstRunController doesn't redirect away
+      localStorage.setItem('sss_tour_seen', '1');
+      localStorage.setItem('sss_notif_prompt_seen', '1');
+      localStorage.setItem('sss_firstrun_launchpad_seen', '1');
     }, PLAYER);
 
     let attempt = 0;

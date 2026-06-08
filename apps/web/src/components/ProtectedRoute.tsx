@@ -1,17 +1,19 @@
 import { Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { PinInput } from './PinInput';
 
 interface Props {
   requireAdmin?: boolean;
 }
 
 export function ProtectedRoute({ requireAdmin = false }: Props) {
-  const { player, biometricUnlockRequired } = useAuth();
+  const { player, sessionUnlockRequired } = useAuth();
 
-  if (biometricUnlockRequired) {
-    return <BiometricUnlockGate />;
+  if (sessionUnlockRequired) {
+    return <PinUnlockGate />;
   }
 
   if (!player) {
@@ -25,15 +27,17 @@ export function ProtectedRoute({ requireAdmin = false }: Props) {
   return <Outlet />;
 }
 
-function BiometricUnlockGate() {
-  const { biometricUnlockFailed, isLoading, unlockStoredSession } = useAuth();
+function PinUnlockGate() {
+  const { isLoading, logout, player, sessionUnlockError, unlockStoredSession } = useAuth();
   const navigate = useNavigate();
+  const [pin, setPin] = useState('');
 
-  const handleUnlock = async () => {
+  const handleUnlock = async (event: React.FormEvent) => {
+    event.preventDefault();
     try {
-      await unlockStoredSession();
+      await unlockStoredSession(pin);
     } catch {
-      // AuthContext flips biometricUnlockFailed; PIN remains available below.
+      setPin('');
     }
   };
 
@@ -45,21 +49,37 @@ function BiometricUnlockGate() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-text-secondary font-sans text-center">
-            Use Face ID or fingerprint to reopen your saved session. Your PIN always works too.
+            Re-enter your PIN to reopen this saved session.
           </p>
 
-          {biometricUnlockFailed && (
-            <p role="alert" className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning font-sans">
-              Biometric unlock was cancelled or unavailable. Sign in with your PIN instead.
+          {player && (
+            <p className="text-xs text-text-muted font-sans text-center">
+              Signed in as <span className="font-semibold text-text-primary">{player.displayName}</span> — not you?{' '}
+              <button
+                type="button"
+                className="text-primary underline-offset-2 hover:underline"
+                onClick={() => void logout()}
+              >
+                Log out
+              </button>
             </p>
           )}
 
-          <Button type="button" className="w-full" disabled={isLoading} onClick={() => void handleUnlock()}>
-            {isLoading ? 'Checking…' : 'Unlock with Face ID / fingerprint'}
-          </Button>
+          {sessionUnlockError && (
+            <p role="alert" className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning font-sans">
+              {sessionUnlockError}
+            </p>
+          )}
+
+          <form className="space-y-4" onSubmit={(event) => void handleUnlock(event)}>
+            <PinInput value={pin} onChange={setPin} autoComplete="current-password" />
+            <Button type="submit" className="w-full" disabled={isLoading || pin.length !== 4}>
+              {isLoading ? 'Checking…' : 'Unlock with PIN'}
+            </Button>
+          </form>
 
           <Button type="button" variant="outline" className="w-full" onClick={() => navigate('/login', { replace: true })}>
-            Use PIN instead
+            Sign in another way
           </Button>
         </CardContent>
       </Card>

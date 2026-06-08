@@ -376,7 +376,7 @@ Error responses:
 }
 ```
 
-Authentication is via JWT Bearer tokens. Access tokens expire after 24 hours; refresh tokens after 30 days. Rate limits apply to auth and abuse-prone paths.
+Authentication is via JWT Bearer tokens. Access tokens expire after 24 hours; refresh tokens after 30 days. A persisted browser/PWA session is PIN re-locked on reopen: protected routes do not mount until the player re-enters their PIN and `/auth/login` succeeds for the stored account. Rate limits apply to auth and abuse-prone paths.
 
 ### 4.1 Key Endpoints
 
@@ -908,6 +908,7 @@ Players authenticate with a display name + 4–8 digit PIN. No email required.
 - **Refresh token:** Opaque random string (32 bytes base64url), 30-day TTL, stored hashed (SHA-256) in `refresh_tokens` table
 - Frontend stores both in `localStorage`; access token sent as Bearer header; refresh token used only against `POST /auth/refresh`
 - 5 minutes before access token expiry, frontend silently calls `/auth/refresh` to get a new pair (refresh token rotated on every refresh)
+- Reopening an installed app or browser tab with a stored session shows a PIN unlock gate before protected data renders; the gate posts the stored email + entered PIN to `/auth/login` and offers "not you? Log out" for shared devices
 - `POST /auth/logout` invalidates the current refresh token
 
 **Join flow (invite):**

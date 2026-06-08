@@ -56,6 +56,11 @@ def _now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def _player_email(player: Profile) -> str | None:
+    email = getattr(player, "email", None)
+    return email if isinstance(email, str) else None
+
+
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
@@ -83,6 +88,7 @@ class TokenResponse(BaseModel):
 class PlayerInfo(BaseModel):
     id: str
     display_name: str
+    email: str | None = None
     role: str
     timezone: str
     avatar_url: str | None = None
@@ -251,8 +257,10 @@ async def signup(
         player=PlayerInfo(
             id=str(new_player.id),
             display_name=new_player.display_name,
+            email=_player_email(new_player),
             role=new_player.role.value,
             timezone=new_player.timezone,
+            avatar_url=new_player.avatar_url,
         ),
     )
 
@@ -439,8 +447,10 @@ async def login(
         player=PlayerInfo(
             id=str(player.id),
             display_name=player.display_name,
+            email=_player_email(player),
             role=player.role.value,
             timezone=player.timezone,
+            avatar_url=player.avatar_url,
         ),
     )
 
@@ -624,8 +634,10 @@ async def join(
         player=PlayerInfo(
             id=str(new_player.id),
             display_name=new_player.display_name,
+            email=_player_email(new_player),
             role=new_player.role.value,
             timezone=new_player.timezone,
+            avatar_url=new_player.avatar_url,
         ),
     )
 
@@ -729,8 +741,10 @@ async def join_by_code(
         player=PlayerInfo(
             id=str(new_player.id),
             display_name=new_player.display_name,
+            email=_player_email(new_player),
             role=new_player.role.value,
             timezone=new_player.timezone,
+            avatar_url=new_player.avatar_url,
         ),
     )
 
@@ -763,6 +777,7 @@ async def me(player: CurrentPlayer) -> PlayerInfo:
     return PlayerInfo(
         id=str(player.id),
         display_name=player.display_name,
+        email=_player_email(player),
         role=player.role.value,
         timezone=player.timezone,
         avatar_url=player.avatar_url,
@@ -816,6 +831,7 @@ async def update_avatar(
     return PlayerInfo(
         id=str(player.id),
         display_name=player.display_name,
+        email=_player_email(player),
         role=player.role.value,
         timezone=player.timezone,
         avatar_url=player.avatar_url,
@@ -873,6 +889,7 @@ async def upload_avatar_endpoint(
     return PlayerInfo(
         id=str(player.id),
         display_name=player.display_name,
+        email=_player_email(player),
         role=player.role.value,
         timezone=player.timezone,
         avatar_url=player.avatar_url,

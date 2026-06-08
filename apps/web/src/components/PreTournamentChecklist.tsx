@@ -115,8 +115,8 @@ export function PreTournamentChecklist({
             Pre-Tournament Checklist
           </h2>
           <p className="text-sm font-sans leading-relaxed text-text-secondary">
-            Your Specials and first match pick stay open until the opening match kicks off, so you
-            can set both any time before then.
+            This is your only checklist — just 3 things, all due before the opening match kicks off.
+            Nothing else is required until the tournament starts.
           </p>
         </div>
         <button

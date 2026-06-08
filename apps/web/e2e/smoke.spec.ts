@@ -8,7 +8,7 @@
  * Scoring expectation: predicted 1-0, actual 1-0, group stage → 7 pts
  *   (3 pts correct result + 4 pts exact score bonus).
  */
-import { type APIRequestContext, expect, test } from '@playwright/test';
+import { type APIRequestContext, type Locator, type Page, expect, test } from '@playwright/test';
 import { blockSupabase } from './helpers';
 
 const API_URL = 'http://localhost:8000';
@@ -20,6 +20,22 @@ const LEAGUE_SLUG = 'steele-spreadsheet';
 
 // Run all tests in this file in declaration order — each step feeds the next.
 test.describe.configure({ mode: 'serial' });
+
+async function fillPinGroup(group: Locator, pin: string) {
+  for (let i = 0; i < pin.length; i++) {
+    await group.getByLabel(`PIN digit ${i + 1}`).fill(pin[i]);
+  }
+}
+
+async function unlockStoredSessionIfNeeded(page: Page) {
+  const unlockHeading = page.getByRole('heading', { name: 'Unlock Calcio' });
+  const isLocked = await unlockHeading.isVisible({ timeout: 3_000 }).catch(() => false);
+  if (!isLocked) return;
+
+  const pinEntry = page.getByRole('group', { name: 'PIN', exact: true });
+  await fillPinGroup(pinEntry, PLAYER_PIN);
+  await page.getByRole('button', { name: 'Unlock with PIN' }).click();
+}
 
 test.describe('Smoke: join → predict → lock → score → leaderboard', () => {
   let api: APIRequestContext;
@@ -83,12 +99,8 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     // exact: true is required; without it 'PIN' substring-matches 'Confirm PIN' too
     const pinEntry = page.getByRole('group', { name: 'PIN', exact: true });
     const pinConfirm = page.getByRole('group', { name: 'Confirm PIN', exact: true });
-    for (let i = 0; i < PLAYER_PIN.length; i++) {
-      await pinEntry.getByLabel(`PIN digit ${i + 1}`).fill(PLAYER_PIN[i]);
-    }
-    for (let i = 0; i < PLAYER_PIN.length; i++) {
-      await pinConfirm.getByLabel(`PIN digit ${i + 1}`).fill(PLAYER_PIN[i]);
-    }
+    await fillPinGroup(pinEntry, PLAYER_PIN);
+    await fillPinGroup(pinConfirm, PLAYER_PIN);
     await page.getByRole('button', { name: /join league/i }).click();
 
     // If the join POST fails the page shows a [role="alert"] and stays put.
@@ -102,7 +114,9 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
       );
     }
 
-    await expect(page).toHaveURL('/', { timeout: 10_000 });
+    // After joining, new users are redirected to /about (U45 first-run flow).
+    // Match the full URL — the intermediate / may be too brief to observe.
+    await expect(page).toHaveURL(/\/(about)?$/, { timeout: 10_000 });
 
     // Capture all 3 auth keys so the leaderboard test can restore a full session.
     const stored = await page.evaluate(() => ({
@@ -149,16 +163,21 @@ test.describe('Smoke: join → predict → lock → score → leaderboard', () =
     // Restore all three auth keys so ProtectedRoute sees an authenticated session.
     // AuthContext reads wc2026_player synchronously on mount — setting only
     // wc2026_access would leave player=null and trigger a redirect to /login.
+    // Also set firstrun keys so FirstRunController doesn't redirect to /about.
     await page.addInitScript(
       ({ access, refresh, player }: { access: string; refresh: string; player: string }) => {
         localStorage.setItem('wc2026_access', access);
         localStorage.setItem('wc2026_refresh', refresh);
         localStorage.setItem('wc2026_player', player);
+        localStorage.setItem('sss_tour_seen', '1');
+        localStorage.setItem('sss_notif_prompt_seen', '1');
+        localStorage.setItem('sss_firstrun_launchpad_seen', '1');
       },
       { access: playerJwt, refresh: playerRefresh, player: playerStoredJson },
     );
 
     await page.goto(`/leagues/${LEAGUE_SLUG}/leaderboard`);
+    await unlockStoredSessionIfNeeded(page);
 
     // Wait for a row containing the smoke player's name.
     const playerRow = page

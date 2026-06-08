@@ -23,16 +23,18 @@ interface BrandProps {
  */
 export function Brand({
   variant = 'splash',
-  size = 32,
+  size,
   label = brand.full,
   decorative = false,
   className,
 }: BrandProps) {
+  const logoSize = size ?? 32;
+
   if (variant === 'primary' || variant === 'gold') {
     return (
       <CalcioLogo
         variant={variant}
-        size={size}
+        size={logoSize}
         label={label}
         decorative={decorative}
         className={className}
@@ -65,14 +67,14 @@ export function Brand({
         aria-hidden={decorative ? true : undefined}
         aria-label={decorative ? undefined : label}
       >
-        <CalcioLogo variant="primary" size={24} decorative />
+        <CalcioLogo variant="primary" size={size ?? 24} decorative />
         <span>CALCIO</span>
       </span>
     );
   }
 
   if (variant === 'mark') {
-    return <CalcioLogo variant="mark" size={size} label={label} decorative={decorative} className={className} />;
+    return <CalcioLogo variant="mark" size={logoSize} label={label} decorative={decorative} className={className} />;
   }
 
   if (variant === 'lockup') {

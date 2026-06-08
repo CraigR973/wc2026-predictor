@@ -15,6 +15,14 @@ function renderLogin() {
   );
 }
 
+function fillPin(digits: string) {
+  for (let i = 0; i < digits.length; i++) {
+    fireEvent.change(screen.getByLabelText(`PIN digit ${i + 1}`), {
+      target: { value: digits[i] },
+    });
+  }
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
@@ -78,5 +86,39 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert').textContent).toMatch(/invalid email or pin/i);
     });
+  });
+
+  it('clears API caches on successful login before the new identity is used', async () => {
+    const cachesDelete = vi.fn().mockResolvedValue(true);
+    vi.stubGlobal('caches', { delete: cachesDelete });
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            access_token: 'access-token',
+            refresh_token: 'refresh-token',
+            player: {
+              id: 'p1',
+              display_name: 'Alice',
+              email: 'alice@example.com',
+              role: 'player',
+              timezone: 'Europe/London',
+              avatar_url: null,
+            },
+          }),
+      }),
+    );
+
+    renderLogin();
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } });
+    fillPin('1234');
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(cachesDelete).toHaveBeenCalledWith('api-user-data');
+      expect(cachesDelete).toHaveBeenCalledWith('api-matches');
+    });
+    expect(localStorage.getItem('wc2026_player')).toContain('alice@example.com');
   });
 });

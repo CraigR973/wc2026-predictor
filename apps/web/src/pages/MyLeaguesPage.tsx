@@ -25,9 +25,9 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
     : undefined;
 
   return (
-    <Link to={`/leagues/${league.slug}`} className="block group">
-      <Card className="hover:border-primary/40 transition-colors group-hover:border-primary/40">
-        <CardHeader className="pb-2">
+    <Link to={`/leagues/${league.slug}`} className="block h-full group">
+      <Card className="flex h-full flex-col hover:border-primary/40 transition-colors group-hover:border-primary/40">
+        <CardHeader className="pb-2 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-base group-hover:text-primary transition-colors">
               {league.name}
@@ -37,13 +37,13 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
             </Badge>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-1 flex-col justify-between pt-0">
           {league.description && (
             <p className="text-sm text-text-secondary font-sans mb-3 line-clamp-2">
               {league.description}
             </p>
           )}
-          <div className="flex items-center gap-3 text-xs font-sans text-text-muted">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-sans text-text-muted">
             <span>
               {league.member_count}
               {league.max_members ? ` / ${league.max_members}` : ''} members
@@ -124,7 +124,7 @@ export function MyLeaguesPage() {
       )}
 
       {!isLoading && leagues && leagues.length > 0 && (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {leagues.map((l) => (
             <LeagueCard key={l.slug} league={l} />
           ))}
