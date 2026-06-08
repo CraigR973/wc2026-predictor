@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { clearApiCaches, clearTokens, getAccessToken, getRefreshToken, getStoredPlayer, isAccessTokenExpired, storeTokens, StoredPlayer } from '../lib/tokens';
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
@@ -44,6 +45,7 @@ function playerFromApiResponse(data: {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const initialPlayer = getStoredPlayer();
   const initialRequiresUnlock = !!initialPlayer && !!getRefreshToken() && isAccessTokenExpired();
   const [lockedPlayer, setLockedPlayer] = useState<StoredPlayer | null>(
@@ -71,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await resp.json();
       const player = playerFromApiResponse(data);
       await clearApiCaches();
+      queryClient.clear();
       storeTokens(data.access_token, data.refresh_token, player);
       setLockedPlayer(null);
       setState({ player, isLoading: false, sessionUnlockRequired: false, sessionUnlockError: null });
@@ -78,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState((s) => ({ ...s, isLoading: false }));
       throw err;
     }
-  }, []);
+  }, [queryClient]);
 
   const signup = useCallback(async (params: {
     email: string;
@@ -101,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await resp.json();
       const player = playerFromApiResponse(data);
       await clearApiCaches();
+      queryClient.clear();
       storeTokens(data.access_token, data.refresh_token, player);
       setLockedPlayer(null);
       setState({ player, isLoading: false, sessionUnlockRequired: false, sessionUnlockError: null });
@@ -108,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState((s) => ({ ...s, isLoading: false }));
       throw err;
     }
-  }, []);
+  }, [queryClient]);
 
   const logout = useCallback(async () => {
     const { getRefreshToken } = await import('../lib/tokens');
@@ -121,9 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }).catch(() => {});
     }
     await clearTokens();
+    queryClient.clear();
     setLockedPlayer(null);
     setState({ player: null, isLoading: false, sessionUnlockRequired: false, sessionUnlockError: null });
-  }, []);
+  }, [queryClient]);
 
   const updatePlayer = useCallback((patch: Partial<StoredPlayer>) => {
     setState((s) => {
@@ -158,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await resp.json();
       const player = playerFromApiResponse(data);
       await clearApiCaches();
+      queryClient.clear();
       storeTokens(data.access_token, data.refresh_token, player);
       setState({
         player,
@@ -175,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }));
       throw err;
     }
-  }, [lockedPlayer]);
+  }, [lockedPlayer, queryClient]);
 
   return (
     <AuthContext.Provider value={{ ...state, login, signup, logout, updatePlayer, unlockStoredSession }}>
