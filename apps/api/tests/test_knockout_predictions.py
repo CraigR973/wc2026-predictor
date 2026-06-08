@@ -4,7 +4,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -353,12 +353,16 @@ async def test_match_knockout_predictions_post_lock() -> None:
     profile = _make_player(player.id)
     db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])
 
-    async with _override(db, player):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(
-                f"/api/v1/knockout-predictions/match/{match.id}",
-                headers={"Authorization": "Bearer x"},
-            )
+    with patch(
+        "src.routers.knockout_predictions.shared_league_player_ids",
+        return_value=frozenset({player.id}),
+    ):
+        async with _override(db, player):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                resp = await client.get(
+                    f"/api/v1/knockout-predictions/match/{match.id}",
+                    headers={"Authorization": "Bearer x"},
+                )
 
     assert resp.status_code == 200
     data = resp.json()
@@ -395,12 +399,16 @@ async def test_match_knockout_predictions_kickoff_passed_while_scheduled_visible
     profile = _make_player(player.id)
     db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])
 
-    async with _override(db, player):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(
-                f"/api/v1/knockout-predictions/match/{match.id}",
-                headers={"Authorization": "Bearer x"},
-            )
+    with patch(
+        "src.routers.knockout_predictions.shared_league_player_ids",
+        return_value=frozenset({player.id}),
+    ):
+        async with _override(db, player):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                resp = await client.get(
+                    f"/api/v1/knockout-predictions/match/{match.id}",
+                    headers={"Authorization": "Bearer x"},
+                )
 
     assert resp.status_code == 200
     assert len(resp.json()["predictions"]) == 1
@@ -415,12 +423,16 @@ async def test_match_knockout_predictions_completed_visible() -> None:
     profile = _make_player(player.id)
     db = _stub_db([_scalar_one(match), _rows([(pred, profile)])])
 
-    async with _override(db, player):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get(
-                f"/api/v1/knockout-predictions/match/{match.id}",
-                headers={"Authorization": "Bearer x"},
-            )
+    with patch(
+        "src.routers.knockout_predictions.shared_league_player_ids",
+        return_value=frozenset({player.id}),
+    ):
+        async with _override(db, player):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                resp = await client.get(
+                    f"/api/v1/knockout-predictions/match/{match.id}",
+                    headers={"Authorization": "Bearer x"},
+                )
 
     assert resp.status_code == 200
 

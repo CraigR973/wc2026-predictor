@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
+from src.deps import shared_league_player_ids
 from src.models.match import Match
 from src.models.prediction import KnockoutPrediction
 from src.models.profile import Profile
@@ -195,6 +196,7 @@ async def match_knockout_predictions(
     )
     rows = result.all()
 
+    shared = await shared_league_player_ids(player.id, db)
     items = [
         MatchKnockoutPredictionItem(
             player_id=str(pred.player_id),
@@ -203,5 +205,6 @@ async def match_knockout_predictions(
             points_awarded=pred.points_awarded,
         )
         for pred, prof in rows
+        if pred.player_id in shared
     ]
     return MatchKnockoutPredictionsResponse(match_id=str(match_id), predictions=items)

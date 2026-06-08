@@ -286,6 +286,60 @@ async def test_match_predictions_filters_cross_league_players() -> None:
     assert "OtherPlayer" not in player_names
 
 
+@pytest.mark.asyncio
+async def test_match_knockout_predictions_filters_cross_league_players() -> None:
+    """GET /knockout-predictions/match/{id} omits cross-league players."""
+    requester = _profile()
+    shared_id = uuid.uuid4()
+    other_id = uuid.uuid4()
+
+    match = MagicMock(spec=Match)
+    match.id = uuid.uuid4()
+    match.status = MatchStatus.completed
+    match.kickoff_utc = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
+
+    shared_pred = MagicMock()
+    shared_pred.player_id = shared_id
+    shared_pred.predicted_winner_id = uuid.uuid4()
+    shared_pred.points_awarded = 10
+
+    other_pred = MagicMock()
+    other_pred.player_id = other_id
+    other_pred.predicted_winner_id = uuid.uuid4()
+    other_pred.points_awarded = 0
+
+    shared_profile = MagicMock()
+    shared_profile.display_name = "SharedKoPlayer"
+    other_profile = MagicMock()
+    other_profile.display_name = "OtherKoPlayer"
+
+    mock_db = _stub_db(
+        [
+            _scalar(match),
+            _rows([(shared_pred, shared_profile), (other_pred, other_profile)]),
+        ]
+    )
+
+    with patch(
+        "src.routers.knockout_predictions.shared_league_player_ids",
+        return_value=frozenset({requester.id, shared_id}),
+    ):
+        async with _override(requester, mock_db):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.get(
+                    f"/api/v1/knockout-predictions/match/{match.id}",
+                    headers={"Authorization": "Bearer x"},
+                )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    player_names = {p["player_name"] for p in data["predictions"]}
+    assert "SharedKoPlayer" in player_names
+    assert "OtherKoPlayer" not in player_names
+
+
 # ---------------------------------------------------------------------------
 # R12.2 — departed members drop off the leaderboard (DB-backed)
 # ---------------------------------------------------------------------------
