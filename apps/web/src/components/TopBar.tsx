@@ -98,14 +98,14 @@ export function TopBar() {
         <div className="flex md:hidden items-center w-full justify-between">
           {themeToggle}
           <NavLink to="/" aria-label="Home" className="press-down absolute left-1/2 -translate-x-1/2">
-            <Brand variant="compact" size={38} />
+            <Brand variant="compact" size={46} />
           </NavLink>
           {avatarMenu}
         </div>
 
         {/* ── Desktop layout (md+): brand | nav | toggle + badge + avatar ── */}
         <NavLink to="/" aria-label="Home" className="press-down hidden md:block shrink-0">
-          <Brand variant="compact" size={38} />
+          <Brand variant="compact" size={46} />
         </NavLink>
 
         <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1 flex-1">
