@@ -462,11 +462,13 @@ async def test_unknown_fd_match_id_backfills_ids_via_team_codes() -> None:
         home_tla="HOM",
         away_tla="AWY",
     )
-    factory, _ = _mock_session_factory([
-        _scalars([]),
-        _scalars([home_team, away_team]),
-        _scalars([match]),
-    ])
+    factory, _ = _mock_session_factory(
+        [
+            _scalars([]),
+            _scalars([home_team, away_team]),
+            _scalars([match]),
+        ]
+    )
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
