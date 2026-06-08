@@ -8,7 +8,9 @@ export interface InviteMessageParams {
 
 export function buildInviteMessage({ leagueName, joinCode, origin }: InviteMessageParams): string {
   return [
-    `Join me on Calcio — the World Cup 2026 prediction league.`,
+    `Join me on Calcio — the World Cup 2026 prediction app.`,
+    ``,
+    `Like fantasy football, you predict once and your picks automatically count across every league you join — so you can be in a mates league, a work league, whatever, all from one set of predictions.`,
     ``,
     `Pick scores match by match as the tournament unfolds — no bracket to fill in upfront, just predict each game before kick-off.`,
     ``,

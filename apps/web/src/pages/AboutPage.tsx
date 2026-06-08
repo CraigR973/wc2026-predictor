@@ -308,11 +308,12 @@ export function AboutPage() {
         className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 space-y-1"
       >
         <p className="text-base font-semibold font-sans text-text-primary">
-          Predict once &middot; join as many leagues as you like
+          Predict once &middot; compete in as many leagues as you like
         </p>
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
-          One set of picks, every league you&rsquo;re in — your predictions count in all of them
-          automatically.
+          Like fantasy football — you make one set of predictions and they automatically count
+          across every league you&rsquo;re in at the same time. Join your mates&rsquo; league, a
+          work league, a public league — one set of picks covers all of them.
         </p>
       </div>
 

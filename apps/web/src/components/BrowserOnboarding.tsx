@@ -31,6 +31,14 @@ export function BrowserOnboarding() {
         {/* About */}
         <div className="rounded-xl border border-border bg-surface px-5 py-5 space-y-3">
           <p className="text-base font-sans font-semibold text-text-primary">About</p>
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
+            <p className="text-sm font-sans font-semibold text-text-primary leading-snug">
+              Predict once — compete in as many leagues as you like
+            </p>
+            <p className="text-xs font-sans text-text-secondary leading-relaxed mt-1">
+              Like fantasy football, one set of picks counts across every league you join simultaneously.
+            </p>
+          </div>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
             Calcio is a multi-league World Cup 2026 prediction app.
             Pick scores match by match as the tournament unfolds — no bracket to fill in
