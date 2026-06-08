@@ -2002,3 +2002,13 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - All P1 checkboxes in `docs/final-review-plan.md` are now ticked except: flaky-test-suite cleanup + public-repo git-history secret scan (both deferred).
 
 **Next:** Review batch P2 — polish + prod launch prep (🟢 Sonnet)
+
+---
+
+## U51 — Join code hotfix
+**Commits:** 8cddb26 · CI ✅
+
+### Key facts for future sessions
+- `handleRotate` now reads `{ join_code }` from the rotate API response and calls `queryClient.setQueryData` immediately — eliminates the ~300–500ms window where the old code was still displayed after rotation (was the primary cause of "code not working after reset" reports).
+- Added `autoCorrect="off"` + `spellCheck={false}` to the code input in `JoinByCodePage.tsx` — iOS autocorrect was silently rewriting typed codes.
+- `POST /auth/join-by-code` rate limit raised 10→30/hour; was IP-keyed with no player key, so groups joining from the same WiFi/carrier shared the bucket.
