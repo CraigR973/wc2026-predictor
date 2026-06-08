@@ -496,10 +496,11 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
 
     await waitFor(() => expect(screen.getByText('Pre-Tournament Checklist')).toBeInTheDocument());
     expect(screen.getByText('Read the rules')).toBeInTheDocument();
-    const pointsColumn = screen.getByTestId('dashboard-points-column');
+    const scoringRef = screen.getByTestId('dashboard-scoring-ref');
     const scoringGuideButton = screen.getByRole('button', { name: /Scoring quick-ref/i });
 
-    expect(pointsColumn).toContainElement(scoringGuideButton);
+    expect(scoringRef).toContainElement(scoringGuideButton);
+    expect(screen.getByTestId('dashboard-points-column')).not.toContainElement(scoringGuideButton);
     expect(screen.queryByText('Your tally starts when the first results land.')).not.toBeInTheDocument();
   });
 });

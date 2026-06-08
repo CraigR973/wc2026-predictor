@@ -14,10 +14,7 @@ export function BrowserOnboarding() {
 
   const isIosChrome = isIos && !isIosSafari;
 
-  // Step numbering for the join steps — shifts down by 1 when there are no
-  // platform install steps (Android native prompt or non-iOS without prompt)
   const hasInstallStep = canInstall || isIos;
-  const n = (base: number) => `${hasInstallStep ? base : base - 1}.`;
 
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-6 pt-safe pb-safe">
@@ -142,14 +139,21 @@ export function BrowserOnboarding() {
               </li>
             )}
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
-              <span className="shrink-0 font-mono text-primary font-semibold">{n(3)}</span>
+              <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
+              <span>
+                If you are new, tap <strong className="text-text-primary">Create account</strong>
+                and finish signup
+              </span>
+            </li>
+            <li className="flex gap-3 text-sm font-sans text-text-secondary">
+              <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
               <span>
                 Tap <strong className="text-text-primary">Leagues → Join by code</strong> and
                 enter the join code you were sent
               </span>
             </li>
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
-              <span className="shrink-0 font-mono text-primary font-semibold">{n(4)}</span>
+              <span className="shrink-0 font-mono text-primary font-semibold">4.</span>
               <span>
                 Before the tournament starts, go to{' '}
                 <strong className="text-text-primary">Predict → Specials</strong> to lock in
@@ -169,10 +173,14 @@ export function BrowserOnboarding() {
             </li>
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
               <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
-              <span>Tap <strong className="text-text-primary">Leagues → Join by code</strong></span>
+              <span>If you are new, tap <strong className="text-text-primary">Create account</strong></span>
             </li>
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
               <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
+              <span>Tap <strong className="text-text-primary">Leagues → Join by code</strong></span>
+            </li>
+            <li className="flex gap-3 text-sm font-sans text-text-secondary">
+              <span className="shrink-0 font-mono text-primary font-semibold">4.</span>
               <span>Enter the join code you were sent</span>
             </li>
           </ol>

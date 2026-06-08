@@ -359,8 +359,8 @@ export function AboutPage() {
 
       <div className="rounded-lg border border-border bg-surface-elevated px-4 py-3">
         <p className="text-sm font-sans leading-relaxed text-text-secondary">
-          Scroll for the full rules. We only tick off &ldquo;Read the rules&rdquo; once you reach
-          the end of the tournament guide below.
+          Scroll for the full rules. We only tick off &ldquo;Read the rules&rdquo; in the
+          Pre-Tournament Checklist once you reach the end of the tournament guide below.
         </p>
       </div>
 
@@ -373,10 +373,10 @@ export function AboutPage() {
           <strong className="text-text-primary font-medium">at the same time</strong>.
         </p>
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
-          Start a <strong className="text-text-primary font-medium">private</strong> league for your
-          mates, open a <strong className="text-text-primary font-medium">public</strong> one anyone
-          can find and join, or join leagues other people have started — you can be in as many as you
-          like (15 players by default, up to 50). Predictions lock automatically, results are fetched
+          Start a <strong className="text-text-primary font-medium">private</strong> league, open a{' '}
+          <strong className="text-text-primary font-medium">public</strong> one anyone can find and
+          join, or join leagues other people have started — you can be in as many as you like (15
+          players by default, up to 50). Predictions lock automatically, results are fetched
           automatically, and every league&rsquo;s leaderboard updates in real time.
         </p>
       </Section>
@@ -494,7 +494,7 @@ export function AboutPage() {
             <>Tap an <strong className="text-text-primary font-semibold">invite link</strong> someone shares with you — the usual way into a private league.</>,
             <>Or enter a <strong className="text-text-primary font-semibold">join code</strong> under Leagues → Join by code.</>,
             <>Or <strong className="text-text-primary font-semibold">discover public leagues</strong> and join instantly — or request to join, where an admin approves you.</>,
-            <>Or <strong className="text-text-primary font-semibold">create your own</strong> league (private for your mates, or public for anyone) and invite people in.</>,
+            <>Or <strong className="text-text-primary font-semibold">create your own</strong> league (private or public) and invite people in.</>,
             'You make one set of predictions — they count in every league you join.',
           ]} />
 

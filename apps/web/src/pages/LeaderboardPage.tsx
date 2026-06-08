@@ -174,7 +174,7 @@ function LeaderboardRow({
           <Link
             to={`/players/${entry.player_id}`}
             className={cn(
-              'font-medium hover:text-primary transition-colors min-w-0 leading-tight break-words',
+              'font-medium hover:text-primary transition-colors min-w-0 leading-tight whitespace-normal break-normal',
               isMe ? 'text-primary' : 'text-text-primary',
             )}
             onPointerDown={(e) => e.stopPropagation()}
@@ -515,6 +515,14 @@ export function LeaderboardPage() {
           <PeriodToggle period={period} onChange={setPeriod} />
           <div className="rounded-lg border border-border bg-surface overflow-hidden">
             <table className="w-full table-fixed text-sm font-sans">
+              <colgroup>
+                <col className="w-8" />
+                <col />
+                <col className="w-7" />
+                <col className="w-7" />
+                <col className="w-7" />
+                <col className="w-12" />
+              </colgroup>
               <TiebreakHeader pointsLabel={PERIOD_LABELS[period]} />
               <tbody>
                 {displayData.map((entry) => {

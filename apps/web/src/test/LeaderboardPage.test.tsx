@@ -219,8 +219,13 @@ describe('LeaderboardPage', () => {
     renderLeaderboard();
 
     const nameLink = await screen.findByRole('link', { name: 'Alexandria Spreadsheet-Cunningham' });
-    expect(nameLink.className).toContain('break-words');
+    expect(nameLink.className).toContain('break-normal');
+    expect(nameLink.className).toContain('whitespace-normal');
     expect(nameLink.className).not.toContain('truncate');
+
+    const cols = document.querySelectorAll('colgroup col');
+    expect(cols).toHaveLength(6);
+    expect(cols[1].className).toBe('');
 
     const exHeader = screen.getByTitle('Exact scores');
     expect(exHeader.className).toContain('px-1');
