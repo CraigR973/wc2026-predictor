@@ -87,7 +87,7 @@ export function LeagueSettingsPage() {
               <Input
                 id="name"
                 required
-                maxLength={80}
+                maxLength={30}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
