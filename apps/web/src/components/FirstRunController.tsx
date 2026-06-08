@@ -5,20 +5,22 @@ import { markTourSeen, isTourSeen } from './IntroTour';
 
 type Step = 'about' | 'done';
 
-function initialStep(): Step {
-  if (!isTourSeen()) return 'about';
-  return 'done';
-}
-
 export function FirstRunController() {
   const { player, sessionUnlockRequired } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>(initialStep);
+  // Start as 'done' if global key set (returning user); re-evaluated per-user below.
+  const [step, setStep] = useState<Step>(() => (isTourSeen() ? 'done' : 'about'));
 
-  // New users land on About instead of the swipe tour.
+  // Re-check with per-user key once player identity is known.
+  // This catches new accounts on a device where a different account already exists.
+  useEffect(() => {
+    if (!player) return;
+    if (!isTourSeen(player.id)) setStep('about');
+  }, [player?.id]);
+
   useEffect(() => {
     if (step !== 'about' || !player || sessionUnlockRequired) return;
-    markTourSeen();
+    markTourSeen(player.id);
     navigate('/about');
     setStep('done');
   }, [step, navigate, player, sessionUnlockRequired]);

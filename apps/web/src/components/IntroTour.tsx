@@ -5,12 +5,17 @@ import { cn } from '@/lib/utils';
 
 const STORAGE_KEY = 'sss_tour_seen';
 
-export function markTourSeen(): void {
-  try { localStorage.setItem(STORAGE_KEY, '1'); } catch { /* ignore */ }
+export function markTourSeen(playerId?: string): void {
+  const key = playerId ? `${STORAGE_KEY}_${playerId}` : STORAGE_KEY;
+  try { localStorage.setItem(key, '1'); } catch { /* ignore */ }
 }
 
-export function isTourSeen(): boolean {
-  try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; }
+export function isTourSeen(playerId?: string): boolean {
+  try {
+    // Check per-user key first; fall back to global key for backward compat
+    if (playerId && localStorage.getItem(`${STORAGE_KEY}_${playerId}`) === '1') return true;
+    return localStorage.getItem(STORAGE_KEY) === '1';
+  } catch { return false; }
 }
 
 interface Slide {
