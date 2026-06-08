@@ -358,7 +358,8 @@ async def test_match_knockout_predictions_post_lock() -> None:
         return_value=frozenset({player.id}),
     ):
         async with _override(db, player):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
                 resp = await client.get(
                     f"/api/v1/knockout-predictions/match/{match.id}",
                     headers={"Authorization": "Bearer x"},
@@ -404,7 +405,8 @@ async def test_match_knockout_predictions_kickoff_passed_while_scheduled_visible
         return_value=frozenset({player.id}),
     ):
         async with _override(db, player):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
                 resp = await client.get(
                     f"/api/v1/knockout-predictions/match/{match.id}",
                     headers={"Authorization": "Bearer x"},
@@ -428,7 +430,8 @@ async def test_match_knockout_predictions_completed_visible() -> None:
         return_value=frozenset({player.id}),
     ):
         async with _override(db, player):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
                 resp = await client.get(
                     f"/api/v1/knockout-predictions/match/{match.id}",
                     headers={"Authorization": "Bearer x"},
