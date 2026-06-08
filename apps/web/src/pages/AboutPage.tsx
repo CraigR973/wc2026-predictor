@@ -13,8 +13,10 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Sparkles, Target } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/PageHeader';
 import { SpecialsForm } from '@/components/SpecialsForm';
+import { apiFetch } from '@/lib/api';
 import { markRulesRead } from '@/lib/checklist';
 import { cn } from '@/lib/utils';
 import {
@@ -298,6 +300,14 @@ export function AboutPage() {
     return () => observer.disconnect();
   }, []);
 
+  const { data: specialsData } = useQuery<{ predictions: Array<{ submitted_at: string | null }> }>({
+    queryKey: ['specials', 'me'],
+    queryFn: () => apiFetch('/api/v1/specials'),
+  });
+  const allSpecialsSubmitted = specialsData
+    ? specialsData.predictions.filter((p) => p.submitted_at != null).length === 6
+    : false;
+
   return (
     <div className="max-w-xl space-y-6">
       <PageHeader title="About" eyebrow="Calcio" showBack />
@@ -542,20 +552,6 @@ export function AboutPage() {
         </div>
       </Section>
 
-      {/* End-of-rules sentinel — triggers "Read the rules" checklist tick */}
-      <div
-        ref={rulesEndRef}
-        data-testid="about-rules-end"
-        className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-4"
-      >
-        <p className="text-sm font-sans font-semibold text-text-primary">
-          That&apos;s everything.
-        </p>
-        <p className="mt-1 text-sm font-sans leading-relaxed text-text-secondary">
-          Set your Specials below — editable until the opening match kicks off.
-        </p>
-      </div>
-
       {/* How it was built */}
       <Section title="How it was built">
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
@@ -609,6 +605,25 @@ export function AboutPage() {
         </div>
       </Section>
 
+      {/* End-of-rules sentinel — triggers "Read the rules" checklist tick */}
+      <div
+        ref={rulesEndRef}
+        data-testid="about-rules-end"
+        className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-4"
+      >
+        <p className="text-sm font-sans font-semibold text-text-primary">
+          That&apos;s everything.
+        </p>
+        <p className="mt-1 text-sm font-sans leading-relaxed text-text-secondary">
+          Set your Specials below — editable until the opening match kicks off. You can also
+          edit them any time at{' '}
+          <Link to="/predictions/specials" className="text-primary underline-offset-2 hover:underline">
+            Predict → Specials
+          </Link>
+          .
+        </p>
+      </div>
+
       {/* Embedded Specials form */}
       <section
         id="specials-form"
@@ -631,6 +646,19 @@ export function AboutPage() {
           </p>
         </div>
         <SpecialsForm />
+        <Link
+          to="/"
+          aria-disabled={!allSpecialsSubmitted}
+          tabIndex={allSpecialsSubmitted ? 0 : -1}
+          className={cn(
+            'flex w-full items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold font-sans transition-colors',
+            allSpecialsSubmitted
+              ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
+              : 'pointer-events-none border-border bg-surface text-text-muted opacity-50',
+          )}
+        >
+          {allSpecialsSubmitted ? '✓ Specials saved — go to home hub →' : 'Save all 6 Specials to continue'}
+        </Link>
       </section>
 
       {/* Footer credit */}

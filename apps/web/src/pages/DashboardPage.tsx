@@ -20,7 +20,6 @@ import type {
   PredictionResponse,
 } from '../lib/types';
 
-const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 function SectionHeader({ id, children }: { id: string; children: ReactNode }) {
   return (
@@ -497,23 +496,21 @@ function CompactLeagueCard({ entry }: { entry: PerLeagueEntry }) {
     <Link
       to={`/leagues/${slug}/leaderboard`}
       aria-label={`Open ${name} leaderboard`}
-      className="flex flex-col justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-3 transition-colors hover:border-primary/50 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
+      className="flex flex-col justify-between gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-2.5 transition-colors hover:border-primary/50 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
       data-testid="league-row-link"
     >
       <span className="truncate font-sans text-sm font-semibold text-text-primary leading-tight">
         {name}
       </span>
       <div className="flex items-center justify-between gap-1">
-        {rank !== null ? (
-          <span className="flex items-center gap-1.5 font-mono text-xs tabular-nums text-text-muted">
-            <span className="text-text-primary font-semibold">{MEDAL[rank] ?? `#${rank}`}</span>
+        {rank !== null && (
+          <span className="flex items-center gap-1 font-mono text-xs tabular-nums text-text-muted">
+            <span className="text-text-primary font-semibold">#{rank}</span>
             <span className="opacity-60">of {member_count}</span>
             <DeltaBadge delta={rank_delta} />
           </span>
-        ) : (
-          <span className="font-sans text-xs text-text-muted">No results yet</span>
         )}
-        <ChevronRight className="h-3 w-3 shrink-0 text-text-muted" aria-hidden />
+        <ChevronRight className="h-3 w-3 shrink-0 text-text-muted ml-auto" aria-hidden />
       </div>
     </Link>
   );
@@ -622,6 +619,18 @@ export function DashboardPage() {
             {perLeague.map((entry) => (
               <CompactLeagueCard key={entry.slug} entry={entry} />
             ))}
+          </div>
+        </section>
+      ) : !summaryLoading ? (
+        <section aria-labelledby="home-leagues-label">
+          <SectionHeader id="home-leagues-label">My Leagues</SectionHeader>
+          <div className="rounded-lg border border-border bg-surface px-4 py-4 text-center space-y-3">
+            <p className="text-sm font-sans text-text-secondary">You&rsquo;re not in any leagues yet.</p>
+            <div className="flex justify-center gap-2 flex-wrap">
+              <Link to="/leagues/new" className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-sans text-primary hover:bg-primary/20 transition-colors">+ Create</Link>
+              <Link to="/leagues/join" className="rounded-full border border-border px-3 py-1 text-xs font-sans text-text-secondary hover:bg-surface-elevated transition-colors">Join</Link>
+              <Link to="/leagues/discover" className="rounded-full border border-border px-3 py-1 text-xs font-sans text-text-secondary hover:bg-surface-elevated transition-colors">Discover</Link>
+            </div>
           </div>
         </section>
       ) : null}
