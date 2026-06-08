@@ -1971,3 +1971,18 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - Three existing tests in `test_knockout_predictions.py` (post-lock / kickoff-passed / completed visible) needed `patch("src.routers.knockout_predictions.shared_league_player_ids", ...)` added after the IDOR fix.
 
 **Next:** Review batch R2 — Tournament ops (🟢 Sonnet)
+
+---
+
+## Review batch R2 — Tournament ops
+**Commits:** d13b2a9, 845e9d5 · CI ✅
+
+### Key facts for future sessions
+- `sync_results` now calls `sync_knockout_bracket` after a finished result (gated on a `"finished"` MatchUpdate) — the auto path's equivalent of the manual endpoints' `_maybe_resync_knockout`. Best-effort + idempotent; without it R16+ fixtures stayed on TBD.
+- Test infra: `test_result_sync.py` has an autouse `_no_bracket_sync` fixture stubbing the resolver — the real one issues extra `session.execute` calls that would exhaust the fixed mock side-effect queue.
+- GAP-01: admin Invites page (`/admin/invites`) now uses the per-league endpoints (`/leagues/{slug}/invites`); `POST /admin/invites` was removed in M8. A site superadmin bypasses `require_league_admin`, so any slug works (league list sourced from `/admin/leagues`).
+- GAP-02: new `GET /admin/results/pending` (locked/live, no result) backs the manual-entry form; `AdminMatchResultResponse` gained optional `stage` + `home_team_id`/`away_team_id` for the penalty-winner pick on knockout draws.
+- football-data client retries 5xx with backoff (was abort-on-first) and wraps httpx network + non-429 4xx errors as `FootballDataError` (feeds the consecutive-failure counter/alert). The two single-5xx tests now supply 4 responses + patch `asyncio.sleep`.
+- e2e gotcha: `admin.spec.ts` asserts `getByText('Override')` for the source badge → the override action button is labelled **"Edit"** to avoid a strict-mode collision. Don't reintroduce an "Override"-labelled control on ResultsPage.
+
+**Next:** Review batch R3 — P1 remediation (🔴 Opus)
