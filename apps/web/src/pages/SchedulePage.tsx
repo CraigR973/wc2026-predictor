@@ -125,6 +125,11 @@ function MatchCard({
         </div>
 
         <div className="flex items-center gap-2 mt-1">
+          {match.group_name && (
+            <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider shrink-0">
+              Group {match.group_name}
+            </span>
+          )}
           {match.venue && (
             <span className="text-xs text-text-muted font-sans truncate">{match.venue}</span>
           )}

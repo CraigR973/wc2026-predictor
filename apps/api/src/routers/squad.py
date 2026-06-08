@@ -9,7 +9,7 @@ Rate-limited to 120/minute per IP.
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
@@ -48,13 +48,20 @@ async def search_squad(
         return []
 
     q_lower = q.lower()
-    like_pat = f"%{q_lower}%"
+
+    # unaccent() strips diacritics on both sides so "martinez" matches
+    # "Martínez", "Rodriguez" matches "Rodríguez", etc.
+    ua_full = func.unaccent(func.lower(SquadPlayer.full_name))
+    ua_known = func.unaccent(func.lower(SquadPlayer.known_as))
+    ua_q_lit = func.unaccent(func.lower(literal(q_lower)))
+    ua_like = func.concat(literal("%"), ua_q_lit, literal("%"))
+    ua_prefix = func.concat(ua_q_lit, literal("%"))
 
     conditions = [
         SquadPlayer.is_active.is_(True),
         or_(
-            func.lower(SquadPlayer.full_name).like(like_pat),
-            func.lower(SquadPlayer.known_as).like(like_pat),
+            ua_full.like(ua_like),
+            ua_known.like(ua_like),
         ),
     ]
     if position is not None:
@@ -73,15 +80,14 @@ async def search_squad(
         )
         .join(Team, SquadPlayer.team_id == Team.id)
         .where(*conditions)
-        # Rank: known_as prefix match → full_name prefix match → other
+        # Rank: known_as prefix match → full_name prefix match → substring
         .order_by(
-            # 0 = known_as starts with query (best), 1 = full_name prefix, 2 = substring
             case(
-                (func.lower(SquadPlayer.known_as).like(f"{q_lower}%"), 0),
-                (func.lower(SquadPlayer.full_name).like(f"{q_lower}%"), 1),
+                (ua_known.like(ua_prefix), 0),
+                (ua_full.like(ua_prefix), 1),
                 else_=2,
             ),
-            SquadPlayer.known_as,
+            SquadPlayer.full_name,
         )
         .limit(limit)
     )

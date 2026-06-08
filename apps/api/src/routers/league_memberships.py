@@ -29,6 +29,7 @@ from src.routers.leagues import (
     _resolve_active_membership,
     _upsert_membership,
 )
+from src.services.notification_triggers import notify_member_joined
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -87,6 +88,7 @@ async def claim_invite_authenticated(
 
     await _upsert_membership(league.id, player.id, db)
     db.add(_audit(player, ActionType.member_joined, "league_memberships", league.id))
+    await notify_member_joined(db, player.display_name, league.name)
 
     invite.claimed_by = player.id
     invite.claimed_at = _now()
@@ -140,6 +142,7 @@ async def join_league_by_code(
 
     await _upsert_membership(league.id, player.id, db)
     db.add(_audit(player, ActionType.member_joined, "league_memberships", league.id))
+    await notify_member_joined(db, player.display_name, league.name)
     await db.commit()
     log.info("joined by code", league_id=str(league.id), player_id=str(player.id))
     return JoinByCodeResponse(league_slug=league.slug, league_name=league.name)

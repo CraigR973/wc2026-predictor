@@ -21,6 +21,7 @@ class NotificationType(StrEnum):
     match_postponed = "match_postponed"
     kickoff_changed = "kickoff_changed"
     invite_accepted = "invite_accepted"
+    member_joined = "member_joined"
     auto_sync_failed = "auto_sync_failed"
     special_results = "special_results"
 

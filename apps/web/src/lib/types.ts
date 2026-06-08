@@ -10,6 +10,7 @@ export interface MatchResponse {
   match_number: number;
   stage: string;
   group_id: string | null;
+  group_name: string | null;
   home_team: TeamRef | null;
   away_team: TeamRef | null;
   home_team_placeholder: string | null;
@@ -129,6 +130,7 @@ export interface RoundEntry {
   rank: number;
   player_id: string;
   player_name: string;
+  avatar_url?: string | null;
   points: number;
   // U38 tiebreak counts, scoped to this stage. Specials are tournament-long, so
   // the round cascade stops at KO-winner picks.

@@ -245,7 +245,7 @@ async def notify_invite_accepted(
     session: AsyncSession,
     new_player_name: str,
 ) -> None:
-    """Notify admins when a player joins."""
+    """Notify admins when a brand-new player signs up via invite."""
     admins = await _admin_players(session)
     for admin in admins:
         await send_notification(
@@ -254,6 +254,23 @@ async def notify_invite_accepted(
             NotificationType.invite_accepted,
             "New player joined",
             f"{new_player_name} has joined the league!",
+        )
+
+
+async def notify_member_joined(
+    session: AsyncSession,
+    player_name: str,
+    league_name: str,
+) -> None:
+    """Notify admins when an existing player joins a league via code or invite."""
+    admins = await _admin_players(session)
+    for admin in admins:
+        await send_notification(
+            session,
+            admin.id,
+            NotificationType.member_joined,
+            f"New member: {league_name}",
+            f"{player_name} has joined {league_name}.",
         )
 
 

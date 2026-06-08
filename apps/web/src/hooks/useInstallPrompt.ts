@@ -8,6 +8,13 @@ interface BeforeInstallPromptEvent extends Event {
 export interface InstallPromptState {
   /** Running in standalone PWA mode — gate should not show. */
   isInstalled: boolean;
+  /**
+   * True immediately after the user accepts the Android install prompt —
+   * the app is installed but they are still in the browser tab. Use this to
+   * show a "now open from your home screen" message instead of revealing the
+   * full app in the browser.
+   */
+  justInstalled: boolean;
   /** iOS device (any browser). */
   isIos: boolean;
   /** iOS Safari specifically — the only iOS browser that can install PWAs natively. */
@@ -33,6 +40,7 @@ export function detectStandalone(): boolean {
 export function useInstallPrompt(): InstallPromptState {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(detectStandalone);
+  const [justInstalled, setJustInstalled] = useState(false);
 
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   const isIos = /iphone|ipad|ipod/i.test(ua);
@@ -47,6 +55,7 @@ export function useInstallPrompt(): InstallPromptState {
     };
     const handleAppInstalled = () => {
       setIsInstalled(true);
+      setJustInstalled(true);
       setDeferredPrompt(null);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
@@ -62,14 +71,15 @@ export function useInstallPrompt(): InstallPromptState {
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     setDeferredPrompt(null);
-    // If accepted, the 'appinstalled' event will fire and set isInstalled.
-    // If dismissed, the gate persists — they can try again once the browser
-    // re-arms the event.
-    if (outcome === 'accepted') setIsInstalled(true);
+    if (outcome === 'accepted') {
+      setIsInstalled(true);
+      setJustInstalled(true);
+    }
   }, [deferredPrompt]);
 
   return {
     isInstalled,
+    justInstalled,
     isIos,
     isIosSafari,
     isAndroid,

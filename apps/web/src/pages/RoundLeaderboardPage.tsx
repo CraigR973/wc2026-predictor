@@ -6,6 +6,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { Avatar } from '../components/ui/avatar';
 import { cn } from '../lib/utils';
 
 const STAGES = [
@@ -139,13 +140,14 @@ export function RoundLeaderboardPage() {
                     {MEDAL[entry.rank] ?? entry.rank}
                   </td>
                   <td className="py-3 min-w-0">
-                    <div className="flex min-w-0 items-center gap-1.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Avatar name={entry.player_name} size="sm" src={entry.avatar_url} className="shrink-0" />
                       <span className="truncate text-text-primary font-medium">
                         {entry.player_name}
                       </span>
                       {entry.tied && (
                         <span
-                          className="shrink-0 text-[9px] font-mono uppercase tracking-[0.15em] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded-sm"
+                          className="shrink-0 text-[9px] font-mono uppercase tracking-[0.15em] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-1 rounded-sm"
                           title="Level on every tiebreaker this round"
                         >
                           tied

@@ -101,6 +101,9 @@ class TiebreakOverrideResponse(BaseModel):
 class AdminPlayerResponse(BaseModel):
     id: str
     display_name: str
+    first_name: str
+    last_name: str
+    email: str
     role: str
     timezone: str
     is_deleted: bool
@@ -307,6 +310,9 @@ async def list_all_players(
         AdminPlayerResponse(
             id=str(p.id),
             display_name=p.display_name,
+            first_name=p.first_name,
+            last_name=p.last_name,
+            email=p.email,
             role=p.role.value,
             timezone=p.timezone,
             is_deleted=p.deleted_at is not None,

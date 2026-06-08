@@ -96,6 +96,7 @@ class RoundEntryOut(BaseModel):
     rank: int
     player_id: str
     player_name: str
+    avatar_url: str | None = None
     points: int
     # U38 tiebreak counts, scoped to this stage. Specials are tournament-long and
     # not attributable to a round, so the round cascade stops at KO-winner picks.
@@ -336,6 +337,7 @@ async def _round_leaderboard(
                 rank=rank,
                 player_id=str(m.id),
                 player_name=m.display_name,
+                avatar_url=m.avatar_url,
                 points=a[0],
                 exact_count=a[1],
                 correct_result_count=a[2],

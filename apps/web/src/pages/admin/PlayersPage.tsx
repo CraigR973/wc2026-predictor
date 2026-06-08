@@ -22,6 +22,9 @@ import {
 interface AdminPlayer {
   id: string;
   display_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
   role: string;
   timezone: string;
   is_deleted: boolean;
@@ -153,13 +156,19 @@ export function AdminPlayersPage() {
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-text-primary font-sans">
-                        {p.display_name}
+                        {p.first_name} {p.last_name}
                       </span>
+                      {p.display_name !== `${p.first_name} ${p.last_name}` && (
+                        <span className="text-xs text-text-muted font-sans">({p.display_name})</span>
+                      )}
                       {p.role === 'admin' && <Badge variant="accent">admin</Badge>}
                       {p.is_deleted && <Badge variant="error">removed</Badge>}
                     </div>
+                    <p className="text-xs text-text-muted font-sans mt-0.5">
+                      {p.email}
+                    </p>
                     <p className="text-xs text-text-muted font-sans mt-0.5">
                       {p.timezone} · joined {new Date(p.created_at + 'Z').toLocaleDateString()}
                     </p>
