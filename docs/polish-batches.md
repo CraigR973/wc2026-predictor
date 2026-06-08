@@ -2172,7 +2172,7 @@ Young-Player filter was dropped (no squad birthdate data, not worth hand-sourcin
 |---|---|---|---|---|
 | ~~U44~~ | ~~🔴 Opus~~ | ~~~4 h~~ | ~~U44.1–U44.6~~ | ✅ Shipped 2026-06-07 |
 | ~~U45~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U45.1–U45.6~~ | ✅ Shipped 2026-06-08 |
-| U46 | 🟢 Sonnet | ~3 h | U46.1–U46.6 | Pending |
+| ~~U46~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U46.1–U46.6~~ | ✅ Shipped 2026-06-08 |
 | U47 | 🟢 Sonnet | ~1.5 h | U47.1–U47.5 | Pending |
 
 ---
