@@ -555,30 +555,6 @@ export function AboutPage() {
         </p>
       </div>
 
-      {/* U45.3 — Embedded Specials form */}
-      <section
-        id="specials-form"
-        data-testid="about-specials-section"
-        aria-labelledby="about-specials-heading"
-        className="space-y-4"
-      >
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary mb-1">
-            Pre-tournament bonus
-          </p>
-          <h2
-            id="about-specials-heading"
-            className="text-lg font-semibold font-sans text-text-primary tracking-tight"
-          >
-            Your Specials
-          </h2>
-          <p className="mt-1 text-sm font-sans text-text-secondary leading-relaxed">
-            Six bonus predictions worth up to 80 points — editable until the opening match kicks off.
-          </p>
-        </div>
-        <SpecialsForm />
-      </section>
-
       {/* How it was built */}
       <Section title="How it was built">
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
@@ -631,6 +607,30 @@ export function AboutPage() {
           </div>
         </div>
       </Section>
+
+      {/* Embedded Specials form */}
+      <section
+        id="specials-form"
+        data-testid="about-specials-section"
+        aria-labelledby="about-specials-heading"
+        className="space-y-4"
+      >
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary mb-1">
+            Pre-tournament bonus
+          </p>
+          <h2
+            id="about-specials-heading"
+            className="text-lg font-semibold font-sans text-text-primary tracking-tight"
+          >
+            Your Specials
+          </h2>
+          <p className="mt-1 text-sm font-sans text-text-secondary leading-relaxed">
+            Six bonus predictions worth up to 80 points — editable until the opening match kicks off.
+          </p>
+        </div>
+        <SpecialsForm />
+      </section>
 
       {/* Footer credit */}
       <div className="space-y-2 pb-2">

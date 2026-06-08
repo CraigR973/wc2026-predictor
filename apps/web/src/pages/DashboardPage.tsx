@@ -490,31 +490,31 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   );
 }
 
-function CompactLeagueRow({ entry }: { entry: PerLeagueEntry }) {
+function CompactLeagueCard({ entry }: { entry: PerLeagueEntry }) {
   const { rank, member_count, name, slug, rank_delta } = entry;
 
   return (
     <Link
       to={`/leagues/${slug}/leaderboard`}
       aria-label={`Open ${name} leaderboard`}
-      className="flex items-center gap-3 border-b border-border/50 px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
+      className="flex flex-col justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-3 transition-colors hover:border-primary/50 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
       data-testid="league-row-link"
     >
-      <span className="min-w-[9rem] flex-1 truncate font-sans text-sm font-medium text-text-primary">
+      <span className="truncate font-sans text-sm font-semibold text-text-primary leading-tight">
         {name}
       </span>
-      {rank !== null ? (
-        <span className="flex shrink-0 items-center gap-2 font-mono text-xs tabular-nums">
-          <span className="text-text-muted">
-            {MEDAL[rank] ?? `#${rank}`}
-            <span className="font-sans opacity-60"> of {member_count}</span>
+      <div className="flex items-center justify-between gap-1">
+        {rank !== null ? (
+          <span className="flex items-center gap-1.5 font-mono text-xs tabular-nums text-text-muted">
+            <span className="text-text-primary font-semibold">{MEDAL[rank] ?? `#${rank}`}</span>
+            <span className="opacity-60">of {member_count}</span>
+            <DeltaBadge delta={rank_delta} />
           </span>
-          <DeltaBadge delta={rank_delta} />
-        </span>
-      ) : (
-        <span className="shrink-0 font-sans text-xs text-text-muted">—</span>
-      )}
-      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
+        ) : (
+          <span className="font-sans text-xs text-text-muted">No results yet</span>
+        )}
+        <ChevronRight className="h-3 w-3 shrink-0 text-text-muted" aria-hidden />
+      </div>
     </Link>
   );
 }
@@ -618,9 +618,9 @@ export function DashboardPage() {
       ) : perLeague.length > 0 ? (
         <section aria-labelledby="home-leagues-label">
           <SectionHeader id="home-leagues-label">My Leagues</SectionHeader>
-          <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+          <div className="grid grid-cols-2 gap-2">
             {perLeague.map((entry) => (
-              <CompactLeagueRow key={entry.slug} entry={entry} />
+              <CompactLeagueCard key={entry.slug} entry={entry} />
             ))}
           </div>
         </section>

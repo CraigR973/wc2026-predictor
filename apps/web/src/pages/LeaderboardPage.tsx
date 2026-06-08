@@ -21,6 +21,12 @@ import { cn } from '../lib/utils';
 
 const HINT_DISMISSED_KEY = 'sss_leaderboard_hint_dismissed';
 
+function shortenName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= 1) return name;
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
 interface RankDelta {
   direction: 'up' | 'down' | 'flat';
   delta: number;
@@ -110,21 +116,19 @@ function TiebreakHeader({
         <th rowSpan={2} className="py-2.5 pr-1 text-left align-bottom">
           Player
         </th>
-        <th colSpan={3} className="px-0.5 sm:px-1 text-center align-bottom">
-          Tiebreakers
-        </th>
+        <th colSpan={3} className="px-0.5 sm:px-1 text-center align-bottom" />
         <th rowSpan={2} className="py-2.5 pr-3 sm:pr-5 pl-0.5 text-right w-12 align-bottom">
           {pointsLabel}
         </th>
       </tr>
       <tr className="border-b border-border text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Exact scores">
+        <th className="w-[1%] whitespace-nowrap py-2 px-2 sm:px-3 text-right" title="Exact scores">
           Ex
         </th>
-        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Correct results">
+        <th className="w-[1%] whitespace-nowrap py-2 px-2 sm:px-3 text-right" title="Correct results">
           Res
         </th>
-        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Correct goal totals">
+        <th className="w-[1%] whitespace-nowrap py-2 px-2 sm:px-3 text-right" title="Correct goal totals">
           Gls
         </th>
       </tr>
@@ -180,7 +184,7 @@ function LeaderboardRow({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
-            {entry.player_name}
+            {shortenName(entry.player_name)}
           </Link>
           {entry.tied && (
             <span
@@ -197,13 +201,13 @@ function LeaderboardRow({
           )}
         </div>
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-2 sm:px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.exact_count ?? 0}
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-2 sm:px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_result_count ?? 0}
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-2 sm:px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_goals_count ?? 0}
       </td>
       <td className="py-3.5 pr-3 sm:pr-5 pl-0.5 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">

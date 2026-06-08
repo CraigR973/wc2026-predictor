@@ -188,10 +188,20 @@ def create_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         check_deadline_warnings,
-        kwargs={"session_factory": AsyncSessionLocal},
+        kwargs={"session_factory": AsyncSessionLocal, "warning_minutes": 15},
         trigger="interval",
         minutes=1,
-        id="deadline_warnings",
+        id="deadline_warnings_15",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        check_deadline_warnings,
+        kwargs={"session_factory": AsyncSessionLocal, "warning_minutes": 60},
+        trigger="interval",
+        minutes=1,
+        id="deadline_warnings_60",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
