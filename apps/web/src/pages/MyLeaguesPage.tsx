@@ -71,7 +71,7 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
             ) : null}
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary transition-colors group-hover:text-accent">
-            Open league
+            View →
           </span>
         </CardContent>
       </Card>

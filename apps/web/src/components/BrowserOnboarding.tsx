@@ -32,7 +32,7 @@ export function BrowserOnboarding() {
         <div className="rounded-xl border border-border bg-surface px-5 py-5 space-y-3">
           <p className="text-base font-sans font-semibold text-text-primary">About</p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            Calcio is a private World Cup 2026 prediction league.
+            Calcio is a multi-league World Cup 2026 prediction app.
             Pick scores match by match as the tournament unfolds — no bracket to fill in
             upfront, just predict each game before kick-off.
           </p>
@@ -41,9 +41,15 @@ export function BrowserOnboarding() {
             next iteration.
           </p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            One important note: go to{' '}
-            <strong className="text-text-primary">Predict → Specials</strong> before the
-            tournament starts to lock in your tournament award picks.
+            Once you&apos;re in, make sure you complete your pre-tournament checklist before the opening match kicks off:
+          </p>
+          <ol className="text-sm font-sans text-text-secondary leading-relaxed list-decimal list-inside space-y-1 pl-1">
+            <li>Read the About page</li>
+            <li>Predict your Specials</li>
+            <li>Predict your first match</li>
+          </ol>
+          <p className="text-xs font-sans text-text-muted leading-relaxed">
+            (All editable up until kick-off of the first game)
           </p>
         </div>
 
