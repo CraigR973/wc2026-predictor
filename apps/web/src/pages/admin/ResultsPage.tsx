@@ -336,7 +336,7 @@ export function AdminResultsPage() {
                       {fmtKickoff(m.kickoff_utc)}
                     </span>
                     <Button variant="outline" size="sm" onClick={() => openOverride(m)}>
-                      Override
+                      Edit
                     </Button>
                   </div>
                 </CardContent>
