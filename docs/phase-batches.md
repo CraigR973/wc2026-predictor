@@ -54,3 +54,4 @@ Ad-hoc UI polish and snag-fix sessions. Not tied to architecture phases — logg
 | ~~U46/U47~~ | ~~🟢 Sonnet~~ | ~~Hub cards, home polish, mobile snags, LeagueActionsMenu pills, leaderboard names, scoring guide~~ | ~~17ff63b, 59df545, 4b8c2fc~~ | ✅ Shipped 2026-06-07 |
 | ~~U48~~ | ~~🟢 Sonnet~~ | ~~Multi-league messaging, invite copy, pre-tournament tasks non-clickable, avatar lightbox, back button, compact league cards~~ | ~~f3657e1, 0eece3c, f0f7177, 44659c7, 65c5cce, b630b5f~~ | ✅ Shipped 2026-06-08 |
 | ~~U49~~ | ~~🟢 Sonnet~~ | ~~queryClient.clear() on auth change, per-user sss_tour_seen key, compact league card single-line rank, dummy account timezone fix~~ | ~~2b66b4d, 1a1e193~~ | ✅ Shipped 2026-06-08 |
+| ~~U50~~ | ~~🟢 Sonnet~~ | ~~Prod launch hotfix: football-data ID auto-backfill shipped, Railway prod backend redeployed to `1702dc0`, prod team/match football-data IDs backfilled to zero nulls~~ | ~~186366b, 5db1394, 1702dc0~~ | ✅ Shipped 2026-06-08 |
