@@ -41,3 +41,16 @@ Per `docs/multi-league-architecture.md` § 8. Each row = one session. Order is s
 | ~~M10~~ | ~~🟢 Sonnet~~ | ~~M10~~ | ✅ Shipped 2026-05-30 |
 
 Mark batches complete by striking through the row or removing it.
+
+---
+
+## Polish / UX snags
+
+Ad-hoc UI polish and snag-fix sessions. Not tied to architecture phases — logged here for audit trail.
+
+| Batch | Model | Description | Commits | Status |
+|---|---|---|---|---|
+| ~~U45~~ | ~~🟢 Sonnet~~ | ~~About-first onboarding, pre-tournament guardrail, SpecialsForm embedded, FirstRunController redirect~~ | ~~9fdf29c, 53729f5, 5befaa2, 8deb150, 344350f~~ | ✅ Shipped 2026-06-07 |
+| ~~U46/U47~~ | ~~🟢 Sonnet~~ | ~~Hub cards, home polish, mobile snags, LeagueActionsMenu pills, leaderboard names, scoring guide~~ | ~~17ff63b, 59df545, 4b8c2fc~~ | ✅ Shipped 2026-06-07 |
+| ~~U48~~ | ~~🟢 Sonnet~~ | ~~Multi-league messaging, invite copy, pre-tournament tasks non-clickable, avatar lightbox, back button, compact league cards~~ | ~~f3657e1, 0eece3c, f0f7177, 44659c7, 65c5cce, b630b5f~~ | ✅ Shipped 2026-06-08 |
+| ~~U49~~ | ~~🟢 Sonnet~~ | ~~queryClient.clear() on auth change, per-user sss_tour_seen key, compact league card single-line rank, dummy account timezone fix~~ | ~~2b66b4d, 1a1e193~~ | ✅ Shipped 2026-06-08 |

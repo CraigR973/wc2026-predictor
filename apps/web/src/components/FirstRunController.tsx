@@ -1,42 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { isFirstRunLaunchpadSeen } from '@/lib/firstRunLaunchpad';
 import { markTourSeen, isTourSeen } from './IntroTour';
-import { FirstRunLaunchpad } from './FirstRunLaunchpad';
-import { NotificationsPromptModal, isNotifPromptSeen } from './NotificationsPromptModal';
 
-type Step = 'about' | 'notif' | 'checklist' | 'done';
-
-function initialStep(): Step {
-  if (!isTourSeen()) return 'about';
-  if (!isNotifPromptSeen()) return 'notif';
-  if (!isFirstRunLaunchpadSeen()) return 'checklist';
-  return 'done';
-}
+type Step = 'about' | 'done';
 
 export function FirstRunController() {
   const { player, sessionUnlockRequired } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>(initialStep);
+  // Start as 'done' if global key set (returning user); re-evaluated per-user below.
+  const [step, setStep] = useState<Step>(() => (isTourSeen() ? 'done' : 'about'));
 
-  // New users land on About instead of the swipe tour.
+  // Re-check with per-user key once player identity is known.
+  // This catches new accounts on a device where a different account already exists.
+  useEffect(() => {
+    if (!player) return;
+    if (!isTourSeen(player.id)) setStep('about');
+  }, [player?.id]);
+
   useEffect(() => {
     if (step !== 'about' || !player || sessionUnlockRequired) return;
-    markTourSeen();
+    markTourSeen(player.id);
     navigate('/about');
-    setStep(!isNotifPromptSeen() ? 'notif' : (!isFirstRunLaunchpadSeen() ? 'checklist' : 'done'));
+    setStep('done');
   }, [step, navigate, player, sessionUnlockRequired]);
 
-  if (!player || sessionUnlockRequired || step === 'done' || step === 'about') return null;
-
-  if (step === 'notif') {
-    return (
-      <NotificationsPromptModal
-        onClose={() => setStep(isFirstRunLaunchpadSeen() ? 'done' : 'checklist')}
-      />
-    );
-  }
-
-  return <FirstRunLaunchpad onClose={() => setStep('done')} />;
+  return null;
 }

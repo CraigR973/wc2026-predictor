@@ -26,8 +26,11 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
 
   return (
     <Link to={`/leagues/${league.slug}`} className="block h-full group">
-      <Card className="flex h-full flex-col hover:border-primary/40 transition-colors group-hover:border-primary/40">
-        <CardHeader className="pb-2 space-y-2">
+      <Card className="flex h-full min-h-[156px] flex-col border-border/80 bg-gradient-to-br from-surface-elevated via-surface to-surface hover:border-primary/50 transition-colors group-hover:border-primary/50">
+        <CardHeader className="pb-3 space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-text-muted">
+            League hub
+          </p>
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-base group-hover:text-primary transition-colors">
               {league.name}
@@ -37,14 +40,14 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col justify-between pt-0">
+        <CardContent className="flex flex-1 flex-col justify-between pt-0 gap-4">
           {league.description && (
-            <p className="text-sm text-text-secondary font-sans mb-3 line-clamp-2">
+            <p className="text-sm text-text-secondary font-sans line-clamp-2">
               {league.description}
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-sans text-text-muted">
-            <span>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-sans text-text-muted">
+            <span className="rounded-full border border-border bg-surface px-2.5 py-1">
               {league.member_count}
               {league.max_members ? ` / ${league.max_members}` : ''} members
             </span>
@@ -52,17 +55,24 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
               <Skeleton className="h-3 w-20" />
             ) : myEntry ? (
               <>
-                <span className="text-border">·</span>
-                <span data-testid={`rank-${league.slug}`}>
+                <span
+                  data-testid={`rank-${league.slug}`}
+                  className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary"
+                >
                   Rank <span className="font-semibold text-text-primary">#{myEntry.rank}</span>
                 </span>
-                <span className="text-border">·</span>
-                <span data-testid={`points-${league.slug}`}>
+                <span
+                  data-testid={`points-${league.slug}`}
+                  className="rounded-full border border-accent/20 bg-accent/10 px-2.5 py-1 text-accent"
+                >
                   <span className="font-semibold text-text-primary">{myEntry.total_points}</span> pts
                 </span>
               </>
             ) : null}
           </div>
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary transition-colors group-hover:text-accent">
+            View →
+          </span>
         </CardContent>
       </Card>
     </Link>
@@ -80,6 +90,9 @@ export function MyLeaguesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <PageHeader title="My Leagues" />
+          <p className="mt-2 max-w-xl text-sm font-sans leading-relaxed text-text-secondary">
+            Your league hubs, shortcuts, and current standing in one place.
+          </p>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap">
           <Button asChild variant="outline" size="sm">

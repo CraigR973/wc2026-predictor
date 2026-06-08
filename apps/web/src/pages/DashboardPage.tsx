@@ -20,7 +20,6 @@ import type {
   PredictionResponse,
 } from '../lib/types';
 
-const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 function SectionHeader({ id, children }: { id: string; children: ReactNode }) {
   return (
@@ -107,11 +106,11 @@ function PointsTile({
       className="flex h-full min-h-[184px] flex-col justify-between rounded-[1.25rem] border border-border bg-gradient-to-br from-surface-elevated via-surface to-surface p-4 shadow-sm transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:shadow-glow sm:p-5"
       data-testid="points-tile"
     >
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">Points</p>
+      <div className="text-center">
         <p className="mt-2 font-mono text-4xl font-semibold leading-none tabular-nums text-primary sm:text-5xl">
           {points}
         </p>
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">Points</p>
       </div>
 
       <div className="space-y-2 border-t border-border/60 pt-3">
@@ -140,9 +139,6 @@ function PointsTile({
           </>
         ) : (
           <>
-            <p className="text-sm leading-relaxed text-text-muted">
-              Your tally starts when the first results land.
-            </p>
             {inlineSlot?.kind === 'next' && (
               <div
                 className="rounded-2xl border border-border/60 bg-surface/80 px-3 py-2.5"
@@ -476,48 +472,31 @@ function LiveMatchCarousel({
 
 type PerLeagueEntry = CrossLeagueSummary['per_league'][number];
 
-function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta === null) return null;
-  if (delta === 0) return <span className="font-mono text-xs text-text-muted tabular-nums">▬</span>;
-  if (delta > 0) {
-    return (
-      <span className="font-mono text-xs text-success tabular-nums" aria-label={`up ${delta}`}>
-        ↑{delta}
-      </span>
-    );
-  }
-  return (
-    <span className="font-mono text-xs text-live tabular-nums" aria-label={`down ${Math.abs(delta)}`}>
-      ↓{Math.abs(delta)}
-    </span>
-  );
+
+function rankColor(delta: number | null): string {
+  if (delta === null || delta === 0) return 'text-text-muted';
+  return delta > 0 ? 'text-success' : 'text-live';
 }
 
-function CompactLeagueRow({ entry }: { entry: PerLeagueEntry }) {
-  const { rank, member_count, name, slug, rank_delta } = entry;
+function CompactLeagueCard({ entry }: { entry: PerLeagueEntry }) {
+  const { rank, name, slug, rank_delta } = entry;
 
   return (
     <Link
       to={`/leagues/${slug}/leaderboard`}
       aria-label={`Open ${name} leaderboard`}
-      className="flex items-center gap-3 border-b border-border/50 px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
+      className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-2.5 transition-colors hover:border-primary/50 hover:bg-surface-elevated focus-visible:outline-none focus-visible:shadow-glow"
       data-testid="league-row-link"
     >
-      <span className="min-w-0 flex-1 truncate font-sans text-sm font-medium text-text-primary">
+      <span className="truncate font-sans text-sm font-semibold text-text-primary leading-tight flex-1">
         {name}
       </span>
-      {rank !== null ? (
-        <span className="flex shrink-0 items-center gap-2 font-mono text-xs tabular-nums">
-          <span className="text-text-muted">
-            {MEDAL[rank] ?? `#${rank}`}
-            <span className="font-sans opacity-60"> of {member_count}</span>
-          </span>
-          <DeltaBadge delta={rank_delta} />
+      {rank !== null && (
+        <span className={`shrink-0 font-mono text-xs tabular-nums font-semibold ${rankColor(rank_delta)}`}>
+          #{rank}{rank_delta !== null && rank_delta !== 0 ? (rank_delta > 0 ? ' ↑' : ' ↓') : ''}
         </span>
-      ) : (
-        <span className="shrink-0 font-sans text-xs text-text-muted">—</span>
       )}
-      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
+      <ChevronRight className="h-3 w-3 shrink-0 text-text-muted" aria-hidden />
     </Link>
   );
 }
@@ -583,26 +562,33 @@ export function DashboardPage() {
           className="grid grid-cols-[minmax(0,0.92fr)_minmax(0,1.48fr)] gap-3"
           data-testid="dashboard-top-row"
         >
-          <PointsTile
-            playerId={player?.id}
-            points={points}
-            rollup={home?.rollup ?? null}
-            inlineSlot={inlineSlot}
-            timezone={timezone}
-            isLoading={loadingTopRow}
-          />
-          {liveMatches.length > 0 ? (
-            <LiveMatchCarousel
-              matches={liveMatches}
-              predByMatch={predByMatch}
-              knockoutPredByMatch={knockoutPredByMatch}
+          <div data-testid="dashboard-points-column">
+            <PointsTile
+              playerId={player?.id}
+              points={points}
+              rollup={home?.rollup ?? null}
+              inlineSlot={inlineSlot}
               timezone={timezone}
+              isLoading={loadingTopRow}
             />
-          ) : inlineSlot ? (
-            <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} prediction={predByMatch[inlineSlot.match.id]} timezone={timezone} />
-          ) : (
-            <Skeleton className="h-full min-h-[184px] rounded-[1.25rem]" />
-          )}
+          </div>
+          <div>
+            {liveMatches.length > 0 ? (
+              <LiveMatchCarousel
+                matches={liveMatches}
+                predByMatch={predByMatch}
+                knockoutPredByMatch={knockoutPredByMatch}
+                timezone={timezone}
+              />
+            ) : inlineSlot ? (
+              <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} prediction={predByMatch[inlineSlot.match.id]} timezone={timezone} />
+            ) : (
+              <Skeleton className="h-full min-h-[184px] rounded-[1.25rem]" />
+            )}
+          </div>
+        </div>
+        <div className="mt-3" data-testid="dashboard-scoring-ref">
+          <ScoringGuide storageKey="sss_scoring_guide_home_v2_open" defaultOpen={false} />
         </div>
       </div>
 
@@ -614,10 +600,22 @@ export function DashboardPage() {
       ) : perLeague.length > 0 ? (
         <section aria-labelledby="home-leagues-label">
           <SectionHeader id="home-leagues-label">My Leagues</SectionHeader>
-          <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+          <div className={`grid gap-2 ${perLeague.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {perLeague.map((entry) => (
-              <CompactLeagueRow key={entry.slug} entry={entry} />
+              <CompactLeagueCard key={entry.slug} entry={entry} />
             ))}
+          </div>
+        </section>
+      ) : !summaryLoading ? (
+        <section aria-labelledby="home-leagues-label">
+          <SectionHeader id="home-leagues-label">My Leagues</SectionHeader>
+          <div className="rounded-lg border border-border bg-surface px-4 py-4 text-center space-y-3">
+            <p className="text-sm font-sans text-text-secondary">You&rsquo;re not in any leagues yet.</p>
+            <div className="flex justify-center gap-2 flex-wrap">
+              <Link to="/leagues/new" className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-sans text-primary hover:bg-primary/20 transition-colors">+ Create</Link>
+              <Link to="/leagues/join" className="rounded-full border border-border px-3 py-1 text-xs font-sans text-text-secondary hover:bg-surface-elevated transition-colors">Join</Link>
+              <Link to="/leagues/discover" className="rounded-full border border-border px-3 py-1 text-xs font-sans text-text-secondary hover:bg-surface-elevated transition-colors">Discover</Link>
+            </div>
           </div>
         </section>
       ) : null}
@@ -628,8 +626,6 @@ export function DashboardPage() {
         specialsSubmitted={home?.todo?.specials_submitted}
         isLoading={homeLoading}
       />
-
-      <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
     </div>
   );
 }

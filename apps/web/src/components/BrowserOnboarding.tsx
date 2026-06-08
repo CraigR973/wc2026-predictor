@@ -14,10 +14,7 @@ export function BrowserOnboarding() {
 
   const isIosChrome = isIos && !isIosSafari;
 
-  // Step numbering for the join steps — shifts down by 1 when there are no
-  // platform install steps (Android native prompt or non-iOS without prompt)
   const hasInstallStep = canInstall || isIos;
-  const n = (base: number) => `${hasInstallStep ? base : base - 1}.`;
 
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-6 pt-safe pb-safe">
@@ -34,8 +31,16 @@ export function BrowserOnboarding() {
         {/* About */}
         <div className="rounded-xl border border-border bg-surface px-5 py-5 space-y-3">
           <p className="text-base font-sans font-semibold text-text-primary">About</p>
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
+            <p className="text-sm font-sans font-semibold text-text-primary leading-snug">
+              Predict once — compete in as many leagues as you like
+            </p>
+            <p className="text-xs font-sans text-text-secondary leading-relaxed mt-1">
+              Like fantasy football, one set of picks counts across every league you join simultaneously.
+            </p>
+          </div>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            Calcio is a private World Cup 2026 prediction league.
+            Calcio is a multi-league World Cup 2026 prediction app.
             Pick scores match by match as the tournament unfolds — no bracket to fill in
             upfront, just predict each game before kick-off.
           </p>
@@ -44,9 +49,15 @@ export function BrowserOnboarding() {
             next iteration.
           </p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            One important note: go to{' '}
-            <strong className="text-text-primary">Predict → Specials</strong> before the
-            tournament starts to lock in your tournament award picks.
+            Once you&apos;re in, make sure you complete your pre-tournament checklist before the opening match kicks off:
+          </p>
+          <ol className="text-sm font-sans text-text-secondary leading-relaxed list-decimal list-inside space-y-1 pl-1">
+            <li>Read the About page</li>
+            <li>Predict your Specials</li>
+            <li>Predict your first match</li>
+          </ol>
+          <p className="text-xs font-sans text-text-muted leading-relaxed">
+            (All editable up until kick-off of the first game)
           </p>
         </div>
 
@@ -142,14 +153,21 @@ export function BrowserOnboarding() {
               </li>
             )}
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
-              <span className="shrink-0 font-mono text-primary font-semibold">{n(3)}</span>
+              <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
+              <span>
+                If you are new, tap <strong className="text-text-primary">Create account</strong>
+                and finish signup
+              </span>
+            </li>
+            <li className="flex gap-3 text-sm font-sans text-text-secondary">
+              <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
               <span>
                 Tap <strong className="text-text-primary">Leagues → Join by code</strong> and
                 enter the join code you were sent
               </span>
             </li>
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
-              <span className="shrink-0 font-mono text-primary font-semibold">{n(4)}</span>
+              <span className="shrink-0 font-mono text-primary font-semibold">4.</span>
               <span>
                 Before the tournament starts, go to{' '}
                 <strong className="text-text-primary">Predict → Specials</strong> to lock in
@@ -169,10 +187,14 @@ export function BrowserOnboarding() {
             </li>
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
               <span className="shrink-0 font-mono text-primary font-semibold">2.</span>
-              <span>Tap <strong className="text-text-primary">Leagues → Join by code</strong></span>
+              <span>If you are new, tap <strong className="text-text-primary">Create account</strong></span>
             </li>
             <li className="flex gap-3 text-sm font-sans text-text-secondary">
               <span className="shrink-0 font-mono text-primary font-semibold">3.</span>
+              <span>Tap <strong className="text-text-primary">Leagues → Join by code</strong></span>
+            </li>
+            <li className="flex gap-3 text-sm font-sans text-text-secondary">
+              <span className="shrink-0 font-mono text-primary font-semibold">4.</span>
               <span>Enter the join code you were sent</span>
             </li>
           </ol>

@@ -3,7 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { toast } from 'sonner';
-import { Camera } from 'lucide-react';
+import { Camera, X } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogClose,
+} from '../components/ui/dialog';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatSubmitTime } from '../lib/format';
@@ -355,6 +360,7 @@ export function PlayerProfilePage() {
   // Avatar upload state — only active when isSelf
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
 
   const handleAvatarChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -482,9 +488,39 @@ export function PlayerProfilePage() {
 
   return (
     <div className="space-y-7">
+      {/* Avatar lightbox — shown for both self and others when avatar is clicked */}
+      <Dialog open={avatarLightboxOpen} onOpenChange={setAvatarLightboxOpen}>
+        <DialogContent className="flex flex-col items-center gap-4 max-w-xs p-6">
+          <DialogClose className="absolute right-3 top-3 rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:shadow-glow">
+            <X className="h-4 w-4" aria-hidden />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+          {stats.avatar_url ? (
+            <img
+              src={stats.avatar_url}
+              alt={stats.player_name}
+              className="h-40 w-40 rounded-full object-cover"
+            />
+          ) : (
+            <Avatar name={stats.player_name} size="lg" />
+          )}
+          <p className="text-sm font-semibold font-sans text-text-primary">{stats.player_name}</p>
+          {isSelf && (
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => { setAvatarLightboxOpen(false); fileRef.current?.click(); }}
+              className="text-sm font-sans text-primary hover:underline disabled:opacity-50"
+            >
+              {uploading ? 'Uploading…' : 'Change photo'}
+            </button>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="flex items-center gap-4">
         {isSelf ? (
-          /* Own profile — avatar is a clickable upload trigger */
+          /* Own profile — click opens lightbox; file input hidden for upload */
           <div className="relative shrink-0">
             <input
               ref={fileRef}
@@ -497,12 +533,11 @@ export function PlayerProfilePage() {
             <button
               type="button"
               disabled={uploading}
-              onClick={() => fileRef.current?.click()}
+              onClick={() => setAvatarLightboxOpen(true)}
               className="relative group rounded-full focus-visible:outline-none focus-visible:shadow-glow disabled:opacity-60"
-              aria-label={uploading ? 'Uploading…' : 'Change avatar photo'}
+              aria-label={uploading ? 'Uploading…' : 'View or change avatar photo'}
             >
               <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
-              {/* Camera overlay on hover/focus */}
               <span
                 aria-hidden
                 className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"
@@ -512,13 +547,26 @@ export function PlayerProfilePage() {
             </button>
           </div>
         ) : (
-          /* Other players — view-only */
-          <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+          /* Other players — click opens lightbox */
+          <button
+            type="button"
+            onClick={() => setAvatarLightboxOpen(true)}
+            className="relative group rounded-full focus-visible:outline-none focus-visible:shadow-glow shrink-0"
+            aria-label="View avatar photo"
+          >
+            <Avatar name={stats.player_name} size="lg" src={stats.avatar_url} />
+            {stats.avatar_url && (
+              <span
+                aria-hidden
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"
+              />
+            )}
+          </button>
         )}
         <PageHeader
           title={stats.player_name}
           eyebrow={`${stats.total_predictions_settled} predictions settled`}
-          back={{ to: '/leagues', label: 'Leagues' }}
+          back={{ label: 'Back' }}
         />
       </div>
 

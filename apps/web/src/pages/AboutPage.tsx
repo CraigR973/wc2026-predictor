@@ -13,8 +13,10 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Sparkles, Target } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/PageHeader';
 import { SpecialsForm } from '@/components/SpecialsForm';
+import { apiFetch } from '@/lib/api';
 import { markRulesRead } from '@/lib/checklist';
 import { cn } from '@/lib/utils';
 import {
@@ -298,6 +300,14 @@ export function AboutPage() {
     return () => observer.disconnect();
   }, []);
 
+  const { data: specialsData } = useQuery<{ predictions: Array<{ submitted_at: string | null }> }>({
+    queryKey: ['specials', 'me'],
+    queryFn: () => apiFetch('/api/v1/specials'),
+  });
+  const allSpecialsSubmitted = specialsData
+    ? specialsData.predictions.filter((p) => p.submitted_at != null).length === 6
+    : false;
+
   return (
     <div className="max-w-xl space-y-6">
       <PageHeader title="About" eyebrow="Calcio" showBack />
@@ -308,11 +318,12 @@ export function AboutPage() {
         className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 space-y-1"
       >
         <p className="text-base font-semibold font-sans text-text-primary">
-          Predict once &middot; join as many leagues as you like
+          Predict once &middot; compete in as many leagues as you like
         </p>
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
-          One set of picks, every league you&rsquo;re in — your predictions count in all of them
-          automatically.
+          Like fantasy football — you make one set of predictions and they automatically count
+          across every league you&rsquo;re in at the same time. Join your mates&rsquo; league, a
+          work league, a public league — one set of picks covers all of them.
         </p>
       </div>
 
@@ -325,42 +336,35 @@ export function AboutPage() {
           Your 2 pre-tournament tasks
         </p>
         <div className="space-y-2">
-          <a
-            href="#specials-form"
-            className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-overlay focus-visible:outline-none focus-visible:shadow-glow"
-          >
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <Sparkles className="h-4 w-4 text-primary" aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold font-sans text-text-primary">Set your Specials</span>
               <span className="block text-xs font-sans text-text-secondary mt-0.5">
-                6 bonus picks — editable until the opening match kicks off
+                Scroll down on this page to the Specials form
               </span>
             </span>
-            <span className="text-xs font-sans text-text-muted shrink-0">↓ scroll</span>
-          </a>
-          <Link
-            to="/predictions"
-            className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-overlay focus-visible:outline-none focus-visible:shadow-glow"
-          >
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <Target className="h-4 w-4 text-primary" aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold font-sans text-text-primary">Predict your first match</span>
               <span className="block text-xs font-sans text-text-secondary mt-0.5">
-                Any match before it kicks off — no single deadline
+                Go to Predict &rsaquo; Matches
               </span>
             </span>
-          </Link>
+          </div>
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-surface-elevated px-4 py-3">
         <p className="text-sm font-sans leading-relaxed text-text-secondary">
-          Scroll for the full rules. We only tick off &ldquo;Read the rules&rdquo; once you reach
-          the end of the tournament guide below.
+          Scroll for the full rules. We only tick off &ldquo;Read the rules&rdquo; in the
+          Pre-Tournament Checklist once you reach the end of the tournament guide below.
         </p>
       </div>
 
@@ -373,10 +377,10 @@ export function AboutPage() {
           <strong className="text-text-primary font-medium">at the same time</strong>.
         </p>
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
-          Start a <strong className="text-text-primary font-medium">private</strong> league for your
-          mates, open a <strong className="text-text-primary font-medium">public</strong> one anyone
-          can find and join, or join leagues other people have started — you can be in as many as you
-          like (15 players by default, up to 50). Predictions lock automatically, results are fetched
+          Start a <strong className="text-text-primary font-medium">private</strong> league, open a{' '}
+          <strong className="text-text-primary font-medium">public</strong> one anyone can find and
+          join, or join leagues other people have started — you can be in as many as you like (15
+          players by default, up to 50). Predictions lock automatically, results are fetched
           automatically, and every league&rsquo;s leaderboard updates in real time.
         </p>
       </Section>
@@ -494,7 +498,7 @@ export function AboutPage() {
             <>Tap an <strong className="text-text-primary font-semibold">invite link</strong> someone shares with you — the usual way into a private league.</>,
             <>Or enter a <strong className="text-text-primary font-semibold">join code</strong> under Leagues → Join by code.</>,
             <>Or <strong className="text-text-primary font-semibold">discover public leagues</strong> and join instantly — or request to join, where an admin approves you.</>,
-            <>Or <strong className="text-text-primary font-semibold">create your own</strong> league (private for your mates, or public for anyone) and invite people in.</>,
+            <>Or <strong className="text-text-primary font-semibold">create your own</strong> league (private or public) and invite people in.</>,
             'You make one set of predictions — they count in every league you join.',
           ]} />
 
@@ -540,44 +544,6 @@ export function AboutPage() {
           </WhyCard>
         </div>
       </Section>
-
-      {/* End-of-rules sentinel — triggers "Read the rules" checklist tick */}
-      <div
-        ref={rulesEndRef}
-        data-testid="about-rules-end"
-        className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-4"
-      >
-        <p className="text-sm font-sans font-semibold text-text-primary">
-          That&apos;s everything.
-        </p>
-        <p className="mt-1 text-sm font-sans leading-relaxed text-text-secondary">
-          Set your Specials below — editable until the opening match kicks off.
-        </p>
-      </div>
-
-      {/* U45.3 — Embedded Specials form */}
-      <section
-        id="specials-form"
-        data-testid="about-specials-section"
-        aria-labelledby="about-specials-heading"
-        className="space-y-4"
-      >
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary mb-1">
-            Pre-tournament bonus
-          </p>
-          <h2
-            id="about-specials-heading"
-            className="text-lg font-semibold font-sans text-text-primary tracking-tight"
-          >
-            Your Specials
-          </h2>
-          <p className="mt-1 text-sm font-sans text-text-secondary leading-relaxed">
-            Six bonus predictions worth up to 80 points — editable until the opening match kicks off.
-          </p>
-        </div>
-        <SpecialsForm />
-      </section>
 
       {/* How it was built */}
       <Section title="How it was built">
@@ -631,6 +597,62 @@ export function AboutPage() {
           </div>
         </div>
       </Section>
+
+      {/* End-of-rules sentinel — triggers "Read the rules" checklist tick */}
+      <div
+        ref={rulesEndRef}
+        data-testid="about-rules-end"
+        className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-4"
+      >
+        <p className="text-sm font-sans font-semibold text-text-primary">
+          That&apos;s everything.
+        </p>
+        <p className="mt-1 text-sm font-sans leading-relaxed text-text-secondary">
+          Set your Specials below — editable until the opening match kicks off. You can also
+          edit them any time at{' '}
+          <Link to="/predictions/specials" className="text-primary underline-offset-2 hover:underline">
+            Predict → Specials
+          </Link>
+          .
+        </p>
+      </div>
+
+      {/* Embedded Specials form */}
+      <section
+        id="specials-form"
+        data-testid="about-specials-section"
+        aria-labelledby="about-specials-heading"
+        className="space-y-4"
+      >
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary mb-1">
+            Pre-tournament bonus
+          </p>
+          <h2
+            id="about-specials-heading"
+            className="text-lg font-semibold font-sans text-text-primary tracking-tight"
+          >
+            Your Specials
+          </h2>
+          <p className="mt-1 text-sm font-sans text-text-secondary leading-relaxed">
+            Six bonus predictions worth up to 80 points — editable until the opening match kicks off.
+          </p>
+        </div>
+        <SpecialsForm />
+        <Link
+          to="/"
+          aria-disabled={!allSpecialsSubmitted}
+          tabIndex={allSpecialsSubmitted ? 0 : -1}
+          className={cn(
+            'flex w-full items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold font-sans transition-colors',
+            allSpecialsSubmitted
+              ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
+              : 'pointer-events-none border-border bg-surface text-text-muted opacity-50',
+          )}
+        >
+          {allSpecialsSubmitted ? '✓ Specials saved — go to home hub →' : 'Save all 6 Specials to continue'}
+        </Link>
+      </section>
 
       {/* Footer credit */}
       <div className="space-y-2 pb-2">

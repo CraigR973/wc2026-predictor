@@ -1,17 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut, MoreHorizontal, Settings, Trash2, Users } from 'lucide-react';
+import { LogOut, Settings, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -28,7 +21,6 @@ interface LeagueActionsMenuProps {
   leagueName: string;
   isAdmin: boolean;
   className?: string;
-  triggerClassName?: string;
 }
 
 export function LeagueActionsMenu({
@@ -36,7 +28,6 @@ export function LeagueActionsMenu({
   leagueName,
   isAdmin,
   className,
-  triggerClassName,
 }: LeagueActionsMenuProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -88,49 +79,42 @@ export function LeagueActionsMenu({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            aria-label={`${leagueName} actions`}
-            className={cn('h-9 w-9 shrink-0', triggerClassName)}
-          >
-            <MoreHorizontal className="h-4 w-4" aria-hidden />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className={className}>
-          <DropdownMenuItem asChild>
-            <Link to={`/leagues/${slug}/admin/members`}>
-              <Users className="h-4 w-4" aria-hidden />
-              Members
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setShowLeaveDialog(true)}>
-            <LogOut className="h-4 w-4" aria-hidden />
-            Leave league
-          </DropdownMenuItem>
-          {isAdmin && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to={`/leagues/${slug}/admin/settings`}>
-                  <Settings className="h-4 w-4" aria-hidden />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => setShowDeleteDialog(true)}
-                className="text-error focus:text-error"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden />
-                Delete league
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className={cn('flex flex-wrap items-center gap-2', className)}>
+        <Button asChild size="sm" variant="outline" className="gap-1.5">
+          <Link to={`/leagues/${slug}/admin/members`}>
+            <Users className="h-3.5 w-3.5" aria-hidden />
+            Members
+          </Link>
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => setShowLeaveDialog(true)}
+        >
+          <LogOut className="h-3.5 w-3.5" aria-hidden />
+          Leave
+        </Button>
+        {isAdmin && (
+          <>
+            <Button asChild size="sm" variant="outline" className="gap-1.5">
+              <Link to={`/leagues/${slug}/admin/settings`}>
+                <Settings className="h-3.5 w-3.5" aria-hidden />
+                Settings
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 border-error/40 text-error hover:bg-error/10"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              Delete
+            </Button>
+          </>
+        )}
+      </div>
 
       <Dialog
         open={showLeaveDialog}

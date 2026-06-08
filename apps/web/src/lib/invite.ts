@@ -8,7 +8,9 @@ export interface InviteMessageParams {
 
 export function buildInviteMessage({ leagueName, joinCode, origin }: InviteMessageParams): string {
   return [
-    `Join me on Calcio — the World Cup 2026 prediction league.`,
+    `Join me on Calcio — the World Cup 2026 prediction app.`,
+    ``,
+    `Like fantasy football, you predict once and your picks automatically count across every league you join — so you can be in a mates league, a work league, whatever, all from one set of predictions.`,
     ``,
     `Pick scores match by match as the tournament unfolds — no bracket to fill in upfront, just predict each game before kick-off.`,
     ``,
@@ -22,9 +24,13 @@ export function buildInviteMessage({ leagueName, joinCode, origin }: InviteMessa
     `2. Open it from your home screen`,
     `3. Create your account`,
     `4. Tap Leagues → Join by code → enter: ${joinCode}`,
-    `5. Complete your pre-tournament checklist (Specials + first match pick) before the tournament kicks off`,
+    `5. Complete your pre-tournament checklist before the tournament kicks off:`,
+    `   • Read the About page`,
+    `   • Predict your Specials`,
+    `   • Predict your first match`,
+    `   (all editable up until kick-off of the first game)`,
     ``,
-    `Already have the app? Open it, tap Leagues → Join by code, enter: ${joinCode} — then finish your pre-tournament checklist (Specials + first match pick) before the tournament starts.`,
+    `Already have the app? Open it, tap Leagues → Join by code, enter: ${joinCode} — then finish your pre-tournament checklist (Read the About page, predict your Specials, predict your first match — all editable until the first game kicks off).`,
   ].join('\n');
 }
 

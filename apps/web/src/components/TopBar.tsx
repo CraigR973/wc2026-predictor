@@ -1,5 +1,5 @@
 import { NavLink, Link } from 'react-router-dom';
-import { Moon, Sun, User, Settings, Info } from 'lucide-react';
+import { Moon, Sun, User, Settings, Info, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Brand } from '@/components/Brand';
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +25,7 @@ const DESKTOP_NAV = [
 ];
 
 export function TopBar() {
-  const { player } = useAuth();
+  const { player, logout } = useAuth();
   const { resolved, setMode } = useTheme();
   function toggleTheme() {
     setMode(resolved === 'dark' ? 'light' : 'dark');
@@ -75,6 +76,11 @@ export function TopBar() {
             About / How it works
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void logout()}>
+          <LogOut className="h-4 w-4" aria-hidden />
+          Log out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   ) : null;
@@ -92,14 +98,14 @@ export function TopBar() {
         <div className="flex md:hidden items-center w-full justify-between">
           {themeToggle}
           <NavLink to="/" aria-label="Home" className="press-down absolute left-1/2 -translate-x-1/2">
-            <Brand variant="compact" />
+            <Brand variant="compact" size={46} />
           </NavLink>
           {avatarMenu}
         </div>
 
         {/* ── Desktop layout (md+): brand | nav | toggle + badge + avatar ── */}
         <NavLink to="/" aria-label="Home" className="press-down hidden md:block shrink-0">
-          <Brand variant="compact" />
+          <Brand variant="compact" size={46} />
         </NavLink>
 
         <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1 flex-1">

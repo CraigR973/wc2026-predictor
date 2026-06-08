@@ -1941,3 +1941,19 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - The prod bundle no longer ships the old dev mock auth bootstrap from `index.html`; the prod-bundle Playwright check now passes again.
 
 **Next:** Polish batch U46 — League table, hub & actions (🟢 Sonnet)
+
+---
+
+## Polish batch U46/U47 — Hub cards, home polish & mobile snags
+**Commits:** 17ff63b, 59df545, 4b8c2fc · CI ✅
+
+### Key facts for future sessions
+- `ScoringGuide` moved to full-width below the points/live tile row; uses a new storage key (`sss_scoring_guide_home_open`) — old key abandoned, returning users see it expanded once.
+- `LeagueActionsMenu` component added — ⋯ overflow menu with Members / Leave / Settings / Delete (role-gated, type-to-confirm dialogs). Replaces the standalone Members button.
+- Leaderboard uses `withLeagueRoster()` to back-fill members at 0 pts before any results land — empty state no longer shows for a populated league.
+- `FirstRunController` now goes directly to `/about` with no `FirstRunLaunchpad` or notification prompt layered on top.
+- Join onboarding (`BrowserOnboarding`) now includes a **Create account** step before "Leagues → Join by code".
+- "Your tally starts when the first results land." empty-state line removed from `PointsTile`.
+- `Brand.tsx` logo size is now configurable; `TopBar` passes a larger value for the shell logo.
+
+**Next:** Polish batch U48 — next planned (🟢 Sonnet)

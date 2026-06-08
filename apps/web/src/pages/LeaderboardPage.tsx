@@ -21,6 +21,12 @@ import { cn } from '../lib/utils';
 
 const HINT_DISMISSED_KEY = 'sss_leaderboard_hint_dismissed';
 
+function shortenName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= 1) return name;
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
 interface RankDelta {
   direction: 'up' | 'down' | 'flat';
   delta: number;
@@ -103,28 +109,26 @@ function TiebreakHeader({
 }) {
   return (
     <thead>
-      <tr className="border-b border-border/60 text-[9px] font-mono uppercase tracking-[0.22em] text-text-muted">
+      <tr className="text-[9px] font-mono uppercase tracking-[0.22em] text-text-muted">
         <th rowSpan={2} className="py-2.5 pl-3 sm:pl-5 text-left w-7 align-bottom">
           #
         </th>
         <th rowSpan={2} className="py-2.5 pr-1 text-left align-bottom">
           Player
         </th>
-        <th colSpan={3} className="px-0.5 sm:px-1 text-center align-bottom">
-          Tiebreakers
-        </th>
+        <th colSpan={3} className="px-0.5 sm:px-1 text-center align-bottom" />
         <th rowSpan={2} className="py-2.5 pr-3 sm:pr-5 pl-0.5 text-right w-12 align-bottom">
           {pointsLabel}
         </th>
       </tr>
       <tr className="border-b border-border text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Exact scores">
+        <th className="w-[1%] whitespace-nowrap py-2 px-3 sm:px-5 text-right" title="Exact scores">
           Ex
         </th>
-        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Correct results">
+        <th className="w-[1%] whitespace-nowrap py-2 px-3 sm:px-5 text-right" title="Correct results">
           Res
         </th>
-        <th className="w-[1%] whitespace-nowrap py-2 px-1 sm:px-1.5 text-right" title="Correct goal totals">
+        <th className="w-[1%] whitespace-nowrap py-2 px-3 sm:px-5 text-right" title="Correct goal totals">
           Gls
         </th>
       </tr>
@@ -174,13 +178,13 @@ function LeaderboardRow({
           <Link
             to={`/players/${entry.player_id}`}
             className={cn(
-              'font-medium hover:text-primary transition-colors min-w-0 leading-tight break-words',
+              'font-medium hover:text-primary transition-colors min-w-0 leading-tight whitespace-normal break-normal',
               isMe ? 'text-primary' : 'text-text-primary',
             )}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
-            {entry.player_name}
+            {shortenName(entry.player_name)}
           </Link>
           {entry.tied && (
             <span
@@ -197,13 +201,13 @@ function LeaderboardRow({
           )}
         </div>
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-3 sm:px-5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.exact_count ?? 0}
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-3 sm:px-5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_result_count ?? 0}
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-1 sm:px-1.5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-3 sm:px-5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_goals_count ?? 0}
       </td>
       <td className="py-3.5 pr-3 sm:pr-5 pl-0.5 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">
@@ -515,6 +519,14 @@ export function LeaderboardPage() {
           <PeriodToggle period={period} onChange={setPeriod} />
           <div className="rounded-lg border border-border bg-surface overflow-hidden">
             <table className="w-full table-fixed text-sm font-sans">
+              <colgroup>
+                <col className="w-8" />
+                <col />
+                <col className="w-7" />
+                <col className="w-7" />
+                <col className="w-7" />
+                <col className="w-12" />
+              </colgroup>
               <TiebreakHeader pointsLabel={PERIOD_LABELS[period]} />
               <tbody>
                 {displayData.map((entry) => {
