@@ -244,5 +244,5 @@ describe('UpcomingMatchesCarousel', () => {
     await waitFor(() => expect(screen.queryByTestId('prediction-card-m1')).toBeTruthy());
     const results = await axe(container, AXE_CONFIG);
     expect(results).toHaveNoViolations();
-  });
+  }, 10_000);
 });

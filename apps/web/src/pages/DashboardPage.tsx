@@ -107,11 +107,11 @@ function PointsTile({
       className="flex h-full min-h-[184px] flex-col justify-between rounded-[1.25rem] border border-border bg-gradient-to-br from-surface-elevated via-surface to-surface p-4 shadow-sm transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:shadow-glow sm:p-5"
       data-testid="points-tile"
     >
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">Points</p>
+      <div className="text-center">
         <p className="mt-2 font-mono text-4xl font-semibold leading-none tabular-nums text-primary sm:text-5xl">
           {points}
         </p>
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">Points</p>
       </div>
 
       <div className="space-y-2 border-t border-border/60 pt-3">
@@ -140,9 +140,6 @@ function PointsTile({
           </>
         ) : (
           <>
-            <p className="text-sm leading-relaxed text-text-muted">
-              Your tally starts when the first results land.
-            </p>
             {inlineSlot?.kind === 'next' && (
               <div
                 className="rounded-2xl border border-border/60 bg-surface/80 px-3 py-2.5"
@@ -583,26 +580,31 @@ export function DashboardPage() {
           className="grid grid-cols-[minmax(0,0.92fr)_minmax(0,1.48fr)] gap-3"
           data-testid="dashboard-top-row"
         >
-          <PointsTile
-            playerId={player?.id}
-            points={points}
-            rollup={home?.rollup ?? null}
-            inlineSlot={inlineSlot}
-            timezone={timezone}
-            isLoading={loadingTopRow}
-          />
-          {liveMatches.length > 0 ? (
-            <LiveMatchCarousel
-              matches={liveMatches}
-              predByMatch={predByMatch}
-              knockoutPredByMatch={knockoutPredByMatch}
+          <div className="space-y-3" data-testid="dashboard-points-column">
+            <PointsTile
+              playerId={player?.id}
+              points={points}
+              rollup={home?.rollup ?? null}
+              inlineSlot={inlineSlot}
               timezone={timezone}
+              isLoading={loadingTopRow}
             />
-          ) : inlineSlot ? (
-            <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} prediction={predByMatch[inlineSlot.match.id]} timezone={timezone} />
-          ) : (
-            <Skeleton className="h-full min-h-[184px] rounded-[1.25rem]" />
-          )}
+            <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
+          </div>
+          <div>
+            {liveMatches.length > 0 ? (
+              <LiveMatchCarousel
+                matches={liveMatches}
+                predByMatch={predByMatch}
+                knockoutPredByMatch={knockoutPredByMatch}
+                timezone={timezone}
+              />
+            ) : inlineSlot ? (
+              <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} prediction={predByMatch[inlineSlot.match.id]} timezone={timezone} />
+            ) : (
+              <Skeleton className="h-full min-h-[184px] rounded-[1.25rem]" />
+            )}
+          </div>
         </div>
       </div>
 
@@ -628,8 +630,6 @@ export function DashboardPage() {
         specialsSubmitted={home?.todo?.specials_submitted}
         isLoading={homeLoading}
       />
-
-      <ScoringGuide storageKey="sss_scoring_guide_home_open" defaultOpen={false} />
     </div>
   );
 }

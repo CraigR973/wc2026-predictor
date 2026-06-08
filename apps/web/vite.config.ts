@@ -41,7 +41,7 @@ export default defineConfig({
       manifest: {
         name: 'Calcio',
         short_name: 'Calcio',
-        description: 'A private prediction league for the 2026 FIFA World Cup. Invite-only.',
+        description: 'A private multi-league prediction app for tournament pools and season-long tables. Invite-only.',
         theme_color: '#071A3D',
         background_color: '#071A3D',
         display: 'standalone',

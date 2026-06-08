@@ -64,4 +64,18 @@ describe('TopBar avatar menu', () => {
 
     expect(screen.getByText('About route')).toBeTruthy();
   });
+
+  it('uses the larger compact logo size in the top bar only', () => {
+    const { container } = renderTopBar();
+
+    const brandIcons = Array.from(
+      container.querySelectorAll('img[src="/brand/calcio-icon-primary.svg"]'),
+    );
+
+    expect(brandIcons.length).toBeGreaterThan(0);
+    brandIcons.forEach((icon) => {
+      expect(icon).toHaveAttribute('width', '30');
+      expect(icon).toHaveAttribute('height', '30');
+    });
+  });
 });
