@@ -38,10 +38,10 @@ curl -X POST "https://<your-api-domain>/api/v1/admin/players/<PLAYER_ID>/reset-p
   -H "Authorization: Bearer <admin-jwt-token>"
 ```
 
-The response contains a 6-digit temporary PIN:
+The response contains a 4-digit temporary PIN:
 
 ```json
-{"temp_pin": "492817"}
+{"temp_pin": "4928"}
 ```
 
 ### Step 3 — Share the temporary PIN securely
