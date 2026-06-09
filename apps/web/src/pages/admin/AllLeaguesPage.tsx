@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Trash2, Users } from 'lucide-react';
+import { Trash2, Users, RefreshCw } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +23,7 @@ interface AdminLeague {
   privacy: string;
   member_count: number;
   created_at: string;
+  join_code: string | null;
 }
 
 function privacyVariant(privacy: string): 'muted' | 'success' | 'warning' {
@@ -35,6 +36,25 @@ export function AdminAllLeaguesPage() {
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState<AdminLeague | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rotatingSlug, setRotatingSlug] = useState<string | null>(null);
+
+  async function handleRotateCode(league: AdminLeague) {
+    setRotatingSlug(league.slug);
+    try {
+      const data = await apiFetch<{ join_code: string }>(
+        `/api/v1/admin/leagues/${league.slug}/rotate-join-code`,
+        { method: 'POST' },
+      );
+      queryClient.setQueryData<AdminLeague[]>(['admin', 'all-leagues'], (old) =>
+        old?.map((l) => (l.slug === league.slug ? { ...l, join_code: data.join_code } : l)) ?? [],
+      );
+      toast.success(`Join code rotated: ${data.join_code}`);
+    } catch {
+      toast.error('Failed to rotate join code');
+    } finally {
+      setRotatingSlug(null);
+    }
+  }
 
   const { data = [], isLoading, error, refetch } = useQuery<AdminLeague[]>({
     queryKey: ['admin', 'all-leagues'],
@@ -101,6 +121,9 @@ export function AdminAllLeaguesPage() {
                 </p>
                 <p className="font-mono text-xs text-text-muted mt-0.5">
                   /{league.slug} · {league.member_count} member{league.member_count !== 1 ? 's' : ''}
+                  {league.join_code && (
+                    <span className="ml-2 text-text-secondary">· code: <span className="text-text-primary font-semibold">{league.join_code}</span></span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -111,6 +134,16 @@ export function AdminAllLeaguesPage() {
                   <Link to={`/leagues/${league.slug}/admin/members`}>
                     <Users className="h-4 w-4" aria-hidden />
                   </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRotateCode(league)}
+                  disabled={rotatingSlug === league.slug}
+                  aria-label={`Rotate join code for ${league.name}`}
+                  title="Rotate join code"
+                >
+                  <RefreshCw className={`h-4 w-4 ${rotatingSlug === league.slug ? 'animate-spin' : ''}`} aria-hidden />
                 </Button>
                 <Button
                   variant="ghost"

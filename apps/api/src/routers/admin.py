@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth import AdminPlayer, hash_pin
+from src.auth import AdminPlayer, generate_join_code, hash_pin
 from src.config import settings
 from src.database import get_db
 from src.models.group import Group
@@ -254,6 +254,7 @@ class AdminLeagueSummary(BaseModel):
     privacy: str
     member_count: int
     created_at: datetime
+    join_code: str | None
 
 
 @router.get("/leagues", response_model=list[AdminLeagueSummary])
@@ -291,9 +292,47 @@ async def list_all_leagues(
             privacy=lg.privacy.value if hasattr(lg.privacy, "value") else str(lg.privacy),
             member_count=member_counts.get(lg.id, 0),
             created_at=lg.created_at,
+            join_code=lg.join_code,
         )
         for lg in league_rows
     ]
+
+
+class AdminRotateJoinCodeResponse(BaseModel):
+    join_code: str
+
+
+@router.post(
+    "/leagues/{slug}/rotate-join-code",
+    response_model=AdminRotateJoinCodeResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def admin_rotate_join_code(
+    slug: str,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AdminRotateJoinCodeResponse:
+    """Superadmin: regenerate the join code for any league."""
+    result = await db.execute(
+        select(League).where(League.slug == slug, League.deleted_at.is_(None))
+    )
+    league = result.scalar_one_or_none()
+    if league is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+    new_code = generate_join_code()
+    league.join_code = new_code
+    league.updated_at = _now()
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action=ActionType.league_join_code_rotated,
+            target_table="leagues",
+            target_id=league.id,
+        )
+    )
+    await db.commit()
+    return AdminRotateJoinCodeResponse(join_code=new_code)
 
 
 @router.get("/players", response_model=list[AdminPlayerResponse])
