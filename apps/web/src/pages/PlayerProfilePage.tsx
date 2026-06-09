@@ -384,8 +384,9 @@ export function PlayerProfilePage() {
         }
         const newUrl = await uploadAvatarImage(blob);
         updatePlayer({ avatarUrl: newUrl });
-        // Refresh stats so avatar_url reflects immediately
         queryClient.invalidateQueries({ queryKey: ['stats', id] });
+        queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+        queryClient.invalidateQueries({ queryKey: ['league-members'] });
         toast.success('Avatar updated');
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Upload failed');

@@ -496,8 +496,15 @@ function TimezoneSection() {
 
 function AvatarSection() {
   const { player, updatePlayer } = useAuth();
+  const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+
+  const invalidateAvatarCaches = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+    queryClient.invalidateQueries({ queryKey: ['league-members'] });
+    if (player?.id) queryClient.invalidateQueries({ queryKey: ['stats', player.id] });
+  }, [queryClient, player?.id]);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -527,6 +534,7 @@ function AvatarSection() {
         // Upload via the backend (service-role key → bypasses Storage RLS).
         const newUrl = await uploadAvatarImage(blob);
         updatePlayer({ avatarUrl: newUrl });
+        invalidateAvatarCaches();
         toast.success('Avatar updated');
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Upload failed');
@@ -534,7 +542,7 @@ function AvatarSection() {
         setUploading(false);
       }
     },
-    [updatePlayer],
+    [updatePlayer, invalidateAvatarCaches],
   );
 
   const handleRemove = useCallback(async () => {
@@ -546,13 +554,14 @@ function AvatarSection() {
         body: JSON.stringify({ avatar_url: null }),
       });
       updatePlayer({ avatarUrl: null });
+      invalidateAvatarCaches();
       toast.success('Avatar removed');
     } catch {
       toast.error('Failed to remove avatar');
     } finally {
       setUploading(false);
     }
-  }, [player, updatePlayer]);
+  }, [player, updatePlayer, invalidateAvatarCaches]);
 
   if (!player) return null;
 
