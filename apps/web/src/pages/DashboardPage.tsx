@@ -624,7 +624,10 @@ export function DashboardPage() {
 
       <PreTournamentChecklist
         specialsSubmitted={home?.todo?.specials_submitted}
-        isLoading={homeLoading}
+        tournamentStarted={
+          home?.todo?.specials_lock_at != null &&
+          new Date(home.todo.specials_lock_at) <= new Date()
+        }
       />
     </div>
   );

@@ -44,7 +44,11 @@ export function ScoreInput({
 
   function step(delta: number) {
     if (disabled) return;
-    const next = Math.max(MIN, Math.min(MAX, (num ?? 0) + delta));
+    if (num === null) {
+      onChange(String(MIN));
+      return;
+    }
+    const next = Math.max(MIN, Math.min(MAX, num + delta));
     onChange(String(next));
   }
 
@@ -71,6 +75,12 @@ export function ScoreInput({
           onChange={(e) => {
             const raw = e.target.value;
             if (raw === '' || /^\d{1,2}$/.test(raw)) onChange(raw);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              step(e.key === 'ArrowUp' ? 1 : -1);
+            }
           }}
           disabled={disabled}
           aria-label={ariaLabel}

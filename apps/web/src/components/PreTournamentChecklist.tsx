@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Circle, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../lib/api';
-import { readChecklist, writeChecklist } from '../lib/checklist';
+import { readChecklist } from '../lib/checklist';
 import { cn } from '../lib/utils';
 import type { PredictionResponse } from '../lib/types';
 
@@ -64,16 +64,16 @@ function ChecklistItem({
 
 export function PreTournamentChecklist({
   specialsSubmitted,
-  isLoading,
+  tournamentStarted,
 }: {
   specialsSubmitted: boolean | undefined;
-  isLoading: boolean;
+  tournamentStarted: boolean;
 }) {
-  const [state, setState] = useState(() => readChecklist());
+  const [state] = useState(() => readChecklist());
 
   // Shares the ['predictions','me'] key with the carousel, so React Query
   // dedupes the two onto a single request.
-  const { data: predictions = [], isLoading: predsLoading } = useQuery<PredictionResponse[]>({
+  const { data: predictions = [] } = useQuery<PredictionResponse[]>({
     queryKey: ['predictions', 'me'],
     queryFn: () => apiFetch<PredictionResponse[]>('/api/v1/predictions/me'),
     staleTime: 30_000,
@@ -85,28 +85,12 @@ export function PreTournamentChecklist({
     (p) => p.predicted_home !== null && p.predicted_away !== null,
   );
 
-  // Only latch "all complete" once the server-derived items have actually
-  // loaded — otherwise a returning, fully-set-up user would flash the list.
-  const dataReady = !isLoading && !predsLoading && specialsSubmitted !== undefined;
-  const allComplete = rulesDone && specialsDone && predictedDone;
-
-  useEffect(() => {
-    if (dataReady && allComplete && !state.dismissed) {
-      writeChecklist({ dismissed: true });
-      setState((s) => ({ ...s, dismissed: true }));
-    }
-  }, [dataReady, allComplete, state.dismissed]);
-
-  if (state.dismissed) return null;
-
-  function dismiss() {
-    writeChecklist({ dismissed: true });
-    setState((s) => ({ ...s, dismissed: true }));
-  }
+  // Hide once the first match has kicked off — no dismiss before then.
+  if (tournamentStarted) return null;
 
   return (
     <section aria-labelledby="home-checklist-label">
-      <div className="mb-2 flex items-center justify-between px-0.5">
+      <div className="mb-2 px-0.5">
         <div className="space-y-1">
           <h2
             id="home-checklist-label"
@@ -119,13 +103,6 @@ export function PreTournamentChecklist({
             Nothing else is required until the tournament starts.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={dismiss}
-          className="rounded font-sans text-xs text-text-muted transition-colors hover:text-text-secondary focus-visible:outline-none focus-visible:shadow-glow"
-        >
-          Dismiss
-        </button>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
