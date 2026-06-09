@@ -1,4 +1,4 @@
-import { useState, type HTMLAttributes } from 'react';
+import { useState, useEffect, type HTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
@@ -44,6 +44,7 @@ function tintFor(name: string): string {
 
 export function Avatar({ name, size = 'md', src, className, ...props }: AvatarProps) {
   const [imgError, setImgError] = useState(false);
+  useEffect(() => { setImgError(false); }, [src]);
   const showPhoto = !!src && !imgError;
 
   return (
