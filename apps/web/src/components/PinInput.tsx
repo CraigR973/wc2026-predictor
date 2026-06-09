@@ -21,6 +21,14 @@ export function PinInput({ value, onChange, maxLength = 4, autoComplete = 'curre
   }
 
   function handleChange(i: number, raw: string) {
+    // Autofill (e.g. Chrome password manager) dumps the whole PIN into one cell
+    // overriding maxLength. Distribute digits across cells the same as paste.
+    if (raw.length > 1) {
+      const digits = raw.replace(/\D/g, '').slice(0, maxLength);
+      onChange(digits);
+      if (digits.length > 0) focusCell(Math.min(digits.length, maxLength - 1));
+      return;
+    }
     const digit = raw.replace(/\D/g, '').slice(-1);
     const arr = Array.from({ length: maxLength }, (_, j) => getDigit(j));
     arr[i] = digit;
