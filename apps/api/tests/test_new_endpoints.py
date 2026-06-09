@@ -36,6 +36,8 @@ def _make_profile(*, role: PlayerRole = PlayerRole.player, deleted: bool = False
     p.first_name = "Test"
     p.last_name = "Player"
     p.email = "test@example.com"
+    p.failed_login_count = 0
+    p.locked_until = None
     p.role = role
     p.timezone = "UTC"
     p.deleted_at = _now() if deleted else None

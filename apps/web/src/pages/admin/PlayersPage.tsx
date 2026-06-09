@@ -29,6 +29,8 @@ interface AdminPlayer {
   timezone: string;
   is_deleted: boolean;
   created_at: string;
+  failed_login_count: number;
+  locked_until: string | null;
 }
 
 export function AdminPlayersPage() {
@@ -80,6 +82,16 @@ export function AdminPlayersPage() {
       setDeleteConfirmInput('');
     } catch {
       toast.error('Failed to remove player.');
+    }
+  }
+
+  async function handleUnlock(p: AdminPlayer) {
+    try {
+      await apiFetch(`/api/v1/admin/players/${p.id}/unlock`, { method: 'POST' });
+      setPlayers((prev) => prev.map((pl) => pl.id === p.id ? { ...pl, failed_login_count: 0, locked_until: null } : pl));
+      toast.success(`${p.display_name} unlocked.`);
+    } catch {
+      toast.error('Failed to unlock account.');
     }
   }
 
@@ -165,6 +177,9 @@ export function AdminPlayersPage() {
                       )}
                       {p.role === 'admin' && <Badge variant="accent">admin</Badge>}
                       {p.is_deleted && <Badge variant="error">removed</Badge>}
+                      {p.locked_until && new Date(p.locked_until + 'Z') > new Date() && (
+                        <Badge variant="warning">locked</Badge>
+                      )}
                     </div>
                     <p className="text-xs text-text-muted font-sans mt-0.5">
                       {p.email}
@@ -175,6 +190,15 @@ export function AdminPlayersPage() {
                   </div>
                   {!p.is_deleted && p.id !== currentPlayer?.id && (
                     <div className="flex items-center gap-2 shrink-0">
+                      {p.locked_until && new Date(p.locked_until + 'Z') > new Date() && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUnlock(p)}
+                        >
+                          Unlock
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"

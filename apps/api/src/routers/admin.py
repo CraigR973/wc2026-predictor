@@ -108,6 +108,8 @@ class AdminPlayerResponse(BaseModel):
     timezone: str
     is_deleted: bool
     created_at: datetime
+    failed_login_count: int
+    locked_until: datetime | None
 
 
 class ResultRequest(BaseModel):
@@ -317,6 +319,8 @@ async def list_all_players(
             timezone=p.timezone,
             is_deleted=p.deleted_at is not None,
             created_at=p.created_at,
+            failed_login_count=p.failed_login_count,
+            locked_until=p.locked_until,
         )
         for p in players
     ]
@@ -371,6 +375,25 @@ async def reset_player_pin(
 
     log.info("pin reset by admin", player_id=str(player_id), admin_id=str(admin.id))
     return ResetPinResponse(temp_pin=temp_pin)
+
+
+@router.post("/players/{player_id}/unlock", status_code=status.HTTP_204_NO_CONTENT)
+async def unlock_player(
+    player_id: uuid.UUID,
+    admin: AdminPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    result = await db.execute(
+        select(Profile).where(Profile.id == player_id, Profile.deleted_at.is_(None))
+    )
+    player = result.scalar_one_or_none()
+    if player is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+
+    player.failed_login_count = 0
+    player.locked_until = None
+    await db.commit()
+    log.info("account unlocked by admin", player_id=str(player_id), admin_id=str(admin.id))
 
 
 @router.post("/groups/{name}/override-standings", status_code=status.HTTP_204_NO_CONTENT)
