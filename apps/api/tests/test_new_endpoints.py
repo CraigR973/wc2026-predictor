@@ -33,6 +33,9 @@ def _make_profile(*, role: PlayerRole = PlayerRole.player, deleted: bool = False
     p.avatar_url = None  # U23: prevent MagicMock default from failing Pydantic
     p.id = uuid.uuid4()
     p.display_name = "TestPlayer"
+    p.first_name = "Test"
+    p.last_name = "Player"
+    p.email = "test@example.com"
     p.role = role
     p.timezone = "UTC"
     p.deleted_at = _now() if deleted else None

@@ -114,7 +114,7 @@ async def _override(mock_db: AsyncMock, player: Profile) -> AsyncGenerator[None,
 async def test_list_matches_returns_all() -> None:
     home, away = _make_team("MEX"), _make_team("RSA")
     match = _make_match(home, away, match_num=1)
-    db = _stub_db([_scalars([match]), _scalars([home, away])])
+    db = _stub_db([_scalars([match]), _scalars([home, away]), _scalars([])])
     player = _make_player()
 
     async with _override(db, player):
@@ -152,7 +152,7 @@ async def test_list_matches_invalid_stage_returns_422() -> None:
 async def test_upcoming_returns_scheduled_only() -> None:
     home, away = _make_team("BRA"), _make_team("MAR")
     scheduled_match = _make_match(home, away, status=MatchStatus.scheduled)
-    db = _stub_db([_scalars([scheduled_match]), _scalars([home, away])])
+    db = _stub_db([_scalars([scheduled_match]), _scalars([home, away]), _scalars([])])
     player = _make_player()
 
     async with _override(db, player):
@@ -176,7 +176,7 @@ async def test_upcoming_returns_scheduled_only() -> None:
 async def test_live_matches() -> None:
     home, away = _make_team("USA"), _make_team("CAN")
     live_match = _make_match(home, away, status=MatchStatus.live)
-    db = _stub_db([_scalars([live_match]), _scalars([home, away])])
+    db = _stub_db([_scalars([live_match]), _scalars([home, away]), _scalars([])])
     player = _make_player()
 
     async with _override(db, player):
@@ -200,7 +200,7 @@ async def test_live_matches() -> None:
 async def test_get_match_found() -> None:
     home, away = _make_team("ENG"), _make_team("FRA")
     match = _make_match(home, away)
-    db = _stub_db([_scalar_one(match), _scalars([home, away])])
+    db = _stub_db([_scalar_one(match), _scalars([home, away]), _scalars([])])
     player = _make_player()
 
     async with _override(db, player):

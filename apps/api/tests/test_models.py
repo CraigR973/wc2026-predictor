@@ -573,6 +573,7 @@ def test_notification_type_values() -> None:
         "match_postponed",
         "kickoff_changed",
         "invite_accepted",
+        "member_joined",
         "auto_sync_failed",
         "special_results",
     }
