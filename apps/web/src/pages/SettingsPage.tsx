@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info, Camera, Trash2, Globe } from 'lucide-react';
+import { Bell, BellOff, Download, Send, Check, Sun, Moon, Monitor, Info, Camera, Trash2, Globe, KeyRound } from 'lucide-react';
+import { PinInput } from '../components/PinInput';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { usePushSubscription } from '../hooks/usePushSubscription';
@@ -310,6 +311,63 @@ function PreferencesSection() {
   );
 }
 
+// ── Change PIN section ────────────────────────────────────────────────────────
+
+function ChangePinSection() {
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const canSubmit = currentPin.length === 4 && newPin.length === 4 && currentPin !== newPin;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSaving(true);
+    try {
+      await apiFetch('/api/v1/auth/me/pin', {
+        method: 'PUT',
+        body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }),
+      });
+      setCurrentPin('');
+      setNewPin('');
+      toast.success('PIN changed successfully');
+    } catch {
+      toast.error('Current PIN is incorrect or request failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-text-secondary font-sans">
+        <KeyRound size={14} aria-hidden />
+        <span>Enter your current PIN, then choose a new 4-digit PIN.</span>
+      </div>
+      <div className="space-y-1">
+        <label className="text-sm font-sans text-text-primary">Current PIN</label>
+        <PinInput value={currentPin} onChange={setCurrentPin} maxLength={4} />
+      </div>
+      <div className="space-y-1">
+        <label className="text-sm font-sans text-text-primary">New PIN</label>
+        <PinInput value={newPin} onChange={setNewPin} maxLength={4} />
+      </div>
+      {currentPin.length === 4 && newPin.length === 4 && currentPin === newPin && (
+        <p className="text-xs text-error font-sans">New PIN must differ from current PIN.</p>
+      )}
+      <button
+        type="submit"
+        disabled={!canSubmit || saving}
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-sans border border-border bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+      >
+        <Check size={14} aria-hidden />
+        {saving ? 'Saving…' : 'Change PIN'}
+      </button>
+    </form>
+  );
+}
+
 // ── Theme switch ──────────────────────────────────────────────────────────────
 
 function AppearanceSection() {
@@ -552,6 +610,10 @@ export function SettingsPage() {
 
       <SectionCard title="Profile Photo">
         <AvatarSection />
+      </SectionCard>
+
+      <SectionCard title="Change PIN">
+        <ChangePinSection />
       </SectionCard>
 
       <SectionCard title="Timezone">

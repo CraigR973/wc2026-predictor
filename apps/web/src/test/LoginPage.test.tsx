@@ -53,7 +53,7 @@ describe('LoginPage', () => {
     expect(screen.getByText(/predict once, compete everywhere/i)).toBeTruthy();
   });
 
-  it('shows lockout message on locked account response', async () => {
+  it('shows generic error even on locked account response (lockout removed)', async () => {
     vi.stubGlobal('fetch', () =>
       Promise.resolve({
         ok: false,
@@ -71,7 +71,7 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeTruthy();
     });
-    expect(screen.getByRole('alert').textContent).toMatch(/account locked/i);
+    expect(screen.getByRole('alert').textContent).toMatch(/invalid email or pin/i);
   });
 
   it('shows generic error on invalid credentials', async () => {

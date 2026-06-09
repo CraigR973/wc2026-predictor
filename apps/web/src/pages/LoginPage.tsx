@@ -25,7 +25,7 @@ export function LoginPage() {
     try {
       await login(email.trim(), pin);
       navigate('/', { replace: true });
-    } catch (err) {
+    } catch {
       setError('Invalid email or PIN.');
     } finally {
       setIsLoading(false);
