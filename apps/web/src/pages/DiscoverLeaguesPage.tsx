@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
-import type { LeagueSummary } from '@/lib/types';
 import { privacyLabel } from '@/lib/leagues';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,14 +10,33 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
 
+interface DiscoverLeague {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  max_members: number;
+  member_count: number;
+  privacy: string;
+}
+
+interface DiscoverResponse {
+  leagues: DiscoverLeague[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export function DiscoverLeaguesPage() {
   const queryClient = useQueryClient();
   const [joiningSlug, setJoiningSlug] = useState<string | null>(null);
 
-  const { data: leagues, isLoading } = useQuery<LeagueSummary[]>({
+  const { data, isLoading } = useQuery<DiscoverResponse>({
     queryKey: ['leagues', 'discover'],
-    queryFn: () => apiFetch<LeagueSummary[]>('/api/v1/leagues/discover'),
+    queryFn: () => apiFetch<DiscoverResponse>('/api/v1/leagues/discover'),
   });
+
+  const leagues = data?.leagues ?? [];
 
   async function handleJoin(slug: string, privacy: string) {
     setJoiningSlug(slug);
@@ -55,7 +73,7 @@ export function DiscoverLeaguesPage() {
         </div>
       )}
 
-      {!isLoading && leagues?.length === 0 && (
+      {!isLoading && leagues.length === 0 && (
         <Card>
           <CardContent className="pt-8 pb-8 text-center">
             <p className="text-text-secondary font-sans text-sm">
@@ -65,7 +83,7 @@ export function DiscoverLeaguesPage() {
         </Card>
       )}
 
-      {!isLoading && leagues && leagues.length > 0 && (
+      {!isLoading && leagues.length > 0 && (
         <div className="space-y-3">
           {leagues.map((league) => (
             <Card key={league.slug}>

@@ -191,6 +191,7 @@ class DiscoverLeagueResponse(BaseModel):
     description: str | None
     max_members: int
     member_count: int
+    privacy: str
 
 
 class DiscoverResponse(BaseModel):
@@ -472,6 +473,9 @@ async def discover_leagues(
             description=row[0].description,
             max_members=row[0].max_members,
             member_count=row[1],
+            privacy=(
+                row[0].privacy.value if hasattr(row[0].privacy, "value") else str(row[0].privacy)
+            ),
         )
         for row in rows
     ]
