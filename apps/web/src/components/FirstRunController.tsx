@@ -1,32 +1,46 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { markTourSeen, isTourSeen } from './IntroTour';
+import { isTourSeen, markTourSeen } from './IntroTour';
+import { FirstRunLaunchpad } from './FirstRunLaunchpad';
 
-type Step = 'about' | 'done';
+type Step = 'launchpad' | 'done';
 
+/**
+ * First authenticated load for a brand-new account: show the FirstRunLaunchpad
+ * — a one-shot modal that points the user at the three pre-tournament tasks
+ * (read the rules, set Specials, make a first pick) and lets them start
+ * wherever they like.
+ *
+ * This replaces the previous behaviour of force-redirecting first-run users to
+ * /about, which dropped new joiners straight into the full rules reference
+ * instead of a guided "what to do next" launchpad.
+ *
+ * Gated on the per-user tour-seen latch (isTourSeen(player.id)) so a second
+ * account created on a shared device still gets its own launchpad. The latch is
+ * written on every close path (an action card or "skip"), so the launchpad only
+ * ever shows once per account.
+ */
 export function FirstRunController() {
   const { player, sessionUnlockRequired } = useAuth();
-  const navigate = useNavigate();
-  // Start as 'done'; the per-user effect below sets 'about' for new users once
-  // the player identity is known. The global key (isTourSeen() without id) was
-  // never written after U49, so using it here caused every return visit to
-  // redirect to /about on every load.
+  // Start hidden; the effect below opens the launchpad for new accounts once
+  // the player identity is known.
   const [step, setStep] = useState<Step>('done');
 
-  // Re-check with per-user key once player identity is known.
-  // This catches new accounts on a device where a different account already exists.
+  // Re-check with the per-user key once player identity is known. This catches
+  // a new account created on a device where a different account already exists.
   useEffect(() => {
     if (!player) return;
-    if (!isTourSeen(player.id)) setStep('about');
+    if (!isTourSeen(player.id)) setStep('launchpad');
   }, [player?.id]);
 
-  useEffect(() => {
-    if (step !== 'about' || !player || sessionUnlockRequired) return;
-    markTourSeen(player.id);
-    navigate('/about');
-    setStep('done');
-  }, [step, navigate, player, sessionUnlockRequired]);
+  if (step !== 'launchpad' || !player || sessionUnlockRequired) return null;
 
-  return null;
+  return (
+    <FirstRunLaunchpad
+      onClose={() => {
+        markTourSeen(player.id);
+        setStep('done');
+      }}
+    />
+  );
 }
