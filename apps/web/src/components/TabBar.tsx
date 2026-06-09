@@ -34,8 +34,8 @@ const PRIMARY: ReadonlyArray<TabDef> = [
 ];
 
 const SECONDARY: ReadonlyArray<TabDef> = [
-  { to: '/bracket', label: 'Bracket', Icon: GitBranch },
   { to: '/groups', label: 'Groups', Icon: Users, matchPrefix: ['/groups'] },
+  { to: '/bracket', label: 'Knockout', Icon: GitBranch },
   { to: '/settings', label: 'Settings', Icon: SettingsIcon },
   { to: '/about', label: 'About', Icon: Info },
 ];

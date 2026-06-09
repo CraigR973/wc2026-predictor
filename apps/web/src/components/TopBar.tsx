@@ -17,7 +17,7 @@ const DESKTOP_NAV = [
   { to: '/', label: 'Home', exact: true },
   { to: '/schedule', label: 'Schedule', exact: false },
   { to: '/predictions', label: 'Predict', exact: false },
-  { to: '/bracket', label: 'Bracket', exact: false },
+  { to: '/bracket', label: 'Knockout', exact: false },
   { to: '/groups', label: 'Groups', exact: false },
   { to: '/leagues', label: 'Leagues', exact: false },
   { to: '/settings', label: 'Settings', exact: false },
@@ -97,7 +97,7 @@ export function TopBar() {
         {/* ── Mobile layout (< md): toggle | centred brand | avatar ── */}
         <div className="flex md:hidden items-center w-full justify-between">
           {themeToggle}
-          <NavLink to="/" aria-label="Home" className="press-down absolute left-1/2 -translate-x-1/2">
+          <NavLink to="/" aria-label="Home" className="press-down absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <Brand variant="compact" size={46} />
           </NavLink>
           {avatarMenu}

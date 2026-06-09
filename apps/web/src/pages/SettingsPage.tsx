@@ -454,7 +454,7 @@ function AvatarSection() {
       }
       if (file.size > MAX_AVATAR_BYTES * 2) {
         // Rough guard before resize — the resized output is far smaller.
-        toast.error('File too large. Please choose an image under 10 MB.');
+        toast.error('File too large. Please choose an image under 5 MB.');
         return;
       }
 

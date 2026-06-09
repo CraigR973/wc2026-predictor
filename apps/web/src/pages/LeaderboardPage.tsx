@@ -122,13 +122,13 @@ function TiebreakHeader({
         </th>
       </tr>
       <tr className="border-b border-border text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-        <th className="w-[1%] whitespace-nowrap py-2 px-3 sm:px-5 text-right" title="Exact scores">
+        <th className="w-[1%] whitespace-nowrap py-2 px-2 sm:px-3 text-right" title="Exact scores">
           Ex
         </th>
-        <th className="w-[1%] whitespace-nowrap py-2 px-3 sm:px-5 text-right" title="Correct results">
+        <th className="w-[1%] whitespace-nowrap py-2 px-2 sm:px-3 text-right" title="Correct results">
           Res
         </th>
-        <th className="w-[1%] whitespace-nowrap py-2 px-3 sm:px-5 text-right" title="Correct goal totals">
+        <th className="w-[1%] whitespace-nowrap py-2 px-2 sm:px-3 text-right" title="Correct goal totals">
           Gls
         </th>
       </tr>
@@ -188,7 +188,7 @@ function LeaderboardRow({
           </Link>
           {entry.tied && (
             <span
-              className="text-[9px] font-mono uppercase tracking-[0.15em] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded-sm shrink-0"
+              className="text-[9px] font-mono uppercase tracking-[0.15em] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-1 rounded-sm shrink-0"
               title="Level on every tiebreaker — awaiting admin settlement"
             >
               tied
@@ -201,13 +201,13 @@ function LeaderboardRow({
           )}
         </div>
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-3 sm:px-5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-2 sm:px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.exact_count ?? 0}
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-3 sm:px-5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-2 sm:px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_result_count ?? 0}
       </td>
-      <td className="w-[1%] whitespace-nowrap py-3.5 px-3 sm:px-5 text-right font-mono text-[11px] text-text-secondary tabular-nums">
+      <td className="w-[1%] whitespace-nowrap py-3.5 px-2 sm:px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">
         {entry.correct_goals_count ?? 0}
       </td>
       <td className="py-3.5 pr-3 sm:pr-5 pl-0.5 text-right font-mono text-base font-semibold text-primary tabular-nums w-12">

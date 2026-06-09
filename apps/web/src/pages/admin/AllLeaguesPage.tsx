@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Users } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -102,10 +103,15 @@ export function AdminAllLeaguesPage() {
                   /{league.slug} · {league.member_count} member{league.member_count !== 1 ? 's' : ''}
                 </p>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <Badge variant={privacyVariant(league.privacy)} className="capitalize text-xs">
                   {league.privacy.replace('_', ' ')}
                 </Badge>
+                <Button asChild variant="ghost" size="sm" aria-label={`View members of ${league.name}`}>
+                  <Link to={`/leagues/${league.slug}/admin/members`}>
+                    <Users className="h-4 w-4" aria-hidden />
+                  </Link>
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

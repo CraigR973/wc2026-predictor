@@ -19,6 +19,7 @@ from src.models.league_membership import LeagueMemberRole, LeagueMembership
 from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.profile import Profile, SiteRole
 from src.rate_limit import limiter, per_player_key
+from src.services.notification_triggers import notify_member_joined
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -755,6 +756,7 @@ async def join_league(
     if league.privacy == LeaguePrivacy.public_open:
         await _upsert_membership(league.id, player.id, db)
         db.add(_audit(player, ActionType.member_joined, "league_memberships", league.id))
+        await notify_member_joined(db, player.display_name, league.name)
         await db.commit()
         log.info("league joined", league_id=str(league.id), player_id=str(player.id))
         return JoinResponse(status="joined")

@@ -51,7 +51,12 @@ export function LeagueActionsMenu({
       toast.success('Left the league');
       navigate('/leagues', { replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to leave');
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('LAST_ADMIN')) {
+        toast.error('You are the only admin — promote another member before leaving.');
+      } else {
+        toast.error(msg || 'Failed to leave');
+      }
       setIsLeaving(false);
     }
   }
@@ -64,7 +69,10 @@ export function LeagueActionsMenu({
 
     setIsDeleting(true);
     try {
-      await apiFetch(`/api/v1/leagues/${slug}`, { method: 'DELETE' });
+      await apiFetch(`/api/v1/leagues/${slug}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ confirm_name: deleteConfirm }),
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['leagues', 'mine'] }),
         queryClient.invalidateQueries({ queryKey: ['league', slug] }),

@@ -84,7 +84,17 @@ export async function apiFetch<T>(
     }
   }
 
-  if (!resp.ok) throw new Error(`API error ${resp.status}`);
+  if (!resp.ok) {
+    // Try to surface the FastAPI `detail` field for a more useful error message.
+    try {
+      const body = await resp.json();
+      const detail = typeof body?.detail === 'string' ? body.detail : undefined;
+      throw new Error(detail ?? `API error ${resp.status}`);
+    } catch (e) {
+      if (e instanceof Error && e.message !== `API error ${resp.status}`) throw e;
+      throw new Error(`API error ${resp.status}`);
+    }
+  }
   if (resp.status === 204) return undefined as T;
   return resp.json() as Promise<T>;
 }

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentPlayer
 from src.database import get_db
+from src.models.group import Group
 from src.models.match import Match, MatchStatus
 from src.models.team import Team, TournamentStage
 
@@ -36,6 +37,7 @@ class MatchResponse(BaseModel):
     match_number: int
     stage: str
     group_id: str | None
+    group_name: str | None = None  # e.g. "A", "B" — only set for group-stage matches
     home_team: TeamRef | None
     away_team: TeamRef | None
     home_team_placeholder: str | None
@@ -66,6 +68,11 @@ async def _load_team_map(db: AsyncSession) -> dict[uuid.UUID, Team]:
     return {t.id: t for t in result.scalars().all()}
 
 
+async def _load_group_map(db: AsyncSession) -> dict[uuid.UUID, str]:
+    result = await db.execute(select(Group))
+    return {g.id: g.name for g in result.scalars().all()}
+
+
 def _team_ref(tid: uuid.UUID | None, team_map: dict[uuid.UUID, Team]) -> TeamRef | None:
     if tid is None:
         return None
@@ -75,12 +82,17 @@ def _team_ref(tid: uuid.UUID | None, team_map: dict[uuid.UUID, Team]) -> TeamRef
     return TeamRef(id=str(t.id), name=t.name, code=t.code, flag_emoji=t.flag_emoji)
 
 
-def _to_response(m: Match, team_map: dict[uuid.UUID, Team]) -> MatchResponse:
+def _to_response(
+    m: Match,
+    team_map: dict[uuid.UUID, Team],
+    group_map: dict[uuid.UUID, str] | None = None,
+) -> MatchResponse:
     return MatchResponse(
         id=str(m.id),
         match_number=m.match_number,
         stage=m.stage.value,
         group_id=str(m.group_id) if m.group_id else None,
+        group_name=group_map.get(m.group_id) if (group_map and m.group_id) else None,
         home_team=_team_ref(m.home_team_id, team_map),
         away_team=_team_ref(m.away_team_id, team_map),
         home_team_placeholder=m.home_team_placeholder,
@@ -127,7 +139,8 @@ async def list_matches(
     result = await db.execute(q)
     matches = result.scalars().all()
     team_map = await _load_team_map(db)
-    return [_to_response(m, team_map) for m in matches]
+    group_map = await _load_group_map(db)
+    return [_to_response(m, team_map, group_map) for m in matches]
 
 
 @router.get("/upcoming", response_model=list[MatchResponse])
@@ -145,7 +158,8 @@ async def upcoming_matches(
     result = await db.execute(q)
     matches = result.scalars().all()
     team_map = await _load_team_map(db)
-    return [_to_response(m, team_map) for m in matches]
+    group_map = await _load_group_map(db)
+    return [_to_response(m, team_map, group_map) for m in matches]
 
 
 @router.get("/live", response_model=list[MatchResponse])
@@ -161,7 +175,8 @@ async def live_matches(
     result = await db.execute(q)
     matches = result.scalars().all()
     team_map = await _load_team_map(db)
-    return [_to_response(m, team_map) for m in matches]
+    group_map = await _load_group_map(db)
+    return [_to_response(m, team_map, group_map) for m in matches]
 
 
 @router.get("/{match_id}", response_model=MatchResponse)
@@ -175,4 +190,5 @@ async def get_match(
     if match is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
     team_map = await _load_team_map(db)
-    return _to_response(match, team_map)
+    group_map = await _load_group_map(db)
+    return _to_response(match, team_map, group_map)

@@ -92,7 +92,12 @@ export function LeagueMembersPage() {
       queryClient.invalidateQueries({ queryKey: ['leagues', 'mine'] });
       window.location.href = '/leagues';
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to leave');
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('LAST_ADMIN')) {
+        toast.error('You are the only admin — promote another member before leaving.');
+      } else {
+        toast.error(msg || 'Failed to leave');
+      }
     }
   }
 

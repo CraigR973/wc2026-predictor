@@ -89,7 +89,7 @@ export function CreateLeaguePage() {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="maxMembers">Max members (optional)</Label>
+              <Label htmlFor="maxMembers">Max members (optional, 2–50)</Label>
               <Input
                 id="maxMembers"
                 type="number"

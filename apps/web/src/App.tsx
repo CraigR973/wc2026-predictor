@@ -10,6 +10,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { UpdateBanner } from './components/UpdateBanner';
 import { InstallPromptController } from './components/InstallPromptController';
 import { FirstRunController } from './components/FirstRunController';
+import { NotificationsPromptController } from './components/NotificationsPromptController';
 import { Skeleton } from './components/ui/skeleton';
 import { LoginPage } from './pages/LoginPage';
 import { JoinPage } from './pages/JoinPage';
@@ -120,6 +121,7 @@ export function App() {
           <UpdateBanner />
           <InstallPromptController />
           <FirstRunController />
+          <NotificationsPromptController />
           <Toaster position="bottom-right" richColors closeButton />
           <ErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
