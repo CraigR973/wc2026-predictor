@@ -135,6 +135,7 @@ export function withLeagueRoster(
       last_match_points: 0,
       today_points: 0,
       round_points: 0,
+      avatar_url: member.avatar_url ?? null,
     }));
 
   return dedupedLeaderboard([...entries, ...missingMembers], leagueSlug);
