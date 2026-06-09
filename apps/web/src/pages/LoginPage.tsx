@@ -26,12 +26,7 @@ export function LoginPage() {
       await login(email.trim(), pin);
       navigate('/', { replace: true });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Login failed';
-      if (msg.toLowerCase().includes('locked')) {
-        setError('Account locked — too many failed attempts. Try again later.');
-      } else {
-        setError('Invalid email or PIN.');
-      }
+      setError('Invalid email or PIN.');
     } finally {
       setIsLoading(false);
     }

@@ -169,7 +169,6 @@ async def test_login_wrong_pin(client: AsyncClient) -> None:
         )
 
     assert resp.status_code == 401
-    assert player.failed_login_count == 1
 
 
 async def test_login_player_not_found(client: AsyncClient) -> None:
@@ -184,24 +183,9 @@ async def test_login_player_not_found(client: AsyncClient) -> None:
     assert resp.status_code == 401
 
 
-async def test_login_locked_account(client: AsyncClient) -> None:
-    locked_until = _now() + timedelta(minutes=10)
-    player = _make_player(failed=5, locked_until=locked_until)
-    mock_db = _stub_db([_scalar(player)])
-
-    async with _override_db(mock_db):
-        resp = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "testplayer@example.com", "pin": "1234"},
-        )
-
-    # R3.3: locked accounts return generic 401, not 429, to avoid leaking lock state
-    assert resp.status_code == 401
-    assert resp.json()["detail"] == "Invalid credentials"
-
-
-async def test_login_lockout_triggered_after_5_failures(client: AsyncClient) -> None:
-    player = _make_player(failed=4)  # one more failure will lock
+async def test_login_wrong_pin_no_lockout(client: AsyncClient) -> None:
+    """Wrong PIN always returns 401 — no lockout, no counter increment."""
+    player = _make_player(failed=99)  # even with high count, no lockout
     mock_db = _stub_db([_scalar(player)])
 
     async with _override_db(mock_db):
@@ -211,8 +195,7 @@ async def test_login_lockout_triggered_after_5_failures(client: AsyncClient) -> 
         )
 
     assert resp.status_code == 401
-    assert player.failed_login_count == 5
-    assert player.locked_until is not None
+    assert resp.json()["detail"] == "Invalid credentials"
 
 
 # ---------------------------------------------------------------------------

@@ -13,9 +13,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import (
-    LOCKOUT_DURATION,
-    MAX_FAILED_ATTEMPTS,
-    REFRESH_TTL,
+REFRESH_TTL,
     CurrentPlayer,
     create_access_token,
     create_email_verify_token,
@@ -406,31 +404,10 @@ async def login(
         log.info("login failed — player not found")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    if player.locked_until and player.locked_until > _now():
-        log.warning(
-            "login blocked — account locked",
-            player_id=str(player.id),
-            reason="account_locked_attempt",
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-        )
-
     if not verify_pin(body.pin, player.pin_hash):
-        player.failed_login_count += 1
-        if player.failed_login_count >= MAX_FAILED_ATTEMPTS:
-            player.locked_until = _now() + LOCKOUT_DURATION
-            log.warning(
-                "account locked after failed attempts",
-                player_id=str(player.id),
-                count=player.failed_login_count,
-            )
-        await db.commit()
+        log.info("login failed — wrong pin", player_id=str(player.id))
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    player.failed_login_count = 0
-    player.locked_until = None
     await db.commit()
     await db.refresh(player)
 
