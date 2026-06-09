@@ -2005,6 +2005,20 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 
 ---
 
+## Post-launch hotfix batch — lockout removal, join-by-code, admin tooling, avatar, discover
+**Commits:** 1936ce6, 94ef295, f8d823f, 9a2ec36, be61023, 2cb4bed, 7965396, 084e703, 60e4ccd · CI ✅
+
+### Key facts for future sessions
+- Login lockout removed entirely (`1936ce6`): the 5-attempt lockout was too aggressive for a private league (players sharing a PIN on a shared device). `test_r3_rate_limits.py` dropped the locked-account test; `LoginPage.test.tsx` updated to expect generic error.
+- `member_joined` was missing from the Postgres `notification_type` enum (`9a2ec36`): join-by-code rolled back silently because the WebPush fired BEFORE `db.commit()`, so admin got a ghost notification but the joiner got an error. Migration 031 adds the value `IF NOT EXISTS`.
+- Superadmin can rotate any league's join code via `POST /api/v1/admin/leagues/{slug}/rotate-join-code`; All Leagues panel now shows the current code inline with a spinner rotate button (`be61023`).
+- Discover page was broken: frontend typed the response as `LeagueSummary[]` but backend returns `{ leagues, total, page, page_size }` — list never rendered. Also `DiscoverLeagueResponse` was missing `privacy`, so Join/Request button always showed wrong label (`2cb4bed`).
+- Avatar not appearing on leaderboard rows — three layered causes: (1) `withLeagueRoster` synthesises placeholder rows for members without a snapshot and was missing `avatar_url` (`60e4ccd`); (2) `LeagueDetail.members` TypeScript type was missing `avatar_url` so the field was invisible (`60e4ccd`); (3) Avatar `imgError` state was never reset when `src` changed, so a transient load failure stuck the component on initials (`084e703`). Cache invalidation after upload (`7965396`) was also missing.
+
+**Next:** see docs/phase-batches.md for next batch
+
+---
+
 ## U51 — Join code hotfix
 **Commits:** 8cddb26 · CI ✅
 
