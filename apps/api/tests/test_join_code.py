@@ -106,6 +106,12 @@ def _scalar(value: object) -> MagicMock:
     return r
 
 
+def _scalars(items: list) -> MagicMock:
+    r = MagicMock()
+    r.scalars.return_value.all.return_value = items
+    return r
+
+
 def _scalar_count(value: int) -> MagicMock:
     r = MagicMock()
     r.scalar_one.return_value = value
@@ -172,6 +178,7 @@ async def test_join_by_code_success() -> None:
             _scalar(None),  # existing membership check (not a member)
             _scalar_count(3),  # active_member_count
             _scalar(None),  # upsert_membership - no existing row
+            _scalars([]),  # notify_member_joined: _admin_players query
         ]
     )
 
@@ -201,6 +208,7 @@ async def test_join_by_code_multiuse() -> None:
                 _scalar(None),
                 _scalar_count(3),
                 _scalar(None),
+                _scalars([]),  # notify_member_joined: _admin_players query
             ]
         )
         async with _override_db(mock_db), _override_player(player):

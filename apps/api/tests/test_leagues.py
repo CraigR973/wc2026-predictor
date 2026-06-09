@@ -490,6 +490,8 @@ async def test_join_public_open_creates_membership() -> None:
             _scalar_one(3),
             # _upsert_membership: existing soft-deleted lookup
             _scalar(None),
+            # notify_member_joined: _admin_players query
+            _scalars([]),
         ]
     )
 
