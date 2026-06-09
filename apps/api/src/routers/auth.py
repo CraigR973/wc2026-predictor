@@ -13,7 +13,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import (
-REFRESH_TTL,
+    REFRESH_TTL,
     CurrentPlayer,
     create_access_token,
     create_email_verify_token,

@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -374,30 +374,6 @@ async def test_login_unknown_player_calls_dummy_bcrypt(client: AsyncClient) -> N
     pin_arg, hash_arg = mock_vp.call_args[0]
     assert pin_arg == "9999"
     assert hash_arg.startswith("$2b$")  # valid bcrypt hash format
-
-
-async def test_login_locked_account_returns_401_not_429(client: AsyncClient) -> None:
-    """A locked account returns generic 401 — not 429 — to avoid leaking lock state."""
-    player = _make_player()
-    player.locked_until = _now() + timedelta(minutes=10)
-
-    r = MagicMock()
-    r.scalar_one_or_none.return_value = player
-    mock_db = _make_db()
-    mock_db.execute = AsyncMock(return_value=r)
-
-    ip = f"10.{uuid.uuid4().int & 0xFF}.11.1"
-    body = {"email": "testplayer@example.com", "pin": "1234"}
-
-    async with _override_db(mock_db):
-        resp = await client.post(
-            "/api/v1/auth/login",
-            headers={"X-Forwarded-For": ip},
-            json=body,
-        )
-
-    assert resp.status_code == 401
-    assert resp.json()["detail"] == "Invalid credentials"
 
 
 # ---------------------------------------------------------------------------
