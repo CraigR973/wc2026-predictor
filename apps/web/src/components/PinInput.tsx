@@ -11,42 +11,56 @@ interface PinInputProps {
 
 export function PinInput({ value, onChange, maxLength = 4, autoComplete = 'current-password', label = 'PIN' }: PinInputProps) {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  // Tracks the latest committed value synchronously so rapid desktop keystrokes
+  // don't read stale React state before the next render cycle.
+  const latestValue = useRef(value);
+  latestValue.current = value;
 
   function focusCell(i: number) {
     inputs.current[i]?.focus();
   }
 
-  function getDigit(i: number): string {
-    return i < value.length ? value[i] : '';
+  function getDigitFrom(v: string, i: number): string {
+    return i < v.length ? v[i] : '';
   }
 
   function handleChange(i: number, raw: string) {
-    // Autofill (e.g. Chrome password manager) dumps the whole PIN into one cell
-    // overriding maxLength. Distribute digits across cells the same as paste.
+    // Autofill / paste into a single cell — distribute digits across all cells.
     if (raw.length > 1) {
       const digits = raw.replace(/\D/g, '').slice(0, maxLength);
+      latestValue.current = digits;
       onChange(digits);
       if (digits.length > 0) focusCell(Math.min(digits.length, maxLength - 1));
       return;
     }
     const digit = raw.replace(/\D/g, '').slice(-1);
-    const arr = Array.from({ length: maxLength }, (_, j) => getDigit(j));
+    // Read from the ref so rapid typing always sees the up-to-date value even
+    // if React hasn't committed the previous state update yet.
+    const current = latestValue.current;
+    const arr = Array.from({ length: maxLength }, (_, j) => getDigitFrom(current, j));
     arr[i] = digit;
-    onChange(arr.join('').replace(/\s+$/, '').trimEnd());
+    const next = arr.join('').replace(/\s+$/, '').trimEnd();
+    latestValue.current = next;
+    onChange(next);
     if (digit && i < maxLength - 1) focusCell(i + 1);
   }
 
   function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Backspace') {
       e.preventDefault();
-      if (getDigit(i)) {
-        const arr = Array.from({ length: maxLength }, (_, j) => getDigit(j));
+      const current = latestValue.current;
+      if (getDigitFrom(current, i)) {
+        const arr = Array.from({ length: maxLength }, (_, j) => getDigitFrom(current, j));
         arr[i] = '';
-        onChange(arr.join('').trimEnd());
+        const next = arr.join('').trimEnd();
+        latestValue.current = next;
+        onChange(next);
       } else if (i > 0) {
-        const arr = Array.from({ length: maxLength }, (_, j) => getDigit(j));
+        const arr = Array.from({ length: maxLength }, (_, j) => getDigitFrom(current, j));
         arr[i - 1] = '';
-        onChange(arr.join('').trimEnd());
+        const next = arr.join('').trimEnd();
+        latestValue.current = next;
+        onChange(next);
         focusCell(i - 1);
       }
     } else if (e.key === 'ArrowLeft' && i > 0) {
@@ -72,7 +86,7 @@ export function PinInput({ value, onChange, maxLength = 4, autoComplete = 'curre
           type="password"
           inputMode="numeric"
           maxLength={1}
-          value={getDigit(i)}
+          value={getDigitFrom(value, i)}
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
