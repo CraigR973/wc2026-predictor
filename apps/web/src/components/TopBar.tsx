@@ -90,8 +90,7 @@ export function TopBar() {
       className={cn(
         'sticky top-0 z-header',
         'bg-surface/90 backdrop-blur-md border-b border-border',
-        'pt-safe md:pt-safe',
-        'pt-[calc(var(--safe-top)+0.375rem)] md:pt-safe',
+        'pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] md:pt-safe',
       )}
     >
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
