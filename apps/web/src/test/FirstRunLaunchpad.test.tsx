@@ -13,6 +13,7 @@ function renderLaunchpad(onClose = vi.fn()) {
           <Route path="/about" element={<div>About route</div>} />
           <Route path="/predictions/specials" element={<div>Specials route</div>} />
           <Route path="/predictions" element={<div>Predictions route</div>} />
+          <Route path="/leagues" element={<div>Leagues route</div>} />
         </Routes>
       </MemoryRouter>,
     ),
@@ -44,5 +45,13 @@ describe('FirstRunLaunchpad', () => {
     fireEvent.click(screen.getByRole('button', { name: /make your first pick/i }));
     expect(firstPick.onClose).toHaveBeenCalledOnce();
     expect(screen.getByText('Predictions route')).toBeTruthy();
+  });
+
+  it('routes to join/create a league and marks the launchpad as seen', () => {
+    const { onClose } = renderLaunchpad();
+    fireEvent.click(screen.getByRole('button', { name: /join or create a league/i }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(localStorage.getItem('sss_firstrun_launchpad_seen')).toBe('1');
+    expect(screen.getByText('Leagues route')).toBeTruthy();
   });
 });

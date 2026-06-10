@@ -1,4 +1,4 @@
-import { BookOpen, Sparkles, Target } from 'lucide-react';
+import { BookOpen, Sparkles, Target, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { markFirstRunLaunchpadSeen } from '@/lib/firstRunLaunchpad';
@@ -8,6 +8,12 @@ interface Props {
 }
 
 const ACTIONS = [
+  {
+    title: 'Join or create a league',
+    description: 'Enter the code a mate sent you, or start your own league.',
+    to: '/leagues',
+    icon: Users,
+  },
   {
     title: 'Read the full rules',
     description: 'See the worked examples, deadlines, and late-join details in full on /about.',
@@ -52,15 +58,15 @@ export function FirstRunLaunchpad({ onClose }: Props) {
       <div className="w-full max-w-md space-y-5 overflow-hidden rounded-2xl border border-border bg-surface p-6 shadow-2xl animate-in slide-in-from-bottom-4 duration-200 sm:slide-in-from-bottom-0 sm:zoom-in-95">
         <div className="space-y-2 text-center">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary">
-            First things first
+            Get started
           </p>
           <h2 className="text-lg font-semibold text-text-primary font-sans">
-            Start wherever you like
+            Welcome to Calcio
           </h2>
           <p className="text-sm font-sans leading-relaxed text-text-secondary">
-            This is just your launchpad. Your Specials and your first match pick stay open until the
-            opening match kicks off — set them and update them any time before then. Reopen the
-            full rules any time from the menu → About.
+            A World Cup 2026 prediction game — you make one set of picks and they count across every
+            league you join. Start by getting into a league; your Specials and first pick stay
+            editable right up until the opening match kicks off.
           </p>
         </div>
 

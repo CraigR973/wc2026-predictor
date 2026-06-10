@@ -63,9 +63,11 @@ function ChecklistItem({
 }
 
 export function PreTournamentChecklist({
+  hasLeague,
   specialsSubmitted,
   tournamentStarted,
 }: {
+  hasLeague: boolean;
   specialsSubmitted: boolean | undefined;
   tournamentStarted: boolean;
 }) {
@@ -99,13 +101,16 @@ export function PreTournamentChecklist({
             Pre-Tournament Checklist
           </h2>
           <p className="text-sm font-sans leading-relaxed text-text-secondary">
-            This is your only checklist — just 3 things, all due before the opening match kicks off.
+            This is your only checklist — just 4 things, all due before the opening match kicks off.
             Nothing else is required until the tournament starts.
           </p>
         </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+        <ChecklistItem done={hasLeague} to="/leagues">
+          Join or create a league
+        </ChecklistItem>
         <ChecklistItem done={rulesDone} to="/about">
           Read the rules
         </ChecklistItem>
