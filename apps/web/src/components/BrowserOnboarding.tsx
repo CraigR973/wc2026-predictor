@@ -45,8 +45,8 @@ export function BrowserOnboarding() {
             upfront, just predict each game before kick-off.
           </p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            Previously run from a spreadsheet of legendary proportions, Calcio is the
-            next iteration.
+            Built for the World Cup from the ground up, Calcio keeps league play,
+            match picks, and standings in one place.
           </p>
         </div>
 
