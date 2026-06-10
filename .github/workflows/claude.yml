@@ -1,0 +1,52 @@
+name: claude
+
+# Auto-fix companion to prod-monitor: when an issue (or comment) mentions @claude
+# — or a monitor issue is opened with the `auto-fix` label — Claude investigates
+# and opens a DRAFT pull request with a minimal fix for review. Nothing deploys
+# until you review and merge the PR (merging `main` auto-deploys prod).
+#
+# Note: an issue created by the monitor using the default GITHUB_TOKEN will NOT
+# trigger this workflow (GitHub suppresses recursive triggers). Either set a
+# MONITOR_PAT secret on prod-monitor (so its issues are authored by you and do
+# trigger this), or simply reply "@claude" on the issue from your phone.
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened, labeled]
+
+concurrency:
+  group: claude-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  claude:
+    # Only on an explicit @claude mention or the auto-fix label, and only from the
+    # repo owner (this is a private, single-admin league).
+    if: >
+      (github.event_name == 'issue_comment'
+        && contains(github.event.comment.body, '@claude')
+        && github.event.comment.author_association == 'OWNER')
+      || (github.event_name == 'issues' && github.event.action == 'opened'
+        && contains(github.event.issue.body, '@claude'))
+      || (github.event_name == 'issues' && github.event.action == 'labeled'
+        && github.event.label.name == 'auto-fix')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Confirm the pinned version + input names against
+          # https://github.com/anthropics/claude-code-action before the trip.

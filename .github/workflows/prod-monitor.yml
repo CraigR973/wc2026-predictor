@@ -1,0 +1,54 @@
+name: prod-monitor
+
+# Proactive production monitor for the WC2026 prediction league.
+# Runs every ~15 min: executes owner slash-commands posted on monitor issues
+# (chatops), then runs the read-only healthcheck, auto-heals a stalled result
+# sync, and opens/updates/closes diagnosed issues that @mention the owner.
+# See docs/runbooks/prod-monitor.md.
+
+on:
+  schedule:
+    # ~ every 15 min, off the :00 mark to avoid the cron stampede.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run: no GitHub writes, no remediation"
+        type: boolean
+        default: false
+
+concurrency:
+  group: prod-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # A PAT (if provided) lets bot-created issues trigger the @claude workflow;
+      # otherwise falls back to GITHUB_TOKEN (you tap @claude on the issue to start a fix).
+      GH_TOKEN: ${{ secrets.MONITOR_PAT || secrets.GITHUB_TOKEN }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      OWNER_LOGIN: ${{ github.repository_owner }}
+      PROD_API_BASE_URL: ${{ vars.PROD_API_BASE_URL }}
+      MONITOR_DATABASE_URL: ${{ secrets.MONITOR_DATABASE_URL }}
+      JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+      MONITOR_ADMIN_PLAYER_ID: ${{ secrets.MONITOR_ADMIN_PLAYER_ID }}
+      FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+      DRY: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r scripts/requirements-monitor.txt
+      - name: ChatOps — run owner slash-commands on open monitor issues
+        run: python scripts/monitor_ci.py $DRY chatops
+      - name: Scan — healthcheck, auto-heal, open/close diagnosed issues, digest
+        run: python scripts/monitor_ci.py $DRY scan
