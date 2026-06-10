@@ -136,9 +136,9 @@ describe('AboutPage — scoring clarity', () => {
     expect(screen.getByText('1,415')).toBeTruthy();
   });
 
-  it('includes the end-of-rules handoff to the embedded Specials form', () => {
+  it('includes the end-of-rules handoff back to Predict', () => {
     renderAboutPage();
-    expect(screen.getByText(/your specials form is just below/i)).toBeTruthy();
+    expect(screen.getByText(/use predict → specials/i)).toBeTruthy();
   });
 
   it('has no axe violations', async () => {

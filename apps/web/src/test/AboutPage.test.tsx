@@ -9,15 +9,6 @@ vi.mock('@/lib/checklist', () => ({
   markRulesRead: vi.fn(),
 }));
 
-// SpecialsForm makes live API calls — stub it out so About tests stay unit tests.
-vi.mock('@/components/SpecialsForm', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/components/SpecialsForm')>();
-  return {
-    ...actual,
-    SpecialsForm: () => <div data-testid="specials-form-embed">specials-form-stub</div>,
-  };
-});
-
 class MockIntersectionObserver {
   static lastInstance: MockIntersectionObserver | null = null;
 
@@ -118,19 +109,11 @@ describe('AboutPage U45 — multi-league hero', () => {
   });
 });
 
-describe('AboutPage U45 — embedded Specials form', () => {
-  it('renders the Specials section with correct heading and editable-until-kickoff copy', () => {
+describe('AboutPage U45 — end-of-rules handoff', () => {
+  it('points players back to the Predict surfaces after the rules', () => {
     renderAboutPage();
 
-    const section = screen.getByTestId('about-specials-section');
-    expect(section).toBeTruthy();
-    expect(screen.getByRole('heading', { name: /your specials/i })).toBeTruthy();
-    expect(section.textContent).toMatch(/worth up to 80 points/i);
-  });
-
-  it('embeds the SpecialsForm component', () => {
-    renderAboutPage();
-
-    expect(screen.getByTestId('specials-form-embed')).toBeTruthy();
+    expect(screen.getByText(/use predict → specials/i)).toBeTruthy();
+    expect(screen.getByText(/and predict for your match-by-match scores/i)).toBeTruthy();
   });
 });

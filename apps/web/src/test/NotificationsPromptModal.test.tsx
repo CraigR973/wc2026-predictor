@@ -42,9 +42,9 @@ describe('NotificationsPromptModal', () => {
 
   it('sets localStorage flag and calls onClose when Maybe later clicked', () => {
     const onClose = vi.fn();
-    render(<NotificationsPromptModal onClose={onClose} />);
+    render(<NotificationsPromptModal playerId="p1" onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: /maybe later/i }));
-    expect(isNotifPromptSeen()).toBe(true);
+    expect(isNotifPromptSeen('p1')).toBe(true);
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -60,9 +60,9 @@ describe('NotificationsPromptModal', () => {
 
   it('sets localStorage flag and calls onClose when enable clicked', async () => {
     const onClose = vi.fn();
-    render(<NotificationsPromptModal onClose={onClose} />);
+    render(<NotificationsPromptModal playerId="p1" onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: /enable match alerts/i }));
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
-    expect(isNotifPromptSeen()).toBe(true);
+    expect(isNotifPromptSeen('p1')).toBe(true);
   });
 });
