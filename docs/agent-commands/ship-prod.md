@@ -46,10 +46,15 @@ Stop and report (do not proceed) if any fail:
 ## Kickoff-time freeze check (live tournament only)
 
 During the tournament window (Jun 11 – Jul 19, 2026), do not deploy within 30
-minutes of a scheduled kickoff. Check the next kickoff:
-```bash
-curl -s https://wc2026-api-production-a0f4.up.railway.app/api/v1/matches/upcoming?n=1
-```
+minutes of a scheduled kickoff.
+
+`/api/v1/matches/upcoming` **cannot** be used here: the entire `/api/v1/matches/*`
+router requires an authenticated player by design (private league) and returns
+`401 {"detail":"Not authenticated"}` to an unauthenticated curl. Check the next
+kickoff via the **authenticated PWA** instead — open the prod app
+(`https://wc2026-prod.vercel.app`, where the operator is already signed in) and
+read the next scheduled kickoff from the fixtures / dashboard "next match" tile.
+
 If a match kicks off within ±30 min, warn the user and ask for explicit
 confirmation before continuing. Outside the tournament window, skip this.
 
@@ -110,16 +115,29 @@ The push to `main` triggers three things in parallel:
    > `<expected>`, got `<actual>`). Check the Railway source/branch trigger
    > (Operator action OP2 in `docs/review-batches.md`). Do not proceed."
 
-4. **Post-deploy synthetic (R8.5 — hard gate):** Hit a read-only API route
-   through the prod frontend origin to catch prod-only env/CORS mismatches:
+4. **Post-deploy synthetic (R8.5 — hard gate):** Send a CORS preflight-style
+   request to a **public** read-only route through the prod frontend origin to
+   catch prod-only env/CORS mismatches. Use `/api/v1/health` — it is
+   unauthenticated and returns a JSON body, so it can actually pass. (Do **not**
+   use `/api/v1/matches/upcoming` or any other `/api/v1/matches/*` route here:
+   that router requires an authenticated player by design — private league — and
+   returns `401 {"detail":"Not authenticated"}` to an unauthenticated curl, so it
+   can never satisfy this gate.)
    ```bash
-   curl -sf -H "Origin: https://wc2026-prod.vercel.app" \
-     "https://wc2026-api-production-a0f4.up.railway.app/api/v1/matches/upcoming" \
-     | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'data' in d, f'unexpected shape: {d}'; print('synthetic ok, matches:', len(d[\"data\"]))"
+   ORIGIN="https://wc2026-prod.vercel.app"
+   API="https://wc2026-api-production-a0f4.up.railway.app/api/v1/health"
+   # 1) body + status: must be 200 with a JSON {status: ...} body
+   curl -sf -H "Origin: $ORIGIN" "$API" \
+     | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('status')=='ok', f'unexpected shape: {d}'; print('health ok, sha:', d.get('sha','?'))"
+   # 2) CORS: the prod origin must be echoed back in access-control-allow-origin
+   ACAO=$(curl -s -D - -o /dev/null -H "Origin: $ORIGIN" "$API" \
+     | tr -d '\r' | awk -F': ' 'tolower($1)=="access-control-allow-origin"{print $2}')
+   echo "access-control-allow-origin=$ACAO"
+   [ "$ACAO" = "$ORIGIN" ] || echo "FAIL: CORS origin mismatch (expected $ORIGIN)"
    ```
-   If this fails (non-2xx, missing `data` key, or CORS rejection), **stop and
-   fail the promotion**: the prod environment has a misconfiguration that staging
-   did not catch. Do not proceed.
+   If either step fails (non-2xx, wrong body shape, or the ACAO header is missing
+   or does not equal the prod origin), **stop and fail the promotion**: the prod
+   environment has a misconfiguration that staging did not catch. Do not proceed.
 
 5. If `main` CI concluded `failure` OR any prod check above is unhealthy, treat
    it as a bad release: surface the failing job/log tail and point the user to
