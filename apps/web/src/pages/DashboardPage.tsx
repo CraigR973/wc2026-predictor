@@ -556,7 +556,7 @@ export function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="mb-3 px-0.5 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
-          Welcome back, {displayName}
+          {perLeague.length === 0 ? `Welcome, ${displayName}` : `Welcome back, ${displayName}`}
         </h1>
         <div
           className="grid grid-cols-[minmax(0,0.92fr)_minmax(0,1.48fr)] gap-3"
@@ -588,6 +588,7 @@ export function DashboardPage() {
           </div>
         </div>
         <PreTournamentChecklist
+          hasLeague={perLeague.length > 0}
           specialsSubmitted={home?.todo?.specials_submitted}
           tournamentStarted={
             home?.todo?.specials_lock_at != null &&
