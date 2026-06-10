@@ -12,13 +12,14 @@ export function buildInviteMessage({ leagueName, joinCode, origin }: InviteMessa
     ``,
     `Like fantasy football: you predict once and your picks count across every league you're in.`,
     ``,
-    `League: ${leagueName}`,
-    `Join code: ${joinCode}`,
-    ``,
-    `New here? Install the app, create an account, then Leagues → Join by code:`,
+    `New here? Install the app first:`,
     `${origin}`,
+    `Then create an account and tap Leagues → Join by code.`,
     ``,
     `Already have the app? Open it and tap Leagues → Join by code.`,
+    ``,
+    `League: ${leagueName}`,
+    `Join code: ${joinCode}`,
   ].join('\n');
 }
 

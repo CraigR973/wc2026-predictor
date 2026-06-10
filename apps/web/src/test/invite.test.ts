@@ -35,6 +35,13 @@ describe('buildInviteMessage', () => {
     expect(msg).toContain('Join by code');
   });
 
+  it('puts install guidance before the league details so the url does not read like a code', () => {
+    const msg = buildInviteMessage(PARAMS);
+    expect(msg.indexOf('Install the app first:')).toBeLessThan(msg.indexOf('League: Test League'));
+    expect(msg.indexOf('https://example.com')).toBeLessThan(msg.indexOf('League: Test League'));
+    expect(msg.indexOf('https://example.com')).toBeLessThan(msg.indexOf('Join code: ABC123'));
+  });
+
   it('leads with the fantasy-football, predict-once hook', () => {
     const msg = buildInviteMessage(PARAMS).toLowerCase();
     expect(msg).toContain('fantasy football');
