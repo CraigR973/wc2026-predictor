@@ -2026,3 +2026,17 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `handleRotate` now reads `{ join_code }` from the rotate API response and calls `queryClient.setQueryData` immediately — eliminates the ~300–500ms window where the old code was still displayed after rotation (was the primary cause of "code not working after reset" reports).
 - Added `autoCorrect="off"` + `spellCheck={false}` to the code input in `JoinByCodePage.tsx` — iOS autocorrect was silently rewriting typed codes.
 - `POST /auth/join-by-code` rate limit raised 10→30/hour; was IP-keyed with no player key, so groups joining from the same WiFi/carrier shared the bucket.
+
+---
+
+## U53 — First-run launchpad & onboarding UX overhaul
+**Commits:** d7bb1d3, f14583b, 36d6265, 3edf307, ff4f201, 632d2d1, eb7ac01, 0f6d30a, 1929605, ef3bb56, 4263d7d, a9b1edd, f92cb99, ecf8d0b · CI ✅
+
+### Key facts for future sessions
+- New users now land on `FirstRunLaunchpad` (not `/about`); the redirect logic lives in `FirstRunController` — check there before touching `/about` routing.
+- Notification prompt is gated behind first-run completion: `useNotificationPrompt` checks `firstRunSeen` before surfacing the prompt, so it no longer fires on first page load for brand-new users.
+- `PreTournamentChecklist` "Turn on match alerts" step reads from the same notification-permission state as the proactive prompt — they're kept in sync via a shared hook.
+- Top bar brand mark position (`top-bar-brand`) required two staging iterations for iPhone safe-area interaction; current values are intentionally lower than the design comp to avoid notch overlap.
+- `DashboardPage.tsx` and `DashboardPage.test.tsx` have uncommitted local changes at session end — not part of this batch; check before next commit.
+
+**Next:** see docs/phase-batches.md for next batch
