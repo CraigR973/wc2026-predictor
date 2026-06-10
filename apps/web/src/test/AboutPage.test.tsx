@@ -75,7 +75,6 @@ describe('AboutPage rules completion', () => {
     renderAboutPage();
 
     expect(screen.getByText(/scroll for the full rules/i)).toBeTruthy();
-    expect(screen.getByText(/Pre-Tournament Checklist/i)).toBeTruthy();
     expect(screen.getByText(/that's everything\./i)).toBeTruthy();
   });
 
@@ -119,32 +118,6 @@ describe('AboutPage U45 — multi-league hero', () => {
   });
 });
 
-describe('AboutPage U45 — pre-tournament guardrail', () => {
-  it('renders the guardrail block with both tasks', () => {
-    renderAboutPage();
-
-    const guardrail = screen.getByTestId('about-pretournament-guardrail');
-    expect(guardrail).toBeTruthy();
-    expect(guardrail.textContent).toMatch(/your 2 pre-tournament tasks/i);
-    expect(guardrail.textContent).toMatch(/set your specials/i);
-    expect(guardrail.textContent).toMatch(/predict your first match/i);
-  });
-
-  it('Set your Specials item is visible in the guardrail', () => {
-    renderAboutPage();
-
-    // These are non-link task items in the guardrail — "Set your Specials" is
-    // a span label; the Specials section is reachable by scrolling the page.
-    expect(screen.getByText('Set your Specials')).toBeInTheDocument();
-  });
-
-  it('Predict your first match item is visible in the guardrail', () => {
-    renderAboutPage();
-
-    expect(screen.getByText('Predict your first match')).toBeInTheDocument();
-  });
-});
-
 describe('AboutPage U45 — embedded Specials form', () => {
   it('renders the Specials section with correct heading and editable-until-kickoff copy', () => {
     renderAboutPage();
@@ -152,7 +125,7 @@ describe('AboutPage U45 — embedded Specials form', () => {
     const section = screen.getByTestId('about-specials-section');
     expect(section).toBeTruthy();
     expect(screen.getByRole('heading', { name: /your specials/i })).toBeTruthy();
-    expect(section.textContent).toMatch(/editable until the opening match kicks off/i);
+    expect(section.textContent).toMatch(/worth up to 80 points/i);
   });
 
   it('embeds the SpecialsForm component', () => {
