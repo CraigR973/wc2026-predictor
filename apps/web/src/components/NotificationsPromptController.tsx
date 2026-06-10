@@ -32,7 +32,7 @@ export function NotificationsPromptController() {
     // Wait until first-run (the launchpad) is done so this can't stack on top of it.
     if (!isTourSeen(player.id)) return;
     if (!isStandalone()) return;
-    if (isNotifPromptSeen()) return;
+    if (isNotifPromptSeen(player.id)) return;
     if (typeof Notification !== 'undefined' && Notification.permission !== 'default') return;
 
     const t = setTimeout(() => setShow(true), 3_000);
@@ -41,5 +41,5 @@ export function NotificationsPromptController() {
 
   if (!show) return null;
 
-  return <NotificationsPromptModal onClose={() => setShow(false)} />;
+  return <NotificationsPromptModal playerId={player?.id} onClose={() => setShow(false)} />;
 }

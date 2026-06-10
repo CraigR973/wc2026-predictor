@@ -4,12 +4,19 @@ import { usePushSubscription } from '@/hooks/usePushSubscription';
 
 const STORAGE_KEY = 'sss_notif_prompt_seen';
 
-export function markNotifPromptSeen(): void {
-  try { localStorage.setItem(STORAGE_KEY, '1'); } catch { /* ignore */ }
+function storageKey(playerId?: string): string {
+  return playerId ? `${STORAGE_KEY}_${playerId}` : STORAGE_KEY;
 }
 
-export function isNotifPromptSeen(): boolean {
-  try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; }
+export function markNotifPromptSeen(playerId?: string): void {
+  try { localStorage.setItem(storageKey(playerId), '1'); } catch { /* ignore */ }
+}
+
+export function isNotifPromptSeen(playerId?: string): boolean {
+  try {
+    if (playerId && localStorage.getItem(storageKey(playerId)) === '1') return true;
+    return localStorage.getItem(STORAGE_KEY) === '1';
+  } catch { return false; }
 }
 
 function isStandalone(): boolean {
@@ -18,20 +25,21 @@ function isStandalone(): boolean {
 
 interface Props {
   onClose: () => void;
+  playerId?: string;
 }
 
-export function NotificationsPromptModal({ onClose }: Props) {
+export function NotificationsPromptModal({ onClose, playerId }: Props) {
   const { subscribe, isLoading } = usePushSubscription();
   const standalone = isStandalone();
 
   async function handleEnable() {
     await subscribe();
-    markNotifPromptSeen();
+    markNotifPromptSeen(playerId);
     onClose();
   }
 
   function handleLater() {
-    markNotifPromptSeen();
+    markNotifPromptSeen(playerId);
     onClose();
   }
 

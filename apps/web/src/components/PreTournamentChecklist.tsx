@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Circle, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { readChecklist } from '../lib/checklist';
+import { getStoredPlayer } from '../lib/tokens';
 import { cn } from '../lib/utils';
 import type { PredictionResponse } from '../lib/types';
 import { NotificationsPromptModal } from './NotificationsPromptModal';
@@ -92,6 +93,7 @@ export function PreTournamentChecklist({
   const [state] = useState(() => readChecklist());
   const [notifOpen, setNotifOpen] = useState(false);
   const { isSubscribed: notificationsOn } = usePushSubscription();
+  const player = getStoredPlayer();
   const installed = isStandalone();
 
   // Shares the ['predictions','me'] key with the carousel, so React Query
@@ -165,7 +167,7 @@ export function PreTournamentChecklist({
           </ChecklistItem>
         )}
       </div>
-      {notifOpen && <NotificationsPromptModal onClose={() => setNotifOpen(false)} />}
+      {notifOpen && <NotificationsPromptModal playerId={player?.id} onClose={() => setNotifOpen(false)} />}
     </section>
   );
 }

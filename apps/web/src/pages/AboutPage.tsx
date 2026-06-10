@@ -11,12 +11,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/PageHeader';
-import { SpecialsForm } from '@/components/SpecialsForm';
-import { apiFetch } from '@/lib/api';
 import { markRulesRead } from '@/lib/checklist';
 import { cn } from '@/lib/utils';
 import {
@@ -300,14 +296,6 @@ export function AboutPage() {
     return () => observer.disconnect();
   }, []);
 
-  const { data: specialsData } = useQuery<{ predictions: Array<{ submitted_at: string | null }> }>({
-    queryKey: ['specials', 'me'],
-    queryFn: () => apiFetch('/api/v1/specials'),
-  });
-  const allSpecialsSubmitted = specialsData
-    ? specialsData.predictions.filter((p) => p.submitted_at != null).length === 6
-    : false;
-
   return (
     <div className="max-w-xl space-y-6">
       <PageHeader title="About" eyebrow="Calcio" showBack />
@@ -565,46 +553,9 @@ export function AboutPage() {
           That&apos;s everything.
         </p>
         <p className="mt-1 text-sm font-sans leading-relaxed text-text-secondary">
-          Your Specials form is just below, and you can edit those picks until the opening match kicks off.
+          Use Predict → Specials for your pre-tournament bonus picks, and Predict for your match-by-match scores.
         </p>
       </div>
-
-      {/* Embedded Specials form */}
-      <section
-        id="specials-form"
-        data-testid="about-specials-section"
-        aria-labelledby="about-specials-heading"
-        className="space-y-4"
-      >
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary mb-1">
-            Pre-tournament bonus
-          </p>
-          <h2
-            id="about-specials-heading"
-            className="text-lg font-semibold font-sans text-text-primary tracking-tight"
-          >
-            Your Specials
-          </h2>
-          <p className="mt-1 text-sm font-sans text-text-secondary leading-relaxed">
-            Six bonus predictions worth up to 80 points.
-          </p>
-        </div>
-        <SpecialsForm />
-        <Link
-          to="/"
-          aria-disabled={!allSpecialsSubmitted}
-          tabIndex={allSpecialsSubmitted ? 0 : -1}
-          className={cn(
-            'flex w-full items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold font-sans transition-colors',
-            allSpecialsSubmitted
-              ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
-              : 'pointer-events-none border-border bg-surface text-text-muted opacity-50',
-          )}
-        >
-          {allSpecialsSubmitted ? '✓ Specials saved — go to home hub →' : 'Save all 6 Specials to continue'}
-        </Link>
-      </section>
 
       {/* Footer credit */}
       <div className="space-y-2 pb-2">
