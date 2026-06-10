@@ -22,7 +22,7 @@ const ACTIONS = [
   },
   {
     title: 'Set your Specials',
-    description: 'Your six tournament picks stay open until the opening match kicks off.',
+    description: 'Set and update your six tournament picks any time until the opening match kicks off.',
     to: '/predictions/specials',
     icon: Sparkles,
   },
@@ -65,8 +65,7 @@ export function FirstRunLaunchpad({ onClose }: Props) {
           </h2>
           <p className="text-sm font-sans leading-relaxed text-text-secondary">
             A World Cup 2026 prediction game — you make one set of picks and they count across every
-            league you join. Start by getting into a league; your Specials and first pick stay
-            editable right up until the opening match kicks off.
+            league you join. Start by getting into a league below.
           </p>
         </div>
 
