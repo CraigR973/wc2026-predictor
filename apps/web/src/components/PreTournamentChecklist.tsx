@@ -89,7 +89,7 @@ export function PreTournamentChecklist({
   if (tournamentStarted) return null;
 
   return (
-    <section aria-labelledby="home-checklist-label">
+    <section aria-labelledby="home-checklist-label" className="mt-3">
       <div className="mb-2 px-0.5">
         <div className="space-y-1">
           <h2
