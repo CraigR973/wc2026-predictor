@@ -11,12 +11,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { ExternalLink, Sparkles, Target } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
-import { SpecialsForm } from '@/components/SpecialsForm';
-import { apiFetch } from '@/lib/api';
 import { markRulesRead } from '@/lib/checklist';
 import { cn } from '@/lib/utils';
 import {
@@ -300,14 +296,6 @@ export function AboutPage() {
     return () => observer.disconnect();
   }, []);
 
-  const { data: specialsData } = useQuery<{ predictions: Array<{ submitted_at: string | null }> }>({
-    queryKey: ['specials', 'me'],
-    queryFn: () => apiFetch('/api/v1/specials'),
-  });
-  const allSpecialsSubmitted = specialsData
-    ? specialsData.predictions.filter((p) => p.submitted_at != null).length === 6
-    : false;
-
   return (
     <div className="max-w-xl space-y-6">
       <PageHeader title="About" eyebrow="Calcio" showBack />
@@ -327,44 +315,10 @@ export function AboutPage() {
         </p>
       </div>
 
-      {/* U45.4 — Pre-tournament tasks guardrail */}
-      <div
-        data-testid="about-pretournament-guardrail"
-        className="rounded-lg border border-border bg-surface p-4 space-y-3"
-      >
-        <p className="text-xs font-mono font-semibold tracking-[0.2em] uppercase text-text-muted">
-          Your 2 pre-tournament tasks
-        </p>
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Sparkles className="h-4 w-4 text-primary" aria-hidden />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold font-sans text-text-primary">Set your Specials</span>
-              <span className="block text-xs font-sans text-text-secondary mt-0.5">
-                Scroll down on this page to the Specials form
-              </span>
-            </span>
-          </div>
-          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-4 py-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Target className="h-4 w-4 text-primary" aria-hidden />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold font-sans text-text-primary">Predict your first match</span>
-              <span className="block text-xs font-sans text-text-secondary mt-0.5">
-                Go to Predict &rsaquo; Matches
-              </span>
-            </span>
-          </div>
-        </div>
-      </div>
-
       <div className="rounded-lg border border-border bg-surface-elevated px-4 py-3">
         <p className="text-sm font-sans leading-relaxed text-text-secondary">
           Scroll for the full rules. We only tick off &ldquo;Read the rules&rdquo; in the
-          Pre-Tournament Checklist once you reach the end of the tournament guide below.
+          Pre-Tournament Checklist once you reach the end of the guide below.
         </p>
       </div>
 
@@ -373,15 +327,8 @@ export function AboutPage() {
         <p className="text-sm font-sans text-text-secondary leading-relaxed">
           Calcio is a prediction game for the 2026 FIFA World Cup. You make one set of predictions
           for the whole tournament — 72 group-stage matches and 32 knockout fixtures, from the Round
-          of 32 all the way to the Final — and they compete across every league you&rsquo;re in{' '}
-          <strong className="text-text-primary font-medium">at the same time</strong>.
-        </p>
-        <p className="text-sm font-sans text-text-secondary leading-relaxed">
-          Start a <strong className="text-text-primary font-medium">private</strong> league, open a{' '}
-          <strong className="text-text-primary font-medium">public</strong> one anyone can find and
-          join, or join leagues other people have started — you can be in as many as you like (15
-          players by default, up to 50). Predictions lock automatically, results are fetched
-          automatically, and every league&rsquo;s leaderboard updates in real time.
+          of 32 to the Final. Your picks count across every league you join, with automatic locking,
+          result fetching, and live leaderboard updates throughout the tournament.
         </p>
       </Section>
 
@@ -495,11 +442,9 @@ export function AboutPage() {
 
           <SubHead>Getting into leagues</SubHead>
           <BulletList items={[
-            <>Tap an <strong className="text-text-primary font-semibold">invite link</strong> someone shares with you — the usual way into a private league.</>,
-            <>Or enter a <strong className="text-text-primary font-semibold">join code</strong> under Leagues → Join by code.</>,
-            <>Or <strong className="text-text-primary font-semibold">discover public leagues</strong> and join instantly — or request to join, where an admin approves you.</>,
-            <>Or <strong className="text-text-primary font-semibold">create your own</strong> league (private or public) and invite people in.</>,
-            'You make one set of predictions — they count in every league you join.',
+            <>Join a private league from an <strong className="text-text-primary font-semibold">invite link</strong> or by entering a <strong className="text-text-primary font-semibold">join code</strong> under Leagues → Join by code.</>,
+            <>You can also <strong className="text-text-primary font-semibold">discover public leagues</strong> or <strong className="text-text-primary font-semibold">create your own</strong> and invite people in.</>,
+            'Wherever you join, the same set of picks counts everywhere.',
           ]} />
 
           <SubHead>Group stage — 11–28 June</SubHead>
@@ -608,51 +553,9 @@ export function AboutPage() {
           That&apos;s everything.
         </p>
         <p className="mt-1 text-sm font-sans leading-relaxed text-text-secondary">
-          Set your Specials below — editable until the opening match kicks off. You can also
-          edit them any time at{' '}
-          <Link to="/predictions/specials" className="text-primary underline-offset-2 hover:underline">
-            Predict → Specials
-          </Link>
-          .
+          Use Predict → Specials for your pre-tournament bonus picks, and Predict for your match-by-match scores.
         </p>
       </div>
-
-      {/* Embedded Specials form */}
-      <section
-        id="specials-form"
-        data-testid="about-specials-section"
-        aria-labelledby="about-specials-heading"
-        className="space-y-4"
-      >
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary mb-1">
-            Pre-tournament bonus
-          </p>
-          <h2
-            id="about-specials-heading"
-            className="text-lg font-semibold font-sans text-text-primary tracking-tight"
-          >
-            Your Specials
-          </h2>
-          <p className="mt-1 text-sm font-sans text-text-secondary leading-relaxed">
-            Six bonus predictions worth up to 80 points — editable until the opening match kicks off.
-          </p>
-        </div>
-        <SpecialsForm />
-        <Link
-          to="/"
-          aria-disabled={!allSpecialsSubmitted}
-          tabIndex={allSpecialsSubmitted ? 0 : -1}
-          className={cn(
-            'flex w-full items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold font-sans transition-colors',
-            allSpecialsSubmitted
-              ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
-              : 'pointer-events-none border-border bg-surface text-text-muted opacity-50',
-          )}
-        >
-          {allSpecialsSubmitted ? '✓ Specials saved — go to home hub →' : 'Save all 6 Specials to continue'}
-        </Link>
-      </section>
 
       {/* Footer credit */}
       <div className="space-y-2 pb-2">

@@ -35,33 +35,35 @@ describe('buildInviteMessage', () => {
     expect(msg).toContain('Join by code');
   });
 
-  it('mentions the pre-tournament checklist and Specials', () => {
+  it('puts install guidance before the league details so the url does not read like a code', () => {
     const msg = buildInviteMessage(PARAMS);
-    expect(msg.toLowerCase()).toContain('pre-tournament checklist');
-    expect(msg).toContain('Specials');
-    expect(msg.toLowerCase()).toContain('tournament');
+    expect(msg.indexOf('Install the app first:')).toBeLessThan(msg.indexOf('League: Test League'));
+    expect(msg.indexOf('https://example.com')).toBeLessThan(msg.indexOf('League: Test League'));
+    expect(msg.indexOf('https://example.com')).toBeLessThan(msg.indexOf('Join code: ABC123'));
   });
 
-  it('includes a create-account step for new users', () => {
-    const msg = buildInviteMessage(PARAMS);
-    expect(msg).toContain('Create your account');
+  it('leads with the fantasy-football, predict-once hook', () => {
+    const msg = buildInviteMessage(PARAMS).toLowerCase();
+    expect(msg).toContain('fantasy football');
+    expect(msg).toContain('predict once');
   });
 
-  it('contains an "already have the app" hint with the code', () => {
-    const msg = buildInviteMessage(PARAMS);
-    expect(msg.toLowerCase()).toContain('already have the app');
-    expect(msg).toContain('ABC123');
+  it('covers both new and existing app users', () => {
+    const msg = buildInviteMessage(PARAMS).toLowerCase();
+    expect(msg).toContain('create an account');
+    expect(msg).toContain('already have the app');
   });
 
   it('mentions Calcio', () => {
-    const msg = buildInviteMessage(PARAMS);
-    expect(msg).toContain('Calcio');
+    expect(buildInviteMessage(PARAMS)).toContain('Calcio');
   });
 
-  it('contains the spreadsheet backstory', () => {
+  it('stays slim — defers rules, Specials and lore to the in-app guide', () => {
     const msg = buildInviteMessage(PARAMS);
-    expect(msg).toContain('spreadsheet');
-    expect(msg).toContain('Calcio is the next iteration');
+    expect(msg).not.toContain('spreadsheet');
+    expect(msg.toLowerCase()).not.toContain('pre-tournament checklist');
+    expect(msg).not.toContain('Specials');
+    expect(msg.length).toBeLessThan(400);
   });
 });
 

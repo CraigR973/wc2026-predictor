@@ -9,15 +9,6 @@ vi.mock('@/lib/checklist', () => ({
   markRulesRead: vi.fn(),
 }));
 
-// SpecialsForm makes live API calls — stub it out so About tests stay unit tests.
-vi.mock('@/components/SpecialsForm', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/components/SpecialsForm')>();
-  return {
-    ...actual,
-    SpecialsForm: () => <div data-testid="specials-form-embed">specials-form-stub</div>,
-  };
-});
-
 class MockIntersectionObserver {
   static lastInstance: MockIntersectionObserver | null = null;
 
@@ -75,7 +66,6 @@ describe('AboutPage rules completion', () => {
     renderAboutPage();
 
     expect(screen.getByText(/scroll for the full rules/i)).toBeTruthy();
-    expect(screen.getByText(/Pre-Tournament Checklist/i)).toBeTruthy();
     expect(screen.getByText(/that's everything\./i)).toBeTruthy();
   });
 
@@ -119,45 +109,11 @@ describe('AboutPage U45 — multi-league hero', () => {
   });
 });
 
-describe('AboutPage U45 — pre-tournament guardrail', () => {
-  it('renders the guardrail block with both tasks', () => {
+describe('AboutPage U45 — end-of-rules handoff', () => {
+  it('points players back to the Predict surfaces after the rules', () => {
     renderAboutPage();
 
-    const guardrail = screen.getByTestId('about-pretournament-guardrail');
-    expect(guardrail).toBeTruthy();
-    expect(guardrail.textContent).toMatch(/your 2 pre-tournament tasks/i);
-    expect(guardrail.textContent).toMatch(/set your specials/i);
-    expect(guardrail.textContent).toMatch(/predict your first match/i);
-  });
-
-  it('Set your Specials item is visible in the guardrail', () => {
-    renderAboutPage();
-
-    // These are non-link task items in the guardrail — "Set your Specials" is
-    // a span label; the Specials section is reachable by scrolling the page.
-    expect(screen.getByText('Set your Specials')).toBeInTheDocument();
-  });
-
-  it('Predict your first match item is visible in the guardrail', () => {
-    renderAboutPage();
-
-    expect(screen.getByText('Predict your first match')).toBeInTheDocument();
-  });
-});
-
-describe('AboutPage U45 — embedded Specials form', () => {
-  it('renders the Specials section with correct heading and editable-until-kickoff copy', () => {
-    renderAboutPage();
-
-    const section = screen.getByTestId('about-specials-section');
-    expect(section).toBeTruthy();
-    expect(screen.getByRole('heading', { name: /your specials/i })).toBeTruthy();
-    expect(section.textContent).toMatch(/editable until the opening match kicks off/i);
-  });
-
-  it('embeds the SpecialsForm component', () => {
-    renderAboutPage();
-
-    expect(screen.getByTestId('specials-form-embed')).toBeTruthy();
+    expect(screen.getByText(/use predict → specials/i)).toBeTruthy();
+    expect(screen.getByText(/and predict for your match-by-match scores/i)).toBeTruthy();
   });
 });

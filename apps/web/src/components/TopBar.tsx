@@ -90,14 +90,18 @@ export function TopBar() {
       className={cn(
         'sticky top-0 z-header',
         'bg-surface/90 backdrop-blur-md border-b border-border',
-        'pt-safe',
+        'pt-[calc(env(safe-area-inset-top,0px)+1rem)] md:pt-safe',
       )}
     >
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
+      <div className="max-w-6xl mx-auto px-4 h-16 md:h-14 flex items-center gap-4">
         {/* ── Mobile layout (< md): toggle | centred brand | avatar ── */}
         <div className="flex md:hidden items-center w-full justify-between">
           {themeToggle}
-          <NavLink to="/" aria-label="Home" className="press-down absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <NavLink
+            to="/"
+            aria-label="Home"
+            className="press-down absolute left-1/2 top-[58%] -translate-x-1/2 -translate-y-1/2"
+          >
             <Brand variant="compact" size={46} />
           </NavLink>
           {avatarMenu}

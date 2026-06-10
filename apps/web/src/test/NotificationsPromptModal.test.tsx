@@ -42,9 +42,9 @@ describe('NotificationsPromptModal', () => {
 
   it('sets localStorage flag and calls onClose when Maybe later clicked', () => {
     const onClose = vi.fn();
-    render(<NotificationsPromptModal onClose={onClose} />);
+    render(<NotificationsPromptModal playerId="p1" onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: /maybe later/i }));
-    expect(isNotifPromptSeen()).toBe(true);
+    expect(isNotifPromptSeen('p1')).toBe(true);
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -53,6 +53,10 @@ describe('NotificationsPromptModal', () => {
       writable: true,
       value: vi.fn().mockReturnValue({ matches: false }),
     });
+    Object.defineProperty(navigator, 'standalone', {
+      writable: true,
+      value: false,
+    });
     render(<NotificationsPromptModal onClose={vi.fn()} />);
     expect(screen.getByText(/add to home screen first/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /enable match alerts/i })).toBeNull();
@@ -60,9 +64,27 @@ describe('NotificationsPromptModal', () => {
 
   it('sets localStorage flag and calls onClose when enable clicked', async () => {
     const onClose = vi.fn();
-    render(<NotificationsPromptModal onClose={onClose} />);
+    render(<NotificationsPromptModal playerId="p1" onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: /enable match alerts/i }));
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
-    expect(isNotifPromptSeen()).toBe(true);
+    expect(isNotifPromptSeen('p1')).toBe(true);
+  });
+
+  it('treats iOS standalone mode as installed even when matchMedia is false', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue({ matches: false }),
+    });
+    Object.defineProperty(navigator, 'standalone', {
+      writable: true,
+      value: true,
+    });
+    render(<NotificationsPromptModal playerId="p1" onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /enable match alerts/i })).toBeTruthy();
+  });
+
+  it('does not let a legacy global flag suppress a different player prompt', () => {
+    localStorage.setItem('sss_notif_prompt_seen', '1');
+    expect(isNotifPromptSeen('p2')).toBe(false);
   });
 });

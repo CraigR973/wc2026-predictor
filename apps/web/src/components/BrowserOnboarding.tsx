@@ -45,19 +45,8 @@ export function BrowserOnboarding() {
             upfront, just predict each game before kick-off.
           </p>
           <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            Previously run from a spreadsheet of legendary proportions, Calcio is the
-            next iteration.
-          </p>
-          <p className="text-sm font-sans text-text-secondary leading-relaxed">
-            Once you&apos;re in, make sure you complete your pre-tournament checklist before the opening match kicks off:
-          </p>
-          <ol className="text-sm font-sans text-text-secondary leading-relaxed list-decimal list-inside space-y-1 pl-1">
-            <li>Read the About page</li>
-            <li>Predict your Specials</li>
-            <li>Predict your first match</li>
-          </ol>
-          <p className="text-xs font-sans text-text-muted leading-relaxed">
-            (All editable up until kick-off of the first game)
+            Built for the World Cup from the ground up, Calcio keeps league play,
+            match picks, and standings in one place.
           </p>
         </div>
 

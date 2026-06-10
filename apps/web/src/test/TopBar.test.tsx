@@ -79,4 +79,16 @@ describe('TopBar avatar menu', () => {
       expect(icon).toHaveAttribute('height', '46');
     });
   });
+
+  it('adds extra iPhone safe-area clearance on the mobile header', () => {
+    const { container } = renderTopBar();
+
+    const header = container.querySelector('header');
+    const mobileBrandLink = container.querySelector('a[aria-label="Home"].absolute');
+    const navRow = container.querySelector('header > div');
+
+    expect(header?.className).toContain('pt-[calc(env(safe-area-inset-top,0px)+1rem)]');
+    expect(navRow?.className).toContain('h-16');
+    expect(mobileBrandLink?.className).toContain('top-[58%]');
+  });
 });

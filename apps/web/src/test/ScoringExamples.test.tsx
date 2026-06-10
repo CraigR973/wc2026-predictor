@@ -136,10 +136,9 @@ describe('AboutPage — scoring clarity', () => {
     expect(screen.getByText('1,415')).toBeTruthy();
   });
 
-  it('includes the end-of-rules launch CTA', () => {
+  it('includes the end-of-rules handoff back to Predict', () => {
     renderAboutPage();
-    // The CTA link renders as "Predict → Specials" (inline in the specials section)
-    expect(screen.getByRole('link', { name: /predict.*specials/i })).toBeTruthy();
+    expect(screen.getByText(/use predict → specials/i)).toBeTruthy();
   });
 
   it('has no axe violations', async () => {
