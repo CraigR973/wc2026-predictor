@@ -322,7 +322,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     await waitFor(() => expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument());
     const liveCard = screen.getByTestId('match-tile-live-card');
     expect(liveCard).toHaveTextContent("Live · 67'");
-    expect(liveCard).toHaveTextContent('You 1–0');
+    expect(liveCard).toHaveTextContent('Your pick: 1–0');
     expect(liveCard).toHaveTextContent('+10 if it stands');
     expect(liveCard).toHaveTextContent('Result');
     expect(liveCard).toHaveTextContent('Goals');
@@ -346,7 +346,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     );
     const liveCard = screen.getByTestId('match-tile-live-card');
     expect(liveCard).toHaveTextContent('Live');
-    expect(liveCard).toHaveTextContent('You 2–1');
+    expect(liveCard).toHaveTextContent('Your pick: 2–1');
     expect(liveCard).toHaveTextContent('Result & points at full-time');
     expect(liveCard).not.toHaveTextContent('if it stands');
     expect(liveCard).not.toHaveTextContent('0–0');

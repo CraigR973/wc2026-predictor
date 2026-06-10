@@ -245,7 +245,7 @@ function MatchTileLiveCard({
         <p className="text-sm text-text-primary">
           {hasPrediction ? (
             <>
-              <span className="text-text-muted">You </span>
+              <span className="text-text-muted">Your pick: </span>
               <span className="font-mono font-medium tabular-nums">
                 {prediction.predicted_home}–{prediction.predicted_away}
               </span>
