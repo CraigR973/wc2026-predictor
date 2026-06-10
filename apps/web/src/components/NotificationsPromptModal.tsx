@@ -14,13 +14,16 @@ export function markNotifPromptSeen(playerId?: string): void {
 
 export function isNotifPromptSeen(playerId?: string): boolean {
   try {
-    if (playerId && localStorage.getItem(storageKey(playerId)) === '1') return true;
+    if (playerId) return localStorage.getItem(storageKey(playerId)) === '1';
     return localStorage.getItem(STORAGE_KEY) === '1';
   } catch { return false; }
 }
 
 function isStandalone(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
+  );
 }
 
 interface Props {
