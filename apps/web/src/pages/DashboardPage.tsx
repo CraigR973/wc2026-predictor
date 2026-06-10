@@ -587,6 +587,13 @@ export function DashboardPage() {
             )}
           </div>
         </div>
+        <PreTournamentChecklist
+          specialsSubmitted={home?.todo?.specials_submitted}
+          tournamentStarted={
+            home?.todo?.specials_lock_at != null &&
+            new Date(home.todo.specials_lock_at) <= new Date()
+          }
+        />
         <div className="mt-3" data-testid="dashboard-scoring-ref">
           <ScoringGuide storageKey="sss_scoring_guide_home_v2_open" defaultOpen={false} />
         </div>
@@ -621,14 +628,6 @@ export function DashboardPage() {
       ) : null}
 
       <UpcomingMatchesCarousel />
-
-      <PreTournamentChecklist
-        specialsSubmitted={home?.todo?.specials_submitted}
-        tournamentStarted={
-          home?.todo?.specials_lock_at != null &&
-          new Date(home.todo.specials_lock_at) <= new Date()
-        }
-      />
     </div>
   );
 }

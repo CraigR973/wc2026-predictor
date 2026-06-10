@@ -59,8 +59,8 @@ export function FirstRunLaunchpad({ onClose }: Props) {
           </h2>
           <p className="text-sm font-sans leading-relaxed text-text-secondary">
             This is just your launchpad. Your Specials and your first match pick stay open until the
-            opening match kicks off, so you can set them any time before then. Reopen the full rules
-            any time from the menu → About.
+            opening match kicks off — set them and update them any time before then. Reopen the
+            full rules any time from the menu → About.
           </p>
         </div>
 
