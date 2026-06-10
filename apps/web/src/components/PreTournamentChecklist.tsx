@@ -66,10 +66,12 @@ export function PreTournamentChecklist({
   hasLeague,
   specialsSubmitted,
   tournamentStarted,
+  kickoffIso,
 }: {
   hasLeague: boolean;
   specialsSubmitted: boolean | undefined;
   tournamentStarted: boolean;
+  kickoffIso: string | null;
 }) {
   const [state] = useState(() => readChecklist());
 
@@ -87,6 +89,17 @@ export function PreTournamentChecklist({
     (p) => p.predicted_home !== null && p.predicted_away !== null,
   );
 
+  const msToKickoff = kickoffIso ? new Date(kickoffIso).getTime() - Date.now() : null;
+  const countdownLabel =
+    msToKickoff != null && msToKickoff > 0
+      ? (() => {
+          const days = Math.floor(msToKickoff / 86_400_000);
+          const hours = Math.floor((msToKickoff % 86_400_000) / 3_600_000);
+          const mins = Math.floor((msToKickoff % 3_600_000) / 60_000);
+          return days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+        })()
+      : null;
+
   // Hide once the first match has kicked off — no dismiss before then.
   if (tournamentStarted) return null;
 
@@ -94,12 +107,19 @@ export function PreTournamentChecklist({
     <section aria-labelledby="home-checklist-label" className="mt-3">
       <div className="mb-2 px-0.5">
         <div className="space-y-1">
-          <h2
-            id="home-checklist-label"
-            className="text-lg font-bold tracking-tight text-text-primary"
-          >
-            Pre-Tournament Checklist
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2
+              id="home-checklist-label"
+              className="text-lg font-bold tracking-tight text-text-primary"
+            >
+              Pre-Tournament Checklist
+            </h2>
+            {countdownLabel && (
+              <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 font-mono text-xs font-semibold text-primary">
+                {countdownLabel} to kickoff
+              </span>
+            )}
+          </div>
           <p className="text-sm font-sans leading-relaxed text-text-secondary">
             This is your only checklist — just 4 things, all due before the opening match kicks off.
             Nothing else is required until the tournament starts.
