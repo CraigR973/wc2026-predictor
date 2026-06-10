@@ -329,6 +329,30 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).toHaveTextContent('Exact');
   });
 
+  it('hides the fabricated score and provisional points when a live match has no live score', async () => {
+    stubAuth();
+    // Real production state during a live match: status=live but actual scores
+    // are still null (the feed has no in-play score). We must not show 0–0 or
+    // "+N if it stands" computed against a fabricated 0–0.
+    const matches = [buildMatch('live-noscore', 'live', -600_000)];
+    const predictions = [buildPrediction('live-noscore', 2, 1)];
+    const Wrapper = makeWrapper(
+      mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches),
+    );
+    render(<Wrapper />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument(),
+    );
+    const liveCard = screen.getByTestId('match-tile-live-card');
+    expect(liveCard).toHaveTextContent('Live');
+    expect(liveCard).toHaveTextContent('You 2–1');
+    expect(liveCard).toHaveTextContent('Result & points at full-time');
+    expect(liveCard).not.toHaveTextContent('if it stands');
+    expect(liveCard).not.toHaveTextContent('0–0');
+    expect(screen.queryByTestId('provisional-combined-breakdown')).not.toBeInTheDocument();
+  });
+
   it('adds projected knockout advancement points for a decisive live scoreline', async () => {
     stubAuth();
     const matches = [

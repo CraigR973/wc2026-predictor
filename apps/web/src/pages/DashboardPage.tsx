@@ -174,26 +174,35 @@ function MatchTileLiveCard({
 }) {
   const home = chipTeam(match.home_team, match.home_team_placeholder);
   const away = chipTeam(match.away_team, match.away_team_placeholder);
-  const hs = match.actual_home_score ?? 0;
-  const as = match.actual_away_score ?? 0;
+  // The football-data competition feed carries no in-play score (see
+  // MatchResponse.elapsed_minutes in routers/matches.py), so during a live match
+  // actual_*_score stay null until full-time. Only show a scoreline + provisional
+  // "if it stands" points when a real score is present — otherwise we'd render a
+  // fabricated 0–0 and misleading projected points. Forward-compatible: this lights
+  // back up automatically the day a live-score source exists.
+  const hasLiveScore =
+    match.actual_home_score !== null && match.actual_away_score !== null;
   const minute = formatElapsed(match.elapsed_minutes);
   const hasPrediction =
     prediction != null &&
     prediction.predicted_home !== null &&
     prediction.predicted_away !== null;
-  const provisionalBreakdown = scoreLiveProvisionalPrediction({
-    prediction: hasPrediction
-      ? { homeScore: prediction.predicted_home!, awayScore: prediction.predicted_away! }
-      : null,
-    actual: { homeScore: hs, awayScore: as },
-    stage: match.stage as Stage,
-    homeTeamId: match.home_team?.id,
-    awayTeamId: match.away_team?.id,
-    predictedWinnerId: knockoutPrediction?.predicted_winner_id,
-  });
-  const hasProvisionalBreakdown = hasPrediction && !provisionalBreakdown.match.noPrediction;
-  const advancement = provisionalBreakdown.advancement;
-  const showAdvancementLine = advancement.status !== 'not_applicable';
+  const provisionalBreakdown =
+    hasLiveScore && hasPrediction
+      ? scoreLiveProvisionalPrediction({
+          prediction: {
+            homeScore: prediction.predicted_home!,
+            awayScore: prediction.predicted_away!,
+          },
+          actual: { homeScore: match.actual_home_score!, awayScore: match.actual_away_score! },
+          stage: match.stage as Stage,
+          homeTeamId: match.home_team?.id,
+          awayTeamId: match.away_team?.id,
+          predictedWinnerId: knockoutPrediction?.predicted_winner_id,
+        })
+      : null;
+  const showProvisional =
+    provisionalBreakdown != null && !provisionalBreakdown.match.noPrediction;
 
   return (
     <Link
@@ -218,9 +227,15 @@ function MatchTileLiveCard({
         <span className="min-w-0 font-mono text-base font-semibold text-text-primary sm:text-lg">
           {home.flag} {home.code}
         </span>
-        <span className="shrink-0 font-mono text-3xl font-semibold tabular-nums text-primary sm:text-[2rem]">
-          {hs}–{as}
-        </span>
+        {hasLiveScore ? (
+          <span className="shrink-0 font-mono text-3xl font-semibold tabular-nums text-primary sm:text-[2rem]">
+            {match.actual_home_score}–{match.actual_away_score}
+          </span>
+        ) : (
+          <span className="shrink-0 font-mono text-sm font-medium uppercase tracking-[0.15em] text-text-muted">
+            vs
+          </span>
+        )}
         <span className="min-w-0 text-right font-mono text-base font-semibold text-text-primary sm:text-lg">
           {away.code} {away.flag}
         </span>
@@ -234,16 +249,25 @@ function MatchTileLiveCard({
               <span className="font-mono font-medium tabular-nums">
                 {prediction.predicted_home}–{prediction.predicted_away}
               </span>
-              <span className="text-text-muted"> · </span>
-              <span className="font-mono font-semibold tabular-nums text-primary">
-                +{provisionalBreakdown.total} if it stands
-              </span>
+              {showProvisional && (
+                <>
+                  <span className="text-text-muted"> · </span>
+                  <span className="font-mono font-semibold tabular-nums text-primary">
+                    +{provisionalBreakdown.total} if it stands
+                  </span>
+                </>
+              )}
             </>
           ) : (
             <span className="text-text-muted">No prediction on this one.</span>
           )}
         </p>
-        {hasProvisionalBreakdown && showAdvancementLine && (
+        {!hasLiveScore && (
+          <p className="text-xs text-text-muted">
+            {hasPrediction ? 'Result & points at full-time' : 'Result at full-time'}
+          </p>
+        )}
+        {showProvisional && provisionalBreakdown.advancement.status !== 'not_applicable' && (
           <div
             className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 font-mono text-[11px] tabular-nums"
             data-testid="provisional-combined-breakdown"
@@ -254,10 +278,12 @@ function MatchTileLiveCard({
                 +{provisionalBreakdown.match.total}
               </span>
             </span>
-            {advancement.status === 'determined' ? (
+            {provisionalBreakdown.advancement.status === 'determined' ? (
               <span className="text-text-muted">
                 Advancement{' '}
-                <span className="font-semibold text-text-primary">+{advancement.points}</span>
+                <span className="font-semibold text-text-primary">
+                  +{provisionalBreakdown.advancement.points}
+                </span>
               </span>
             ) : (
               <span className="text-live">Advancement undecided</span>
@@ -265,7 +291,7 @@ function MatchTileLiveCard({
             <span className="ml-auto font-semibold text-primary">{provisionalBreakdown.total} pts</span>
           </div>
         )}
-        {hasProvisionalBreakdown && (
+        {showProvisional && (
           <PointsBreakdownRow
             breakdown={{
               result: provisionalBreakdown.match.correctResult,
