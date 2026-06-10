@@ -29,15 +29,30 @@ export function usePushSubscription(): PushSubscriptionState {
 
   // Check existing subscription on mount
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      setIsLoading(false);
-      return;
+    let cancelled = false;
+    function check() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setIsLoading(false);
+        return;
+      }
+      navigator.serviceWorker.ready
+        .then((reg) => reg.pushManager.getSubscription())
+        .then((sub) => {
+          if (!cancelled) setIsSubscribed(sub !== null);
+        })
+        .catch(() => void 0)
+        .finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
     }
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setIsSubscribed(sub !== null))
-      .catch(() => void 0)
-      .finally(() => setIsLoading(false));
+    check();
+    // Keep every hook instance (checklist, settings, prompt) in sync whenever the
+    // subscription changes on any surface.
+    window.addEventListener('push-sub-changed', check);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('push-sub-changed', check);
+    };
   }, []);
 
   const subscribe = useCallback(async () => {
@@ -69,6 +84,7 @@ export function usePushSubscription(): PushSubscriptionState {
         }),
       });
       setIsSubscribed(true);
+      window.dispatchEvent(new Event('push-sub-changed'));
     } catch (err) {
       console.error('push subscription failed', err);
     } finally {
@@ -90,6 +106,7 @@ export function usePushSubscription(): PushSubscriptionState {
         await sub.unsubscribe();
       }
       setIsSubscribed(false);
+      window.dispatchEvent(new Event('push-sub-changed'));
     } catch (err) {
       console.error('push unsubscribe failed', err);
     } finally {

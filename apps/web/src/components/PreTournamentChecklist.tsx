@@ -6,6 +6,16 @@ import { apiFetch } from '../lib/api';
 import { readChecklist } from '../lib/checklist';
 import { cn } from '../lib/utils';
 import type { PredictionResponse } from '../lib/types';
+import { NotificationsPromptModal } from './NotificationsPromptModal';
+import { usePushSubscription } from '../hooks/usePushSubscription';
+
+function isStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia?.('(display-mode: standalone)')?.matches === true ||
+    ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
+  );
+}
 
 // ---------------------------------------------------------------------------
 // PreTournamentChecklist (U20.4)
@@ -23,15 +33,26 @@ import type { PredictionResponse } from '../lib/types';
 function ChecklistItem({
   done,
   to,
+  onClick,
   children,
-  onLinkClick,
 }: {
   done: boolean;
-  to: string;
+  to?: string;
+  onClick?: () => void;
   children: ReactNode;
-  /** Called when the row link is clicked. */
-  onLinkClick?: () => void;
 }) {
+  const label = (
+    <span
+      className={cn(
+        'font-sans text-sm',
+        done ? 'text-text-muted line-through' : 'font-medium text-text-primary',
+      )}
+    >
+      {children}
+    </span>
+  );
+  const interactiveClass =
+    'min-w-0 flex-1 text-left rounded focus-visible:outline-none focus-visible:shadow-glow';
   return (
     <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3 last:border-b-0 sm:px-5">
       <span className="shrink-0" aria-hidden>
@@ -41,20 +62,15 @@ function ChecklistItem({
           <Circle className="h-5 w-5 text-text-muted" />
         )}
       </span>
-      <Link
-        to={to}
-        onClick={onLinkClick}
-        className="min-w-0 flex-1 rounded focus-visible:outline-none focus-visible:shadow-glow"
-      >
-        <span
-          className={cn(
-            'font-sans text-sm',
-            done ? 'text-text-muted line-through' : 'font-medium text-text-primary',
-          )}
-        >
-          {children}
-        </span>
-      </Link>
+      {to ? (
+        <Link to={to} className={interactiveClass}>
+          {label}
+        </Link>
+      ) : (
+        <button type="button" onClick={onClick} className={interactiveClass}>
+          {label}
+        </button>
+      )}
       {!done && (
         <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
       )}
@@ -74,6 +90,9 @@ export function PreTournamentChecklist({
   kickoffIso: string | null;
 }) {
   const [state] = useState(() => readChecklist());
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { isSubscribed: notificationsOn } = usePushSubscription();
+  const installed = isStandalone();
 
   // Shares the ['predictions','me'] key with the carousel, so React Query
   // dedupes the two onto a single request.
@@ -121,7 +140,7 @@ export function PreTournamentChecklist({
             )}
           </div>
           <p className="text-sm font-sans leading-relaxed text-text-secondary">
-            This is your only checklist — just 4 things, all due before the opening match kicks off.
+            This is your only checklist — just {installed ? 5 : 4} things, all due before the opening match kicks off.
             Nothing else is required until the tournament starts.
           </p>
         </div>
@@ -140,7 +159,13 @@ export function PreTournamentChecklist({
         <ChecklistItem done={predictedDone} to="/predictions">
           Predict your first match
         </ChecklistItem>
+        {installed && (
+          <ChecklistItem done={notificationsOn} onClick={() => setNotifOpen(true)}>
+            Turn on match alerts
+          </ChecklistItem>
+        )}
       </div>
+      {notifOpen && <NotificationsPromptModal onClose={() => setNotifOpen(false)} />}
     </section>
   );
 }
