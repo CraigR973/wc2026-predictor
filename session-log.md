@@ -2040,3 +2040,16 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - `DashboardPage.tsx` and `DashboardPage.test.tsx` have uncommitted local changes at session end — not part of this batch; check before next commit.
 
 **Next:** see docs/phase-batches.md for next batch
+
+---
+
+## U54 — Live hub display hotfix
+**Commits:** 0ac4714, f5fc87c · CI ✅
+
+### Key facts for future sessions
+- `MatchTileLiveCard` gates the scoreline + provisional "if it stands" points on `hasLiveScore` (both actual scores non-null). During a live match the backend only writes scores at full-time, so null scores are the normal live state — not an error.
+- Own prediction label changed from "You 2–0" to "Your pick: 2–0" for clarity.
+- Forward-compatible: if a live-score feed is ever added, the score and provisional UI light back up automatically with no further changes.
+- The no-live-score data limitation (football-data.org free tier) is unchanged — only the presentation was fixed.
+
+**Next:** see docs/phase-batches.md for next batch
