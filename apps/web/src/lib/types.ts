@@ -363,6 +363,8 @@ export interface HomeRollupMatch {
   away_label: string;
   home_flag: string | null;
   away_flag: string | null;
+  home_code: string | null;
+  away_code: string | null;
   actual_home: number | null;
   actual_away: number | null;
   predicted_home: number | null;
