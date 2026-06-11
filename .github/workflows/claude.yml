@@ -44,9 +44,44 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Two Pro subscriptions, pooled. Run on the primary token; if it errors —
+      # e.g. its allowance is exhausted — the fallback step retries on the second
+      # Pro token. `continue-on-error` stops a primary failure from hard-failing
+      # the job so the fallback can take over; if BOTH fail, the job fails and you
+      # get paged (both accounts are dry).
       - name: Claude
+        id: primary
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
-          # Auth via the Pro subscription token (generated with `claude setup-token`),
-          # not pay-as-you-go API credits. Runs draw on the Pro usage allowance.
+          # Primary Pro subscription token (generated with `claude setup-token`),
+          # not pay-as-you-go API credits. Runs draw on this account's allowance.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      - name: Claude (fallback on second Pro)
+        if: steps.primary.outcome == 'failure'
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Second Pro account's token — only used when the primary errors/runs dry.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+
+      # The action pushes a branch + a "Create PR" link by design. This step opens
+      # the draft PR for you, so a code fix is just review -> merge from your phone.
+      - name: Open draft PR for Claude's branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          BR=$(gh api "repos/$REPO/branches" --paginate --jq '.[].name' \
+                | grep -E "^claude/issue-${ISSUE}-" | sort | tail -1 || true)
+          if [ -z "$BR" ]; then echo "No claude/issue-${ISSUE}-* branch — nothing to PR."; exit 0; fi
+          if [ "$(gh pr list --repo "$REPO" --head "$BR" --json number --jq 'length')" = "0" ]; then
+            TITLE=$(gh issue view "$ISSUE" --repo "$REPO" --json title --jq .title)
+            gh pr create --repo "$REPO" --draft --base main --head "$BR" \
+              --title "fix: ${TITLE}" \
+              --body "Automated fix drafted by @claude for #${ISSUE}. Review the diff and merge to deploy (merging \`main\` auto-deploys prod). Closes #${ISSUE}."
+          else
+            echo "PR already exists for $BR"
+          fi
