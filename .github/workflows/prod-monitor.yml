@@ -60,3 +60,11 @@ jobs:
         run: python scripts/monitor_ci.py $DRY chatops
       - name: Scan — healthcheck, auto-heal, open/close diagnosed issues, digest
         run: python scripts/monitor_ci.py $DRY scan $TEST
+      - name: Dead-man's-switch — ping Healthchecks.io on full success
+        if: success()
+        env:
+          HEALTHCHECKS_PING_URL: ${{ secrets.HEALTHCHECKS_PING_URL }}
+        run: |
+          if [ -n "$HEALTHCHECKS_PING_URL" ]; then
+            curl -fsS --retry 3 "$HEALTHCHECKS_PING_URL"
+          fi
