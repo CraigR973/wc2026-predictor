@@ -14,7 +14,11 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'specials_revealed'")
+    # ALTER TYPE ADD VALUE cannot run inside a transaction on Supabase/pgBouncer.
+    # autocommit_block() commits any open transaction first, executes outside one,
+    # then resumes. This matches the pattern needed for pg enum additions.
+    with op.get_context().autocommit_block():
+        op.execute("ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'specials_revealed'")
 
 
 def downgrade() -> None:
