@@ -338,9 +338,11 @@ export interface HomeNextMatch {
 
 export interface HomeTodo {
   specials_submitted: boolean;
+  specials_count: number;
   specials_lock_at: string | null;
   upcoming_unpredicted: number;
   next_match: HomeNextMatch | null;
+  opening_match_predicted: boolean;
 }
 
 export interface HomeRollupMatch {

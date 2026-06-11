@@ -195,9 +195,11 @@ class NextMatchTodo(BaseModel):
 
 class HomeTodoBlock(BaseModel):
     specials_submitted: bool
+    specials_count: int
     specials_lock_at: str | None
     upcoming_unpredicted: int
     next_match: NextMatchTodo | None
+    opening_match_predicted: bool
 
 
 class RollupMatch(BaseModel):
@@ -268,6 +270,23 @@ async def me_home(
         )
     ).scalar_one()
     specials_submitted = specials_count > 0
+
+    # --- opening match predicted? ---
+    opening_match_predicted = False
+    if opening is not None:
+        opening_pred_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(Prediction)
+                .where(
+                    Prediction.player_id == player.id,
+                    Prediction.match_id == opening.id,
+                    Prediction.deleted_at.is_(None),
+                    Prediction.predicted_home.is_not(None),
+                )
+            )
+        ).scalar_one()
+        opening_match_predicted = opening_pred_count > 0
 
     # --- predicted match ids (for exclusion) ---
     predicted_match_ids_subq = (
@@ -348,9 +367,11 @@ async def me_home(
 
     todo = HomeTodoBlock(
         specials_submitted=specials_submitted,
+        specials_count=specials_count,
         specials_lock_at=specials_lock_at if not specials_locked else None,
         upcoming_unpredicted=upcoming_unpredicted,
         next_match=next_match_todo,
+        opening_match_predicted=opening_match_predicted,
     )
 
     # --- rollup: most recent completed matchday the caller predicted ---
