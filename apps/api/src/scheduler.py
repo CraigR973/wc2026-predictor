@@ -23,6 +23,7 @@ from src.services.backup import create_backup
 from src.services.notification_triggers import (
     MatchUpdate,
     check_deadline_warnings,
+    check_evening_kickoff_warnings,
     check_pick_confirmations,
     notify_backup_failed,
     notify_match_locked,
@@ -188,10 +189,24 @@ def create_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         check_deadline_warnings,
-        kwargs={"session_factory": AsyncSessionLocal, "warning_minutes": 15},
+        kwargs={
+            "session_factory": AsyncSessionLocal,
+            "warning_minutes": 15,
+            "unpredicted_only": True,
+        },
         trigger="interval",
         minutes=1,
         id="deadline_warnings_15",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        check_evening_kickoff_warnings,
+        kwargs={"session_factory": AsyncSessionLocal},
+        trigger="interval",
+        minutes=1,
+        id="evening_kickoff_warnings",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
