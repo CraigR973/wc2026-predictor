@@ -27,6 +27,7 @@ from src.services.notification_triggers import (
     notify_result_detected,
     notify_round_complete,
     notify_special_results_awarded,
+    notify_tournament_started,
     send_daily_prediction_digest,
 )
 from src.services.prediction_reminders import PickConfirmationTarget, UnpredictedDigestTarget
@@ -670,3 +671,87 @@ async def test_evening_warning_dedup_via_db() -> None:
 
     assert count == 0
     mock_send.assert_not_awaited()
+
+
+# ── notify_match_locked (updated copy + deep link) ───────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_match_locked_includes_deep_link() -> None:
+    """notify_match_locked passes data.url = /matches/<id> to every push."""
+    match_id = uuid.uuid4()
+    update = _match_update(match_id=match_id)
+    players = [_player()]
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
+    )
+
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+    ):
+        await notify_match_locked(session, update)
+
+    assert mock_send.call_count == 1
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs.get("data") == {"url": f"/matches/{match_id}"}
+
+
+@pytest.mark.asyncio
+async def test_notify_match_locked_title_mentions_kickoff() -> None:
+    """Title contains the kicked-off indication and body mentions everyone picked."""
+    update = _match_update()
+    players = [_player()]
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
+    )
+
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+    ):
+        await notify_match_locked(session, update)
+
+    call = mock_send.call_args
+    title: str = call.args[3]
+    body: str = call.args[4]
+    assert "kicked off" in title.lower()
+    assert "picked" in body.lower() or "predicted" in body.lower()
+
+
+# ── notify_tournament_started ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_tournament_started_sends_to_all_active_players() -> None:
+    """notify_tournament_started broadcasts specials_revealed to every active player."""
+    players = [_player(), _player(), _player()]
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
+    )
+
+    with patch(_SEND, new_callable=AsyncMock) as mock_send:
+        await notify_tournament_started(session)
+
+    assert mock_send.call_count == len(players)
+    for call_args in mock_send.call_args_list:
+        assert call_args.args[2] == NotificationType.specials_revealed
+
+
+@pytest.mark.asyncio
+async def test_notify_tournament_started_deep_links_to_specials() -> None:
+    """The specials_revealed notification carries data.url pointing at the specials page."""
+    players = [_player()]
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
+    )
+
+    with patch(_SEND, new_callable=AsyncMock) as mock_send:
+        await notify_tournament_started(session)
+
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs.get("data") == {"url": "/predictions/specials"}

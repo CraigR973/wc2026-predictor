@@ -11,6 +11,7 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { InstallPromptController } from './components/InstallPromptController';
 import { FirstRunController } from './components/FirstRunController';
 import { NotificationsPromptController } from './components/NotificationsPromptController';
+import { TournamentRevealModal } from './components/TournamentRevealModal';
 import { Skeleton } from './components/ui/skeleton';
 import { LoginPage } from './pages/LoginPage';
 import { JoinPage } from './pages/JoinPage';
@@ -53,6 +54,7 @@ const PinResetPage = lazy(() => import('./pages/PinResetPage').then((m) => ({ de
 const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })));
 const MyLeaguesPage = lazy(() => import('./pages/MyLeaguesPage').then((m) => ({ default: m.MyLeaguesPage })));
+const GlobalLeaderboardPage = lazy(() => import('./pages/GlobalLeaderboardPage').then((m) => ({ default: m.GlobalLeaderboardPage })));
 const CreateLeaguePage = lazy(() => import('./pages/CreateLeaguePage').then((m) => ({ default: m.CreateLeaguePage })));
 const DiscoverLeaguesPage = lazy(() => import('./pages/DiscoverLeaguesPage').then((m) => ({ default: m.DiscoverLeaguesPage })));
 const LeagueMembersPage = lazy(() => import('./pages/LeagueMembersPage').then((m) => ({ default: m.LeagueMembersPage })));
@@ -122,6 +124,7 @@ export function App() {
           <InstallPromptController />
           <FirstRunController />
           <NotificationsPromptController />
+          <TournamentRevealModal />
           <Toaster position="bottom-right" richColors closeButton />
           <ErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
@@ -153,6 +156,9 @@ export function App() {
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/about" element={<AboutPage />} />
                       <Route path="/offline" element={<OfflinePage />} />
+
+                      {/* Global cross-league standings */}
+                      <Route path="/leaderboard/global" element={<GlobalLeaderboardPage />} />
 
                       {/* Old top-level routes → redirect to the Leagues hub */}
                       <Route path="/leaderboard" element={<Navigate to="/leagues" replace />} />

@@ -66,6 +66,7 @@ def _pref_enabled(prefs: NotificationPreferences, ntype: NotificationType) -> bo
         NotificationType.kickoff_changed: True,
         NotificationType.invite_accepted: True,
         NotificationType.auto_sync_failed: True,
+        NotificationType.specials_revealed: True,
     }
     return mapping.get(ntype, True)
 

@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from src.auth import CurrentPlayer
 from src.database import get_db
 from src.models.league_membership import LeagueMembership
 from src.models.match import Match
@@ -30,6 +31,7 @@ from src.routers.leagues import LeagueMemberDep
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 league_router = APIRouter(prefix="/api/v1/leagues", tags=["leaderboard"])
+global_router = APIRouter(prefix="/api/v1/leaderboard", tags=["leaderboard"])
 
 # Tournament progression order, used to pick the "current" (furthest-progressed)
 # stage for the temporal round metric. third_place (a consolation played before
@@ -509,3 +511,116 @@ async def get_league_round_leaderboard(
 ) -> list[RoundEntryOut]:
     _player, league = ctx
     return await _round_leaderboard(db, league.id, stage, include_inactive=include_inactive)
+
+
+# ---------------------------------------------------------------------------
+# Global leaderboard helpers
+# ---------------------------------------------------------------------------
+
+
+async def _global_leaderboard_entries(db: AsyncSession) -> list[LeaderboardEntryOut]:
+    """Latest snapshot per player across ALL leagues, re-ranked globally.
+
+    Because predictions, knockout_predictions, and special_predictions are all
+    keyed by player_id (not league_id), every player's points are identical
+    across their league snapshots.  We pick the latest snapshot for each player
+    regardless of which league wrote it, then re-rank the full cross-league
+    roster using the same merit cascade as the per-league endpoint.
+    """
+    latest_per_player = (
+        select(LeaderboardSnapshot)
+        .distinct(LeaderboardSnapshot.player_id)
+        .order_by(
+            LeaderboardSnapshot.player_id,
+            LeaderboardSnapshot.snapshot_at.desc(),
+            LeaderboardSnapshot.id.desc(),
+        )
+        .subquery()
+    )
+    latest_snap = aliased(LeaderboardSnapshot, latest_per_player)
+
+    stmt = (
+        select(Profile, latest_snap)
+        .join(latest_snap, latest_snap.player_id == Profile.id)
+        .where(Profile.deleted_at.is_(None))
+        .where(Profile.is_active.is_(True))
+    )
+    rows = (await db.execute(stmt)).all()
+
+    # Re-rank globally using the same cascade as the per-league endpoint:
+    # total_points → exact → result → goals → specials → KO-winner → name.
+    def _cascade_key(row: tuple) -> tuple:
+        profile, snap = row
+        return (
+            -snap.total_points,
+            -snap.exact_count,
+            -snap.correct_result_count,
+            -snap.correct_goals_count,
+            -snap.specials_correct_count,
+            -snap.ko_winner_correct_count,
+            profile.display_name.lower(),
+        )
+
+    sorted_rows = sorted(rows, key=_cascade_key)
+
+    # Competition ranking: tied players share a rank; next rank skips ahead.
+    assigned_ranks: list[int] = []
+    rank = 0
+    prev_merit: tuple | None = None
+    rank_counts: dict[int, int] = defaultdict(int)
+    for idx, (profile, snap) in enumerate(sorted_rows, start=1):
+        merit = (
+            snap.total_points,
+            snap.exact_count,
+            snap.correct_result_count,
+            snap.correct_goals_count,
+            snap.specials_correct_count,
+            snap.ko_winner_correct_count,
+        )
+        if merit != prev_merit:
+            rank = idx
+            prev_merit = merit
+        assigned_ranks.append(rank)
+        rank_counts[rank] += 1
+
+    return [
+        LeaderboardEntryOut(
+            rank=r,
+            player_id=str(profile.id),
+            player_name=profile.display_name,
+            total_points=snap.total_points,
+            match_points=snap.match_points,
+            knockout_winner_points=snap.knockout_winner_points,
+            special_points=snap.special_points,
+            exact_count=snap.exact_count,
+            correct_result_count=snap.correct_result_count,
+            correct_goals_count=snap.correct_goals_count,
+            specials_correct_count=snap.specials_correct_count,
+            ko_winner_correct_count=snap.ko_winner_correct_count,
+            tied=rank_counts[r] > 1,
+            is_active=profile.is_active,
+            avatar_url=profile.avatar_url,
+        )
+        for (profile, snap), r in zip(sorted_rows, assigned_ranks)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/leaderboard/global
+# ---------------------------------------------------------------------------
+
+
+@global_router.get("/global", response_model=list[LeaderboardEntryOut])
+@limiter.limit("60/minute", key_func=per_player_key)
+async def get_global_leaderboard(
+    request: Request,
+    player: CurrentPlayer,  # any authenticated player — no league restriction
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[LeaderboardEntryOut]:
+    """Cross-league standings: every active player on the platform, ranked globally.
+
+    Re-ranks the full roster using the same merit cascade as the per-league
+    endpoint.  Temporal metrics (today / round) are not included — the global
+    view shows total points only.
+    """
+    return await _global_leaderboard_entries(db)

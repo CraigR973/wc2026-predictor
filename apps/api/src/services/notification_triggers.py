@@ -100,6 +100,7 @@ async def _notify_all(
     title: str,
     body: str,
     match_id: UUID | None = None,
+    data: dict[str, Any] | None = None,
 ) -> None:
     players = await _active_players(session)
     for p in players:
@@ -110,6 +111,7 @@ async def _notify_all(
             title,
             body,
             match_id=match_id,
+            data=data,
         )
 
 
@@ -121,9 +123,21 @@ async def notify_match_locked(session: AsyncSession, update: MatchUpdate) -> Non
     await _notify_all(
         session,
         NotificationType.match_locked,
-        "Predictions closed",
-        f"No more predictions for {desc}",
+        f"⚽ {desc} has kicked off!",
+        "Predictions are locked — see what everyone picked 👀",
         match_id=update.match_id,
+        data={"url": f"/matches/{update.match_id}"},
+    )
+
+
+async def notify_tournament_started(session: AsyncSession) -> None:
+    """Fire once when the opening match locks — reveals specials and the global table."""
+    await _notify_all(
+        session,
+        NotificationType.specials_revealed,
+        "🏆 The 2026 World Cup has started!",
+        "Specials are locked — see how everyone picked and check the global table",
+        data={"url": "/predictions/specials"},
     )
 
 

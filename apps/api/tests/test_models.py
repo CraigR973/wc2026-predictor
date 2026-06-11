@@ -576,6 +576,7 @@ def test_notification_type_values() -> None:
         "member_joined",
         "auto_sync_failed",
         "special_results",
+        "specials_revealed",
     }
 
 
