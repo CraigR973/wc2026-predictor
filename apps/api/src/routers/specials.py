@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -353,7 +353,7 @@ async def get_global_specials(
     # Aggregate: prediction_type → answer → count
     from collections import defaultdict as _dd
 
-    buckets: dict[str, dict[str, dict]] = _dd(dict)
+    buckets: dict[str, dict[str, dict[str, Any]]] = _dd(dict)
     for pred, team in rows:
         ptype = pred.prediction_type
         if ptype in PLAYER_SPECIALS:

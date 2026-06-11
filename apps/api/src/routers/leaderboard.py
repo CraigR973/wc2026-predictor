@@ -8,7 +8,7 @@ the league is resolved (and membership enforced) by the
 import uuid
 from collections import defaultdict
 from datetime import UTC, datetime, time, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 import structlog
@@ -549,7 +549,9 @@ async def _global_leaderboard_entries(db: AsyncSession) -> list[LeaderboardEntry
 
     # Re-rank globally using the same cascade as the per-league endpoint:
     # total_points → exact → result → goals → specials → KO-winner → name.
-    def _cascade_key(row: tuple) -> tuple:
+    def _cascade_key(
+        row: Any,
+    ) -> tuple[int, int, int, int, int, int, str]:
         profile, snap = row
         return (
             -snap.total_points,
@@ -566,7 +568,7 @@ async def _global_leaderboard_entries(db: AsyncSession) -> list[LeaderboardEntry
     # Competition ranking: tied players share a rank; next rank skips ahead.
     assigned_ranks: list[int] = []
     rank = 0
-    prev_merit: tuple | None = None
+    prev_merit: tuple[int, int, int, int, int, int] | None = None
     rank_counts: dict[int, int] = defaultdict(int)
     for idx, (profile, snap) in enumerate(sorted_rows, start=1):
         merit = (
