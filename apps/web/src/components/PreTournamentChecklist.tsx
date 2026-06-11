@@ -81,16 +81,14 @@ function ChecklistItem({
 
 export function PreTournamentChecklist({
   hasLeague,
-  specialsSubmitted,
   specialsCount,
   firstMatchPredicted,
   tournamentStarted,
   kickoffIso,
 }: {
   hasLeague: boolean;
-  specialsSubmitted: boolean | undefined;
-  specialsCount: number | undefined;
-  firstMatchPredicted: boolean | undefined;
+  specialsCount?: number;
+  firstMatchPredicted?: boolean;
   tournamentStarted: boolean;
   kickoffIso: string | null;
 }) {

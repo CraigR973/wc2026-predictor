@@ -616,7 +616,6 @@ export function DashboardPage() {
         <PreTournamentChecklist
           hasLeague={perLeague.length > 0}
           kickoffIso={home?.todo?.specials_lock_at ?? null}
-          specialsSubmitted={home?.todo?.specials_submitted}
           specialsCount={home?.todo?.specials_count}
           firstMatchPredicted={home?.todo?.opening_match_predicted}
           tournamentStarted={

@@ -15,7 +15,12 @@ from src.config import settings
 from src.database import get_db
 from src.models.match import Match
 from src.models.notification import NotificationType
-from src.models.prediction import NotificationPreferences, Prediction, PushSubscription, SpecialPrediction
+from src.models.prediction import (
+    NotificationPreferences,
+    Prediction,
+    PushSubscription,
+    SpecialPrediction,
+)
 from src.models.profile import Profile, SiteRole
 from src.rate_limit import limiter, per_player_key
 from src.services.push_notification_service import send_notification
@@ -323,7 +328,10 @@ async def pre_tournament_blast(
     ).scalar_one_or_none()
 
     if opening is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No opening match found")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No opening match found",
+        )
 
     now = datetime.now(UTC).replace(tzinfo=None)
     if now >= opening.kickoff_utc:
