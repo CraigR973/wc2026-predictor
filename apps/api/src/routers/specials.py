@@ -94,13 +94,13 @@ class AwardSpecialsRequest(BaseModel):
 
 
 class GlobalSpecialsPick(BaseModel):
-    answer: str        # "🇧🇷 Brazil" for teams, player name for individuals
+    answer: str  # "🇧🇷 Brazil" for teams, player name for individuals
     count: int
     team_id: str | None = None  # set for team-based specials
 
 
 class GlobalSpecialsResponse(BaseModel):
-    total_players: int              # total active profiles (denominator)
+    total_players: int  # total active profiles (denominator)
     by_type: dict[str, list[GlobalSpecialsPick]]  # sorted by count desc per type
 
 
@@ -331,10 +331,15 @@ async def get_global_specials(
 
     # Total active players — denominator for "X of Y picked …"
     total_players: int = (
-        await db.execute(
-            select(Profile).where(Profile.deleted_at.is_(None), Profile.is_active.is_(True))
+        (
+            await db.execute(
+                select(Profile).where(Profile.deleted_at.is_(None), Profile.is_active.is_(True))
+            )
         )
-    ).scalars().all().__len__()
+        .scalars()
+        .all()
+        .__len__()
+    )
 
     # All submitted specials with team info for team-type picks
     rows = (
@@ -347,6 +352,7 @@ async def get_global_specials(
 
     # Aggregate: prediction_type → answer → count
     from collections import defaultdict as _dd
+
     buckets: dict[str, dict[str, dict]] = _dd(dict)
     for pred, team in rows:
         ptype = pred.prediction_type
