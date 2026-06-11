@@ -7,7 +7,6 @@ import { isKnockoutStage, scoreLiveProvisionalPrediction, type Stage } from '@wc
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
-import { PreTournamentChecklist } from '../components/PreTournamentChecklist';
 import { ScoringGuide } from '../components/ScoringGuide';
 import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { useCountdown } from '../hooks/useCountdown';
@@ -614,16 +613,6 @@ export function DashboardPage() {
             )}
           </div>
         </div>
-        <PreTournamentChecklist
-          hasLeague={perLeague.length > 0}
-          kickoffIso={home?.todo?.specials_lock_at ?? null}
-          specialsCount={home?.todo?.specials_count}
-          firstMatchPredicted={home?.todo?.opening_match_predicted}
-          tournamentStarted={
-            home?.todo?.specials_lock_at != null &&
-            new Date(home.todo.specials_lock_at) <= new Date()
-          }
-        />
         <div className="mt-3" data-testid="dashboard-scoring-ref">
           <ScoringGuide storageKey="sss_scoring_guide_home_v2_open" defaultOpen={false} />
         </div>
