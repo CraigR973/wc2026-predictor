@@ -35,7 +35,8 @@ jobs:
         && contains(github.event.comment.body, '@claude')
         && github.event.comment.author_association == 'OWNER')
       || (github.event_name == 'issues' && github.event.action == 'opened'
-        && contains(github.event.issue.body, '@claude'))
+        && contains(github.event.issue.body, '@claude')
+        && github.event.issue.author_association == 'OWNER')
       || (github.event_name == 'issues' && github.event.action == 'labeled'
         && github.event.label.name == 'auto-fix')
     runs-on: ubuntu-latest
