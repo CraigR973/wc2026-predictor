@@ -133,6 +133,19 @@ def safe_deploy_note(ctx: dict) -> str:
 
 
 # --- scan -----------------------------------------------------------------------
+TEST_REPORT = {
+    "generated_at": "synthetic", "overall_severity": "warn", "overall_rank": 1, "actionable_count": 1,
+    "context": {"sha": "test", "db_ready": "ok", "last_sync_at": "n/a",
+                "next_kickoff_utc": None, "matches_today": 0, "matches_live": 0, "in_match_window": False},
+    "findings": [{"check_id": "sync_heartbeat", "severity": "warn", "incident_class": "ops",
+                  "title": "Result-sync loop stalled (SYNTHETIC TEST)",
+                  "detail": "Forced test incident to verify the phone push + ChatOps. Reply /resolve to close.",
+                  "suggested_action": "This is only a test — no real issue.",
+                  "matched_runbook": "docs/runbooks/auto-sync-broken.md",
+                  "auto_healable": False, "incident_key": "synthetic_test"}],
+}
+
+
 def build_issue_body(f: dict, ctx: dict) -> str:
     lines = [
         f"**{f['title']}**",
@@ -171,9 +184,14 @@ def actionable(report: dict) -> list[dict]:
     return [f for f in report["findings"] if f["severity"] in ("warn", "critical")]
 
 
-def cmd_scan(report_path: str | None) -> int:
+def cmd_scan(report_path: str | None, test_incident: bool = False) -> int:
     ensure_labels()
-    report = json.loads(Path(report_path).read_text()) if report_path else healthcheck()
+    if test_incident:
+        report = TEST_REPORT
+    elif report_path:
+        report = json.loads(Path(report_path).read_text())
+    else:
+        report = healthcheck()
     ctx = report.get("context", {})
     acts = actionable(report)
     healed: list[str] = []
@@ -325,6 +343,8 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("scan")
     s.add_argument("--report", default=None, help="Path to a report.json (else runs healthcheck).")
+    s.add_argument("--test-incident", action="store_true",
+                   help="Use a built-in synthetic incident (to verify the push/ChatOps).")
     sub.add_parser("chatops")
     args = ap.parse_args()
     DRY = args.dry_run
@@ -332,7 +352,7 @@ def main() -> int:
     if not REPO:
         print("GITHUB_REPOSITORY not set", file=sys.stderr)
         return 2
-    return cmd_scan(args.report) if args.cmd == "scan" else cmd_chatops()
+    return cmd_scan(args.report, args.test_incident) if args.cmd == "scan" else cmd_chatops()
 
 
 if __name__ == "__main__":

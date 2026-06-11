@@ -16,6 +16,10 @@ on:
         description: "Dry-run: no GitHub writes, no remediation"
         type: boolean
         default: false
+      force_test:
+        description: "Create a synthetic test incident (to verify the phone push + ChatOps)"
+        type: boolean
+        default: false
 
 concurrency:
   group: prod-monitor
@@ -30,9 +34,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      # A PAT (if provided) lets bot-created issues trigger the @claude workflow;
-      # otherwise falls back to GITHUB_TOKEN (you tap @claude on the issue to start a fix).
-      GH_TOKEN: ${{ secrets.MONITOR_PAT || secrets.GITHUB_TOKEN }}
+      # IMPORTANT: use the Actions bot token so issues are authored by
+      # github-actions[bot] — a DIFFERENT actor than you. GitHub only sends you a
+      # notification when someone ELSE assigns/@mentions you; an issue created by
+      # your own PAT is treated as "your own action" and your phone never buzzes.
+      # So do NOT swap this for a personal MONITOR_PAT.
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GITHUB_REPOSITORY: ${{ github.repository }}
       OWNER_LOGIN: ${{ github.repository_owner }}
       PROD_API_BASE_URL: ${{ vars.PROD_API_BASE_URL }}
@@ -41,6 +48,7 @@ jobs:
       MONITOR_ADMIN_PLAYER_ID: ${{ secrets.MONITOR_ADMIN_PLAYER_ID }}
       FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
       DRY: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+      TEST: ${{ (github.event_name == 'workflow_dispatch' && inputs.force_test) && '--test-incident' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -51,4 +59,4 @@ jobs:
       - name: ChatOps — run owner slash-commands on open monitor issues
         run: python scripts/monitor_ci.py $DRY chatops
       - name: Scan — healthcheck, auto-heal, open/close diagnosed issues, digest
-        run: python scripts/monitor_ci.py $DRY scan
+        run: python scripts/monitor_ci.py $DRY scan $TEST
