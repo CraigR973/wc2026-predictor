@@ -1,0 +1,17 @@
+name: _tmp token2 check
+# THROWAWAY: verifies CLAUDE_CODE_OAUTH_TOKEN_2 authenticates. Delete this branch
+# after the run; it never lands on main.
+on: push
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Auth-check second Pro token
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          prompt: "Reply with exactly the text TOKEN2_OK and nothing else."
