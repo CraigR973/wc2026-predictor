@@ -548,6 +548,7 @@ export function DashboardPage() {
     queryKey: ['matches', 'all'],
     queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches'),
     staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const { data: predictions = [] } = useQuery<PredictionResponse[]>({
