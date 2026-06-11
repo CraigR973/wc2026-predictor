@@ -1,15 +1,19 @@
 name: _tmp token2 check
-# THROWAWAY: verifies CLAUDE_CODE_OAUTH_TOKEN_2 authenticates. Delete this branch
-# after the run; it never lands on main.
-on: push
+# THROWAWAY: verifies CLAUDE_CODE_OAUTH_TOKEN_2 authenticates. Triggered via a
+# temp PR (a supported event). Delete the branch + close the PR after — never merged.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
 permissions:
   contents: read
+  pull-requests: write
   id-token: write
 jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
       - name: Auth-check second Pro token
         uses: anthropics/claude-code-action@v1
         with:
