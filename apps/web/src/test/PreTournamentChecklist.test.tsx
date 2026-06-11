@@ -41,7 +41,8 @@ function setStandalone(on: boolean) {
 
 type Props = {
   hasLeague?: boolean;
-  specialsSubmitted?: boolean | undefined;
+  specialsCount?: number;
+  firstMatchPredicted?: boolean;
   tournamentStarted?: boolean;
   kickoffIso?: string | null;
 };
@@ -53,7 +54,8 @@ function renderChecklist(props: Props = {}) {
       <MemoryRouter>
         <PreTournamentChecklist
           hasLeague={props.hasLeague ?? false}
-          specialsSubmitted={props.specialsSubmitted ?? false}
+          specialsCount={props.specialsCount ?? 0}
+          firstMatchPredicted={props.firstMatchPredicted ?? false}
           tournamentStarted={props.tournamentStarted ?? false}
           kickoffIso={props.kickoffIso ?? null}
         />
@@ -83,14 +85,14 @@ describe('PreTournamentChecklist', () => {
     expect(screen.getByText('Submit your Specials picks')).toBeInTheDocument();
     expect(screen.getByText('Predict your first match')).toBeInTheDocument();
     expect(screen.queryByText('Turn on match alerts')).toBeNull();
-    expect(introHas(/just 4 things/)).toBe(true);
+    expect(introHas(/55 pts/)).toBe(true);
   });
 
   it('adds the match-alerts step (five things) when installed', () => {
     setStandalone(true);
     renderChecklist();
     expect(screen.getByText('Turn on match alerts')).toBeInTheDocument();
-    expect(introHas(/just 5 things/)).toBe(true);
+    expect(introHas(/55 pts/)).toBe(true);
   });
 
   it('ticks match alerts when already subscribed', () => {

@@ -31,7 +31,9 @@ const STORED_PLAYER = JSON.stringify({
 const HOME_EMPTY = {
   todo: {
     specials_submitted: false,
-    specials_lock_at: '2026-06-11T15:00:00Z',
+    specials_count: 0,
+    opening_match_predicted: false,
+    specials_lock_at: '2099-12-31T19:00:00Z', // far-future so tournamentStarted is always false
     upcoming_unpredicted: 0,
     next_match: null,
   },
@@ -519,7 +521,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY, [], []));
     render(<Wrapper />);
 
-    await waitFor(() => expect(screen.getByText('Pre-Tournament Checklist')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Action needed!')).toBeInTheDocument());
     expect(screen.getByText('Read the rules')).toBeInTheDocument();
     const scoringRef = screen.getByTestId('dashboard-scoring-ref');
     const scoringGuideButton = screen.getByRole('button', { name: /Scoring quick-ref/i });

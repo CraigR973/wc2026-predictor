@@ -190,7 +190,8 @@ async def test_home_specials_submitted_true() -> None:
         [
             _row(future_match),
             _count(3),  # 3 specials submitted
-            _count(0),
+            _count(0),  # opening_match_predicted
+            _count(0),  # upcoming_unpredicted
             _row(None),
             _all([]),
         ]
@@ -211,8 +212,9 @@ async def test_home_specials_lock_at_present_when_future() -> None:
     db = _mock_db(
         [
             _row(future_match),
-            _count(0),
-            _count(0),
+            _count(0),  # specials
+            _count(0),  # opening_match_predicted
+            _count(0),  # upcoming_unpredicted
             _row(None),
             _all([]),
         ]
@@ -228,8 +230,9 @@ async def test_home_specials_lock_at_none_when_locked() -> None:
     db = _mock_db(
         [
             _row(past_match),
-            _count(0),
-            _count(0),
+            _count(0),  # specials
+            _count(0),  # opening_match_predicted
+            _count(0),  # upcoming_unpredicted
             _row(None),
             _all([]),
         ]
@@ -252,6 +255,7 @@ async def test_home_next_match_unpredicted() -> None:
         [
             _row(opening),
             _count(0),  # specials
+            _count(0),  # opening_match_predicted
             _count(1),  # upcoming_unpredicted (this match)
             _row(next_match),  # next_match
             # next_match has no team_ids → skip team query
@@ -273,7 +277,8 @@ async def test_home_next_match_predicted() -> None:
     db = _mock_db(
         [
             _row(opening),
-            _count(0),
+            _count(0),  # specials
+            _count(0),  # opening_match_predicted
             _count(0),  # all upcoming predicted
             _row(next_match),
             _count(1),  # has_pred = 1
@@ -300,10 +305,11 @@ async def test_home_next_match_uses_placeholder_labels() -> None:
     db = _mock_db(
         [
             _row(opening),
-            _count(0),
-            _count(1),
+            _count(0),  # specials
+            _count(0),  # opening_match_predicted
+            _count(1),  # upcoming_unpredicted
             _row(next_match),
-            _count(0),
+            _count(0),  # has_pred
             _all([]),
         ]
     )
