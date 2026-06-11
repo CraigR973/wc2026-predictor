@@ -71,10 +71,22 @@ jobs:
       - name: Open draft PR for Claude's branch
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Prefer a user PAT so the draft PR fires a `pull_request` event and runs
+          # CI before you merge; a PR opened with the built-in GITHUB_TOKEN does NOT
+          # trigger workflows. Falls back to GITHUB_TOKEN if PR_PAT is unset (then the
+          # PR won't run CI and needs the repo "Allow GitHub Actions to create and
+          # approve pull requests" setting enabled).
+          PR_PAT: ${{ secrets.PR_PAT }}
+          DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number }}
         run: |
+          if [ -n "$PR_PAT" ]; then
+            export GH_TOKEN="$PR_PAT"; echo "Auth: PR_PAT — draft PR will trigger CI."
+          else
+            export GH_TOKEN="$DEFAULT_TOKEN"
+            echo "Auth: GITHUB_TOKEN — PR_PAT unset; PR won't run CI and needs the repo PR-create setting."
+          fi
           BR=$(gh api "repos/$REPO/branches" --paginate --jq '.[].name' \
                 | grep -E "^claude/issue-${ISSUE}-" | sort | tail -1 || true)
           if [ -z "$BR" ]; then echo "No claude/issue-${ISSUE}-* branch — nothing to PR."; exit 0; fi
