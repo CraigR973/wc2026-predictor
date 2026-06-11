@@ -124,16 +124,19 @@ function PointsTile({
               </p>
             </div>
             <div className="space-y-1">
-              {rollup.matches.map((m) => (
+              {rollup.matches.slice(0, 4).map((m) => (
                 <div key={m.match_id} className="flex items-center justify-between gap-1">
                   <p className="min-w-0 truncate font-mono text-xs tabular-nums text-text-primary">
-                    {m.home_flag ?? ''} {m.home_label.slice(0, 3).toUpperCase()} {m.actual_home ?? 0}–{m.actual_away ?? 0} {m.away_label.slice(0, 3).toUpperCase()} {m.away_flag ?? ''}
+                    {m.home_label.slice(0, 3).toUpperCase()} {m.actual_home ?? 0}–{m.actual_away ?? 0} {m.away_label.slice(0, 3).toUpperCase()}
                   </p>
                   <p className={`shrink-0 font-mono text-xs tabular-nums font-medium ${(m.points_breakdown?.total ?? 0) > 0 ? 'text-primary' : 'text-text-muted'}`}>
                     {(m.points_breakdown?.total ?? 0) > 0 ? `+${m.points_breakdown!.total}` : '—'}
                   </p>
                 </div>
               ))}
+              {rollup.matches.length > 4 && (
+                <p className="font-mono text-[10px] text-text-muted">+{rollup.matches.length - 4} more</p>
+              )}
             </div>
           </>
         ) : (
