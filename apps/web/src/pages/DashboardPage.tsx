@@ -617,6 +617,8 @@ export function DashboardPage() {
           hasLeague={perLeague.length > 0}
           kickoffIso={home?.todo?.specials_lock_at ?? null}
           specialsSubmitted={home?.todo?.specials_submitted}
+          specialsCount={home?.todo?.specials_count}
+          firstMatchPredicted={home?.todo?.opening_match_predicted}
           tournamentStarted={
             home?.todo?.specials_lock_at != null &&
             new Date(home.todo.specials_lock_at) <= new Date()
