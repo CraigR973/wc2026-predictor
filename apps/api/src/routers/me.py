@@ -209,6 +209,8 @@ class RollupMatch(BaseModel):
     away_label: str
     home_flag: str | None
     away_flag: str | None
+    home_code: str | None
+    away_code: str | None
     actual_home: int | None
     actual_away: int | None
     predicted_home: int | None
@@ -442,6 +444,8 @@ async def me_home(
                     away_label=away_label,
                     home_flag=ht.flag_emoji if ht else None,
                     away_flag=at.flag_emoji if at else None,
+                    home_code=ht.code if ht else None,
+                    away_code=at.code if at else None,
                     actual_home=match.actual_home_score,
                     actual_away=match.actual_away_score,
                     predicted_home=pred.predicted_home,

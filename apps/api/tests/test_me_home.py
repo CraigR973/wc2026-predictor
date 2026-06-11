@@ -417,11 +417,13 @@ async def test_home_rollup_uses_team_labels_when_team_ids_present() -> None:
     home_team.id = team_id
     home_team.name = "Brazil"
     home_team.flag_emoji = "🇧🇷"
+    home_team.code = "BRA"
 
     away_team = MagicMock()
     away_team.id = away_id
     away_team.name = "France"
     away_team.flag_emoji = "🇫🇷"
+    away_team.code = "FRA"
 
     p = _make_prediction(match=m, points_awarded=5)
 
@@ -442,3 +444,5 @@ async def test_home_rollup_uses_team_labels_when_team_ids_present() -> None:
     assert rm["away_label"] == "🇫🇷 France"
     assert rm["home_flag"] == "🇧🇷"
     assert rm["away_flag"] == "🇫🇷"
+    assert rm["home_code"] == "BRA"
+    assert rm["away_code"] == "FRA"
