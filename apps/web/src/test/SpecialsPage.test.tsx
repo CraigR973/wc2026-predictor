@@ -58,16 +58,6 @@ const LOCKED_SPECIALS = {
   predictions: SUBMITTED_SPECIALS.predictions,
 };
 
-const ALL_PICKS = [
-  {
-    player_id: 'p2',
-    player_name: 'Bob',
-    predictions: [
-      { id: 'sp4', prediction_type: 'tournament_winner', predicted_team_id: TEAM_B.id, predicted_player_name: null, submitted_at: '2026-06-01T10:00:00Z', points_awarded: 20 },
-    ],
-  },
-];
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -87,7 +77,6 @@ const GLOBAL_SPECIALS = {
 interface FetchOverrides {
   specials?: unknown;
   groups?: unknown;
-  allPicks?: unknown;
   putResult?: unknown;
   globalSpecials?: unknown;
 }
@@ -95,14 +84,10 @@ interface FetchOverrides {
 function makeFetch(overrides: FetchOverrides = {}) {
   const specials = overrides.specials ?? EMPTY_SPECIALS;
   const groups = overrides.groups ?? GROUP_RESPONSE;
-  const allPicks = overrides.allPicks ?? ALL_PICKS;
   const putResult = overrides.putResult ?? SUBMITTED_SPECIALS.predictions[0];
   const globalSpecials = overrides.globalSpecials ?? GLOBAL_SPECIALS;
 
   return vi.fn((url: string, opts?: RequestInit) => {
-    if (url.includes('/api/v1/specials/all')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(allPicks) });
-    }
     if (url.includes('/api/v1/specials/global')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(globalSpecials) });
     }
@@ -253,18 +238,18 @@ describe('SpecialsPage — post-lock', () => {
     });
   });
 
-  it('shows comparison table with all picks after lock', async () => {
+  it('shows global "how everyone picked" section after lock', async () => {
     renderPage(makeFetch({ specials: LOCKED_SPECIALS }));
     await waitFor(() => {
-      expect(screen.getByText('All Picks')).toBeInTheDocument();
-      expect(screen.getByText('Bob')).toBeInTheDocument();
+      expect(screen.getByText('How everyone picked')).toBeInTheDocument();
     });
   });
 
-  it('shows points awarded in comparison view', async () => {
+  it('shows pick counts from global data', async () => {
     renderPage(makeFetch({ specials: LOCKED_SPECIALS }));
     await waitFor(() => {
-      expect(screen.getByText('20 pts')).toBeInTheDocument();
+      // "6 / 10" count for Brazil tournament_winner pick
+      expect(screen.getByText('6 / 10')).toBeInTheDocument();
     });
   });
 
