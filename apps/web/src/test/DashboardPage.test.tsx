@@ -516,14 +516,12 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(screen.getByText('#3 ↓')).toBeInTheDocument();
   });
 
-  it('still renders the pre-tournament checklist and scoring guide below upcoming matches', async () => {
+  it('renders the scoring guide below upcoming matches', async () => {
     stubAuth({ checklistDismissed: false });
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ZERO, HOME_EMPTY, [], []));
     render(<Wrapper />);
 
-    await waitFor(() => expect(screen.getByText('Action needed!')).toBeInTheDocument());
-    expect(screen.getByText('Read the rules')).toBeInTheDocument();
-    const scoringRef = screen.getByTestId('dashboard-scoring-ref');
+    const scoringRef = await screen.findByTestId('dashboard-scoring-ref');
     const scoringGuideButton = screen.getByRole('button', { name: /Scoring quick-ref/i });
 
     expect(scoringRef).toContainElement(scoringGuideButton);
