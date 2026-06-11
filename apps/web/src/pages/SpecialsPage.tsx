@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type {
   MySpecialsResponse,
-  PlayerSpecialsItem,
-  SpecialPredictionItem,
   SpecialType,
   GroupResponse,
   GlobalSpecialsResponse,
@@ -29,102 +26,6 @@ import {
   ORDER,
   type TeamOption,
 } from '../components/SpecialsForm';
-
-// ---------------------------------------------------------------------------
-// Post-lock comparison table
-// ---------------------------------------------------------------------------
-
-function ComparisonView({
-  allPicks,
-  teams,
-  timezone,
-}: {
-  allPicks: PlayerSpecialsItem[];
-  teams: TeamOption[];
-  timezone: string;
-}) {
-  const teamMap = new Map(teams.map((t) => [t.id, t]));
-
-  function pickLabel(pred: SpecialPredictionItem): string {
-    if (PLAYER_SPECIALS.has(pred.prediction_type)) {
-      return pred.predicted_player_name ?? '—';
-    }
-    const t = pred.predicted_team_id ? teamMap.get(pred.predicted_team_id) : null;
-    return t ? `${t.flag_emoji} ${t.name}` : '—';
-  }
-
-  const ptypes: SpecialType[] = [
-    'tournament_winner',
-    'golden_boot',
-    'top_scoring_team',
-    'player_of_tournament',
-    'young_player_of_tournament',
-    'golden_glove',
-  ];
-
-  return (
-    <div className="mt-8">
-      <h2 className="font-sans font-semibold text-lg text-text-primary tracking-tight mb-4">All Picks</h2>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full font-sans text-sm">
-          <thead>
-            <tr className="bg-surface-elevated border-b border-border">
-              <th className="text-left px-4 py-2 text-text-muted font-medium">Player</th>
-              {ptypes.map((pt) => (
-                <th key={pt} className="text-left px-4 py-2 text-text-muted font-medium">
-                  {SPECIAL_META[pt].label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {allPicks.map((row) => {
-              const predMap = new Map(row.predictions.map((p) => [p.prediction_type, p]));
-              return (
-                <tr key={row.player_id} className="border-b border-border last:border-0 hover:bg-surface-elevated/50">
-                  <td className="px-4 py-3 text-text-primary font-medium">{row.player_name}</td>
-                  {ptypes.map((pt) => {
-                    const pred = predMap.get(pt);
-                    return (
-                      <td key={pt} className="px-4 py-3 text-text-primary">
-                        {pred ? (
-                          <span>
-                            {pickLabel(pred)}
-                            {pred.points_awarded != null && (
-                              <Badge
-                                variant={pred.points_awarded > 0 ? 'success' : 'muted'}
-                                className="ml-2"
-                              >
-                                {pred.points_awarded} pts
-                              </Badge>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="text-text-muted">—</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-text-muted text-xs font-sans mt-2">
-        Locked at{' '}
-        {allPicks.length > 0 && allPicks[0].predictions[0]?.submitted_at
-          ? formatInTimeZone(
-              new Date(allPicks[0].predictions[0].submitted_at),
-              timezone,
-              'EEE d MMM, HH:mm',
-            )
-          : 'tournament start'}
-        .
-      </p>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Global comparison view — all players across all leagues
@@ -376,7 +277,6 @@ function AdminAwardPanel({ teams }: { teams: TeamOption[] }) {
 
 export function SpecialsPage() {
   const { player } = useAuth();
-  const timezone = player?.timezone ?? 'UTC';
 
   const { data: mySpecials } = useQuery({
     queryKey: ['specials', 'me'],
@@ -386,12 +286,6 @@ export function SpecialsPage() {
   const { data: groups } = useQuery({
     queryKey: ['groups'],
     queryFn: () => apiFetch<GroupResponse[]>('/api/v1/groups'),
-  });
-
-  const { data: allPicks } = useQuery({
-    queryKey: ['specials', 'all'],
-    queryFn: () => apiFetch<PlayerSpecialsItem[]>('/api/v1/specials/all'),
-    enabled: mySpecials?.is_locked === true,
   });
 
   const { data: globalSpecials } = useQuery({
@@ -421,10 +315,6 @@ export function SpecialsPage() {
       </p>
 
       <SpecialsForm />
-
-      {mySpecials?.is_locked && allPicks && allPicks.length > 0 && (
-        <ComparisonView allPicks={allPicks} teams={teams} timezone={timezone} />
-      )}
 
       {mySpecials?.is_locked && globalSpecials && mySpecials && (
         <GlobalComparisonView global={globalSpecials} mySpecials={mySpecials} />
