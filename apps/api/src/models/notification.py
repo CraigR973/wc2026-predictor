@@ -24,6 +24,7 @@ class NotificationType(StrEnum):
     member_joined = "member_joined"
     auto_sync_failed = "auto_sync_failed"
     special_results = "special_results"
+    specials_revealed = "specials_revealed"
 
 
 class DeliveryStatus(StrEnum):

@@ -18,7 +18,7 @@ from src.models.notification import ActionType, ActorType, AuditLog
 from src.models.prediction import SpecialPrediction, SpecialPredictionType
 from src.models.profile import Profile
 from src.models.squad import SquadPlayer
-from src.models.team import TournamentStage
+from src.models.team import Team, TournamentStage
 from src.reveal_gate import specials_revealed
 from src.services.leaderboard import recompute_leaderboard_snapshot
 from src.services.notification_triggers import notify_special_results_awarded
@@ -91,6 +91,17 @@ class AwardSpecialsRequest(BaseModel):
     winner_team_id: uuid.UUID | None = None
     # Golden Boot award: use squad player id
     winner_player_id: uuid.UUID | None = None
+
+
+class GlobalSpecialsPick(BaseModel):
+    answer: str        # "🇧🇷 Brazil" for teams, player name for individuals
+    count: int
+    team_id: str | None = None  # set for team-based specials
+
+
+class GlobalSpecialsResponse(BaseModel):
+    total_players: int              # total active profiles (denominator)
+    by_type: dict[str, list[GlobalSpecialsPick]]  # sorted by count desc per type
 
 
 class AwardSpecialsResponse(BaseModel):
@@ -293,6 +304,76 @@ async def get_all_specials(
         by_player[pid].predictions.append(_to_item(pred))
 
     return list(by_player.values())
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/specials/global
+# ---------------------------------------------------------------------------
+
+
+@router.get("/global", response_model=GlobalSpecialsResponse)
+async def get_global_specials(
+    player: CurrentPlayer,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> GlobalSpecialsResponse:
+    """Aggregated specials picks across ALL players on the platform.
+
+    Only available once the tournament has started (same gate as /specials/all).
+    Returns pick counts per prediction type, sorted by popularity, so the
+    frontend can show "42 of 75 players picked 🇧🇷 Brazil".
+    """
+    opening_match = await _get_opening_match(db)
+    if not _is_locked(opening_match):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Special predictions are hidden until the tournament starts",
+        )
+
+    # Total active players — denominator for "X of Y picked …"
+    total_players: int = (
+        await db.execute(
+            select(Profile).where(Profile.deleted_at.is_(None), Profile.is_active.is_(True))
+        )
+    ).scalars().all().__len__()
+
+    # All submitted specials with team info for team-type picks
+    rows = (
+        await db.execute(
+            select(SpecialPrediction, Team)
+            .outerjoin(Team, SpecialPrediction.predicted_team_id == Team.id)
+            .where(SpecialPrediction.submitted_at.is_not(None))
+        )
+    ).all()
+
+    # Aggregate: prediction_type → answer → count
+    from collections import defaultdict as _dd
+    buckets: dict[str, dict[str, dict]] = _dd(dict)
+    for pred, team in rows:
+        ptype = pred.prediction_type
+        if ptype in PLAYER_SPECIALS:
+            answer = pred.predicted_player_name or "Unknown"
+            key = answer
+            team_id = None
+        else:
+            if team is None:
+                continue
+            answer = f"{team.flag_emoji} {team.name}"
+            key = str(pred.predicted_team_id)
+            team_id = str(pred.predicted_team_id)
+
+        if key not in buckets[ptype]:
+            buckets[ptype][key] = {"answer": answer, "count": 0, "team_id": team_id}
+        buckets[ptype][key]["count"] += 1
+
+    by_type: dict[str, list[GlobalSpecialsPick]] = {}
+    for ptype in SpecialPredictionType:
+        picks = sorted(
+            buckets.get(ptype, {}).values(),
+            key=lambda b: -b["count"],
+        )
+        by_type[ptype] = [GlobalSpecialsPick(**p) for p in picks]
+
+    return GlobalSpecialsResponse(total_players=total_players, by_type=by_type)
 
 
 # ---------------------------------------------------------------------------

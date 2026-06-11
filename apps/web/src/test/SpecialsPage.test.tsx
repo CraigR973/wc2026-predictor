@@ -72,11 +72,24 @@ const ALL_PICKS = [
 // Helpers
 // ---------------------------------------------------------------------------
 
+const GLOBAL_SPECIALS = {
+  total_players: 10,
+  by_type: {
+    tournament_winner: [{ answer: '🇧🇷 Brazil', count: 6, team_id: 'ta' }],
+    golden_boot: [{ answer: 'Kylian Mbappé', count: 4, team_id: null }],
+    top_scoring_team: [],
+    player_of_tournament: [],
+    young_player_of_tournament: [],
+    golden_glove: [],
+  },
+};
+
 interface FetchOverrides {
   specials?: unknown;
   groups?: unknown;
   allPicks?: unknown;
   putResult?: unknown;
+  globalSpecials?: unknown;
 }
 
 function makeFetch(overrides: FetchOverrides = {}) {
@@ -84,10 +97,14 @@ function makeFetch(overrides: FetchOverrides = {}) {
   const groups = overrides.groups ?? GROUP_RESPONSE;
   const allPicks = overrides.allPicks ?? ALL_PICKS;
   const putResult = overrides.putResult ?? SUBMITTED_SPECIALS.predictions[0];
+  const globalSpecials = overrides.globalSpecials ?? GLOBAL_SPECIALS;
 
   return vi.fn((url: string, opts?: RequestInit) => {
     if (url.includes('/api/v1/specials/all')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(allPicks) });
+    }
+    if (url.includes('/api/v1/specials/global')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(globalSpecials) });
     }
     if (url.includes('/api/v1/specials') && opts?.method === 'PUT') {
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(putResult) });

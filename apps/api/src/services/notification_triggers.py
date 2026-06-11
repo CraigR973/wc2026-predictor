@@ -25,12 +25,14 @@ from src.models.profile import PlayerRole, Profile
 from src.models.team import Team
 from src.services.prediction_reminders import (
     PickConfirmationTarget,
+    active_players_without_submitted_prediction_for_match,
     submitted_prediction_targets_for_window,
     unpredicted_digest_targets_for_window,
 )
 from src.services.push_notification_service import send_notification
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
+UK_TZ = ZoneInfo("Europe/London")
 
 
 # ── Data transfer object from sync/scheduler ─────────────────────────────────
@@ -98,6 +100,7 @@ async def _notify_all(
     title: str,
     body: str,
     match_id: UUID | None = None,
+    data: dict[str, Any] | None = None,
 ) -> None:
     players = await _active_players(session)
     for p in players:
@@ -108,6 +111,7 @@ async def _notify_all(
             title,
             body,
             match_id=match_id,
+            data=data,
         )
 
 
@@ -119,9 +123,21 @@ async def notify_match_locked(session: AsyncSession, update: MatchUpdate) -> Non
     await _notify_all(
         session,
         NotificationType.match_locked,
-        "Predictions closed",
-        f"No more predictions for {desc}",
+        f"⚽ {desc} has kicked off!",
+        "Predictions are locked — see what everyone picked 👀",
         match_id=update.match_id,
+        data={"url": f"/matches/{update.match_id}"},
+    )
+
+
+async def notify_tournament_started(session: AsyncSession) -> None:
+    """Fire once when the opening match locks — reveals specials and the global table."""
+    await _notify_all(
+        session,
+        NotificationType.specials_revealed,
+        "🏆 The 2026 World Cup has started!",
+        "Specials are locked — see how everyone picked and check the global table",
+        data={"url": "/predictions/specials"},
     )
 
 
@@ -318,21 +334,21 @@ async def notify_backup_failed(session: AsyncSession, reason: str) -> None:
 # Module-level set keyed by (match_id, warning_minutes) so the 60-min and
 # 15-min jobs each get their own bucket and neither suppresses the other.
 _warned_match_ids: set[tuple[UUID, int]] = set()
+_evening_warned: set[tuple[UUID, UUID]] = set()
 
 
 async def check_deadline_warnings(
     session_factory: async_sessionmaker[AsyncSession],
     now: datetime | None = None,
     warning_minutes: int = 15,
+    unpredicted_only: bool = False,
 ) -> int:
-    """Warn all players N minutes before each scheduled match kickoff.
+    """Warn players N minutes before each scheduled match kickoff.
 
+    When unpredicted_only=True, only players without a submitted prediction receive the push.
     Returns the number of matches warned. Called every minute by the scheduler.
     """
     current = (now if now is not None else _utc_now()).replace(second=0, microsecond=0)
-
-    # Find matches kicking off within the warning window (±30 s either side)
-    from datetime import timedelta
 
     window_start = current + timedelta(minutes=warning_minutes - 1)
     window_end = current + timedelta(minutes=warning_minutes + 1)
@@ -356,20 +372,156 @@ async def check_deadline_warnings(
             home = await _team_name(session, match.home_team_id, match.home_team_placeholder)
             away = await _team_name(session, match.away_team_id, match.away_team_placeholder)
             desc = f"{home} vs {away}"
-            await _notify_all(
-                session,
-                NotificationType.deadline_warning,
-                f"{warning_minutes} min to go: {desc}",
-                "Submit your prediction before kickoff!",
-                match_id=match.id,
-            )
+            title = f"{warning_minutes} min to go: {desc}"
+            body = "Submit your prediction before kickoff!"
+            if unpredicted_only:
+                players = await active_players_without_submitted_prediction_for_match(
+                    session, match.id
+                )
+                for player in players:
+                    await send_notification(
+                        session,
+                        player.id,
+                        NotificationType.deadline_warning,
+                        title,
+                        body,
+                        match_id=match.id,
+                    )
+            else:
+                await _notify_all(
+                    session,
+                    NotificationType.deadline_warning,
+                    title,
+                    body,
+                    match_id=match.id,
+                )
             warned += 1
 
         if warned:
             await session.commit()
-            log.info("deadline warnings sent", count=warned)
+            log.info("deadline warnings sent", count=warned, unpredicted_only=unpredicted_only)
 
     return warned
+
+
+async def check_evening_kickoff_warnings(
+    session_factory: async_sessionmaker[AsyncSession],
+    now: datetime | None = None,
+) -> int:
+    """At 21:00 UK time, send a heads-up for matches kicking off 22:00–10:00 UK tonight/tomorrow.
+
+    Players with a prediction get their score and a reminder they can still edit.
+    Players without a prediction get a prompt to predict before kickoff.
+    """
+    current = (now if now is not None else _utc_now()).replace(second=0, microsecond=0)
+    current_uk = current.replace(tzinfo=UTC).astimezone(UK_TZ)
+    if not (current_uk.hour == 21 and current_uk.minute == 0):
+        return 0
+
+    today_uk = current_uk.date()
+    window_start_utc = (
+        datetime.combine(today_uk, time(22, 0), tzinfo=UK_TZ).astimezone(UTC).replace(tzinfo=None)
+    )
+    window_end_utc = (
+        datetime.combine(today_uk + timedelta(days=1), time(10, 0), tzinfo=UK_TZ)
+        .astimezone(UTC)
+        .replace(tzinfo=None)
+    )
+    today_start_utc = datetime.combine(current.date(), time.min)
+
+    sent = 0
+    async with session_factory() as session:
+        # ── Players WITH a prediction ─────────────────────────────────────────
+        predicted_targets = await submitted_prediction_targets_for_window(
+            session, window_start_utc, window_end_utc
+        )
+        for target in predicted_targets:
+            key = (target.match.id, target.player.id)
+            if key in _evening_warned:
+                continue
+            already = await session.scalar(
+                select(func.count()).where(
+                    NotificationLog.notification_type == NotificationType.predict_reminder,
+                    NotificationLog.match_id == target.match.id,
+                    NotificationLog.player_id == target.player.id,
+                    NotificationLog.sent_at >= today_start_utc,
+                )
+            )
+            if already:
+                _evening_warned.add(key)
+                continue
+            home = await _team_name(
+                session, target.match.home_team_id, target.match.home_team_placeholder
+            )
+            away = await _team_name(
+                session, target.match.away_team_id, target.match.away_team_placeholder
+            )
+            kickoff_str = (
+                target.match.kickoff_utc.replace(tzinfo=UTC).astimezone(UK_TZ).strftime("%H:%M %Z")
+            )
+            score = f"{target.prediction.predicted_home}–{target.prediction.predicted_away}"
+            await send_notification(
+                session,
+                target.player.id,
+                NotificationType.predict_reminder,
+                f"{home} v {away} — kicks off {kickoff_str}",
+                f"You've predicted {score}. You can still edit.",
+                match_id=target.match.id,
+                data={"url": "/predictions"},
+            )
+            _evening_warned.add(key)
+            sent += 1
+
+        # ── Players WITHOUT a prediction ──────────────────────────────────────
+        matches_result = await session.execute(
+            select(Match).where(
+                Match.status == MatchStatus.scheduled,
+                Match.kickoff_utc >= window_start_utc,
+                Match.kickoff_utc < window_end_utc,
+                Match.deleted_at.is_(None),
+            )
+        )
+        for match in matches_result.scalars().all():
+            home = await _team_name(session, match.home_team_id, match.home_team_placeholder)
+            away = await _team_name(session, match.away_team_id, match.away_team_placeholder)
+            kickoff_str = (
+                match.kickoff_utc.replace(tzinfo=UTC).astimezone(UK_TZ).strftime("%H:%M %Z")
+            )
+            unpredicted = await active_players_without_submitted_prediction_for_match(
+                session, match.id
+            )
+            for player in unpredicted:
+                key = (match.id, player.id)
+                if key in _evening_warned:
+                    continue
+                already = await session.scalar(
+                    select(func.count()).where(
+                        NotificationLog.notification_type == NotificationType.predict_reminder,
+                        NotificationLog.match_id == match.id,
+                        NotificationLog.player_id == player.id,
+                        NotificationLog.sent_at >= today_start_utc,
+                    )
+                )
+                if already:
+                    _evening_warned.add(key)
+                    continue
+                await send_notification(
+                    session,
+                    player.id,
+                    NotificationType.predict_reminder,
+                    f"{home} v {away} — kicks off {kickoff_str}",
+                    "Predict before kickoff!",
+                    match_id=match.id,
+                    data={"url": "/predictions"},
+                )
+                _evening_warned.add(key)
+                sent += 1
+
+        if sent:
+            await session.commit()
+            log.info("evening kickoff warnings sent", count=sent)
+
+    return sent
 
 
 # ── Prediction reminder scheduler jobs ───────────────────────────────────────

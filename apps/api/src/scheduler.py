@@ -19,13 +19,16 @@ from src.config import settings
 from src.database import AsyncSessionLocal
 from src.models.match import Match, MatchStatus
 from src.models.notification import ActionType, ActorType, AuditLog
+from src.models.team import TournamentStage
 from src.services.backup import create_backup
 from src.services.notification_triggers import (
     MatchUpdate,
     check_deadline_warnings,
+    check_evening_kickoff_warnings,
     check_pick_confirmations,
     notify_backup_failed,
     notify_match_locked,
+    notify_tournament_started,
     send_daily_prediction_digest,
 )
 from src.services.result_sync import sync_results
@@ -94,6 +97,24 @@ async def lock_due_matches(
                     await notify_match_locked(session, upd)
                 except Exception:
                     log.exception("notify_match_locked failed", match_id=str(upd.match_id))
+
+            # Fire the tournament-started notification exactly once: when the
+            # opening group match (earliest kickoff) is among the just-locked set.
+            try:
+                opening_row = await session.execute(
+                    select(Match.id).where(
+                        Match.stage == TournamentStage.group,
+                        Match.deleted_at.is_(None),
+                    ).order_by(Match.kickoff_utc.asc()).limit(1)
+                )
+                opening_id = opening_row.scalar_one_or_none()
+                locked_ids = {upd.match_id for upd in locked_updates}
+                if opening_id is not None and opening_id in locked_ids:
+                    await notify_tournament_started(session)
+                    log.info("tournament started notification sent")
+            except Exception:
+                log.exception("notify_tournament_started failed")
+
             await session.commit()
 
     return locked_count
@@ -188,10 +209,24 @@ def create_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         check_deadline_warnings,
-        kwargs={"session_factory": AsyncSessionLocal, "warning_minutes": 15},
+        kwargs={
+            "session_factory": AsyncSessionLocal,
+            "warning_minutes": 15,
+            "unpredicted_only": True,
+        },
         trigger="interval",
         minutes=1,
         id="deadline_warnings_15",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        check_evening_kickoff_warnings,
+        kwargs={"session_factory": AsyncSessionLocal},
+        trigger="interval",
+        minutes=1,
+        id="evening_kickoff_warnings",
         replace_existing=True,
         coalesce=True,
         max_instances=1,

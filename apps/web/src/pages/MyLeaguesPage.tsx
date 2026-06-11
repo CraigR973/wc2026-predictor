@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Globe } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { dedupedLeaderboard } from '@/lib/leaderboard';
 import type { LeagueSummary, LeaderboardEntry } from '@/lib/types';
@@ -141,8 +142,67 @@ export function MyLeaguesPage() {
           {leagues.map((l) => (
             <LeagueCard key={l.slug} league={l} />
           ))}
+          {/* Global leaderboard card — always shown alongside league cards */}
+          <GlobalCard />
         </div>
       )}
     </div>
+  );
+}
+
+function GlobalCard() {
+  const { player } = useAuth();
+  const { data: global = [], isLoading } = useQuery<LeaderboardEntry[]>({
+    queryKey: ['leaderboard', 'global'],
+    queryFn: () => apiFetch<LeaderboardEntry[]>('/api/v1/leaderboard/global'),
+    staleTime: 30_000,
+  });
+
+  const myEntry = player ? global.find((e) => e.player_id === player.id) : undefined;
+
+  return (
+    <Link to="/leaderboard/global" className="block h-full group">
+      <Card className="flex h-full min-h-[156px] flex-col border-border/80 bg-gradient-to-br from-surface-elevated via-surface to-surface hover:border-primary/50 transition-colors group-hover:border-primary/50">
+        <CardHeader className="pb-3 space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-text-muted">
+            All leagues
+          </p>
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="text-base group-hover:text-primary transition-colors flex items-center gap-2">
+              <Globe className="h-4 w-4 shrink-0" aria-hidden />
+              Global Standings
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col justify-between pt-0 gap-4">
+          <p className="text-sm text-text-secondary font-sans line-clamp-2">
+            Every player across all leagues, ranked together.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-sans text-text-muted">
+            {isLoading ? (
+              <Skeleton className="h-3 w-20" />
+            ) : global.length > 0 ? (
+              <>
+                <span className="rounded-full border border-border bg-surface px-2.5 py-1">
+                  {global.length} players
+                </span>
+                {myEntry && (
+                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+                    Rank <span className="font-semibold text-text-primary">#{myEntry.rank}</span>
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="rounded-full border border-border bg-surface px-2.5 py-1">
+                Live after first result
+              </span>
+            )}
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary transition-colors group-hover:text-accent">
+            View →
+          </span>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

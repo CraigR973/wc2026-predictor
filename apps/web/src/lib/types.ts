@@ -193,6 +193,17 @@ export interface PlayerSpecialsItem {
   predictions: SpecialPredictionItem[];
 }
 
+export interface GlobalSpecialsPick {
+  answer: string;    // "🇧🇷 Brazil" or player name
+  count: number;
+  team_id: string | null;
+}
+
+export interface GlobalSpecialsResponse {
+  total_players: number;
+  by_type: Record<string, GlobalSpecialsPick[]>;
+}
+
 export interface PlayerStats {
   player_id: string;
   player_name: string;

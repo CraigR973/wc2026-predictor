@@ -16,6 +16,7 @@ from src.models.profile import Profile
 from src.services.notification_triggers import (
     MatchUpdate,
     check_deadline_warnings,
+    check_evening_kickoff_warnings,
     check_pick_confirmations,
     notify_auto_sync_failed,
     notify_invite_accepted,
@@ -26,6 +27,7 @@ from src.services.notification_triggers import (
     notify_result_detected,
     notify_round_complete,
     notify_special_results_awarded,
+    notify_tournament_started,
     send_daily_prediction_digest,
 )
 from src.services.prediction_reminders import PickConfirmationTarget, UnpredictedDigestTarget
@@ -38,6 +40,8 @@ _RC = f"{_NT}.notify_round_complete"
 _ACTIVE_PLAYERS = f"{_NT}._active_players"
 _DIGEST_TARGETS = f"{_NT}.unpredicted_digest_targets_for_window"
 _PICK_TARGETS = f"{_NT}.submitted_prediction_targets_for_window"
+_UNPREDICTED = f"{_NT}.active_players_without_submitted_prediction_for_match"
+_EVENING_PICK_TARGETS = f"{_NT}.submitted_prediction_targets_for_window"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -487,6 +491,39 @@ async def test_pick_confirmation_sends_only_for_submitted_prediction_targets() -
 
 
 @pytest.mark.asyncio
+async def test_deadline_warning_15_only_sends_to_unpredicted_players() -> None:
+    from src.services.notification_triggers import _warned_match_ids
+
+    match_id = uuid.uuid4()
+    _warned_match_ids.discard((match_id, 15))
+    match = _match(match_id)
+
+    unpredicted_player = _player()
+    session_mock = AsyncMock()
+    session_mock.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[match])))
+    )
+
+    mock_factory = MagicMock()
+    mock_factory.return_value.__aenter__ = AsyncMock(return_value=session_mock)
+    mock_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    now = datetime(2026, 6, 14, 17, 44)
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+        patch(_UNPREDICTED, new_callable=AsyncMock, return_value=[unpredicted_player]),
+    ):
+        count = await check_deadline_warnings(mock_factory, now=now, unpredicted_only=True)
+
+    assert count == 1
+    mock_send.assert_awaited_once()
+    call = mock_send.call_args
+    assert call.args[1] == unpredicted_player.id
+    assert call.args[2] == NotificationType.deadline_warning
+
+
+@pytest.mark.asyncio
 async def test_pick_confirmation_not_double_sent() -> None:
     player = _player()
     match = _match()
@@ -514,4 +551,207 @@ async def test_pick_confirmation_not_double_sent() -> None:
 
     assert count == 0
     mock_send.assert_not_awaited()
-    session_mock.commit.assert_not_awaited()
+    session_mock.commit.assert_not_called()
+
+
+# ── check_evening_kickoff_warnings ───────────────────────────────────────────
+
+
+def _make_factory(session_mock: AsyncMock) -> MagicMock:
+    factory = MagicMock()
+    factory.return_value.__aenter__ = AsyncMock(return_value=session_mock)
+    factory.return_value.__aexit__ = AsyncMock(return_value=False)
+    return factory
+
+
+@pytest.mark.asyncio
+async def test_evening_warning_no_op_outside_21_uk() -> None:
+    # 19:59 UTC = 20:59 BST — should not fire
+    now = datetime(2026, 6, 14, 18, 59)
+    session_mock = AsyncMock()
+    with patch(_SEND, new_callable=AsyncMock) as mock_send:
+        count = await check_evening_kickoff_warnings(_make_factory(session_mock), now=now)
+    assert count == 0
+    mock_send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_evening_warning_sends_to_unpredicted_at_21_uk() -> None:
+    from src.services.notification_triggers import _evening_warned
+
+    match = _match()
+    match.kickoff_utc = datetime(2026, 6, 14, 23, 0)
+    player = _player()
+
+    session_mock = AsyncMock()
+    session_mock.scalar = AsyncMock(return_value=0)
+    session_mock.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[match])))
+    )
+
+    _evening_warned.discard((match.id, player.id))
+
+    now = datetime(2026, 6, 14, 20, 0)  # 20:00 UTC = 21:00 BST
+    with (
+        patch(_EVENING_PICK_TARGETS, new_callable=AsyncMock, return_value=[]),
+        patch(_UNPREDICTED, new_callable=AsyncMock, return_value=[player]),
+        patch(_TEAM, new_callable=AsyncMock, return_value="England"),
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+    ):
+        count = await check_evening_kickoff_warnings(_make_factory(session_mock), now=now)
+
+    assert count == 1
+    mock_send.assert_awaited_once()
+    call = mock_send.call_args
+    assert call.args[1] == player.id
+    assert call.args[2] == NotificationType.predict_reminder
+    assert "Predict before kickoff" in call.args[4]
+
+
+@pytest.mark.asyncio
+async def test_evening_warning_sends_score_to_predicted() -> None:
+    from src.services.notification_triggers import _evening_warned
+
+    match = _match()
+    match.kickoff_utc = datetime(2026, 6, 14, 23, 0)
+    player = _player()
+    prediction = MagicMock()
+    prediction.predicted_home = 2
+    prediction.predicted_away = 0
+    target = PickConfirmationTarget(player=player, match=match, prediction=prediction)
+
+    session_mock = AsyncMock()
+    session_mock.scalar = AsyncMock(return_value=0)
+    session_mock.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+    )
+
+    _evening_warned.discard((match.id, player.id))
+
+    now = datetime(2026, 6, 14, 20, 0)
+    with (
+        patch(_EVENING_PICK_TARGETS, new_callable=AsyncMock, return_value=[target]),
+        patch(_UNPREDICTED, new_callable=AsyncMock, return_value=[]),
+        patch(_TEAM, new_callable=AsyncMock, return_value="England"),
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+    ):
+        count = await check_evening_kickoff_warnings(_make_factory(session_mock), now=now)
+
+    assert count == 1
+    mock_send.assert_awaited_once()
+    call = mock_send.call_args
+    assert "2–0" in call.args[4]
+    assert "still edit" in call.args[4]
+
+
+@pytest.mark.asyncio
+async def test_evening_warning_dedup_via_db() -> None:
+    from src.services.notification_triggers import _evening_warned
+
+    match = _match()
+    match.kickoff_utc = datetime(2026, 6, 14, 23, 0)
+    player = _player()
+
+    session_mock = AsyncMock()
+    session_mock.scalar = AsyncMock(return_value=1)  # already sent today
+    session_mock.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[match])))
+    )
+
+    _evening_warned.discard((match.id, player.id))
+
+    now = datetime(2026, 6, 14, 20, 0)
+    with (
+        patch(_EVENING_PICK_TARGETS, new_callable=AsyncMock, return_value=[]),
+        patch(_UNPREDICTED, new_callable=AsyncMock, return_value=[player]),
+        patch(_TEAM, new_callable=AsyncMock, return_value="England"),
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+    ):
+        count = await check_evening_kickoff_warnings(_make_factory(session_mock), now=now)
+
+    assert count == 0
+    mock_send.assert_not_awaited()
+
+
+# ── notify_match_locked (updated copy + deep link) ───────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_match_locked_includes_deep_link() -> None:
+    """notify_match_locked passes data.url = /matches/<id> to every push."""
+    match_id = uuid.uuid4()
+    update = _match_update(match_id=match_id)
+    players = [_player()]
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
+    )
+
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+    ):
+        await notify_match_locked(session, update)
+
+    assert mock_send.call_count == 1
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs.get("data") == {"url": f"/matches/{match_id}"}
+
+
+@pytest.mark.asyncio
+async def test_notify_match_locked_title_mentions_kickoff() -> None:
+    """Title contains the kicked-off indication and body mentions everyone picked."""
+    update = _match_update()
+    players = [_player()]
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
+    )
+
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+    ):
+        await notify_match_locked(session, update)
+
+    call = mock_send.call_args
+    title: str = call.args[3]
+    body: str = call.args[4]
+    assert "kicked off" in title.lower()
+    assert "picked" in body.lower() or "predicted" in body.lower()
+
+
+# ── notify_tournament_started ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_tournament_started_sends_to_all_active_players() -> None:
+    """notify_tournament_started broadcasts specials_revealed to every active player."""
+    players = [_player(), _player(), _player()]
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
+    )
+
+    with patch(_SEND, new_callable=AsyncMock) as mock_send:
+        await notify_tournament_started(session)
+
+    assert mock_send.call_count == len(players)
+    for call_args in mock_send.call_args_list:
+        assert call_args.args[2] == NotificationType.specials_revealed
+
+
+@pytest.mark.asyncio
+async def test_notify_tournament_started_deep_links_to_specials() -> None:
+    """The specials_revealed notification carries data.url pointing at the specials page."""
+    players = [_player()]
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=players)))
+    )
+
+    with patch(_SEND, new_callable=AsyncMock) as mock_send:
+        await notify_tournament_started(session)
+
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs.get("data") == {"url": "/predictions/specials"}
