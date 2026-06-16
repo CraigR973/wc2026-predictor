@@ -109,6 +109,7 @@ export function PredictionsPage() {
     queryKey: ['matches', 'group'],
     queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches?stage=group'),
     staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   // Fetch my predictions
