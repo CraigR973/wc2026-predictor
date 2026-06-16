@@ -2053,3 +2053,60 @@ Built in two passes this session: the initial U20.1–U20.8 home v2, then a user
 - The no-live-score data limitation (football-data.org free tier) is unchanged — only the presentation was fixed.
 
 **Next:** see docs/phase-batches.md for next batch
+
+---
+
+## OPS-2 — Proactive prod monitor & @claude auto-fix pipeline
+**Commits:** 69c45c4, cabec61, b229b51, eb3657d, f63ac4b, 6dd0d8e, c8f49ce · CI ✅
+_Retro-documented 2026-06-16 — shipped out-of-band during the live tournament (WC opening weekend)._
+
+### Key facts for future sessions
+- `prod-monitor.yml` runs on cron `7,22,37,52 * * * *` (~15 min, deliberately off the :00 mark to dodge the GitHub cron stampede). `workflow_dispatch` exposes `dry_run` (`--dry-run`) and `force_test` (`--test-incident`).
+- Monitor needs repo secrets `MONITOR_DATABASE_URL`, `JWT_ACCESS_SECRET`, `MONITOR_ADMIN_PLAYER_ID`, `FOOTBALL_DATA_API_KEY`, `HEALTHCHECKS_PING_URL` (dead-man's-switch) + `GITHUB_TOKEN`. Missing any → silent no-op/auth failure, not a loud error.
+- `@claude` (claude.yml) auths via the **Pro subscription** token `claude_code_oauth_token` (not an API key), with dual-Pro failover. It opens the fix PR as a **draft via `PR_PAT`** specifically so CI runs — a PR opened by the default `GITHUB_TOKEN` does not trigger workflows.
+- `issues-opened` `@claude` trigger is gated to repo **OWNER**. Monitor-raised issues are authored as the **Actions bot** so the owner actually gets the GitHub notification (self-authored issues aren't notified).
+- If autonomous `@claude` PRs or monitor issues appear in the repo, this pipeline — not a human — opened them.
+
+**Next:** U55 — Pre-tournament blast & smart kickoff nudges (🟢 Sonnet)
+
+---
+
+## U55 — Pre-tournament blast & smart kickoff nudges
+**Commits:** 38e4a6c, aa69ed3, 02c4d1f, 51b2e55 · CI ✅
+_Retro-documented 2026-06-16 — shipped out-of-band during the live tournament._
+
+### Key facts for future sessions
+- `check_evening_kickoff_warnings` is scheduled every **1 minute** but self-gates: it only acts when `current_uk.hour == 21 and minute == 0` (21:00 Europe/London), covering matches kicking off **22:00–10:00 UK**. Don't "fix" the 1-min cadence — the internal gate is the real schedule.
+- Evening-nudge dedup is a **module-level `_evening_warned` set** keyed `(player_id, match_id)` — in-process only, resets on redeploy (acceptable: at most one duplicate nudge per restart).
+- T-15 deadline warning is now **unpredicted-only** (skips players who already submitted).
+- `POST /admin/notifications/pre-tournament-blast` **blocks after kickoff** and is personalised (urgent if missing specials/opener pred, reassuring if done); the specials tick requires **all 6**, not any.
+
+**Next:** U56 — Global leaderboard & specials reveal (🟢 Sonnet)
+
+---
+
+## U56 — Global leaderboard & specials reveal
+**Commits:** a9dde06, 6475a46, 5d6f6eb, e85a464, 5f273f7, c8c50c1, f852ad8 · CI ✅
+_Retro-documented 2026-06-16 — shipped out-of-band during the live tournament._
+
+### Key facts for future sessions
+- `GET /leaderboard/global` is a **virtual** ranking: `DISTINCT ON (player_id)` across all league snapshots, then re-ranked in Python. **No schema change** — there is no global_leaderboard table.
+- Migration 032 adds `specials_revealed` to the `notification_type` enum. Enum `ADD VALUE` **cannot run inside a transaction** — it needs `autocommit_block` (took two attempts: e85a464 → 5f273f7). Future enum-value migrations must do the same.
+- `specials_revealed` is **always-delivered** in the push service (bypasses per-type prefs) — it's the one-time tournament-start signal.
+- `TournamentRevealModal` shows once, gated on `localStorage['tournament_reveal_seen']` + `mySpecials.is_locked === true`. Clearing that key re-triggers it.
+- `/specials/global` is gated behind the specials lock. The per-league all-picks `ComparisonView` table was **removed** — `GlobalComparisonView` is now the sole post-lock reveal (individual picks live on the profile page).
+
+**Next:** U57 — Dashboard & live-hub polish (🟢 Sonnet)
+
+---
+
+## U57 — Dashboard & live-hub polish
+**Commits:** ef65f83, 6b6f11e, 9332163, a8479b8 · CI ✅
+_Retro-documented 2026-06-16 — shipped out-of-band during the live tournament._
+
+### Key facts for future sessions
+- `DashboardPage` polls matches every **60s** (React Query `refetchInterval`) so the live hub appears without a manual refresh once a match goes live.
+- `PreTournamentChecklist` was **deleted** (component + test) now the tournament has started; `DashboardPage.test.tsx` lost its checklist assertions. Don't reintroduce it — the U55 pre-tournament banner supersedes it.
+- Rollup rows now drop flag emojis and **cap at 4 rows with an overflow hint** (mobile density fix).
+
+**Next:** see docs/phase-batches.md for next batch
