@@ -16,11 +16,18 @@ async function mockPredictionsPage(
 ) {
   // catchAllApi registered first — more specific handlers below take priority via LIFO
   await catchAllApi(page);
-  await page.route('**/api/v1/groups', (route) =>
+  await page.route('**/api/v1/groups*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([GROUP_A]),
+    }),
+  );
+  await page.route('**/api/v1/matches*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(matches),
     }),
   );
   await page.route('**/api/v1/matches?stage=group', (route) =>
@@ -30,7 +37,7 @@ async function mockPredictionsPage(
       body: JSON.stringify(matches),
     }),
   );
-  await page.route('**/api/v1/predictions/me', (route) =>
+  await page.route('**/api/v1/predictions/me*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -57,7 +64,7 @@ test.describe('Predict → auto-fetch result → see points', () => {
 
     await mockPredictionsPage(page, [completedMatch], [prediction]);
 
-    await page.goto('/predictions');
+    await page.goto('/predictions/group');
 
     await expect(page.getByTestId('points-badge')).toContainText('7 pts');
   });
@@ -85,7 +92,7 @@ test.describe('Predict → auto-fetch result → see points', () => {
       });
     });
 
-    await page.goto('/predictions');
+    await page.goto('/predictions/group');
 
     const homeInput = page.getByRole('spinbutton', { name: 'Home score for match 1' });
     await homeInput.fill('2');
@@ -112,7 +119,7 @@ test.describe('Lock enforcement', () => {
 
     await mockPredictionsPage(page, [lockedMatch], [prediction]);
 
-    await page.goto('/predictions');
+    await page.goto('/predictions/group');
 
     const homeInput = page.getByRole('spinbutton', { name: 'Home score for match 1' });
     await expect(homeInput).toBeDisabled();
@@ -134,7 +141,7 @@ test.describe('Reschedule flow', () => {
 
     await mockPredictionsPage(page, [rescheduledMatch], []);
 
-    await page.goto('/predictions');
+    await page.goto('/predictions/group');
 
     const card = page.getByTestId('prediction-card-m1');
     await expect(card).toContainText('15 Jun');
@@ -158,7 +165,7 @@ test.describe('Postponement flow', () => {
 
     await mockPredictionsPage(page, [postponedMatch], [prediction]);
 
-    await page.goto('/predictions');
+    await page.goto('/predictions/group');
 
     const card = page.getByTestId('prediction-card-m1');
     await expect(card).toContainText('Postponed');
@@ -198,7 +205,7 @@ test.describe('Login → predict flow', () => {
       }),
     );
 
-    await page.route('**/api/v1/groups', (route) =>
+    await page.route('**/api/v1/groups*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -212,7 +219,14 @@ test.describe('Login → predict flow', () => {
         body: JSON.stringify([makeMatch()]),
       }),
     );
-    await page.route('**/api/v1/predictions/me', (route) =>
+    await page.route('**/api/v1/matches*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([makeMatch()]),
+      }),
+    );
+    await page.route('**/api/v1/predictions/me*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -226,7 +240,7 @@ test.describe('Login → predict flow', () => {
     await page.getByLabel('PIN digit 1').fill('1');
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    await page.goto('/predictions');
+    await page.goto('/predictions/group');
     await expect(page.getByTestId('prediction-card-m1')).toBeVisible();
   });
 });

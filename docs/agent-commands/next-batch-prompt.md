@@ -1,5 +1,5 @@
 ---
-description: Generate the next-batch paste-prompt. No-arg or `phase` → docs/phase-batches.md (numeric architecture phases AND M-batches; acceptance pulled from wc2026-architecture.md or docs/multi-league-architecture.md depending on the batch id). `review` → docs/review-batches.md (acceptance inline). `polish` → docs/polish-batches.md (acceptance inline). `env` → docs/env-batches.md (acceptance inline). Mechanical, no hallucination.
+description: Generate the next-batch paste-prompt. No-arg or `phase` → docs/phase-batches.md (numeric architecture phases AND M-batches; acceptance pulled from wc2026-architecture.md or docs/multi-league-architecture.md depending on the batch id). `review` → docs/review-batches.md (acceptance inline). `polish` → docs/phase-batches.md "Polish / UX snags" section (ad-hoc; spec is the row's Description cell — there is usually no pre-queued batch to find, since U-batches are named when the user is ready, not picked off a backlog). `env` → docs/env-batches.md (acceptance inline). Mechanical, no hallucination.
 ---
 
 You are generating the copy-paste prompt for the next batch. Follow these steps **literally** — do not skip, do not infer.
@@ -12,7 +12,10 @@ You are generating the copy-paste prompt for the next batch. Follow these steps 
   - row id matches `^\d+$` (e.g. `13`) → **architecture sub-mode**: acceptance from `wc2026-architecture.md`
   - row id matches `^M\d+$` (e.g. `M1`) → **multi-league sub-mode**: acceptance from `docs/multi-league-architecture.md` (§ 8 `### M<n> ·` headings)
 - `review` → **review mode**: `docs/review-batches.md` only (acceptance criteria live in the per-batch sub-sections of that same file)
-- `polish` → **polish mode**: `docs/polish-batches.md` only (spec and acceptance live inline per `## U<N>` section)
+- `polish` → **polish mode**: U-numbering is a single sequence shared across TWO files — check both:
+  - `docs/phase-batches.md` "Polish / UX snags" section — lightweight, single-row, ad-hoc batches (Batch | Model | Description | Commits | Status). The Description cell IS the spec; no separate section or Acceptance block.
+  - `docs/polish-batches.md` — heavier, pre-planned multi-item batches with a `## U<N> — <Title>` section, numbered `**U<N>.<M>**` sub-items, and an explicit **Acceptance:** block. Still actively used for substantial batches (not legacy/dead — confirm by checking for a `Pending` row before assuming otherwise).
+  Whichever file holds the lowest-numbered un-struck `U<N>` row is the next batch; read/write only that file for it.
 - `env` → **env mode**: `docs/env-batches.md` only (spec and acceptance live inline per `## E<N>` section; no code commits or CI involved)
 
 Reject any other value with `"Unknown mode '$ARGUMENTS' — use empty/phase, 'review', 'polish', or 'env'"`.
@@ -24,16 +27,16 @@ Per-step notes call out where the modes (and phase sub-modes) diverge.
 **Polish mode:**
 
 ```bash
-grep -nE "^\| U[0-9~]" /Users/craigrobinson/wc_2026_predictor/docs/polish-batches.md
+grep -nE "^\| (U|OPS-)[0-9]" /Users/craigrobinson/wc_2026_predictor/docs/phase-batches.md
+grep -nE "^\| U[0-9]" /Users/craigrobinson/wc_2026_predictor/docs/polish-batches.md
 ```
 
-The first row whose batch id is NOT wrapped in `~~...~~` is the next polish batch. Extract:
-- **Batch id** (e.g. `U4`)
-- **Model tag** and any reasoning hint (e.g. `🟢 Sonnet` or `🔴 Opus (extended thinking)`)
-- **Effort** (e.g. `~3.5 h`)
-- **Items range** (e.g. `U4.1–U4.7`)
+Both patterns only match **unstruck** rows (struck rows begin `| ~~U...~~ |`, so the literal `U`/`OPS-` right after `| ` never appears once struck — no separate tilde check needed). Collect every match from both files and take the row with the **lowest** `U<N>` (the numbering is one shared sequence across both files — e.g. `docs/phase-batches.md` may be struck through up to U59 while `docs/polish-batches.md` separately has a pending U60). That row's file determines the format:
 
-If every row is struck through, report "All polish batches shipped — run the full verification checklist in `docs/polish-batches.md` before merging `feat/premium-polish` to main" and stop.
+- **Row found in `docs/phase-batches.md`** (ad-hoc): extract the **Batch id**, **Model tag**, and the full **Description** cell — that cell IS the spec, no separate Acceptance block.
+- **Row found in `docs/polish-batches.md`** (planned): extract the **Batch id**, **Model tag**, **Effort**, and **Items range** (e.g. `U60.1–U60.6`) from the summary-table row. Continue to Step 2 to pull the full `## U<N>` section.
+
+If no unstruck `U`/`OPS-` row exists in either file, report: "No pending polish batch in `docs/phase-batches.md` or `docs/polish-batches.md`." and stop. Do not invent a batch.
 
 
 
@@ -114,12 +117,14 @@ Do **not** grep `wc2026-architecture.md` in review mode — review items are not
 
 Do **not** grep architecture docs in env mode. If the section is missing, stop and report.
 
-**Polish mode:** spec and acceptance live INLINE in `docs/polish-batches.md`. Read the `## U<N> — <Title>` section for the batch you identified in Step 1. Capture:
+**Polish mode — ad-hoc (row in `docs/phase-batches.md`):** the spec is the row's **Description cell**, captured verbatim in Step 1 — there is no separate section to grep. Skip the rest of this step.
+
+**Polish mode — planned (row in `docs/polish-batches.md`):** spec and acceptance live INLINE in that file. Read the `## U<N> — <Title>` section for the batch identified in Step 1. Capture:
 - The section title (the part after `— `)
 - The one-line summary of each numbered item (the `**U<N>.<M>**` lead clause)
 - The entire **Acceptance:** block at the end of the section
 
-Do **not** grep `wc2026-architecture.md` in polish mode. If the section is missing, stop and report.
+Do **not** grep `wc2026-architecture.md` in either polish sub-case.
 
 ## Step 3 — Anchor with recent commit hashes
 
@@ -151,14 +156,16 @@ Output the prompt in this exact format (no preamble, no commentary, just the pro
 ```
 Batch N: Phases X.Y → X.Z — back-to-back, single <model> session.
 
-**STEP 1 before anything else:** make sure `main` is up to date and create
+**STEP 1 before anything else:** make sure `staging` is up to date and create
 the feature branch:
 
-    git fetch origin && git checkout main && git pull --ff-only origin main
+    git fetch origin && git checkout staging && git pull --ff-only origin staging
     git checkout -b feat/b<N>-<slug>     ← slug derived from the batch title
 
-Do not commit to `main` directly under any circumstance. `/phase-closeout`
-will fast-forward this branch into `main` once CI is green.
+Do not commit to `staging` or `main` directly under any circumstance.
+`/phase-closeout` will merge this branch into `staging` once CI is green.
+(Promotion of `staging` to `main`/production is a separate, later
+`/ship-prod` call — not part of this batch.)
 
 Close each phase fully before starting the next.   ← include this line only if batch has 2+ phases
 
@@ -182,14 +189,16 @@ PREVIOUS SESSION NOTES:
 ```
 Batch M<n>: <Title from § 8 heading> — single <model emoji + tag> session.
 
-**STEP 1 before anything else:** make sure `main` is up to date and create
+**STEP 1 before anything else:** make sure `staging` is up to date and create
 the feature branch:
 
-    git fetch origin && git checkout main && git pull --ff-only origin main
+    git fetch origin && git checkout staging && git pull --ff-only origin staging
     git checkout -b feat/m<n>-<slug>     ← slug derived from the batch title
 
-Do not commit to `main` directly under any circumstance. `/phase-closeout`
-will fast-forward this branch into `main` once CI is green.
+Do not commit to `staging` or `main` directly under any circumstance.
+`/phase-closeout` will merge this branch into `staging` once CI is green.
+(Promotion of `staging` to `main`/production is a separate, later
+`/ship-prod` call — not part of this batch.)
 
 The M-series batch acceptance criteria live in `docs/multi-league-architecture.md` § 8 (NOT in `wc2026-architecture.md`). Skim § 2.2 (decision rationale), § 3 (data model + DDL), § 4 (auth flow), and § 7 (migration plan) before touching code — they were written specifically for this implementer.
 
@@ -217,13 +226,13 @@ You're starting a fresh session for the World Cup 2026 Prediction League
 pre-launch fixes. Read `AGENTS.md` in the repo root for project conventions
 (branch naming, commit format, test discipline, bash patterns).
 
-**STEP 1 before anything else:** make sure `main` is up to date and create
+**STEP 1 before anything else:** make sure `staging` is up to date and create
 the feature branch:
 
-    git fetch origin && git checkout main && git pull --ff-only origin main
+    git fetch origin && git checkout staging && git pull --ff-only origin staging
     git checkout -b fix/r<n>-<slug>     ← slug derived from the batch title
 
-Do not commit to `main` directly under any circumstance.
+Do not commit to `staging` or `main` directly under any circumstance.
 
 This batch implements **<items range>** from `docs/review-batches.md`. Open
 that file and read the entire **R<N> — <Title>** section before starting —
@@ -249,8 +258,9 @@ Items to ship (full spec in the doc):
 - Push the branch (`git push -u origin fix/r<n>-<slug>`) and confirm CI green — use the cached endpoint or one background poll, do NOT foreground-poll (see `AGENTS.md` bash discipline)
 
 **Do not merge.** Stop after CI is green. The user will run `/phase-closeout
-R<N>` to merge to `main`, append the session-log entry, and strike the row
-in `docs/review-batches.md`.
+R<N>` to merge to `staging`, append the session-log entry, and strike the row
+in `docs/review-batches.md`. (Promotion of `staging` to `main`/production is
+a separate, later `/ship-prod` call — not part of this batch.)
 
 PREVIOUS SESSION NOTES:
 - <non-obvious gotchas from the most recent review-batch session-log entry,
@@ -259,43 +269,98 @@ PREVIOUS SESSION NOTES:
 ```
 ````
 
-**Polish mode:**
+**Polish mode — ad-hoc** (row found in `docs/phase-batches.md`):
 
 ````
 ```
-You are continuing work on the **World Cup 2026 Prediction League** PWA ("The Steele Spreadsheet System") — a FastAPI + React 18 + Tailwind + shadcn/ui app. The working branch is `feat/premium-polish`. Pull it before starting.
+# Batch <batch-id> — <short title derived from the Description cell>
 
----
+You're starting a fresh session for the World Cup 2026 Prediction League
+PWA. Read CLAUDE.md in the repo root for project conventions (branch
+naming, commit format, test discipline, bash patterns).
 
-## Your task: <batch-id> — <Title> (~<effort>) <model emoji + tag>
+**STEP 1 before anything else:** make sure `staging` is up to date and
+create the feature branch:
 
-All <N> sub-tasks below must be completed and their acceptance criteria verified before close-out. Do NOT close out — I'll run `/phase-closeout <batch-id>` myself once I've reviewed staging.
+    git fetch origin && git checkout staging && git pull --ff-only origin staging
+    git checkout -b fix/<batch-id-lowercase>-<slug>     ← slug derived from the description
 
-<--- paste the full ## U<N> section body from docs/polish-batches.md verbatim here --->
+Do not commit to `staging` or `main` directly under any circumstance.
 
----
+This batch is row **<batch-id>** in `docs/phase-batches.md`'s "Polish / UX
+snags" section:
 
-## Acceptance checklist
+<--- paste the row's Description cell verbatim here --->
 
-<--- paste the Acceptance: bullets from the ## U<N> section verbatim --->
+**Model:** <model emoji + tag> per the row. If you're not on the named
+model, ask the user before continuing.
 
----
+**Acceptance gate before you stop:**
+- The description above is fully implemented
+- Tests added/updated as appropriate; `pnpm test` + `pnpm typecheck` green
+  (frontend) or pytest + ruff + mypy green (backend) — whichever side(s)
+  this batch touches
+- Push the branch and confirm CI green — one check + at most one
+  background poll, do NOT foreground-poll (see CLAUDE.md bash discipline)
 
-## Environment reminders
-
-- Branch: `feat/premium-polish` — pull before starting
-- Frontend test: `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir /Users/craigrobinson/wc_2026_predictor/apps/web test`
-- Typecheck: `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir /Users/craigrobinson/wc_2026_predictor/apps/web typecheck`
-- Lint: `PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH" pnpm --dir /Users/craigrobinson/wc_2026_predictor/apps/web lint`
-- Never `cd` — use absolute paths
-- After all tasks are done and tests are green, push `feat/premium-polish` and let CI run. Do NOT merge to `staging` or `main` — I'll do that after review.
-- Commit with Conventional Commits format
-- Do NOT run `/phase-closeout` — I'll trigger that manually
+**Do not merge.** Stop after CI is green. The user will run
+`/phase-closeout <batch-id>` to merge into `staging`, append the
+session-log entry, and strike the row in `docs/phase-batches.md`.
+(Promotion of `staging` to `main`/production is a separate, later
+`/ship-prod` call — not part of this batch.)
 
 PREVIOUS SESSION NOTES:
-- <non-obvious gotchas from the most recent polish-batch session-log entry — max ~6 bullets>
-- <include the commit hash(es) of the previous batch so the next session can run `git show <hash>`>
-- <omit this whole block if there are no genuinely non-obvious items>
+- <non-obvious gotchas from the most recent polish-batch session-log entry,
+  anchored to a commit hash when useful — max ~6 bullets, or omit the
+  whole block if there are no genuinely non-obvious items>
+```
+````
+
+**Polish mode — planned** (row found in `docs/polish-batches.md`):
+
+````
+```
+# Batch <batch-id> — <Title from the ## U<N> heading>
+
+You're starting a fresh session for the World Cup 2026 Prediction League
+PWA. Read CLAUDE.md in the repo root for project conventions (branch
+naming, commit format, test discipline, bash patterns).
+
+**STEP 1 before anything else:** make sure `staging` is up to date and
+create the feature branch:
+
+    git fetch origin && git checkout staging && git pull --ff-only origin staging
+    git checkout -b feat/<batch-id-lowercase>-<slug>     ← slug derived from the title
+
+Do not commit to `staging` or `main` directly under any circumstance.
+
+This batch implements **<items range>** from `docs/polish-batches.md`. Open
+that file and read the entire `## <batch-id> — <Title>` section before
+starting — it has the full per-item spec. Don't infer the spec from this
+prompt; the source of truth is the doc.
+
+**Model & effort:** sized for <model emoji + tag>, <effort>.
+
+Items to ship (full spec in the doc):
+- <batch-id>.1 — <one-line summary>
+- <batch-id>.2 — <one-line summary>
+- ...
+
+**Acceptance gate before you stop (verbatim from the doc's Acceptance: block):**
+- <acceptance bullet verbatim>
+- <acceptance bullet verbatim>
+- ...
+
+**Do not merge.** Stop after CI is green. The user will run
+`/phase-closeout <batch-id>` to merge into `staging`, append the
+session-log entry, and strike the row in `docs/polish-batches.md`.
+(Promotion of `staging` to `main`/production is a separate, later
+`/ship-prod` call — not part of this batch.)
+
+PREVIOUS SESSION NOTES:
+- <non-obvious gotchas from the most recent polish-batch session-log entry,
+  anchored to a commit hash when useful — max ~6 bullets, or omit the
+  whole block if there are no genuinely non-obvious items>
 ```
 ````
 
@@ -335,5 +400,5 @@ After emitting the prompt, on a new line, remind the user: "Paste into a fresh *
 - Never include "Files modified" or "What shipped" sections.
 - Never include date, model tag, or commit hashes as a metadata header — those belong in session-log entries, not the next-batch prompt.
 - Never propose a model different from what's in the batch row.
-- Never quote acceptance criteria from memory — always grep them fresh from the source doc (architecture sub-mode → `wc2026-architecture.md`; multi-league sub-mode → `docs/multi-league-architecture.md`; review mode → `docs/review-batches.md`; polish mode → `docs/polish-batches.md`).
+- Never quote acceptance criteria from memory — always grep them fresh from the source doc (architecture sub-mode → `wc2026-architecture.md`; multi-league sub-mode → `docs/multi-league-architecture.md`; review mode → `docs/review-batches.md`; polish mode → whichever of `docs/phase-batches.md` or `docs/polish-batches.md` actually holds the next un-struck `U<N>` row — check both, never assume one is dead).
 - If anything looks inconsistent (architecture sub-mode: struck-through row but phase not ✅ in arch doc, or vice versa; multi-league sub-mode: batch row's model tag disagrees with the § 8 heading's model tag), stop and ask the user.

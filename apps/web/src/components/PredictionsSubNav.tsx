@@ -2,9 +2,10 @@ import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const ITEMS: ReadonlyArray<{ to: string; label: string; exact: boolean }> = [
-  { to: '/predictions/specials', label: 'Specials', exact: false },
-  { to: '/predictions', label: 'Group', exact: true },
+  { to: '/predictions', label: 'All', exact: true },
+  { to: '/predictions/group', label: 'Group', exact: false },
   { to: '/predictions/knockout', label: 'Knockout', exact: false },
+  { to: '/predictions/specials', label: 'Specials', exact: false },
 ];
 
 /**

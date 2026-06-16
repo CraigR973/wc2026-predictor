@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
+import { installResumeRefetch } from './lib/resumeRefetch';
 import { AuthProvider } from './contexts/AuthContext';
 import { LeagueProvider } from './contexts/LeagueContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -25,6 +26,7 @@ const Layout = lazy(() => import('./components/Layout').then((m) => ({ default: 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const SchedulePage = lazy(() => import('./pages/SchedulePage').then((m) => ({ default: m.SchedulePage })));
 const PredictionsPage = lazy(() => import('./pages/PredictionsPage').then((m) => ({ default: m.PredictionsPage })));
+const GroupPredictionsPage = lazy(() => import('./pages/GroupPredictionsPage').then((m) => ({ default: m.GroupPredictionsPage })));
 const KnockoutPredictionsPage = lazy(() => import('./pages/KnockoutPredictionsPage').then((m) => ({ default: m.KnockoutPredictionsPage })));
 const SpecialsPage = lazy(() => import('./pages/SpecialsPage').then((m) => ({ default: m.SpecialsPage })));
 const BracketPage = lazy(() => import('./pages/BracketPage').then((m) => ({ default: m.BracketPage })));
@@ -70,10 +72,14 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
     },
   },
 });
+
+// Widen the focus signal so refetchOnWindowFocus also fires on iOS PWA warm
+// resume (pageshow/bfcache restore), not just visibilitychange. See resumeRefetch.ts.
+installResumeRefetch();
 
 function RouteFallback() {
   return (
@@ -146,6 +152,7 @@ export function App() {
                       <Route path="/" element={<DashboardPage />} />
                       <Route path="/schedule" element={<SchedulePage />} />
                       <Route path="/predictions" element={<PredictionsPage />} />
+                      <Route path="/predictions/group" element={<GroupPredictionsPage />} />
                       <Route path="/predictions/knockout" element={<KnockoutPredictionsPage />} />
                       <Route path="/predictions/specials" element={<SpecialsPage />} />
                       <Route path="/bracket" element={<BracketPage />} />

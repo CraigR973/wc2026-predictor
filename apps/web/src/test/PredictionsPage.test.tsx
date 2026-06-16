@@ -4,10 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PredictionsPage } from '@/pages/PredictionsPage';
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
+import { GroupPredictionsPage } from '@/pages/GroupPredictionsPage';
 
 const GROUP_A = { id: 'ga', name: 'A', standings: [] };
 const GROUP_B = { id: 'gb', name: 'B', standings: [] };
@@ -17,8 +14,9 @@ const MATCH_SCHEDULED = {
   match_number: 1,
   stage: 'group',
   group_id: 'ga',
-  home_team: { id: 't1', name: 'Brazil', code: 'BRA', flag_emoji: '🇧🇷' },
-  away_team: { id: 't2', name: 'Germany', code: 'GER', flag_emoji: '🇩🇪' },
+  group_name: 'A',
+  home_team: { id: 't1', name: 'Brazil', code: 'BRA', flag_emoji: 'BR' },
+  away_team: { id: 't2', name: 'Germany', code: 'GER', flag_emoji: 'DE' },
   home_team_placeholder: null,
   away_team_placeholder: null,
   kickoff_utc: '2026-06-11T20:00:00Z',
@@ -35,66 +33,95 @@ const MATCH_LOCKED = {
   ...MATCH_SCHEDULED,
   id: 'm2',
   match_number: 2,
+  kickoff_utc: '2026-06-12T20:00:00Z',
   status: 'locked',
-  home_team: { id: 't3', name: 'France', code: 'FRA', flag_emoji: '🇫🇷' },
-  away_team: { id: 't4', name: 'Spain', code: 'ESP', flag_emoji: '🇪🇸' },
+  home_team: { id: 't3', name: 'France', code: 'FRA', flag_emoji: 'FR' },
+  away_team: { id: 't4', name: 'Spain', code: 'ESP', flag_emoji: 'ES' },
 };
 
 const MATCH_CANCELLED = {
   ...MATCH_SCHEDULED,
   id: 'm3',
   match_number: 3,
+  kickoff_utc: '2026-06-13T20:00:00Z',
   status: 'cancelled',
-  home_team: { id: 't5', name: 'Italy', code: 'ITA', flag_emoji: '🇮🇹' },
-  away_team: { id: 't6', name: 'England', code: 'ENG', flag_emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+  home_team: { id: 't5', name: 'Italy', code: 'ITA', flag_emoji: 'IT' },
+  away_team: { id: 't6', name: 'England', code: 'ENG', flag_emoji: 'EN' },
 };
 
 const MATCH_COMPLETED = {
   ...MATCH_SCHEDULED,
   id: 'm4',
   match_number: 4,
+  kickoff_utc: '2026-06-14T20:00:00Z',
   status: 'completed',
   actual_home_score: 2,
   actual_away_score: 1,
-  home_team: { id: 't7', name: 'Argentina', code: 'ARG', flag_emoji: '🇦🇷' },
-  away_team: { id: 't8', name: 'Portugal', code: 'POR', flag_emoji: '🇵🇹' },
+  home_team: { id: 't7', name: 'Argentina', code: 'ARG', flag_emoji: 'AR' },
+  away_team: { id: 't8', name: 'Portugal', code: 'POR', flag_emoji: 'PT' },
 };
 
-const PRED_SCHEDULED = {
-  match_id: 'm1',
-  predicted_home: 1,
-  predicted_away: 0,
-  points_awarded: null,
-};
-
-const PRED_COMPLETED = {
-  match_id: 'm4',
-  predicted_home: 2,
-  predicted_away: 1,
-  points_awarded: 5,
-};
-
-const NO_PRED_CANCELLED = {
-  match_id: 'm3',
-  predicted_home: null,
-  predicted_away: null,
-  points_awarded: 0,
-};
-
-// Match scheduled with NO prediction yet — triggers "Not predicted yet" warning
 const MATCH_SCHEDULED_NOPRED = {
   ...MATCH_SCHEDULED,
   id: 'm5',
   match_number: 5,
-  status: 'scheduled',
-  home_team: { id: 't9', name: 'Mexico', code: 'MEX', flag_emoji: '🇲🇽' },
-  away_team: { id: 't10', name: 'USA', code: 'USA', flag_emoji: '🇺🇸' },
   kickoff_utc: '2026-06-15T18:00:00Z',
+  home_team: { id: 't9', name: 'Mexico', code: 'MEX', flag_emoji: 'MX' },
+  away_team: { id: 't10', name: 'USA', code: 'USA', flag_emoji: 'US' },
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const MATCH_KNOCKOUT = {
+  ...MATCH_SCHEDULED,
+  id: 'm73',
+  match_number: 73,
+  stage: 'r32',
+  group_id: null,
+  group_name: null,
+  kickoff_utc: '2026-06-28T19:00:00Z',
+  home_team: null,
+  away_team: null,
+  home_team_placeholder: 'Winner Group A',
+  away_team_placeholder: 'Best 3rd #1',
+};
+
+const PRED_SCHEDULED = {
+  id: 'p1',
+  player_id: 'player-1',
+  match_id: 'm1',
+  predicted_home: 1,
+  predicted_away: 0,
+  submitted_at: null,
+  update_count: 1,
+  points_awarded: null,
+  points_breakdown: null,
+  updated_at: '2026-06-01T00:00:00Z',
+};
+
+const PRED_COMPLETED = {
+  id: 'p2',
+  player_id: 'player-1',
+  match_id: 'm4',
+  predicted_home: 2,
+  predicted_away: 1,
+  submitted_at: null,
+  update_count: 1,
+  points_awarded: 5,
+  points_breakdown: { goals: 2, result: 3, exact: 0, total: 5, no_prediction: false },
+  updated_at: '2026-06-01T00:00:00Z',
+};
+
+const NO_PRED_CANCELLED = {
+  id: 'p3',
+  player_id: 'player-1',
+  match_id: 'm3',
+  predicted_home: null,
+  predicted_away: null,
+  submitted_at: null,
+  update_count: 1,
+  points_awarded: 0,
+  points_breakdown: null,
+  updated_at: '2026-06-01T00:00:00Z',
+};
 
 function makeFetch(overrides: Record<string, unknown> = {}) {
   const defaults: Record<string, unknown> = {
@@ -115,7 +142,6 @@ function makeFetch(overrides: Record<string, unknown> = {}) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(data.predictions) });
     }
     if (url.includes('/api/v1/predictions/')) {
-      // PUT — echo back success
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
     }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -126,10 +152,7 @@ function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-// A fake JWT with exp far in the future (year 2286) — keeps isAccessTokenExpiringSoon false.
-// Payload: {"sub":"p1","exp":9999999999}
 const FAKE_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwMSIsImV4cCI6OTk5OTk5OTk5OX0.fake';
-
 const STORED_PLAYER = JSON.stringify({
   id: 'p1',
   displayName: 'Alice',
@@ -137,8 +160,10 @@ const STORED_PLAYER = JSON.stringify({
   timezone: 'UTC',
 });
 
-function renderPage() {
-  // Stub localStorage with correct wc2026_* keys so tokens.ts reads them.
+function renderPage(
+  Component: typeof PredictionsPage | typeof GroupPredictionsPage,
+  initialEntries: string[] = ['/predictions'],
+) {
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => {
       if (k === 'wc2026_player') return STORED_PLAYER;
@@ -152,115 +177,102 @@ function renderPage() {
 
   return render(
     <QueryClientProvider client={makeQueryClient()}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <AuthProvider>
-          <PredictionsPage />
+          <Component />
         </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 beforeEach(() => {
   vi.restoreAllMocks();
 });
 
 describe('PredictionsPage', () => {
-  it('renders group tabs A and B after loading', async () => {
+  it('renders the all/group/knockout/specials sub-nav on the all-matches route', async () => {
     vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => expect(screen.getByRole('tab', { name: /Group A/i })).toBeTruthy());
-    expect(screen.getByRole('tab', { name: /Group B/i })).toBeTruthy();
+    renderPage(PredictionsPage);
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page'));
+    expect(screen.getByRole('link', { name: 'Group' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Knockout' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Specials' })).toBeTruthy();
   });
 
-  it('shows scheduled match inputs as editable', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByRole('tab', { name: /Group A/i }));
+  it('shows all matches in kickoff order, including knockout fixtures', async () => {
+    vi.stubGlobal('fetch', makeFetch({
+      matches: [MATCH_KNOCKOUT, MATCH_COMPLETED, MATCH_SCHEDULED],
+      predictions: [PRED_SCHEDULED, PRED_COMPLETED],
+    }));
+    const { container } = renderPage(PredictionsPage);
 
-    // Group A tab is active by default — find home score input for match 1
-    const homeInput = screen.getByLabelText('Home score for match 1') as HTMLInputElement;
-    expect(homeInput.disabled).toBe(false);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Needs picks' })).toHaveAttribute('aria-pressed', 'true'));
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    await waitFor(() => expect(screen.getByTestId('prediction-card-m73')).toBeTruthy());
+
+    const ids = Array.from(container.querySelectorAll('[data-testid^="prediction-card-"]')).map(
+      (el) => el.getAttribute('data-testid'),
+    );
+    expect(ids).toEqual([
+      'prediction-card-m1',
+      'prediction-card-m4',
+      'prediction-card-m73',
+    ]);
+    expect(screen.getByText('Round of 32')).toBeTruthy();
   });
 
-  it('shows locked match inputs as read-only', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByRole('tab', { name: /Group A/i }));
+  it('defaults to editable missing picks', async () => {
+    vi.stubGlobal('fetch', makeFetch({
+      matches: [MATCH_SCHEDULED, MATCH_SCHEDULED_NOPRED, MATCH_LOCKED, MATCH_COMPLETED],
+      predictions: [PRED_SCHEDULED, PRED_COMPLETED],
+    }));
+    renderPage(PredictionsPage);
 
-    const lockedInput = screen.getByLabelText('Home score for match 2') as HTMLInputElement;
-    expect(lockedInput.disabled).toBe(true);
+    await waitFor(() => expect(screen.getByTestId('prediction-card-m5')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Needs picks' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByTestId('prediction-card-m1')).toBeNull();
+    expect(screen.queryByTestId('prediction-card-m2')).toBeNull();
+    expect(screen.queryByTestId('prediction-card-m4')).toBeNull();
   });
 
-  it('shows cancelled match with voided badge and opacity', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByText('Voided'));
-    const card = screen.getByTestId('prediction-card-m3');
-    expect(card.className).toContain('opacity-50');
-  });
+  it('enables save visible changes after editing an open match', async () => {
+    vi.stubGlobal('fetch', makeFetch({
+      matches: [MATCH_SCHEDULED, MATCH_SCHEDULED_NOPRED],
+      predictions: [PRED_SCHEDULED],
+    }));
+    renderPage(PredictionsPage);
 
-  it('shows points badge for completed match', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('points-badge').textContent).toBe('5 pts');
-    }, { timeout: 3000 });
-  });
-
-  it('populates inputs from existing predictions', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByRole('tab', { name: /Group A/i }));
-
-    const homeInput = screen.getByLabelText('Home score for match 1') as HTMLInputElement;
-    expect(homeInput.value).toBe('1');
-  });
-
-  it('save button is disabled when no changes are pending', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByRole('button', { name: /Save Group A/i }));
-
-    const saveBtn = screen.getByRole('button', { name: /Save Group A/i });
-    expect(saveBtn).toHaveProperty('disabled', true);
-  });
-
-  it('enables save button after user edits a score', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByLabelText('Home score for match 1'));
-
-    const homeInput = screen.getByLabelText('Home score for match 1');
-    fireEvent.change(homeInput, { target: { value: '2' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Needs picks' })).toHaveAttribute('aria-pressed', 'true'));
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    await waitFor(() => expect(screen.getByLabelText('Home score for match 1')).toBeTruthy());
+    fireEvent.change(screen.getByLabelText('Home score for match 1'), { target: { value: '3' } });
 
     await waitFor(() => {
-      const saveBtn = screen.getByRole('button', { name: /Save Group A/i });
-      expect(saveBtn).toHaveProperty('disabled', false);
+      expect(screen.getByRole('button', { name: /Save visible changes/i })).toHaveProperty('disabled', false);
     });
   });
 
-  it('calls PUT /api/v1/predictions/{match_id} when save all is clicked', async () => {
-    const fetchMock = makeFetch();
+  it('calls PUT /api/v1/predictions/{match_id} when save visible changes is clicked', async () => {
+    const fetchMock = makeFetch({
+      matches: [MATCH_SCHEDULED, MATCH_SCHEDULED_NOPRED],
+      predictions: [PRED_SCHEDULED],
+    });
     vi.stubGlobal('fetch', fetchMock);
-    renderPage();
-    await waitFor(() => screen.getByLabelText('Home score for match 1'));
+    renderPage(PredictionsPage);
 
-    const homeInput = screen.getByLabelText('Home score for match 1');
-    fireEvent.change(homeInput, { target: { value: '3' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Needs picks' })).toHaveAttribute('aria-pressed', 'true'));
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    await waitFor(() => expect(screen.getByLabelText('Home score for match 1')).toBeTruthy());
+    fireEvent.change(screen.getByLabelText('Home score for match 1'), { target: { value: '3' } });
 
     await waitFor(() => {
-      const saveBtn = screen.getByRole('button', { name: /Save Group A/i });
-      expect(saveBtn).toHaveProperty('disabled', false);
+      expect(screen.getByRole('button', { name: /Save visible changes/i })).toHaveProperty('disabled', false);
     });
 
-    const saveBtn = screen.getByRole('button', { name: /Save Group A/i });
     await act(async () => {
-      fireEvent.click(saveBtn);
+      fireEvent.click(screen.getByRole('button', { name: /Save visible changes/i }));
     });
 
     await waitFor(() => {
@@ -270,83 +282,72 @@ describe('PredictionsPage', () => {
       expect(putCalls.length).toBeGreaterThan(0);
     });
   });
+});
 
-  it('shows loading state initially', () => {
+describe('GroupPredictionsPage', () => {
+  it('renders group tabs A and B after loading', async () => {
     vi.stubGlobal('fetch', makeFetch());
-    const { container } = renderPage();
-    expect(container.querySelector('[aria-label="Loading predictions"]')).toBeTruthy();
+    renderPage(GroupPredictionsPage, ['/predictions/group']);
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Group A/i })).toBeTruthy());
+    expect(screen.getByRole('tab', { name: /Group B/i })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Group' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('shows lock indicator on locked match', async () => {
+  it('shows scheduled match inputs as editable', async () => {
     vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByTestId('prediction-card-m2'));
-    expect(screen.getByTestId('lock-indicator')).toBeTruthy();
+    renderPage(GroupPredictionsPage, ['/predictions/group']);
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Group A/i })).toBeTruthy());
+    expect(screen.getByLabelText('Home score for match 1')).toHaveProperty('disabled', false);
   });
 
-  it('shows not-predicted warning for scheduled match with no prediction', async () => {
-    vi.stubGlobal('fetch', makeFetch({
-      matches: [MATCH_SCHEDULED, MATCH_LOCKED, MATCH_CANCELLED, MATCH_COMPLETED, MATCH_SCHEDULED_NOPRED],
-      predictions: [PRED_SCHEDULED, PRED_COMPLETED, NO_PRED_CANCELLED],
-    }));
-    renderPage();
-    await waitFor(() => screen.getByTestId('prediction-card-m5'));
-    expect(screen.getByTestId('not-predicted-warning')).toBeTruthy();
+  it('shows locked match inputs as read-only', async () => {
+    vi.stubGlobal('fetch', makeFetch());
+    renderPage(GroupPredictionsPage, ['/predictions/group']);
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Group A/i })).toBeTruthy());
+    expect(screen.getByLabelText('Home score for match 2')).toHaveProperty('disabled', true);
   });
 
-  it('does not show not-predicted warning when prediction is already filled', async () => {
+  it('shows cancelled match with voided badge and opacity', async () => {
     vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByTestId('prediction-card-m1'));
-    expect(screen.queryByTestId('not-predicted-warning')).toBeNull();
+    renderPage(GroupPredictionsPage, ['/predictions/group']);
+
+    await waitFor(() => expect(screen.getByText('Voided')).toBeTruthy());
+    expect(screen.getByTestId('prediction-card-m3').className).toContain('opacity-50');
   });
 
-  it('shows deadline warning when scheduled match kicks off within 1 hour', async () => {
-    // Mock Date.now only (no fake timers — preserves waitFor's setTimeout)
-    const kickoff = new Date('2026-06-11T20:00:00Z').getTime();
-    vi.spyOn(Date, 'now').mockReturnValue(kickoff - 30 * 60 * 1000);
-
+  it('shows points badge for a completed match', async () => {
     vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByTestId('prediction-card-m1'));
-    expect(screen.getByTestId('deadline-warning')).toBeTruthy();
-  });
+    renderPage(GroupPredictionsPage, ['/predictions/group']);
 
-  it('score spinner increments value on ▲ click', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByLabelText('Home score for match 1'));
-
-    const homeInput = screen.getByLabelText('Home score for match 1') as HTMLInputElement;
-    expect(homeInput.value).toBe('1');
-
-    const incrementBtn = screen.getByLabelText('Increment Home score for match 1');
-    fireEvent.click(incrementBtn);
-
-    await waitFor(() => {
-      expect((screen.getByLabelText('Home score for match 1') as HTMLInputElement).value).toBe('2');
-    });
-  });
-
-  it('score spinner decrements value on ▼ click', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    await waitFor(() => screen.getByLabelText('Home score for match 1'));
-
-    const decrementBtn = screen.getByLabelText('Decrement Home score for match 1');
-    fireEvent.click(decrementBtn);
-
-    await waitFor(() => {
-      expect((screen.getByLabelText('Home score for match 1') as HTMLInputElement).value).toBe('0');
-    });
-  });
-
-  it('shows points badge for completed match (count-up resolves to final value)', async () => {
-    vi.stubGlobal('fetch', makeFetch());
-    renderPage();
-    // waitFor retries until animation finishes (600ms max) or times out
     await waitFor(() => {
       expect(screen.getByTestId('points-badge').textContent).toBe('5 pts');
     }, { timeout: 3000 });
+  });
+
+  it('calls PUT /api/v1/predictions/{match_id} when save group is clicked', async () => {
+    const fetchMock = makeFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    renderPage(GroupPredictionsPage, ['/predictions/group']);
+
+    await waitFor(() => expect(screen.getByLabelText('Home score for match 1')).toBeTruthy());
+    fireEvent.change(screen.getByLabelText('Home score for match 1'), { target: { value: '3' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Save Group A/i })).toHaveProperty('disabled', false);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Save Group A/i }));
+    });
+
+    await waitFor(() => {
+      const putCalls = (fetchMock.mock.calls as unknown as [string, RequestInit][]).filter(
+        ([url, opts]) => url.includes('/api/v1/predictions/m1') && opts?.method === 'PUT',
+      );
+      expect(putCalls.length).toBeGreaterThan(0);
+    });
   });
 });

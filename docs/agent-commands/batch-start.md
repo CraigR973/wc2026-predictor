@@ -5,7 +5,7 @@ description: Start a tracked batch on a clean feature branch. Works for architec
 # /batch-start
 
 Use this before implementing a batch. It exists to prevent accidental work on
-`main` and to make `/phase-closeout` boring.
+`staging` or `main` and to make `/phase-closeout` boring.
 
 Examples:
 
@@ -23,7 +23,7 @@ Examples:
 - `^\d+$` → architecture batch from `docs/phase-batches.md`
 - `^M\d+$` → multi-league batch from `docs/phase-batches.md`
 - `^R\d+$` → review batch from `docs/review-batches.md`
-- `^U\d+$` → polish batch from `docs/polish-batches.md`
+- `^U\d+$` → polish batch. U-numbering is a single sequence split across TWO files — check both `docs/phase-batches.md`'s "Polish / UX snags" section (ad-hoc, single-row batches) and `docs/polish-batches.md` (larger, pre-planned batches with a full `## U<N>` section — still actively used, not legacy) for a row matching the id; use whichever one has it
 - `^E\d+$` → env batch from `docs/env-batches.md`
 
 Reject anything else.
@@ -40,27 +40,34 @@ Reject anything else.
    continue by making a branch that carries the current work. Ignore unrelated
    untracked scratch files only when the user explicitly says they are scratch.
 
-2. Verify the current branch is `main`:
+2. Verify the current branch is `staging`:
 
    ```bash
    git -C /Users/craigrobinson/wc_2026_predictor symbolic-ref --short HEAD
    ```
 
-   If not on `main`, stop and report the current branch. Do not nest feature
-   branches unless the user explicitly asks.
+   If not on `staging`, stop and report the current branch. Do not nest
+   feature branches unless the user explicitly asks. Feature branches start
+   from `staging`, never `main` — `main` auto-deploys to production and only
+   ever receives already-soaked work via the separate, gated `/ship-prod`
+   command.
 
-3. Update `main`:
+3. Update `staging`:
 
    ```bash
    git -C /Users/craigrobinson/wc_2026_predictor fetch origin
-   git -C /Users/craigrobinson/wc_2026_predictor pull --ff-only origin main
+   git -C /Users/craigrobinson/wc_2026_predictor pull --ff-only origin staging
    ```
 
 4. Find the batch row/heading and derive a short slug:
 
    - Architecture / M: `docs/phase-batches.md`
    - Review: `docs/review-batches.md`
-   - Polish: `docs/polish-batches.md`
+   - Polish: whichever file matched in Step argument-parsing —
+     `docs/phase-batches.md` ("Polish / UX snags" section — flat rows, no
+     `## U<N>` heading; derive the slug from the row's Description cell) or
+     `docs/polish-batches.md` (has a `## U<N> — Title` heading; derive the
+     slug from the title)
    - Env: `docs/env-batches.md`
 
    Use the section heading if present (`## U43 — Title`), otherwise derive from
@@ -82,9 +89,10 @@ Reject anything else.
 
    ```text
    Started feat/u43-short-slug for U43.
-   Source: docs/polish-batches.md, section "## U43 — ..."
-   Do not commit to main directly. After implementation and verification, push
-   this branch and run /phase-closeout U43.
+   Source: docs/phase-batches.md, "Polish / UX snags" row U43.
+   Do not commit to staging or main directly. After implementation and
+   verification, push this branch and run /phase-closeout U43 (merges to
+   staging; promotion to main/prod is a separate /ship-prod call).
    ```
 
 ## Optional helper
