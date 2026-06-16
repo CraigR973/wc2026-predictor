@@ -2110,3 +2110,17 @@ _Retro-documented 2026-06-16 — shipped out-of-band during the live tournament.
 - Rollup rows now drop flag emojis and **cap at 4 rows with an overflow hint** (mobile density fix).
 
 **Next:** see docs/phase-batches.md for next batch
+
+---
+
+## U58 — CI test hardening (R13 route assertion)
+**Commits:** 81ee05c, 7e5277b · CI ✅
+_Logged 2026-06-16 — same-session fix for a CI red surfaced while reconciling the paper trail._
+
+### Key facts for future sessions
+- `test_r13_hardening.py::test_test_helpers_not_mounted_in_staging` read `.path` on every entry of `app.routes`. A FastAPI/Starlette release after fastapi 0.136.1 / starlette 1.2.1 added an `_IncludedRouter` entry with no `.path` → `AttributeError`. Fixed with `getattr(r, "path", "")`.
+- Root cause is **dependency drift, not the test**: apps/api deps float (no upper cap / lock), so CI installs fresh and a previously-green commit reddened with source unchanged. Deeper fix (pinning fastapi/starlette) deliberately deferred.
+- Not reproducible locally: the venv lagged at fastapi 0.136.1 (pre-`_IncludedRouter`), and the file errors at import without CI's env secrets (`jwt_refresh_secret`). CI is the only place this test runs.
+- CI runs `mypy src` only — test files are out of mypy scope, so the 3 pre-existing str-vs-Environment mypy errors in this file don't fail CI.
+
+**Next:** see docs/phase-batches.md for next batch
