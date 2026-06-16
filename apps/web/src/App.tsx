@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
+import { installResumeRefetch } from './lib/resumeRefetch';
 import { AuthProvider } from './contexts/AuthContext';
 import { LeagueProvider } from './contexts/LeagueContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -75,6 +76,10 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Widen the focus signal so refetchOnWindowFocus also fires on iOS PWA warm
+// resume (pageshow/bfcache restore), not just visibilitychange. See resumeRefetch.ts.
+installResumeRefetch();
 
 function RouteFallback() {
   return (
