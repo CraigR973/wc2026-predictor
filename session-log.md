@@ -2124,3 +2124,17 @@ _Logged 2026-06-16 — same-session fix for a CI red surfaced while reconciling 
 - CI runs `mypy src` only — test files are out of mypy scope, so the 3 pre-existing str-vs-Environment mypy errors in this file don't fail CI.
 
 **Next:** see docs/phase-batches.md for next batch
+
+---
+
+## U59 — Live data freshness on warm resume
+**Commits:** 26dd788 (merged to staging at 1ad083c) · CI ✅
+_Shipped to staging only — promotion to main/prod is a separate `/ship-prod` call, not yet run._
+
+### Key facts for future sessions
+- Closed matches showing as still-open, and stale results, until a full app close/reopen — root cause was `refetchOnWindowFocus: false` plus no poll on the Predictions page; backend `match.status` was always correct.
+- `refetchOnWindowFocus` is now `true` globally (`App.tsx`); `usePredictionEditor`'s existing dirty/saving preservation (`:76-88`) protects in-progress edits across the resulting refetch — covered by a new test.
+- SW `/api/v1/matches` is now `NetworkFirst` (3s timeout); `/api/v1/groups` stays `StaleWhileRevalidate` (static data) — split into two routes in `sw.ts`.
+- Recent batches (U55–U58, this one) ship feature branch → `staging` first; promotion to `main`/prod is a separate gated `/ship-prod` step, not part of close-out. `phase-closeout.md`'s literal "merge to main" step does not reflect current practice during the live tournament.
+
+**Next:** see docs/phase-batches.md for next batch
