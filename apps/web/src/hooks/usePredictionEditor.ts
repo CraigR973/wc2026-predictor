@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { enqueuePrediction } from '../lib/offlineQueue';
@@ -59,9 +59,11 @@ export interface PredictionEditor {
 export function usePredictionEditor({
   predictions,
   matches,
+  matchesQueryKey = ['matches', 'group'],
 }: {
   predictions: PredictionResponse[];
   matches: MatchResponse[];
+  matchesQueryKey?: QueryKey;
 }): PredictionEditor {
   const queryClient = useQueryClient();
 
@@ -94,6 +96,15 @@ export function usePredictionEditor({
     }
   }, [matches]);
 
+  useEffect(
+    () => () => {
+      for (const timer of Object.values(debounceTimers.current)) {
+        clearTimeout(timer);
+      }
+    },
+    [],
+  );
+
   // Realtime: subscribe to matches table — when a result is set, refetch and animate.
   useEffect(() => {
     const channel = supabase
@@ -111,7 +122,7 @@ export function usePredictionEditor({
           const nowSet = updated.actual_home_score !== null && updated.actual_away_score !== null;
 
           // Invalidate matches so the card shows the new score.
-          await queryClient.invalidateQueries({ queryKey: ['matches', 'group'] });
+          await queryClient.invalidateQueries({ queryKey: matchesQueryKey });
 
           if (wasNull && nowSet) {
             // Result just arrived — refetch predictions to get updated points, then toast.
@@ -146,7 +157,7 @@ export function usePredictionEditor({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [matchesQueryKey, queryClient]);
 
   const savePrediction = useCallback(
     async (matchId: string, home: string, away: string) => {

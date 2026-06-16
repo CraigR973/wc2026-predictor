@@ -4,13 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import type { MatchResponse } from '../lib/types';
+import type { MatchResponse, PredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { KNOCKOUT_STAGES, STAGE_LONG } from '../lib/stages';
+import { canEdit } from '../lib/matchStatus';
 import { shortPlaceholder } from '../lib/matchTeam';
 import { cn } from '../lib/utils';
 
@@ -37,10 +38,12 @@ const STATUS_VARIANT: Record<MatchResponse['status'], StatusVariant> = {
 function MatchCard({
   match,
   timezone,
+  prediction,
   showDate = false,
 }: {
   match: MatchResponse;
   timezone: string;
+  prediction?: PredictionResponse;
   showDate?: boolean;
 }) {
   const kickoffLocal = formatInTimeZone(new Date(match.kickoff_utc), timezone, 'HH:mm');
@@ -65,6 +68,23 @@ function MatchCard({
 
   const homeWon = isResult && match.actual_home_score! > match.actual_away_score!;
   const awayWon = isResult && match.actual_away_score! > match.actual_home_score!;
+  const hasPrediction =
+    prediction?.predicted_home !== null &&
+    prediction?.predicted_home !== undefined &&
+    prediction?.predicted_away !== null &&
+    prediction?.predicted_away !== undefined;
+
+  let personalStatus: { label: string; variant: StatusVariant } | null = null;
+  if (hasPrediction) {
+    personalStatus = {
+      label: `Predicted ${prediction.predicted_home}-${prediction.predicted_away}`,
+      variant: 'default',
+    };
+  } else if (canEdit(match.status)) {
+    personalStatus = { label: 'Missing', variant: 'warning' };
+  } else if (match.status === 'locked' || match.status === 'live' || match.status === 'completed') {
+    personalStatus = { label: 'No entry', variant: 'muted' };
+  }
 
   return (
     <Link
@@ -144,6 +164,11 @@ function MatchCard({
             </span>
           )}
         </div>
+        {personalStatus && (
+          <div className="mt-2">
+            <Badge variant={personalStatus.variant}>{personalStatus.label}</Badge>
+          </div>
+        )}
       </div>
 
       <div className="shrink-0">
@@ -157,11 +182,13 @@ function ScheduleSection({
   label,
   matches,
   timezone,
+  predByMatch,
   isRound = false,
 }: {
   label: string;
   matches: MatchResponse[];
   timezone: string;
+  predByMatch: Record<string, PredictionResponse>;
   isRound?: boolean;
 }) {
   return (
@@ -178,7 +205,13 @@ function ScheduleSection({
       </div>
       <div className="flex flex-col gap-2">
         {matches.map((m) => (
-          <MatchCard key={m.id} match={m} timezone={timezone} showDate={isRound} />
+          <MatchCard
+            key={m.id}
+            match={m}
+            timezone={timezone}
+            prediction={predByMatch[m.id]}
+            showDate={isRound}
+          />
         ))}
       </div>
     </section>
@@ -234,8 +267,14 @@ export function SchedulePage() {
       apiFetch<MatchResponse[]>(`/api/v1/matches${stageFilter ? `?stage=${stageFilter}` : ''}`),
     staleTime: 30_000,
   });
+  const { data: predictions = [] } = useQuery<PredictionResponse[]>({
+    queryKey: ['predictions', 'me'],
+    queryFn: () => apiFetch<PredictionResponse[]>('/api/v1/predictions/me'),
+    staleTime: 30_000,
+  });
 
   const matches = data ?? [];
+  const predByMatch = Object.fromEntries(predictions.map((p) => [p.match_id, p]));
 
   // Group-stage matches are bucketed by date; knockout matches by round.
   // The API returns matches in kickoff order, so group dates appear first and
@@ -300,6 +339,7 @@ export function SchedulePage() {
             label={label}
             matches={sectionMatches}
             timezone={timezone}
+            predByMatch={predByMatch}
             isRound={isRound}
           />
         ))}

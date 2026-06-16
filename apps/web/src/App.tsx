@@ -25,6 +25,7 @@ const Layout = lazy(() => import('./components/Layout').then((m) => ({ default: 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const SchedulePage = lazy(() => import('./pages/SchedulePage').then((m) => ({ default: m.SchedulePage })));
 const PredictionsPage = lazy(() => import('./pages/PredictionsPage').then((m) => ({ default: m.PredictionsPage })));
+const GroupPredictionsPage = lazy(() => import('./pages/GroupPredictionsPage').then((m) => ({ default: m.GroupPredictionsPage })));
 const KnockoutPredictionsPage = lazy(() => import('./pages/KnockoutPredictionsPage').then((m) => ({ default: m.KnockoutPredictionsPage })));
 const SpecialsPage = lazy(() => import('./pages/SpecialsPage').then((m) => ({ default: m.SpecialsPage })));
 const BracketPage = lazy(() => import('./pages/BracketPage').then((m) => ({ default: m.BracketPage })));
@@ -146,6 +147,7 @@ export function App() {
                       <Route path="/" element={<DashboardPage />} />
                       <Route path="/schedule" element={<SchedulePage />} />
                       <Route path="/predictions" element={<PredictionsPage />} />
+                      <Route path="/predictions/group" element={<GroupPredictionsPage />} />
                       <Route path="/predictions/knockout" element={<KnockoutPredictionsPage />} />
                       <Route path="/predictions/specials" element={<SpecialsPage />} />
                       <Route path="/bracket" element={<BracketPage />} />
