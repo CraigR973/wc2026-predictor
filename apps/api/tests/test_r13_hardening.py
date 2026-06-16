@@ -102,7 +102,9 @@ def test_test_helpers_not_mounted_in_staging() -> None:
     from src.config import Environment
     from src.main import app
 
-    route_paths = [r.path for r in app.routes]  # type: ignore[attr-defined]
+    # app.routes can contain entries without a `.path` (e.g. _IncludedRouter in newer
+    # FastAPI/Starlette); default to "" so the membership check below stays robust.
+    route_paths = [getattr(r, "path", "") for r in app.routes]
     # The test_helpers router mounts /api/v1/test/... routes only in development.
     # In the real app (which starts as production by default in CI), they must be absent.
     staging_test_routes = [p for p in route_paths if "/test/" in p]
