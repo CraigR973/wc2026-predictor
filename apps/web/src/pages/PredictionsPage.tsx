@@ -68,7 +68,7 @@ function getDateHeading(match: MatchResponse, timezone: string) {
 export function PredictionsPage() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
-  const [filter, setFilter] = useState<FilterValue>('all');
+  const [filter, setFilter] = useState<FilterValue>('needs-picks');
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<MatchResponse[]>({
     queryKey: ALL_MATCHES_QUERY_KEY,
@@ -100,15 +100,6 @@ export function PredictionsPage() {
   const predByMatch = Object.fromEntries(predictions.map((p) => [p.match_id, p]));
 
   const sortedMatches = [...matches].sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc));
-  const predictedCount = sortedMatches.filter((match) =>
-    hasPrediction(predByMatch[match.id], local[match.id]),
-  ).length;
-  const missingEditableCount = sortedMatches.filter(
-    (match) => canEdit(match.status) && !hasPrediction(predByMatch[match.id], local[match.id]),
-  ).length;
-  const liveCount = sortedMatches.filter((match) => match.status === 'live').length;
-  const completedCount = sortedMatches.filter((match) => match.status === 'completed').length;
-
   const filteredMatches = sortedMatches.filter((match) => {
     const predicted = hasPrediction(predByMatch[match.id], local[match.id]);
 
@@ -143,11 +134,6 @@ export function PredictionsPage() {
 
       {isLoading && (
         <div className="space-y-4" aria-label="Loading predictions">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
-            ))}
-          </div>
           <div className="flex flex-wrap gap-1.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-8 w-24 rounded-full" />
@@ -166,41 +152,6 @@ export function PredictionsPage() {
 
       {!isLoading && matches.length > 0 && (
         <>
-          <section className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Prediction summary">
-            <div className="rounded-lg border border-border bg-surface px-3 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
-                Predicted
-              </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
-                {predictedCount}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-surface px-3 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
-                Missing
-              </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
-                {missingEditableCount}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-surface px-3 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
-                Live
-              </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
-                {liveCount}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-surface px-3 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
-                Completed
-              </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
-                {completedCount}
-              </p>
-            </div>
-          </section>
-
           <nav className="-mx-4 sm:-mx-0 mb-5 overflow-x-auto" aria-label="Prediction filters">
             <div className="flex gap-1.5 px-4 sm:px-0 min-w-max">
               {FILTERS.map((item) => (
