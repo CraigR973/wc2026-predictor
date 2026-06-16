@@ -236,12 +236,21 @@ test.describe('predictions', () => {
     const match = makeMatch({ id: 'm-wc1', status: 'scheduled', group_id: GROUP_A.id });
     const prediction = makePrediction({ match_id: 'm-wc1', predicted_home: 2, predicted_away: 1 });
 
-    // PredictionsPage fetches /api/v1/groups, /api/v1/matches?stage=group, /api/v1/predictions/me
+    // Group predictions now live at /predictions/group. The all-matches checklist
+    // at /predictions uses the same predictions feed plus the full matches feed.
     await page.route('**/api/v1/groups*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([GROUP_A]),
+      }),
+    );
+
+    await page.route('**/api/v1/matches?stage=group', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([match]),
       }),
     );
 
@@ -254,9 +263,9 @@ test.describe('predictions', () => {
     );
 
     await page.route('**/api/v1/predictions*', (route) => {
-      if (route.request().method() === 'POST') {
+      if (route.request().method() === 'POST' || route.request().method() === 'PUT') {
         route.fulfill({
-          status: 201,
+          status: route.request().method() === 'POST' ? 201 : 200,
           contentType: 'application/json',
           body: JSON.stringify(prediction),
         });
@@ -269,8 +278,7 @@ test.describe('predictions', () => {
       }
     });
 
-    // PredictionsPage is at /predictions (global, not per-league)
-    await page.goto('/predictions');
+    await page.goto('/predictions/group');
     await expect(page.getByTestId(`prediction-card-${match.id}`)).toBeVisible();
 
     // Fill in home and away score (spinbuttons are inside the card)
