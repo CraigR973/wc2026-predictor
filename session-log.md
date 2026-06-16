@@ -2138,3 +2138,18 @@ _Shipped to staging only — promotion to main/prod is a separate `/ship-prod` c
 - Recent batches (U55–U58, this one) ship feature branch → `staging` first; promotion to `main`/prod is a separate gated `/ship-prod` step, not part of close-out. `phase-closeout.md`'s literal "merge to main" step does not reflect current practice during the live tournament.
 
 **Next:** see docs/phase-batches.md for next batch
+
+---
+
+## U62 — iOS warm-resume refetch hardening
+**Commits:** fe2970b, a656277 (merged to staging at 07d6c73) · CI ✅
+_Shipped to staging only — promotion to main/prod is a separate `/ship-prod` call (would carry U59 + U60 + U62 together)._
+
+### Key facts for future sessions
+- Follow-up to U59. U59's `refetchOnWindowFocus: true` relies on TanStack's focusManager, which by default only listens to `visibilitychange`. On an iOS home-screen PWA a warm resume can restore a frozen page from the back/forward cache and fire `pageshow` **without** a `visibilitychange` — so the focus refetch never ran and match/lock state stayed stale until a full close/reopen.
+- `lib/resumeRefetch.ts` widens the focus signal to `pageshow` as well as `visibilitychange` via `focusManager.setEventListener`; `installResumeRefetch()` is called once in `App.tsx`. Reuses the existing dirty-safe refetch path (no per-query change); no-ops while `document.visibilityState === 'hidden'`.
+- `refetchInterval` polls (U57/U59) do not cover this case: iOS pauses JS timers while the PWA is suspended, so the resume event is the only recovery point.
+- `focusManager` is a process-wide singleton — `resumeRefetch.test.ts` resets its event listener in `afterEach` to avoid leaking window listeners into other test files.
+- Numbering: briefly drafted as U61, but U61 was claimed by "Platform-wide player profiles" in a parallel session — bumped to U62 (branch `fix/u62-ios-resume-refetch`).
+
+**Next:** U60 (chronological prediction checklist) and U61 (platform-wide player profiles) are both queued/pending — U60 is already merged to staging, awaiting its own close-out.
