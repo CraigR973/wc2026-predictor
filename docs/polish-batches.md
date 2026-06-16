@@ -2173,7 +2173,7 @@ Young-Player filter was dropped (no squad birthdate data, not worth hand-sourcin
 | ~~U44~~ | ~~🔴 Opus~~ | ~~~4 h~~ | ~~U44.1–U44.6~~ | ✅ Shipped 2026-06-07 |
 | ~~U45~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U45.1–U45.6~~ | ✅ Shipped 2026-06-08 |
 | ~~U46~~ | ~~🟢 Sonnet~~ | ~~~3 h~~ | ~~U46.1–U46.6~~ | ✅ Shipped 2026-06-08 |
-| U47 | 🟢 Sonnet | ~1.5 h | U47.1–U47.5 | Pending |
+| ~~U47~~ | ~~🟢 Sonnet~~ | ~~~1.5 h~~ | ~~U47.1–U47.5~~ | ✅ Shipped 2026-06-08 |
 
 ---
 
@@ -2249,3 +2249,189 @@ Small, high-frequency tweaks to the dashboard top tiles, top bar, and metadata.
 - The top-bar logo is visibly larger with no regression to other `Brand` compact usages.
 - Browser/SEO/manifest copy reads multi-league.
 - Frontend lint, typecheck, build, and tests green.
+
+---
+
+# Round 21 — Live-tournament prediction checklist (U60) — added 2026-06-16
+
+User feedback during the live tournament: it should be easy to see every match in
+kickoff order with your prediction and prediction status. The current split makes
+that awkward: `/schedule` is a fixture browser with no personal status, while
+`/predictions` is a group-tab editor that is good for bulk entry but poor as a
+deadline checklist.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U60 | 🟢 Sonnet | ~3 h | U60.1–U60.6 | Pending |
+
+## U60 — Chronological prediction checklist 🟢 Sonnet · ~3 h
+
+Build a default "all matches" prediction surface in kickoff order, while preserving
+the existing group editor as the high-density group-stage entry mode.
+
+- **U60.1** Route + sub-nav model:
+  - Make `/predictions` the chronological "All" prediction view.
+  - Move the current group-tab editor to `/predictions/group` without losing the
+    existing implementation; a simple component rename/split is fine.
+  - Update `PredictionsSubNav` to show `All`, `Group`, `Knockout`, `Specials`, with
+    `All` first and active on `/predictions`.
+  - Update any first-run/home/nav links that intentionally mean "check what I still
+    need to predict" to land on `/predictions`; use `/predictions/group` only for
+    explicit group-stage bulk entry.
+
+- **U60.2** Chronological score-prediction list:
+  - Fetch all matches via `/api/v1/matches` (not `?stage=group`) plus
+    `/api/v1/predictions/me`.
+  - Sort by `kickoff_utc`, grouped under sticky local-date headings using the
+    player's timezone.
+  - Reuse `PredictionCard` and `usePredictionEditor` wherever practical so autosave,
+    offline queueing, dirty-state preservation, result flash, points badges, and
+    lock/live/completed handling stay consistent.
+  - Include group and knockout matches; unresolved knockout placeholders should use
+    the existing placeholder helpers and stay readable.
+
+- **U60.3** Status and filtering affordances:
+  - Each row/card must make the personal status obvious: `Predicted`, `Not predicted
+    yet`, `Locked`, `Live`, `FT`, `No entry`, `Postponed`, or `Cancelled` as
+    applicable.
+  - Add a compact segmented/filter control for `All`, `Needs picks`, `Upcoming`,
+    `Live/locked`, and `Completed` so a player can jump straight to missing picks.
+  - Show a small summary near the top: total predicted, missing editable picks, live,
+    and completed. Keep it dense; this is a tool surface, not a landing page.
+
+- **U60.4** Save ergonomics:
+  - Keep the existing debounced per-card save behaviour.
+  - Add a `Save visible changes` action when any visible editable card is dirty.
+  - Ensure `setPredictionsDirty` still protects update reloads while editing on both
+    the new All view and the moved Group view.
+
+- **U60.5** Schedule cross-link:
+  - Do not turn `/schedule` into an editor.
+  - Lightly surface personal prediction status on schedule cards by fetching
+    `/api/v1/predictions/me` and showing a compact badge/text such as `Predicted 2-1`
+    or `Missing` for editable matches.
+  - Keep `/schedule` primarily a fixture browser; clicking still opens match detail.
+
+- **U60.6** Tests + mobile verification:
+  - Update `PredictionsPage.test.tsx` for the new default All view and moved group route.
+  - Add coverage for chronological ordering, missing-pick filter, save-visible action,
+    dirty-state signalling, and schedule personal-status badges.
+  - Verify mobile density at 375 px: filter row scrolls, date headings stick cleanly,
+    score inputs do not overflow, and long team/placeholders truncate gracefully.
+
+**Acceptance:**
+- `/predictions` shows all matches in kickoff order with the player's prediction/status
+  visible for each match.
+- `/predictions/group` keeps the existing A-L group-tab editing workflow.
+- The predictions sub-nav reads `All`, `Group`, `Knockout`, `Specials`; the correct tab
+  is active on each route.
+- A player can filter the all-matches view to missing editable picks and save visible
+  dirty changes.
+- Live/locked/completed/cancelled/postponed states match the existing `PredictionCard`
+  behaviour, including points badges and "No entry" after completed unpredicted matches.
+- `/schedule` shows compact personal prediction status without becoming an editing page.
+- Frontend lint, typecheck, build, and Vitest are green; add or update tests for the
+  new routing, filters, status labels, and schedule badges.
+
+---
+
+# Round 22 — Platform-wide player profiles (U61) — added 2026-06-16
+
+Live-tournament bug (user-reported): on **Global Standings** (`/leaderboard/global`),
+clicking a player you don't share a league with — e.g. "Bradley R." — shows
+"Player not found". The cause is not data (the profile is healthy): the profile
+page's gating fetch `/api/v1/stats/{id}` enforces the cross-league read isolation
+(**R12.1** — the `shared_league_player_ids` gate) and returns **403** for any
+non-league-mate, and `PlayerProfilePage` renders any error as "Player not found".
+The global board lists every player platform-wide, so every row outside your own
+leagues is a dead link. Confirmed in prod: the viewer and Bradley Reid share no league.
+
+Decision: **open all player-data reads platform-wide.** Any logged-in player can
+view any other player's full profile, per-match prediction lists, and specials. The
+**reveal gate stays the sole read-privacy boundary** (only post-lock predictions are
+ever returned); auth, 404-on-missing/deleted, leaderboard membership scoping,
+private-league enumeration (R12.3), and all write isolation are unchanged. This
+deliberately retires R12.1 read isolation — a tested invariant — accepted because
+only post-lock data is exposed and there is no PII beyond display names (§10.4).
+Trade-off noted: scraping every player's post-lock pick history becomes trivial for
+any authenticated user; rate-limiting these reads is an optional future hardening.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U61 | 🟢 Sonnet | ~2.5 h | U61.1–U61.6 | Pending |
+
+## U61 — Drop cross-league read isolation (platform-wide profiles) 🟢 Sonnet · ~2.5 h
+
+Remove the `shared_league_player_ids` 403/filter from every read endpoint that scopes
+data to shared-league players, keeping the per-match/tournament reveal gate intact.
+Mostly deletions; the bulk of the effort is flipping the R12 tenant-isolation tests
+that assert the old behaviour.
+
+- **U61.1** Hard-gate profile endpoints — delete the `shared = await
+  shared_league_player_ids(...)` lookup and the `if id not in shared: raise 403` block,
+  keeping the existence/`deleted_at` 404 check above each:
+  - `routers/stats.py:146` — `GET /api/v1/stats/{id}` (the gating fetch — this alone fixes the bug)
+  - `routers/players.py:82` — `GET /api/v1/players/{id}`
+  - `routers/players.py:131` — `GET /api/v1/players/{id}/predictions/recent`
+  - `routers/players.py:274` — `GET /api/v1/players/{id}/profile-predictions` (reveal gate stays)
+
+- **U61.2** List / aggregate read endpoints — delete the `shared` lookup and the
+  `if player_id in shared` / `if id not in shared: continue` filter so all players' rows
+  return; keep the per-match/tournament reveal-gate 403 above each. Rename the now
+  body-unused `player: CurrentPlayer` dependency to `_player` to satisfy ruff:
+  - `routers/predictions.py:203` — `GET /api/v1/predictions/match/{id}` (powers MatchDetailPage)
+  - `routers/knockout_predictions.py:199` — `GET /api/v1/knockout-predictions/match/{id}` (MatchDetailPage)
+  - `routers/specials.py:292` — `GET /api/v1/specials/all` (not called by web; consistency)
+  - `routers/predictions.py:237` — `GET /api/v1/predictions/player/{id}` (not called by web; consistency)
+
+- **U61.3** Dead-code cleanup — with all 8 callers gone, `shared_league_player_ids`
+  (`deps.py:13`) is unused. Delete the helper and drop the now-unused
+  `from src.deps import shared_league_player_ids` import in `stats.py`, `players.py`,
+  `predictions.py`, `knockout_predictions.py`, `specials.py`.
+
+- **U61.4** Frontend — no code change required for the profile fix (rows resolve once the
+  backend stops 403ing). Two notes:
+  - MatchDetailPage (`/predictions/match/{id}`) now lists **every** player who predicted
+    that match, not just league-mates — functions unchanged but the list can grow; a
+    "my league / everyone" toggle is an optional follow-up, out of scope here.
+  - Optional: have `PlayerProfilePage.tsx:455` reserve "Player not found" for a genuine
+    404 (with the gate gone these endpoints no longer 403).
+
+- **U61.5** Tests — this reverses **R12.1**:
+  - In `test_r12_tenant_isolation.py`, flip to expect 200: `test_get_player_cross_league_returns_403`,
+    `test_get_recent_predictions_cross_league_returns_403`, `test_get_stats_cross_league_returns_403`,
+    `test_player_predictions_cross_league_returns_403`.
+  - Invert `test_match_predictions_filters_cross_league_players` and
+    `test_match_knockout_predictions_filters_cross_league_players` to assert cross-league
+    players ARE included (still gated by reveal/lock).
+  - In `test_profile_predictions.py`, flip `test_profile_predictions_non_league_mate_forbidden`
+    (:240) to 200; keep `test_post_lock_predictions_visible_to_league_mate`; inspect
+    `test_shared_gate_predicate` (:207) — if it covers `shared_league_player_ids` it is
+    removed with the helper, if it covers the reveal predicate it stays.
+  - Keep reveal-gate 403 tests (e.g. `test_get_all_specials_pre_lock_returns_403`, pre-lock
+    match-prediction tests).
+  - Add a regression test: a non-league-mate gets 200 from `/stats/{id}` and
+    `/profile-predictions`, and a cross-league player appears in `/predictions/match/{id}`.
+  - Rewrite the R12 module docstring: R12.1 no longer holds for reads; R12.2 (departed-member
+    leaderboard drop-off) and R12.3 (private-league 404) remain.
+
+- **U61.6** Docs — `wc2026-architecture.md` §10.4: add the new visibility model (any
+  authenticated player can read any player's post-lock predictions/specials/stats
+  platform-wide; the reveal gate is the read boundary; membership still governs leaderboard
+  placement, private-league visibility, and writes). Update the "privacy invariant" comments
+  in the touched routers to point at the reveal gate as the sole read boundary.
+
+**Acceptance:**
+- Clicking any Global Standings row (incl. a player in no shared league, e.g. Bradley R.)
+  opens a fully-rendered profile — no "Player not found".
+- `/api/v1/stats/{id}`, `/api/v1/players/{id}`, `/players/{id}/predictions/recent`, and
+  `/players/{id}/profile-predictions` return 200 for any authenticated requester regardless of
+  shared league; still 404 for a missing/soft-deleted player.
+- Only post-lock predictions/specials are ever returned (reveal gate unchanged); pre-lock
+  reveal-gate 403s still fire.
+- `/predictions/match/{id}` and `/knockout-predictions/match/{id}` include all players'
+  post-lock picks; `/specials/all` returns all players.
+- `shared_league_player_ids` is removed and no router imports it.
+- R12 suite updated (cross-league reads now 200 / included); reveal-gate and private-league
+  (R12.3) tests still green; regression test for the global-standings scenario added.
+- Backend ruff / mypy / pytest green; §10.4 documents the new visibility model.

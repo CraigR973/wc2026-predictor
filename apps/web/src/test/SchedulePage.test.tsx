@@ -63,6 +63,26 @@ function makeFetch(matches: unknown[]) {
     if (url.includes('/api/v1/matches')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(matches) });
     }
+    if (url.includes('/api/v1/predictions/me')) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: 'p1',
+              player_id: 'player-1',
+              match_id: 'mg1',
+              predicted_home: 2,
+              predicted_away: 1,
+              submitted_at: null,
+              update_count: 1,
+              points_awarded: null,
+              points_breakdown: null,
+              updated_at: '2026-06-01T00:00:00Z',
+            },
+          ]),
+      });
+    }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
 }
@@ -126,5 +146,13 @@ describe('SchedulePage knockout skeleton', () => {
     // Group match keeps its team label and a date-based section header.
     await waitFor(() => expect(screen.getByText(/MEX/)).toBeTruthy());
     expect(screen.getByText(/Jun 2026/)).toBeTruthy();
+  });
+
+  it('shows compact personal prediction status on schedule cards', async () => {
+    vi.stubGlobal('fetch', makeFetch([GROUP_MATCH, R32_MATCH]));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Predicted 2-1')).toBeTruthy());
+    expect(screen.getByText('Missing')).toBeTruthy();
   });
 });
