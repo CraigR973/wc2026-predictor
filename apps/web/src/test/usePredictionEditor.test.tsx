@@ -96,6 +96,28 @@ describe('usePredictionEditor', () => {
     await waitFor(() => expect(result.current.local['m1']).toMatchObject({ dirty: false, saving: false }));
   });
 
+  // U59: refetchOnWindowFocus is now enabled globally, so resuming a backgrounded
+  // tab refetches `predictions` mid-edit. A dirty/saving field must survive that —
+  // otherwise a focus refetch would silently wipe whatever the player just typed.
+  it('preserves a dirty field across a predictions refetch (simulated focus refetch)', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })));
+
+    const { result, rerender } = renderHook(
+      ({ predictions, matches }) => usePredictionEditor({ predictions, matches }),
+      { wrapper, initialProps: { predictions: M1_PRED, matches: NO_MATCHES } },
+    );
+    await waitFor(() => expect(result.current.local['m1']).toBeTruthy());
+
+    act(() => result.current.handleHomeChange('m1', '5'));
+    expect(result.current.local['m1']).toMatchObject({ home: '5', dirty: true });
+
+    // Server data refetched on window focus, returned unchanged (still home: 2).
+    rerender({ predictions: M1_PRED, matches: NO_MATCHES });
+
+    // The in-progress edit must not be clobbered by the refetched server value.
+    expect(result.current.local['m1']).toMatchObject({ home: '5', dirty: true });
+  });
+
   it('enqueues the write to the offline queue instead of PUTting when offline', async () => {
     setOnline(false);
     const fetchMock = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) }));
