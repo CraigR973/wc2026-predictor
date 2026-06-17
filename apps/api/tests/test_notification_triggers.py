@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.models.league import League
 from src.models.match import MatchStatus
 from src.models.notification import NotificationType
 from src.models.prediction import LeaderboardSnapshot
@@ -73,12 +74,30 @@ def _player(role: str = "player") -> MagicMock:
     return p
 
 
-def _snap(player_id: uuid.UUID, rank: int, match_id: uuid.UUID) -> MagicMock:
+def _snap(
+    player_id: uuid.UUID,
+    rank: int,
+    match_id: uuid.UUID,
+    league_id: uuid.UUID | None = None,
+) -> MagicMock:
     s = MagicMock(spec=LeaderboardSnapshot)
     s.player_id = player_id
     s.rank = rank
     s.triggered_by_match_id = match_id
+    s.league_id = league_id or uuid.uuid4()
     return s
+
+
+def _league(
+    name: str = "The Steele Spreadsheet",
+    slug: str = "steele-spreadsheet",
+    league_id: uuid.UUID | None = None,
+) -> MagicMock:
+    lg = MagicMock(spec=League)
+    lg.id = league_id or uuid.uuid4()
+    lg.name = name
+    lg.slug = slug
+    return lg
 
 
 def _match(match_id: uuid.UUID | None = None) -> MagicMock:
@@ -136,62 +155,137 @@ async def test_notify_result_detected_dispatches_dependent_triggers() -> None:
         patch(_LB_SHIFTS, new_callable=AsyncMock) as mock_lb,
         patch(_RC, new_callable=AsyncMock) as mock_rc,
     ):
+        mock_lb.return_value = set()
         await notify_result_detected(session, update)
 
     # result notification + leaderboard_shifts + round_complete both fired
-    mock_lb.assert_awaited_once_with(session, update.match_id)
+    mock_lb.assert_awaited_once_with(session, update.match_id, tag=f"result-{update.match_id}")
     mock_rc.assert_awaited_once_with(session, update.stage)
     assert mock_send.call_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_notify_result_detected_skips_broadcast_for_players_who_moved() -> None:
+    """Players who got a leaderboard-move push are not also sent the generic result."""
+    update = _match_update(event_type="finished", home_score=2, away_score=1)
+    mover = _player()
+    bystander = _player()
+    session = AsyncMock()
+    session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[mover, bystander])))
+    )
+
+    with (
+        patch(_SEND, new_callable=AsyncMock) as mock_send,
+        patch(_TEAM, new_callable=AsyncMock, return_value="France"),
+        patch(_LB_SHIFTS, new_callable=AsyncMock, return_value={mover.id}),
+        patch(_RC, new_callable=AsyncMock),
+    ):
+        await notify_result_detected(session, update)
+
+    assert mock_send.call_count == 1
+    call = mock_send.call_args
+    assert call.args[1] == bystander.id
+    assert call.args[2] == NotificationType.result_detected
+    assert call.kwargs["data"] == {"url": f"/matches/{update.match_id}"}
+    assert call.kwargs["tag"] == f"result-{update.match_id}"
 
 
 # ── notify_leaderboard_shifts ─────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_notify_leaderboard_shifts_sends_when_rank_changed() -> None:
+async def test_notify_leaderboard_shifts_names_league_and_deep_links() -> None:
     match_id = uuid.uuid4()
     player_id = uuid.uuid4()
-    new_snap = _snap(player_id, 2, match_id)
-    old_snap = _snap(player_id, 5, uuid.uuid4())
+    league_id = uuid.uuid4()
+    league = _league(name="The Steele Spreadsheet", slug="steele-spreadsheet", league_id=league_id)
+    new_snap = _snap(player_id, 2, match_id, league_id=league_id)
+    old_snap = _snap(player_id, 5, uuid.uuid4(), league_id=league_id)
 
     session = AsyncMock()
-    # First execute: new snapshots
-    # Second execute: previous snapshot per player
+    # execute order: new snapshots, league lookup, previous snapshot per league
     session.execute.side_effect = [
         MagicMock(
             scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[new_snap])))
         ),
+        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[league])))),
         MagicMock(scalar_one_or_none=MagicMock(return_value=old_snap)),
     ]
 
     with patch(_SEND, new_callable=AsyncMock) as mock_send:
-        await notify_leaderboard_shifts(session, match_id)
+        moved = await notify_leaderboard_shifts(session, match_id)
 
     mock_send.assert_awaited_once()
     call = mock_send.call_args
     assert call.args[2] == NotificationType.leaderboard_shift
-    assert "up" in call.args[3]
+    assert "#2" in call.args[3]
+    assert "The Steele Spreadsheet" in call.args[3]  # league named in the title
+    assert call.kwargs["data"] == {"url": "/leagues/steele-spreadsheet/leaderboard"}
+    assert moved == {player_id}
+
+
+@pytest.mark.asyncio
+async def test_notify_leaderboard_shifts_consolidates_multiple_leagues() -> None:
+    """A multi-league player gets ONE summary push, not one per league."""
+    match_id = uuid.uuid4()
+    player_id = uuid.uuid4()
+    la, lb = uuid.uuid4(), uuid.uuid4()
+    league_a = _league(name="Work League", slug="work", league_id=la)
+    league_b = _league(name="Family", slug="family", league_id=lb)
+    new_a = _snap(player_id, 2, match_id, league_id=la)  # up 4 -> 2
+    new_b = _snap(player_id, 5, match_id, league_id=lb)  # down 3 -> 5
+    old_a = _snap(player_id, 4, uuid.uuid4(), league_id=la)
+    old_b = _snap(player_id, 3, uuid.uuid4(), league_id=lb)
+
+    session = AsyncMock()
+    session.execute.side_effect = [
+        MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[new_a, new_b])))
+        ),
+        MagicMock(
+            scalars=MagicMock(
+                return_value=MagicMock(all=MagicMock(return_value=[league_a, league_b]))
+            )
+        ),
+        MagicMock(scalar_one_or_none=MagicMock(return_value=old_a)),
+        MagicMock(scalar_one_or_none=MagicMock(return_value=old_b)),
+    ]
+
+    with patch(_SEND, new_callable=AsyncMock) as mock_send:
+        moved = await notify_leaderboard_shifts(session, match_id)
+
+    mock_send.assert_awaited_once()
+    call = mock_send.call_args
+    assert "2 leagues" in call.args[3]
+    assert "Work League" in call.args[4] and "Family" in call.args[4]
+    assert call.kwargs["data"] == {"url": "/leagues"}
+    assert moved == {player_id}
 
 
 @pytest.mark.asyncio
 async def test_notify_leaderboard_shifts_no_send_when_rank_unchanged() -> None:
     match_id = uuid.uuid4()
     player_id = uuid.uuid4()
-    new_snap = _snap(player_id, 3, match_id)
-    old_snap = _snap(player_id, 3, uuid.uuid4())
+    league_id = uuid.uuid4()
+    league = _league(league_id=league_id)
+    new_snap = _snap(player_id, 3, match_id, league_id=league_id)
+    old_snap = _snap(player_id, 3, uuid.uuid4(), league_id=league_id)
 
     session = AsyncMock()
     session.execute.side_effect = [
         MagicMock(
             scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[new_snap])))
         ),
+        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[league])))),
         MagicMock(scalar_one_or_none=MagicMock(return_value=old_snap)),
     ]
 
     with patch(_SEND, new_callable=AsyncMock) as mock_send:
-        await notify_leaderboard_shifts(session, match_id)
+        moved = await notify_leaderboard_shifts(session, match_id)
 
     mock_send.assert_not_awaited()
+    assert moved == set()
 
 
 # ── notify_round_complete ─────────────────────────────────────────────────────

@@ -92,6 +92,10 @@ interface PushPayload {
   title: string;
   body: string;
   data?: { url?: string; [key: string]: unknown };
+  // When set, a newer notification with the same tag replaces an older one in
+  // the tray rather than stacking (e.g. reminders for one match, the daily
+  // digest, or a result superseded by the reader's leaderboard move).
+  tag?: string;
 }
 
 self.addEventListener('push', (event) => {
@@ -104,16 +108,16 @@ self.addEventListener('push', (event) => {
     return;
   }
 
-  const { title, body, data } = payload;
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      data,
-      requireInteraction: false,
-    }),
-  );
+  const { title, body, data, tag } = payload;
+  const options: NotificationOptions = {
+    body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data,
+    requireInteraction: false,
+  };
+  if (tag) options.tag = tag;
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {

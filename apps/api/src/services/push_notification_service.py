@@ -97,12 +97,18 @@ async def send_notification(
     body: str,
     data: dict[str, Any] | None = None,
     match_id: UUID | None = None,
+    tag: str | None = None,
 ) -> int:
     """Deliver a push notification to all active subscriptions for player_id.
 
     Returns the count of successfully sent pushes. Skips delivery (and logs
     as suppressed) when preferences block it. Auto-disables subscriptions
     after _FAIL_THRESHOLD consecutive failures.
+
+    `tag`, when set, is forwarded to the service worker's showNotification so a
+    newer notification with the same tag replaces an older one in the tray
+    (e.g. successive reminders for one match, or the daily digest) instead of
+    stacking.
     """
     if not settings.vapid_private_key or not settings.vapid_public_key:
         log.debug("VAPID keys not configured — skipping push", player_id=str(player_id))
@@ -154,7 +160,10 @@ async def send_notification(
         log.debug("notification suppressed", player_id=str(player_id), type=notification_type)
         return 0
 
-    payload = json.dumps({"title": title, "body": body, "data": data or {}})
+    payload_obj: dict[str, Any] = {"title": title, "body": body, "data": data or {}}
+    if tag is not None:
+        payload_obj["tag"] = tag
+    payload = json.dumps(payload_obj)
     sent = 0
 
     loop = asyncio.get_event_loop()
