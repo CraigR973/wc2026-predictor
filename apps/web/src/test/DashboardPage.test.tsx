@@ -299,8 +299,11 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
 
     await waitFor(() => expect(screen.getByTestId('points-tile')).toBeInTheDocument());
     const tile = screen.getByTestId('points-tile');
-    expect(tile.textContent).toContain('🇧🇷 BRA');
-    expect(tile.textContent).toContain('🇲🇽 MEX');
+    // Flag + score only — the redundant 3-letter code is dropped so the away
+    // team isn't clipped in the narrow tile.
+    expect(tile.textContent).toContain('🇧🇷');
+    expect(tile.textContent).toContain('🇲🇽');
+    expect(tile.textContent).not.toContain('BRA');
   });
 
   it('uses the next fixture in the match tile when nothing is live', async () => {
