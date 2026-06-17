@@ -61,6 +61,16 @@ function chipTeam(team: MatchResponse['home_team'], placeholder: string | null) 
   return { flag: team?.flag_emoji ?? '', code: team?.code ?? placeholder ?? 'TBD' };
 }
 
+// Rollup matches carry `home_label` as "{flag} {name}" plus the flag on its own.
+// Render the flag + a short code so the previous-scores list shows flags next to
+// the scoreline (the raw label is too long for the tile, and slicing the label
+// directly would chop into the flag emoji's surrogate pair → a broken glyph).
+function rollupTeam(flag: string | null, label: string): string {
+  const name = flag ? label.replace(flag, '').trim() : label;
+  const code = name.slice(0, 3).toUpperCase();
+  return flag ? `${flag} ${code}` : code;
+}
+
 function formatElapsed(elapsed: number | null | undefined): string | null {
   if (elapsed == null) return null;
   return `${elapsed}'`;
@@ -127,7 +137,7 @@ function PointsTile({
               {rollup.matches.slice(0, 4).map((m) => (
                 <div key={m.match_id} className="flex items-center justify-between gap-1">
                   <p className="min-w-0 truncate font-mono text-xs tabular-nums text-text-primary">
-                    {m.home_label.slice(0, 3).toUpperCase()} {m.actual_home ?? 0}–{m.actual_away ?? 0} {m.away_label.slice(0, 3).toUpperCase()}
+                    {rollupTeam(m.home_flag, m.home_label)} {m.actual_home ?? 0}–{m.actual_away ?? 0} {rollupTeam(m.away_flag, m.away_label)}
                   </p>
                   <p className={`shrink-0 font-mono text-xs tabular-nums font-medium ${(m.points_breakdown?.total ?? 0) > 0 ? 'text-primary' : 'text-text-muted'}`}>
                     {(m.points_breakdown?.total ?? 0) > 0 ? `+${m.points_breakdown!.total}` : '—'}

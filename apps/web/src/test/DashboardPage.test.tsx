@@ -292,6 +292,17 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(screen.queryByText(/Across your leagues:/)).not.toBeInTheDocument();
   });
 
+  it('shows country flags next to the previous-scores rollup', async () => {
+    stubAuth();
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], []));
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('points-tile')).toBeInTheDocument());
+    const tile = screen.getByTestId('points-tile');
+    expect(tile.textContent).toContain('🇧🇷 BRA');
+    expect(tile.textContent).toContain('🇲🇽 MEX');
+  });
+
   it('uses the next fixture in the match tile when nothing is live', async () => {
     stubAuth();
     const matches = [buildMatch('next-1', 'scheduled', 1_800_000)];
