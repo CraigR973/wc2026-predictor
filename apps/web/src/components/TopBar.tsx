@@ -95,12 +95,12 @@ export function TopBar() {
     >
       <div className="max-w-6xl mx-auto px-4 h-16 md:h-14 flex items-center gap-4">
         {/* ── Mobile layout (< md): toggle | centred brand | avatar ── */}
-        <div className="flex md:hidden items-center w-full justify-between">
+        <div className="relative flex md:hidden items-center w-full justify-between">
           {themeToggle}
           <NavLink
             to="/"
             aria-label="Home"
-            className="press-down absolute left-1/2 top-[58%] -translate-x-1/2 -translate-y-1/2"
+            className="press-down absolute inset-y-0 left-1/2 -translate-x-1/2 flex items-center"
           >
             <Brand variant="compact" size={46} />
           </NavLink>
