@@ -208,7 +208,7 @@ describe('PredictionsPage', () => {
     }));
     const { container } = renderPage(PredictionsPage);
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Needs picks' })).toHaveAttribute('aria-pressed', 'true'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Upcoming' })).toHaveAttribute('aria-pressed', 'true'));
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
     await waitFor(() => expect(screen.getByTestId('prediction-card-m73')).toBeTruthy());
 
@@ -223,7 +223,7 @@ describe('PredictionsPage', () => {
     expect(screen.getByText('Round of 32')).toBeTruthy();
   });
 
-  it('defaults to editable missing picks', async () => {
+  it('defaults to upcoming matches so editable predicted games stay visible', async () => {
     vi.stubGlobal('fetch', makeFetch({
       matches: [MATCH_SCHEDULED, MATCH_SCHEDULED_NOPRED, MATCH_LOCKED, MATCH_COMPLETED],
       predictions: [PRED_SCHEDULED, PRED_COMPLETED],
@@ -231,8 +231,8 @@ describe('PredictionsPage', () => {
     renderPage(PredictionsPage);
 
     await waitFor(() => expect(screen.getByTestId('prediction-card-m5')).toBeTruthy());
-    expect(screen.getByRole('button', { name: 'Needs picks' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByTestId('prediction-card-m1')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Upcoming' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('prediction-card-m1')).toBeTruthy();
     expect(screen.queryByTestId('prediction-card-m2')).toBeNull();
     expect(screen.queryByTestId('prediction-card-m4')).toBeNull();
   });
@@ -244,8 +244,7 @@ describe('PredictionsPage', () => {
     }));
     renderPage(PredictionsPage);
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Needs picks' })).toHaveAttribute('aria-pressed', 'true'));
-    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Upcoming' })).toHaveAttribute('aria-pressed', 'true'));
     await waitFor(() => expect(screen.getByLabelText('Home score for match 1')).toBeTruthy());
     fireEvent.change(screen.getByLabelText('Home score for match 1'), { target: { value: '3' } });
 
@@ -262,8 +261,7 @@ describe('PredictionsPage', () => {
     vi.stubGlobal('fetch', fetchMock);
     renderPage(PredictionsPage);
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Needs picks' })).toHaveAttribute('aria-pressed', 'true'));
-    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Upcoming' })).toHaveAttribute('aria-pressed', 'true'));
     await waitFor(() => expect(screen.getByLabelText('Home score for match 1')).toBeTruthy());
     fireEvent.change(screen.getByLabelText('Home score for match 1'), { target: { value: '3' } });
 

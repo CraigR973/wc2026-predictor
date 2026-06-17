@@ -68,7 +68,7 @@ function getDateHeading(match: MatchResponse, timezone: string) {
 export function PredictionsPage() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
-  const [filter, setFilter] = useState<FilterValue>('needs-picks');
+  const [filter, setFilter] = useState<FilterValue>('upcoming');
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<MatchResponse[]>({
     queryKey: ALL_MATCHES_QUERY_KEY,
