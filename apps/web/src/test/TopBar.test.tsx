@@ -69,9 +69,8 @@ describe('TopBar avatar menu', () => {
   it('uses the larger compact logo size in the top bar only', () => {
     const { container } = renderTopBar();
 
-    const brandIcons = Array.from(
-      container.querySelectorAll('img[src="/brand/calcio-icon-primary.svg"]'),
-    );
+    // The compact brand mark is now an inline themed SVG (was a navy-tile <img>).
+    const brandIcons = Array.from(container.querySelectorAll('svg[width="46"]'));
 
     expect(brandIcons.length).toBeGreaterThan(0);
     brandIcons.forEach((icon) => {
@@ -89,6 +88,6 @@ describe('TopBar avatar menu', () => {
 
     expect(header?.className).toContain('pt-[calc(env(safe-area-inset-top,0px)+1rem)]');
     expect(navRow?.className).toContain('h-16');
-    expect(mobileBrandLink?.className).toContain('top-[58%]');
+    expect(mobileBrandLink?.className).toContain('inset-y-0');
   });
 });

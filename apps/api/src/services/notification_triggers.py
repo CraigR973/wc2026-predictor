@@ -8,6 +8,7 @@ send_notification() but do NOT commit — the caller is responsible.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, time, timedelta
 from typing import Any
@@ -18,6 +19,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.models.league import League
 from src.models.match import Match, MatchStatus
 from src.models.notification import NotificationLog, NotificationType
 from src.models.prediction import LeaderboardSnapshot
@@ -101,6 +103,7 @@ async def _notify_all(
     body: str,
     match_id: UUID | None = None,
     data: dict[str, Any] | None = None,
+    tag: str | None = None,
 ) -> None:
     players = await _active_players(session)
     for p in players:
@@ -112,6 +115,7 @@ async def _notify_all(
             body,
             match_id=match_id,
             data=data,
+            tag=tag,
         )
 
 
@@ -127,6 +131,7 @@ async def notify_match_locked(session: AsyncSession, update: MatchUpdate) -> Non
         "Predictions are locked — see what everyone picked 👀",
         match_id=update.match_id,
         data={"url": f"/matches/{update.match_id}"},
+        tag=f"match-{update.match_id}",
     )
 
 
@@ -138,62 +143,150 @@ async def notify_tournament_started(session: AsyncSession) -> None:
         "🏆 The 2026 World Cup has started!",
         "Specials are locked — see how everyone picked and check the global table",
         data={"url": "/predictions/specials"},
+        tag="specials",
     )
+
+
+@dataclass
+class _RankMove:
+    """One player's rank change in a single league after a result."""
+
+    league: League | None
+    old: int
+    new: int
+
+
+def _format_movement(moves: list[_RankMove]) -> tuple[str, str, str]:
+    """Build (title, body, deep-link url) for one player's rank change(s).
+
+    A single move names the league and deep-links to its leaderboard; multiple
+    leagues moving at once are summarised into one notification pointing at the
+    leagues hub, so a player in many leagues gets one push, not a storm.
+    """
+    if len(moves) == 1:
+        move = moves[0]
+        name = move.league.name if move.league else "your league"
+        slug = move.league.slug if move.league else None
+        url = f"/leagues/{slug}/leaderboard" if slug else "/leagues"
+        places = abs(move.old - move.new)
+        unit = "place" if places == 1 else "places"
+        if move.new < move.old:
+            return (
+                f"📈 Up to #{move.new} in {name}",
+                f"You climbed {places} {unit} — was #{move.old}",
+                url,
+            )
+        return (
+            f"📉 Down to #{move.new} in {name}",
+            f"You slipped {places} {unit} — was #{move.old}",
+            url,
+        )
+
+    parts: list[str] = []
+    for move in moves[:3]:
+        name = move.league.name if move.league else "a league"
+        arrow = "↑" if move.new < move.old else "↓"
+        parts.append(f"{arrow} #{move.new} {name}")
+    summary = ", ".join(parts)
+    if len(moves) > 3:
+        summary += f", +{len(moves) - 3} more"
+    return f"Your rank changed in {len(moves)} leagues", summary, "/leagues"
 
 
 async def notify_result_detected(session: AsyncSession, update: MatchUpdate) -> None:
     home = await _team_name(session, update.home_team_id, update.home_placeholder)
     away = await _team_name(session, update.away_team_id, update.away_placeholder)
     score = f"{update.home_score}–{update.away_score}"
-    await _notify_all(
-        session,
-        NotificationType.result_detected,
-        f"Result: {home} {score} {away}",
-        "Points have been awarded — check the leaderboard!",
-        match_id=update.match_id,
-    )
-    # Fire dependent triggers right after
-    await notify_leaderboard_shifts(session, update.match_id)
+    tag = f"result-{update.match_id}"
+
+    # Personalised rank-move pushes take priority: players who moved get the
+    # richer "you climbed to #N in <league>" notification instead of the generic
+    # broadcast. They share the result tag so even if both reach a device the
+    # move replaces the broadcast rather than stacking.
+    moved = await notify_leaderboard_shifts(session, update.match_id, tag=tag)
+
+    for player in await _active_players(session):
+        if player.id in moved:
+            continue
+        await send_notification(
+            session,
+            player.id,
+            NotificationType.result_detected,
+            f"Result: {home} {score} {away}",
+            "Points are in — see the latest standings",
+            match_id=update.match_id,
+            data={"url": f"/matches/{update.match_id}"},
+            tag=tag,
+        )
+
     await notify_round_complete(session, update.stage)
 
 
-async def notify_leaderboard_shifts(session: AsyncSession, match_id: UUID) -> None:
-    """Notify each player whose rank changed in the snapshot triggered by match_id."""
-    # New snapshots (written by DB trigger on result commit)
+async def notify_leaderboard_shifts(
+    session: AsyncSession, match_id: UUID, tag: str | None = None
+) -> set[UUID]:
+    """Notify each player whose rank changed after the result for match_id.
+
+    Leaderboards are per-league, so a player in several leagues can move in more
+    than one at once. The old code keyed snapshots by player alone, silently
+    dropping all but one league and sending an unlabelled "you moved to #N" — so
+    a multi-league player couldn't tell which table changed. This groups the
+    result's snapshots per league, compares each against that league's previous
+    snapshot, and sends ONE notification that names the league(s) and deep-links
+    to the leaderboard. Returns the set of notified player ids so the caller can
+    suppress the generic result broadcast for them.
+    """
     new_snaps_result = await session.execute(
         select(LeaderboardSnapshot).where(LeaderboardSnapshot.triggered_by_match_id == match_id)
     )
-    new_snaps = {s.player_id: s for s in new_snaps_result.scalars().all()}
+    new_snaps = list(new_snaps_result.scalars().all())
     if not new_snaps:
-        return
+        return set()
 
-    # Previous snapshot per player (most recent before this match)
-    for player_id, new_snap in new_snaps.items():
-        prev_result = await session.execute(
-            select(LeaderboardSnapshot)
-            .where(
-                LeaderboardSnapshot.player_id == player_id,
-                LeaderboardSnapshot.triggered_by_match_id != match_id,
+    league_ids = {s.league_id for s in new_snaps}
+    leagues_result = await session.execute(select(League).where(League.id.in_(league_ids)))
+    leagues = {lg.id: lg for lg in leagues_result.scalars().all()}
+
+    snaps_by_player: dict[UUID, list[LeaderboardSnapshot]] = defaultdict(list)
+    for snap in new_snaps:
+        snaps_by_player[snap.player_id].append(snap)
+
+    moved: set[UUID] = set()
+    for player_id, snaps in snaps_by_player.items():
+        moves: list[_RankMove] = []
+        for snap in snaps:
+            prev_result = await session.execute(
+                select(LeaderboardSnapshot)
+                .where(
+                    LeaderboardSnapshot.player_id == player_id,
+                    LeaderboardSnapshot.league_id == snap.league_id,
+                    LeaderboardSnapshot.triggered_by_match_id != match_id,
+                )
+                .order_by(LeaderboardSnapshot.snapshot_at.desc())
+                .limit(1)
             )
-            .order_by(LeaderboardSnapshot.snapshot_at.desc())
-            .limit(1)
-        )
-        prev = prev_result.scalar_one_or_none()
-        if prev is None:
-            continue
+            prev = prev_result.scalar_one_or_none()
+            if prev is None or prev.rank == snap.rank:
+                continue
+            moves.append(
+                _RankMove(league=leagues.get(snap.league_id), old=prev.rank, new=snap.rank)
+            )
 
-        old_rank, new_rank = prev.rank, new_snap.rank
-        if old_rank == new_rank:
+        if not moves:
             continue
-
-        direction = "up" if new_rank < old_rank else "down"
+        moved.add(player_id)
+        title, body, url = _format_movement(moves)
         await send_notification(
             session,
             player_id,
             NotificationType.leaderboard_shift,
-            f"You moved {direction} to #{new_rank}",
-            f"Was #{old_rank}, now #{new_rank} on the leaderboard",
+            title,
+            body,
+            data={"url": url},
+            tag=tag,
         )
+
+    return moved
 
 
 async def notify_round_complete(session: AsyncSession, stage: str) -> None:
@@ -225,8 +318,10 @@ async def notify_round_complete(session: AsyncSession, stage: str) -> None:
         await _notify_all(
             session,
             NotificationType.round_complete,
-            f"{stage_label} complete",
+            f"🏁 {stage_label} complete",
             "Final standings and points for this round are in — check the leaderboard!",
+            data={"url": "/leagues"},
+            tag=f"round-{stage}",
         )
 
 
@@ -235,9 +330,11 @@ async def notify_match_postponed(session: AsyncSession, update: MatchUpdate) -> 
     await _notify_all(
         session,
         NotificationType.match_postponed,
-        "Match postponed",
-        f"{desc} has been postponed",
+        f"⏸️ {desc} postponed",
+        f"{desc} has been postponed — your prediction is safe until it's rescheduled",
         match_id=update.match_id,
+        data={"url": f"/matches/{update.match_id}"},
+        tag=f"match-{update.match_id}",
     )
 
 
@@ -251,9 +348,11 @@ async def notify_kickoff_changed(session: AsyncSession, update: MatchUpdate) -> 
     await _notify_all(
         session,
         NotificationType.kickoff_changed,
-        "Kickoff changed",
+        f"⏰ Kickoff moved: {desc}",
         body,
         match_id=update.match_id,
+        data={"url": f"/matches/{update.match_id}"},
+        tag=f"match-{update.match_id}",
     )
 
 
@@ -300,6 +399,8 @@ async def notify_special_results_awarded(
         NotificationType.special_results,
         "Special predictions scored",
         f"{label} predictions have been awarded — check your points!",
+        data={"url": "/predictions/specials"},
+        tag="specials",
     )
 
 
@@ -386,6 +487,8 @@ async def check_deadline_warnings(
                         title,
                         body,
                         match_id=match.id,
+                        data={"url": "/predictions"},
+                        tag=f"predict-{match.id}",
                     )
             else:
                 await _notify_all(
@@ -394,6 +497,8 @@ async def check_deadline_warnings(
                     title,
                     body,
                     match_id=match.id,
+                    data={"url": "/predictions"},
+                    tag=f"predict-{match.id}",
                 )
             warned += 1
 
@@ -468,6 +573,7 @@ async def check_evening_kickoff_warnings(
                 f"You've predicted {score}. You can still edit.",
                 match_id=target.match.id,
                 data={"url": "/predictions"},
+                tag=f"predict-{target.match.id}",
             )
             _evening_warned.add(key)
             sent += 1
@@ -513,6 +619,7 @@ async def check_evening_kickoff_warnings(
                     "Predict before kickoff!",
                     match_id=match.id,
                     data={"url": "/predictions"},
+                    tag=f"predict-{match.id}",
                 )
                 _evening_warned.add(key)
                 sent += 1
@@ -578,6 +685,7 @@ async def send_daily_prediction_digest(
                     "Prediction reminder",
                     body,
                     data={"url": "/predictions"},
+                    tag="daily-digest",
                 )
                 sent_targets += 1
 
@@ -643,4 +751,5 @@ async def _send_pick_confirmation(session: AsyncSession, target: PickConfirmatio
         f"{score} · kicks off {kickoff}",
         data={"url": "/predictions"},
         match_id=target.match.id,
+        tag=f"predict-{target.match.id}",
     )

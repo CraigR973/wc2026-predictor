@@ -67,7 +67,7 @@ export function Brand({
         aria-hidden={decorative ? true : undefined}
         aria-label={decorative ? undefined : label}
       >
-        <CalcioLogo variant="primary" size={size ?? 24} decorative />
+        <CalcioLogo variant="mark" size={size ?? 24} decorative />
         <span>CALCIO</span>
       </span>
     );
@@ -84,7 +84,7 @@ export function Brand({
         aria-hidden={decorative ? true : undefined}
         aria-label={decorative ? undefined : label}
       >
-        <CalcioLogo variant="primary" size={64} decorative />
+        <CalcioLogo variant="mark" size={64} decorative />
         <p className="font-mono font-semibold uppercase tracking-[0.18em] text-2xl sm:text-3xl leading-none text-wordmark">
           CALCIO
         </p>
@@ -99,7 +99,7 @@ export function Brand({
       aria-hidden={decorative ? true : undefined}
       aria-label={decorative ? undefined : label}
     >
-      <CalcioLogo variant="primary" size={72} decorative />
+      <CalcioLogo variant="mark" size={72} decorative />
       <p className="font-mono font-semibold uppercase tracking-[0.18em] text-3xl sm:text-4xl leading-none text-wordmark">
         CALCIO
       </p>

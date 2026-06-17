@@ -2129,7 +2129,7 @@ _Logged 2026-06-16 — same-session fix for a CI red surfaced while reconciling 
 
 ## U59 — Live data freshness on warm resume
 **Commits:** 26dd788 (merged to staging at 1ad083c) · CI ✅
-_Shipped to staging only — promotion to main/prod is a separate `/ship-prod` call, not yet run._
+_Shipped to staging 2026-06-16; promoted to prod 2026-06-16 via `/ship-prod` in the U62 release (main `bb1209c`)._
 
 ### Key facts for future sessions
 - Closed matches showing as still-open, and stale results, until a full app close/reopen — root cause was `refetchOnWindowFocus: false` plus no poll on the Predictions page; backend `match.status` was always correct.
@@ -2143,7 +2143,7 @@ _Shipped to staging only — promotion to main/prod is a separate `/ship-prod` c
 
 ## U62 — iOS warm-resume refetch hardening
 **Commits:** fe2970b, a656277 (merged to staging at 07d6c73) · CI ✅
-_Shipped to staging only — promotion to main/prod is a separate `/ship-prod` call (would carry U59 + U60 + U62 together)._
+_Shipped to staging then promoted to prod 2026-06-16 via `/ship-prod` — main `bb1209c`, the prod release bundling U59 + U60 + U62._
 
 ### Key facts for future sessions
 - Follow-up to U59. U59's `refetchOnWindowFocus: true` relies on TanStack's focusManager, which by default only listens to `visibilitychange`. On an iOS home-screen PWA a warm resume can restore a frozen page from the back/forward cache and fire `pageshow` **without** a `visibilitychange` — so the focus refetch never ran and match/lock state stayed stale until a full close/reopen.
