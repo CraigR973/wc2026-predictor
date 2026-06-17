@@ -26,14 +26,21 @@ export function initials(name: string): string {
  * Deterministic surface tint per name so avatars stay visually distinct.
  * Uses a small hash on the name to pick from a curated palette of muted
  * dark-mode-safe backgrounds.
+ *
+ * Tints are built with `color-mix` rather than Tailwind's `/opacity` modifier:
+ * the brand colours are defined as raw `var(--x)` hex tokens, so `bg-silver/15`
+ * et al. emit invalid CSS and fall back to transparent (the badge had no
+ * background at all). `color-mix` works on the hex vars directly and stays
+ * theme-aware; text uses `text-[var(--x)]` to avoid the `.text-steele` gradient
+ * utility hijacking the background.
  */
 const PALETTE = [
-  'bg-primary/15 text-primary',
-  'bg-accent/15 text-accent',
-  'bg-steele-dark/30 text-steele',
-  'bg-gold/15 text-gold',
-  'bg-silver/15 text-silver',
-  'bg-bronze/15 text-bronze',
+  'bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)]',
+  'bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)]',
+  'bg-[color-mix(in_srgb,var(--steele-dark)_35%,transparent)] text-[var(--steele)]',
+  'bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] text-[var(--gold)]',
+  'bg-[color-mix(in_srgb,var(--silver)_15%,transparent)] text-[var(--silver)]',
+  'bg-[color-mix(in_srgb,var(--bronze)_15%,transparent)] text-[var(--bronze)]',
 ];
 
 function tintFor(name: string): string {
