@@ -61,14 +61,14 @@ function chipTeam(team: MatchResponse['home_team'], placeholder: string | null) 
   return { flag: team?.flag_emoji ?? '', code: team?.code ?? placeholder ?? 'TBD' };
 }
 
-// Rollup matches carry `home_label` as "{flag} {name}" plus the flag on its own.
-// Render the flag + a short code so the previous-scores list shows flags next to
-// the scoreline (the raw label is too long for the tile, and slicing the label
-// directly would chop into the flag emoji's surrogate pair → a broken glyph).
+// Rollup rows carry the flag emoji on its own (the `home_label` also embeds it).
+// Show flag + score only: the flag is the team identifier, and dropping the
+// redundant 3-letter code keeps each row short enough that the away team isn't
+// clipped in the deliberately-narrow points tile. Falls back to a short code for
+// placeholder teams with no flag (not expected in a completed-matchday rollup).
 function rollupTeam(flag: string | null, label: string): string {
-  const name = flag ? label.replace(flag, '').trim() : label;
-  const code = name.slice(0, 3).toUpperCase();
-  return flag ? `${flag} ${code}` : code;
+  if (flag) return flag;
+  return label.slice(0, 3).toUpperCase();
 }
 
 function formatElapsed(elapsed: number | null | undefined): string | null {
@@ -631,6 +631,8 @@ export function DashboardPage() {
         </div>
       </div>
 
+      <UpcomingMatchesCarousel />
+
       {summaryLoading ? (
         <section aria-labelledby="home-leagues-label">
           <SectionHeader id="home-leagues-label">My Leagues</SectionHeader>
@@ -658,8 +660,6 @@ export function DashboardPage() {
           </div>
         </section>
       ) : null}
-
-      <UpcomingMatchesCarousel />
     </div>
   );
 }
