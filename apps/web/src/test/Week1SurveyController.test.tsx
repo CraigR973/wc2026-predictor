@@ -67,6 +67,14 @@ describe('Week1SurveyController', () => {
     expect(screen.queryByText(/one week in/i)).toBeNull();
   });
 
+  it('stays hidden when the status response is unexpected (defensive)', async () => {
+    // Mirrors the e2e catch-all, which fulfils unmocked /api routes with [].
+    mockedFetchStatus.mockResolvedValue([] as unknown as { completed: boolean });
+    renderController();
+    await waitFor(() => expect(mockedFetchStatus).toHaveBeenCalled());
+    expect(screen.queryByText(/one week in/i)).toBeNull();
+  });
+
   it('renders nothing and skips the request when no player is logged in', () => {
     mockedUseAuth.mockReturnValue({ ...baseAuth, player: null });
     renderController();

@@ -46,7 +46,11 @@ export function Week1SurveyController() {
   });
 
   if (!player || snoozed) return null;
-  if (!data || data.completed) return null;
+  // Only show when the server explicitly reports the survey isn't done yet. Any
+  // other shape (loading, error, or an unexpected response — e.g. the e2e
+  // catch-all that returns []) keeps it hidden, so a flaky or missing status
+  // call never traps the user behind the modal.
+  if (data?.completed !== false) return null;
 
   return (
     <Week1SurveyModal
