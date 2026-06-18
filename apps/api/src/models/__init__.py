@@ -26,6 +26,7 @@ from src.models.prediction import (
 from src.models.profile import PlayerRole, Profile, SiteRole
 from src.models.refresh_token import RefreshToken
 from src.models.squad import SquadPlayer, SquadPosition
+from src.models.survey import SurveyCompletion, SurveyResponse
 from src.models.team import Team, TournamentStage
 
 __all__ = [
@@ -61,6 +62,8 @@ __all__ = [
     "SpecialPredictionType",
     "SquadPlayer",
     "SquadPosition",
+    "SurveyCompletion",
+    "SurveyResponse",
     "Team",
     "TournamentStage",
 ]

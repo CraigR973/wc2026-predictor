@@ -35,6 +35,7 @@ from src.routers import (
     specials,
     squad,
     stats,
+    surveys,
 )
 from src.scheduler import create_scheduler
 
@@ -123,6 +124,7 @@ app.include_router(stats.router)
 app.include_router(stats.league_router)
 app.include_router(compare.league_router)
 app.include_router(notifications.router)
+app.include_router(surveys.router)
 
 if settings.environment == Environment.development:
     from src.routers import test_helpers  # noqa: PLC0415
