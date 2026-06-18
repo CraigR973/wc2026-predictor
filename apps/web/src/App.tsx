@@ -12,6 +12,7 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { InstallPromptController } from './components/InstallPromptController';
 import { FirstRunController } from './components/FirstRunController';
 import { NotificationsPromptController } from './components/NotificationsPromptController';
+import { Week1SurveyController } from './components/Week1SurveyController';
 import { TournamentRevealModal } from './components/TournamentRevealModal';
 import { Skeleton } from './components/ui/skeleton';
 import { LoginPage } from './pages/LoginPage';
@@ -130,6 +131,7 @@ export function App() {
           <InstallPromptController />
           <FirstRunController />
           <NotificationsPromptController />
+          <Week1SurveyController />
           <TournamentRevealModal />
           <Toaster position="bottom-right" richColors closeButton />
           <ErrorBoundary>
