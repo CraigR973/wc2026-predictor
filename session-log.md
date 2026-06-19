@@ -2153,3 +2153,48 @@ _Shipped to staging then promoted to prod 2026-06-16 via `/ship-prod` — main `
 - Numbering: briefly drafted as U61, but U61 was claimed by "Platform-wide player profiles" in a parallel session — bumped to U62 (branch `fix/u62-ios-resume-refetch`).
 
 **Next:** U60 (chronological prediction checklist) and U61 (platform-wide player profiles) are both queued/pending — U60 is already merged to staging, awaiting its own close-out.
+
+---
+
+## U60 — Chronological prediction checklist
+**Commits:** caf0449, 8009cbd, 15952b6, c08d6e6, db6b977, 2fe126f, 885af47, e5c1d97 · CI ✅
+_Retro-documented 2026-06-18 — shipped to staging 2026-06-16._
+
+### Key facts for future sessions
+- `PredictionsPage` was refactored into two routes: the original group-tab editor now lives at `/predictions/group/:groupId` (`GroupPredictionsPage`); the root `/predictions` is now an all-matches chronological checklist ordered by kickoff.
+- `PredictionsSubNav` links to both views; the all-matches checklist defaults to the **Upcoming** filter (changed from "All" in e6cc543 after feedback).
+- `SchedulePage` gained a lightweight prediction-status overlay (saved / missing / locked indicators) without adding a full edit flow there.
+- `tzlocal` was missing from `requirements.txt` — CI was red until 885af47 added it; the venv already had it, masking the gap locally.
+- `usePredictionEditor` refactored to accept a `matchId` param directly (previously derived from route params) to support both the group-tab and checklist surfaces.
+
+**Next:** fix/snags-emblem-flags-notifications polish batch
+
+---
+
+## fix/snags-emblem-flags-notifications — Live polish: Calcio mark, flags, notifications, header
+**Commits:** 100efa4, 44e31b3, e6cc543 (merged to staging a18e5ec) · CI ✅
+_Retro-documented 2026-06-18 — shipped to staging 2026-06-17._
+
+### Key facts for future sessions
+- **Calcio mark theming:** `CalcioLogo` now renders as an inline `currentColor` SVG (via `--steele`) so it tracks dark/light mode in the header and splash. The filled raster is retained for app/PWA icons only.
+- **Header alignment:** the mobile mark's vertical position was a `top-[58%]` percentage that drifted with the iPhone safe-area inset; fixed with `inset-y-0 flex items-center`.
+- **Avatar tints:** `bg-silver/15` etc. emit invalid CSS against raw hex `var(--x)` tokens — Tailwind's `/opacity` modifier doesn't work on CSS-variable colors. Replaced with `color-mix(in srgb, var(--x) 15%, transparent)`; text uses `text-[var(--x)]` to avoid the `.text-steele` gradient utility hijacking the background.
+- **Live-hub previous-score flags:** the old label slice chopped into flag emoji surrogate pairs showing a blank glyph; replaced with proper short-code + flag rendering.
+- **Notification overhaul:** leaderboard-movement pushes now name the league and deep-link per-league; consolidated into one summary notification for multi-league players (previously a per-player snapshot collision dropped all but one league). Added `tag`-based tray collapsing and deep-links across all notification types; de-duplicated the result/movement broadcast overlap.
+
+**Next:** feat/week1-survey
+
+---
+
+## feat/week1-survey — Week 1 in-app pulse survey
+**Commits:** 376cb72, 09b4ce7, e1cb49e, e3d2ba3, f5a0f8d · CI ✅ · Prod: a84b73a
+
+### Key facts for future sessions
+- **Hybrid anonymity model:** two decoupled tables — `survey_completions` (player_id + survey_key gate, never joined to answers) and `survey_responses` (de-identified answers + auto-tagged `league_ids` JSONB; `contact_player_id` set only on explicit opt-in). Migration 033.
+- **R11 parity:** both tables have `REVOKE … FROM anon, authenticated` + `ENABLE ROW LEVEL SECURITY` (no policy = deny-all for the Supabase anon key). The `_ENSURE_ROLES` block makes this portable to the bare-Postgres CI DB.
+- **Controller gate:** `data?.completed !== false` is intentional — the e2e catch-all returns `[]`, which is truthy and not strictly `false`, so the modal stays hidden during Playwright runs. An earlier `!data || data.completed` check blocked all e2e clicks (21 failures).
+- **League auto-tagging:** `survey_key` is `week1_pulse`; POST endpoint queries `league_memberships` and writes the player's active league UUIDs into `league_ids` — no Q1 needed.
+- **iOS zoom fix:** `maximum-scale=1.0, user-scalable=no` added to `index.html` viewport meta — text-input focus in the modal caused iOS to zoom and the zoom stuck after dismiss.
+- **Results runbook:** `docs/runbooks/survey-results.md` — the per-league rating breakdown is the key cut. Planned 2nd pulse before the Round-of-32.
+
+**Next:** U61 — Platform-wide player profiles (🟢 Sonnet)
