@@ -30,6 +30,8 @@ from src.models import (
     SiteRole,
     SpecialPrediction,
     SpecialPredictionType,
+    SurveyCompletion,
+    SurveyResponse,
     Team,
 )
 from src.models.profile import PlayerRole
@@ -57,6 +59,25 @@ def test_metadata_has_expected_tables() -> None:
         "league_memberships",
         "league_join_requests",
         "squad_players",
+        "survey_completions",
+        "survey_responses",
+    }
+
+
+def test_survey_completion_columns() -> None:
+    cols = {c.name for c in SurveyCompletion.__table__.columns}
+    assert cols == {"id", "player_id", "survey_key", "completed_at"}
+
+
+def test_survey_response_columns() -> None:
+    cols = {c.name for c in SurveyResponse.__table__.columns}
+    assert cols == {
+        "id",
+        "survey_key",
+        "league_ids",
+        "answers",
+        "contact_player_id",
+        "created_at",
     }
 
 
