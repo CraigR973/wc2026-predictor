@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { submitSurvey, WEEK1_SURVEY_KEY, type Week1Answers } from '@/lib/survey';
+import feedbackPoster from '@/assets/survey-feedback.jpg';
 
 type Choice<T extends string> = readonly (readonly [T, string])[];
 
@@ -171,6 +172,11 @@ export function Week1SurveyModal({ onClose, onSubmitted }: Props) {
       }}
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <img
+          src={feedbackPoster}
+          alt="Uncle Sam pointing — we want your feedback for the World Cup Predictor app"
+          className="mx-auto mb-4 h-64 w-auto rounded-lg border border-border shadow-sm"
+        />
         <DialogHeader>
           <DialogTitle>⚽ One week in — how is it going?</DialogTitle>
           <DialogDescription>
