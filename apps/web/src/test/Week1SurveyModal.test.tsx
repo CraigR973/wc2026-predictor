@@ -39,6 +39,11 @@ describe('Week1SurveyModal', () => {
     );
   });
 
+  it('shows the feedback poster image', () => {
+    renderModal();
+    expect(screen.getByRole('img', { name: /uncle sam|feedback/i })).toBeTruthy();
+  });
+
   it('submits an anonymous response with the chosen answers', async () => {
     mockedSubmit.mockResolvedValue({ completed: true });
     const { onSubmitted } = renderModal();
