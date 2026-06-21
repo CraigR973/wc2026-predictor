@@ -261,7 +261,7 @@ async def _sync_one_match(
         return _apply_cancelled(session, match, now), None
 
     if fd_status in _LIVE_STATUSES:
-        return _apply_live(session, match, now), None
+        return _apply_live(session, match, fd_match, now), None
 
     if fd_status in _SCHEDULED_STATUSES:
         old_kickoff = match.kickoff_utc
@@ -451,17 +451,38 @@ def _apply_cancelled(session: AsyncSession, match: Match, now: datetime) -> bool
     return True
 
 
-def _apply_live(session: AsyncSession, match: Match, now: datetime) -> bool:
-    if match.status == MatchStatus.live:
-        match.last_synced_at = now
-        return False
-    if match.status not in {MatchStatus.locked, MatchStatus.scheduled}:
+def _apply_live(session: AsyncSession, match: Match, fd_match: FDMatch, now: datetime) -> bool:
+    if match.status not in {MatchStatus.locked, MatchStatus.scheduled, MatchStatus.live}:
         # Already completed/postponed/cancelled — feed must catch up.
         match.last_synced_at = now
         return False
-    match.status = MatchStatus.live
+
+    changed = False
+    if match.status != MatchStatus.live:
+        match.status = MatchStatus.live
+        changed = True
+
+    # Write the running in-play score so predictions and the leaderboard update
+    # live during the match. The feed reports fullTime=null before kickoff and a
+    # real score (0-0 onward) once underway, so only write when both halves are
+    # present — and only when the score actually moved, so no-op sync ticks
+    # don't re-fire the scoring trigger. We deliberately leave result_source
+    # NULL: the result isn't final until FINISHED, and _apply_finished's
+    # idempotency guard (result_source IS NOT NULL) must still let the final
+    # whistle through to settle status/extra_time/penalties.
+    home = fd_match.score.fullTime.home
+    away = fd_match.score.fullTime.away
+    if (
+        home is not None
+        and away is not None
+        and (match.actual_home_score != home or match.actual_away_score != away)
+    ):
+        match.actual_home_score = home
+        match.actual_away_score = away
+        changed = True
+
     match.last_synced_at = now
-    return True
+    return changed
 
 
 def _apply_kickoff_drift(

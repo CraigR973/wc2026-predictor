@@ -369,6 +369,27 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(screen.queryByTestId('provisional-combined-breakdown')).not.toBeInTheDocument();
   });
 
+  it('renders a genuine live 0–0 (U54 null-vs-zero guard treats 0 as a real score)', async () => {
+    stubAuth();
+    // U63: the feed now writes a real 0–0 once a match is underway. The U54 guard
+    // must distinguish null ("no data", suppress) from a genuine 0 (render). The
+    // pick is 1–0, so a '0–0' on the card can only be the actual live scoreline.
+    const matches = [buildMatch('live-00', 'live', -600_000, { scores: { hs: 0, as: 0 }, elapsed: 12 })];
+    const predictions = [buildPrediction('live-00', 1, 0)];
+    const Wrapper = makeWrapper(
+      mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches),
+    );
+    render(<Wrapper />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument(),
+    );
+    const liveCard = screen.getByTestId('match-tile-live-card');
+    expect(liveCard).toHaveTextContent('Your pick: 1–0');
+    expect(liveCard).toHaveTextContent('0–0');
+    expect(liveCard).not.toHaveTextContent('Result & points at full-time');
+  });
+
   it('adds projected knockout advancement points for a decisive live scoreline', async () => {
     stubAuth();
     const matches = [
