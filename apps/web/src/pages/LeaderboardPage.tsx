@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, useReducedMotionConfig } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, Share2, X } from 'lucide-react';
 import { apiFetch, DEFAULT_LEAGUE_SLUG } from '../lib/api';
-import type { LeaderboardEntry, LeagueDetail } from '../lib/types';
+import type { LeaderboardEntry, LeagueDetail, MatchResponse } from '../lib/types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useLongPress } from '../hooks/useLongPress';
@@ -378,6 +378,18 @@ export function LeaderboardPage() {
     staleTime: 15_000,
   });
 
+  // U63: poll matches so a "standings updating" banner shows while a match is
+  // in play (live scores now cascade into ranks via the snapshot trigger).
+  // Shares the ['matches','all'] cache the dashboard already polls every 60s —
+  // no new endpoint.
+  const { data: matches = [] } = useQuery<MatchResponse[]>({
+    queryKey: ['matches', 'all'],
+    queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches'),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const hasLiveMatch = matches.some((m) => m.status === 'live');
+
   // `ranked` is the canonical total-order standings — it drives the rank-change
   // pulse so toggling period never pulses. `displayData` is what we render,
   // re-sorted for the active period (idempotent for 'total').
@@ -508,6 +520,17 @@ export function LeaderboardPage() {
       )}
 
       <SubNav slug={leagueSlug} />
+
+      {hasLiveMatch && (
+        <div
+          data-testid="live-standings-banner"
+          role="status"
+          className="mb-4 flex items-center gap-2 rounded-md border border-live/40 bg-live/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.15em] text-live"
+        >
+          <span aria-hidden>⚽</span>
+          <span>Live match in progress — standings updating</span>
+        </div>
+      )}
 
       {displayData.length === 0 ? (
         <EmptyState

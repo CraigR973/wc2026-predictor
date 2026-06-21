@@ -65,9 +65,11 @@ function stubFetch({
     { id: 'p1', display_name: 'Alice Example', role: 'player', joined_at: '2026-01-01T00:00:00Z' },
     { id: 'p2', display_name: 'Bob Example', role: 'player', joined_at: '2026-01-02T00:00:00Z' },
   ],
+  matches = [],
 }: {
   leaderboard?: Array<Record<string, unknown>>;
   members?: Array<Record<string, unknown>>;
+  matches?: Array<Record<string, unknown>>;
 }) {
   return vi.stubGlobal(
     'fetch',
@@ -91,6 +93,9 @@ function stubFetch({
       }
       if (url.endsWith('/api/v1/leagues/steele-spreadsheet') && init?.method === 'DELETE') {
         return Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve({}) });
+      }
+      if (url.endsWith('/api/v1/matches')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(matches) });
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
     }),
@@ -226,5 +231,23 @@ describe('LeaderboardPage', () => {
 
     const exHeader = screen.getByTitle('Exact scores');
     expect(exHeader.className).toContain('px-3');
+  });
+
+  it('shows the live standings banner while a match is in play', async () => {
+    stubFetch({ leaderboard: [], matches: [{ id: 'm1', status: 'live' }] });
+
+    renderLeaderboard();
+
+    const banner = await screen.findByTestId('live-standings-banner');
+    expect(banner).toHaveTextContent(/standings updating/i);
+  });
+
+  it('hides the live standings banner when no match is live', async () => {
+    stubFetch({ leaderboard: [], matches: [{ id: 'm1', status: 'completed' }] });
+
+    renderLeaderboard();
+
+    await waitFor(() => expect(screen.getByText('Alice E.')).toBeInTheDocument());
+    expect(screen.queryByTestId('live-standings-banner')).not.toBeInTheDocument();
   });
 });

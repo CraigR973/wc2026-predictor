@@ -307,6 +307,73 @@ async def test_in_play_transitions_locked_to_live() -> None:
     assert match.status == MatchStatus.live
 
 
+async def test_in_play_writes_live_score() -> None:
+    """U63: a live match writes the running in-play score so predictions and the
+    leaderboard update during the match — result_source stays NULL (not final)."""
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=1, away_score=0)
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.status == MatchStatus.live
+    assert match.actual_home_score == 1
+    assert match.actual_away_score == 0
+    assert match.result_source is None  # not a final result yet
+
+
+async def test_in_play_without_score_does_not_write_score() -> None:
+    """Pre-kickoff / no-data ticks report fullTime=null — we must not fabricate
+    a 0-0 (that is the bug U54 guarded against on the frontend)."""
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=None, away_score=None)
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1  # still transitioned locked → live
+    assert match.status == MatchStatus.live
+    assert match.actual_home_score is None
+    assert match.actual_away_score is None
+
+
+async def test_in_play_already_live_updates_changed_score() -> None:
+    """A goal during an already-live match must be written — the old _apply_live
+    returned early when status was already live and never updated the score."""
+    match = _make_match(status=MatchStatus.live)
+    match.actual_home_score = 0
+    match.actual_away_score = 0
+    fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=1, away_score=0)
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.actual_home_score == 1
+    assert match.actual_away_score == 0
+
+
+async def test_in_play_already_live_unchanged_score_is_noop() -> None:
+    """A sync tick where the score has not moved is a no-op (no re-write), so the
+    DB trigger's IS DISTINCT FROM guard never sees a spurious change."""
+    match = _make_match(status=MatchStatus.live)
+    match.actual_home_score = 1
+    match.actual_away_score = 0
+    fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=1, away_score=0)
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.actual_home_score == 1
+    assert match.actual_away_score == 0
+
+
 # ---------------------------------------------------------------------------
 # Kickoff change — drift detection + lock-job re-registration
 # ---------------------------------------------------------------------------

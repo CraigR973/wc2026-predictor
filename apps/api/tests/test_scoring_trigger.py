@@ -200,6 +200,28 @@ async def _enter_result(
     )
 
 
+async def _set_live_score(conn: AsyncConnection, match_id: uuid.UUID, home: int, away: int) -> None:
+    """Simulate one live-sync tick writing the running in-play score.
+
+    Mirrors ``result_sync._apply_live``: writes the score + ``status='live'``
+    but leaves ``result_source`` NULL — the result is not final until the match
+    reaches FINISHED.
+    """
+    await _exec(
+        conn,
+        """
+        UPDATE matches
+        SET actual_home_score = :h,
+            actual_away_score = :a,
+            status = 'live'
+        WHERE id = :id
+        """,
+        id=match_id,
+        h=home,
+        a=away,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Group-stage match — predictions + leaderboard snapshot
 # ---------------------------------------------------------------------------
@@ -382,6 +404,76 @@ async def test_trigger_does_not_refire_on_unrelated_update(
         m=match,
     )
     assert snap_count_second == 1
+
+
+async def test_live_score_changes_refire_scoring_each_goal(
+    db_conn: AsyncConnection,
+) -> None:
+    """U63: the widened AFTER trigger re-fires on every live score change.
+
+    A live match ticks 0-0 → 1-0 → 2-1; the prediction must be re-scored at
+    each step (the trigger fires 3×, not once like the old NULL→non-null gate),
+    and an unchanged tick (2-1 → 2-1) must NOT re-fire — the IS DISTINCT FROM
+    no-op guard that stops every 5-min sync writing fresh snapshots.
+    """
+    g = await _insert_group(db_conn, "A")
+    home = await _insert_team(db_conn, g, "Home A", "HMA")
+    away = await _insert_team(db_conn, g, "Away A", "AWA")
+    alice = await _insert_profile(db_conn, "alice")
+    match = await _insert_match(
+        db_conn,
+        stage="group",
+        match_number=1,
+        home_team_id=home,
+        away_team_id=away,
+        group_id=g,
+    )
+    # alice predicts 2-1 exactly: 0 pts at 0-0, 3 (correct result) at 1-0,
+    # 10 (exact) at 2-1 — a distinct total at every step.
+    await _insert_prediction(db_conn, player_id=alice, match_id=match, home=2, away=1)
+
+    async def _points() -> int:
+        return await _scalar(
+            db_conn,
+            "SELECT points_awarded FROM predictions WHERE match_id = :m AND player_id = :p",
+            m=match,
+            p=alice,
+        )
+
+    await _set_live_score(db_conn, match, 0, 0)
+    assert await _points() == 0
+    await _set_live_score(db_conn, match, 1, 0)
+    assert await _points() == 3
+    await _set_live_score(db_conn, match, 2, 1)
+    assert await _points() == 10
+
+    # Each of the three score changes wrote a fresh snapshot for alice. Assert
+    # the SET of totals — never ORDER BY snapshot_at (same-txn now() ties).
+    totals = await _fetchall(
+        db_conn,
+        """
+        SELECT DISTINCT total_points
+        FROM leaderboard_snapshots
+        WHERE triggered_by_match_id = :m AND player_id = :p
+        """,
+        m=match,
+        p=alice,
+    )
+    assert {r["total_points"] for r in totals} == {0, 3, 10}
+
+    snaps_before = await _scalar(
+        db_conn,
+        "SELECT COUNT(*) FROM leaderboard_snapshots WHERE triggered_by_match_id = :m",
+        m=match,
+    )
+    # A no-op tick (the score has not moved) must NOT re-fire the trigger.
+    await _set_live_score(db_conn, match, 2, 1)
+    snaps_after = await _scalar(
+        db_conn,
+        "SELECT COUNT(*) FROM leaderboard_snapshots WHERE triggered_by_match_id = :m",
+        m=match,
+    )
+    assert snaps_after == snaps_before
 
 
 # ---------------------------------------------------------------------------
