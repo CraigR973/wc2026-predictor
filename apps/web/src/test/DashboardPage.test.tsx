@@ -330,14 +330,16 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
 
   it('shows the live state with provisional points breakdown when a live prediction exists', async () => {
     stubAuth();
-    const matches = [buildMatch('live-1', 'live', -600_000, { scores: { hs: 1, as: 0 }, elapsed: 67 })];
+    // kickoff 10 min ago → the minute is derived from kickoff (the feed has no
+    // match clock), so it reads ~10' regardless of any elapsed_minutes field.
+    const matches = [buildMatch('live-1', 'live', -600_000, { scores: { hs: 1, as: 0 } })];
     const predictions = [buildPrediction('live-1', 1, 0)];
     const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches));
     render(<Wrapper />);
 
     await waitFor(() => expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument());
     const liveCard = screen.getByTestId('match-tile-live-card');
-    expect(liveCard).toHaveTextContent("Live · 67'");
+    expect(liveCard).toHaveTextContent("Live · 10'");
     expect(liveCard).toHaveTextContent('Your pick: 1–0');
     expect(liveCard).toHaveTextContent('+10 if it stands');
     expect(liveCard).toHaveTextContent('Result');

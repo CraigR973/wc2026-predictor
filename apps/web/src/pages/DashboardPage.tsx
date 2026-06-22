@@ -5,11 +5,13 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { isKnockoutStage, scoreLiveProvisionalPrediction, type Stage } from '@wc2026/shared';
 import { apiFetch } from '../lib/api';
+import { formatLiveMinute } from '../lib/liveMinute';
 import { useAuth } from '../contexts/AuthContext';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
 import { ScoringGuide } from '../components/ScoringGuide';
 import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { useCountdown } from '../hooks/useCountdown';
+import { useNow } from '../hooks/useNow';
 import { Skeleton } from '../components/ui/skeleton';
 import type {
   CrossLeagueSummary,
@@ -69,11 +71,6 @@ function chipTeam(team: MatchResponse['home_team'], placeholder: string | null) 
 function rollupTeam(flag: string | null, label: string): string {
   if (flag) return flag;
   return label.slice(0, 3).toUpperCase();
-}
-
-function formatElapsed(elapsed: number | null | undefined): string | null {
-  if (elapsed == null) return null;
-  return `${elapsed}'`;
 }
 
 function formatTileKickoff(kickoffUtc: string, timezone: string): string {
@@ -186,15 +183,15 @@ function MatchTileLiveCard({
 }) {
   const home = chipTeam(match.home_team, match.home_team_placeholder);
   const away = chipTeam(match.away_team, match.away_team_placeholder);
-  // The football-data competition feed carries no in-play score (see
-  // MatchResponse.elapsed_minutes in routers/matches.py), so during a live match
-  // actual_*_score stay null until full-time. Only show a scoreline + provisional
-  // "if it stands" points when a real score is present — otherwise we'd render a
-  // fabricated 0–0 and misleading projected points. Forward-compatible: this lights
-  // back up automatically the day a live-score source exists.
+  // U63 writes the live in-play score into actual_*_score while a match is live,
+  // but they can still be null briefly (before the first sync of a match), so guard
+  // the scoreline + provisional "if it stands" points on a real score being present.
   const hasLiveScore =
     match.actual_home_score !== null && match.actual_away_score !== null;
-  const minute = formatElapsed(match.elapsed_minutes);
+  // The feed carries no match clock, so the minute is approximated from kickoff
+  // (see formatLiveMinute). Tick so it advances between the 60s data polls.
+  const now = useNow(30_000);
+  const minute = formatLiveMinute(match.kickoff_utc, now);
   const hasPrediction =
     prediction != null &&
     prediction.predicted_home !== null &&
@@ -544,10 +541,22 @@ export function DashboardPage() {
   const timezone = player?.timezone ?? 'UTC';
   const displayName = player?.displayName ?? 'there';
 
+  const { data: matches = [] } = useQuery<MatchResponse[]>({
+    queryKey: ['matches', 'all'],
+    queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches'),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const liveMatches = matches.filter((m) => m.status === 'live');
+  const hasLiveMatch = liveMatches.length > 0;
+
   const { data: summary, isLoading: summaryLoading } = useQuery<CrossLeagueSummary>({
     queryKey: ['cross-league-summary'],
     queryFn: () => apiFetch<CrossLeagueSummary>('/api/v1/me/cross-league-summary'),
     staleTime: 30_000,
+    // While a match is live the snapshot trigger keeps re-ranking every league, so
+    // poll the summary to surface the live rank movement on the home cards (U63).
+    refetchInterval: hasLiveMatch ? 30_000 : false,
   });
 
   const { data: home, isLoading: homeLoading } = useQuery<HomeResponse>({
@@ -556,22 +565,13 @@ export function DashboardPage() {
     staleTime: 30_000,
   });
 
-  const { data: matches = [] } = useQuery<MatchResponse[]>({
-    queryKey: ['matches', 'all'],
-    queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches'),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-  });
-
   const { data: predictions = [] } = useQuery<PredictionResponse[]>({
     queryKey: ['predictions', 'me'],
     queryFn: () => apiFetch<PredictionResponse[]>('/api/v1/predictions/me'),
     staleTime: 30_000,
   });
 
-  const liveHasKnockout = matches.some(
-    (m) => m.status === 'live' && isKnockoutStage(m.stage as Stage),
-  );
+  const liveHasKnockout = liveMatches.some((m) => isKnockoutStage(m.stage as Stage));
   const { data: knockoutPredictions = [] } = useQuery<KnockoutPredictionResponse[]>({
     queryKey: ['knockout-predictions', 'me'],
     queryFn: () => apiFetch<KnockoutPredictionResponse[]>('/api/v1/knockout-predictions/me'),
@@ -580,7 +580,6 @@ export function DashboardPage() {
   });
 
   const perLeague = summary?.per_league ?? [];
-  const liveMatches = matches.filter((m) => m.status === 'live');
   const inlineSlot = pickInlineSlot(matches);
   const predByMatch: Record<string, PredictionResponse> = Object.fromEntries(
     predictions.map((prediction) => [prediction.match_id, prediction]),
@@ -640,7 +639,18 @@ export function DashboardPage() {
         </section>
       ) : perLeague.length > 0 ? (
         <section aria-labelledby="home-leagues-label">
-          <SectionHeader id="home-leagues-label">My Leagues</SectionHeader>
+          <SectionHeader id="home-leagues-label">
+            My Leagues
+            {hasLiveMatch && (
+              <span
+                data-testid="my-leagues-live-chip"
+                className="ml-2 inline-flex items-center gap-1 rounded-full border border-live/40 bg-live/10 px-2 py-0.5 align-middle font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-live"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-live animate-pulse" aria-hidden />
+                Live
+              </span>
+            )}
+          </SectionHeader>
           <div className={`grid gap-2 ${perLeague.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {perLeague.map((entry) => (
               <CompactLeagueCard key={entry.slug} entry={entry} />

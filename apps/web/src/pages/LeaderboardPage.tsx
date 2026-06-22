@@ -378,8 +378,8 @@ export function LeaderboardPage() {
     staleTime: 15_000,
   });
 
-  // U63: poll matches so a "standings updating" banner shows while a match is
-  // in play (live scores now cascade into ranks via the snapshot trigger).
+  // U63: poll matches so a "Live" banner shows while a match is in play
+  // (live scores now cascade into ranks via the snapshot trigger).
   // Shares the ['matches','all'] cache the dashboard already polls every 60s —
   // no new endpoint.
   const { data: matches = [] } = useQuery<MatchResponse[]>({
@@ -528,7 +528,7 @@ export function LeaderboardPage() {
           className="mb-4 flex items-center gap-2 rounded-md border border-live/40 bg-live/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.15em] text-live"
         >
           <span aria-hidden>⚽</span>
-          <span>Live match in progress — standings updating</span>
+          <span>Live</span>
         </div>
       )}
 
