@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LeagueProvider } from '@/contexts/LeagueContext';
 import { MyLeaguesPage } from '@/pages/MyLeaguesPage';
+import { LAST_VIEWED_LEAGUE_KEY } from '@/lib/leagueRecency';
 
 const FAKE_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwMSIsImV4cCI6OTk5OTk5OTk5OX0.fake';
 const STORED_PLAYER = JSON.stringify({ id: 'p1', displayName: 'Alice', role: 'player', timezone: 'UTC' });
@@ -17,6 +18,16 @@ const MOCK_LEAGUE = {
   member_count: 5,
   max_members: null,
   created_at: '2026-01-01T00:00:00Z',
+};
+
+const SECOND_LEAGUE = {
+  slug: 'aib-sweepstake',
+  name: 'AiB sweepstake',
+  description: null,
+  privacy: 'private',
+  member_count: 4,
+  max_members: null,
+  created_at: '2026-01-02T00:00:00Z',
 };
 
 const MOCK_LEADERBOARD = [
@@ -44,15 +55,21 @@ function stubFetch(extraLeagues: unknown[] = []) {
 }
 
 function stubAuth() {
+  const store = new Map<string, string>([
+    ['wc2026_player', STORED_PLAYER],
+    ['wc2026_access', FAKE_JWT],
+  ]);
   vi.stubGlobal('localStorage', {
-    getItem: (k: string) => {
-      if (k === 'wc2026_player') return STORED_PLAYER;
-      if (k === 'wc2026_access') return FAKE_JWT;
-      return null;
-    },
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
+    getItem: vi.fn((k: string) => store.get(k) ?? null),
+    setItem: vi.fn((k: string, v: string) => {
+      store.set(k, v);
+    }),
+    removeItem: vi.fn((k: string) => {
+      store.delete(k);
+    }),
+    clear: vi.fn(() => {
+      store.clear();
+    }),
   });
 }
 
@@ -97,7 +114,9 @@ describe('MyLeaguesPage hub', () => {
     renderHub();
     await waitFor(() => expect(screen.getByText('My Leagues')).toBeTruthy());
     expect(screen.getByText(/your league hubs/i)).toBeTruthy();
-    await waitFor(() => expect(screen.getAllByText('View →').length).toBeGreaterThanOrEqual(1));
+    await waitFor(() =>
+      expect(screen.getAllByText('Open standings →').length).toBeGreaterThanOrEqual(1),
+    );
   });
 
   it('uses a two-column desktop grid for league cards', async () => {
@@ -105,5 +124,22 @@ describe('MyLeaguesPage hub', () => {
     const { container } = renderHub();
     await waitFor(() => expect(screen.getByText('The Steele Spreadsheet')).toBeTruthy());
     expect(container.querySelector('.md\\:grid-cols-2')).toBeTruthy();
+  });
+
+  it('surfaces the last viewed league first with a jump-back label', async () => {
+    stubFetch([SECOND_LEAGUE]);
+    window.localStorage.setItem(
+      LAST_VIEWED_LEAGUE_KEY,
+      JSON.stringify({ slug: 'aib-sweepstake', name: 'AiB sweepstake' }),
+    );
+
+    const { container } = renderHub();
+
+    await waitFor(() => expect(screen.getByText('AiB sweepstake')).toBeTruthy());
+    expect(screen.getByText('Last viewed')).toBeInTheDocument();
+    expect(screen.getByText('Jump back in')).toBeInTheDocument();
+
+    const grid = container.querySelector('.grid');
+    expect(grid?.firstElementChild?.getAttribute('href')).toBe('/leagues/aib-sweepstake');
   });
 });

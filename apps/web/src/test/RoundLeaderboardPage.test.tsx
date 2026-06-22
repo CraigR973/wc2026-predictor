@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LeagueProvider } from '@/contexts/LeagueContext';
 import { RoundLeaderboardPage } from '@/pages/RoundLeaderboardPage';
 
 const apiFetch = vi.fn();
@@ -42,14 +43,31 @@ function makeQueryClient() {
 }
 
 function renderPage(stage = 'qf', payload = ROUND_ROWS) {
-  apiFetch.mockResolvedValue(payload);
+  apiFetch.mockImplementation((url: string) => {
+    if (url === '/api/v1/leagues/mine') {
+      return Promise.resolve([
+        {
+          slug: 'steele-spreadsheet',
+          name: 'The Steele Spreadsheet',
+          description: null,
+          privacy: 'private',
+          member_count: 2,
+          max_members: null,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ]);
+    }
+    return Promise.resolve(payload);
+  });
 
   return render(
     <QueryClientProvider client={makeQueryClient()}>
       <MemoryRouter initialEntries={[`/leagues/steele-spreadsheet/leaderboard/round/${stage}`]}>
-        <Routes>
-          <Route path="/leagues/:slug/leaderboard/round/:stage" element={<RoundLeaderboardPage />} />
-        </Routes>
+        <LeagueProvider>
+          <Routes>
+            <Route path="/leagues/:slug/leaderboard/round/:stage" element={<RoundLeaderboardPage />} />
+          </Routes>
+        </LeagueProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );

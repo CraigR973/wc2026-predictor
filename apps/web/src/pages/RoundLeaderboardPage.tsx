@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar } from '../components/ui/avatar';
+import { LeagueSwitchStrip } from '../components/LeagueSwitchStrip';
 import { cn } from '../lib/utils';
 
 const STAGES = [
@@ -74,6 +75,7 @@ export function RoundLeaderboardPage() {
         eyebrow="Standings"
         back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Overall' }}
       />
+      <LeagueSwitchStrip currentSlug={leagueSlug} className="mb-5" />
 
       {/* Stage pill scroller */}
       <nav className="-mx-4 sm:-mx-0 mb-5 overflow-x-auto" aria-label="Tournament stage">

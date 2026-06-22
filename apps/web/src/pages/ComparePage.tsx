@@ -8,6 +8,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { LeagueSwitchStrip } from '../components/LeagueSwitchStrip';
 import type { H2HMatchEntry, H2HResponse, PlayerListItem } from '../lib/types';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -236,6 +237,7 @@ export function ComparePage() {
         eyebrow="Compare"
         back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Leaderboard' }}
       />
+      <LeagueSwitchStrip currentSlug={leagueSlug} />
 
       <p className="text-text-muted text-sm font-sans">
         Pick two players to compare match-by-match. Long-press a row on the leaderboard to

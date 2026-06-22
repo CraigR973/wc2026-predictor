@@ -16,6 +16,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Avatar } from '../components/ui/avatar';
 import { buildInviteMessage, shareInvite } from '../lib/invite';
 import { LeagueActionsMenu } from '../components/LeagueActionsMenu';
+import { LeagueSwitchStrip } from '../components/LeagueSwitchStrip';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
@@ -346,6 +347,7 @@ function LeagueLeaderboardHeader({ league, slug }: { league?: LeagueDetail; slug
         )}
         <LeagueActionsMenu slug={slug} leagueName={league?.name ?? 'League'} isAdmin={isLeagueAdmin} />
       </div>
+      <LeagueSwitchStrip currentSlug={slug} className="mt-4" />
     </div>
   );
 }
