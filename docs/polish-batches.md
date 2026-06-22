@@ -2435,3 +2435,87 @@ that assert the old behaviour.
 - R12 suite updated (cross-league reads now 200 / included); reveal-gate and private-league
   (R12.3) tests still green; regression test for the global-standings scenario added.
 - Backend ruff / mypy / pytest green; §10.4 documents the new visibility model.
+
+---
+
+# Round 23 — League-switching UX follow-up (U64) — added 2026-06-22
+
+Week 1 pulse survey readout on **June 22, 2026** was broadly excellent (`31/31`
+responses; `22` gave `5/5`), but one concrete pain point remains: **league
+switching / knowing which league you're in**. It only appeared twice overall, but
+one of those was a fresh **`1/5`** response on June 22, and it is what dragged
+`AiB sweepstake` down to a `3.00` average while almost every other league sat
+around `4.5–5.0`. That makes it a small-volume, high-severity paper cut.
+
+Current shape of the product:
+
+- the desktop/mobile primary nav lands on `/leagues`;
+- `MyLeaguesPage` renders league cards with rank/points and a generic `View →`;
+- every league then becomes its own route tree (`/leagues/{slug}/leaderboard`,
+  `/history`, `/compare`, admin screens);
+- once inside a league, the only way to hop to another one is effectively
+  **back to the hub, then into the next card**.
+
+So the problem is less "users do not know leagues exist" and more:
+
+1. it is not obvious which league is the "current" one they most recently cared about;
+2. cross-league hopping takes too many taps; and
+3. the hub copy does not clearly advertise the most likely next action.
+
+Decision: do a **tight UX pass, not an architecture change**. Keep the M9
+"no global active-league switcher" model, but add enough recency/context affordance
+that league-scoped navigation feels intentional rather than disorienting.
+
+| Batch | Model | Effort | Items | Status |
+|---|---|---|---|---|
+| U64 | 🟢 Sonnet | ~2 h | U64.1–U64.5 | Pending |
+
+## U64 — League-switching clarity + one-tap hops 🟢 Sonnet · ~2 h
+
+- **U64.1** Remember the last opened league locally and use it to orient the hub.
+  Add a tiny frontend-only recency helper (localStorage is fine; no backend state)
+  that records the last visited league slug/name when entering any
+  `/leagues/{slug}/*` route. On `MyLeaguesPage.tsx`, sort or spotlight that league
+  first and label it clearly, e.g. **"Last viewed"** or **"Jump back in"**. This
+  answers the survey's "which one am I in?" signal without reintroducing the old
+  active-league global state model from M9.
+
+- **U64.2** Add an in-context league hop strip on league-scoped pages. In
+  `LeaderboardPage.tsx` (and any shared header pattern it can sensibly feed),
+  render a compact horizontal "Other leagues" row beneath the header when the
+  player belongs to `>= 2` leagues:
+  - current league chip is visually selected;
+  - every other chip deep-links straight to that league's leaderboard;
+  - long names truncate safely on mobile;
+  - the strip scrolls horizontally rather than wrapping into a mess.
+  This removes the current backtrack-to-hub requirement for the most common switch.
+
+- **U64.3** Sharpen the My Leagues card affordance. `MyLeaguesPage.tsx` currently
+  uses a generic `View →` footer and "League hub" eyebrow. Make the cards read more
+  like a destination the user recognizes at a glance:
+  - footer copy should explicitly say **"Open standings"** or similar;
+  - if the card is the remembered league, surface that state in the metadata zone;
+  - preserve rank/points, because those are the strongest recognition anchors.
+  Goal: the user should know immediately which card to tap next.
+
+- **U64.4** Keep the solution intentionally narrow. Do **not** revive the removed
+  desktop dropdown/global active-league switcher from M9, and do not turn league
+  selection into a backend preference. This is a lightweight navigation fix, not a
+  state-model reversal.
+
+- **U64.5** Tests:
+  - add/update `MyLeaguesPage` tests to cover remembered-league surfacing and card copy;
+  - add/update `LeaderboardPage` tests for the multi-league hop strip and selected state;
+  - verify the strip does **not** render for single-league players;
+  - verify mobile-safe overflow behaviour at the component level where practical.
+
+**Acceptance:**
+- A player in multiple leagues can jump from one league leaderboard to another in
+  one tap, without going back to `/leagues`.
+- The leagues hub clearly identifies the last viewed league and makes it the most
+  obvious next action.
+- The current league is visually obvious on league-scoped pages.
+- Single-league players do not get extra clutter.
+- Existing multi-league routing assumptions from M9 stay intact; no backend schema
+  or API changes are introduced.
+- Frontend tests cover remembered-league surfacing and cross-league switching.

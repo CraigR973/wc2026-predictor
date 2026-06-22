@@ -11,8 +11,15 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
+import { getLastViewedLeague, sortLeaguesByLastViewed } from '@/lib/leagueRecency';
 
-function LeagueCard({ league }: { league: LeagueSummary }) {
+function LeagueCard({
+  league,
+  isLastViewed,
+}: {
+  league: LeagueSummary;
+  isLastViewed: boolean;
+}) {
   const { player } = useAuth();
 
   const { data: leaderboard = [], isLoading: lbLoading } = useQuery<LeaderboardEntry[]>({
@@ -30,7 +37,7 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
       <Card className="flex h-full min-h-[156px] flex-col border-border/80 bg-gradient-to-br from-surface-elevated via-surface to-surface hover:border-primary/50 transition-colors group-hover:border-primary/50">
         <CardHeader className="pb-3 space-y-2">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-text-muted">
-            League hub
+            {isLastViewed ? 'Last viewed' : 'League hub'}
           </p>
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-base group-hover:text-primary transition-colors">
@@ -48,6 +55,11 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2 text-xs font-sans text-text-muted">
+            {isLastViewed && (
+              <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+                Jump back in
+              </span>
+            )}
             <span className="rounded-full border border-border bg-surface px-2.5 py-1">
               {league.member_count}
               {league.max_members ? ` / ${league.max_members}` : ''} members
@@ -72,7 +84,7 @@ function LeagueCard({ league }: { league: LeagueSummary }) {
             ) : null}
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary transition-colors group-hover:text-accent">
-            View →
+            Open standings →
           </span>
         </CardContent>
       </Card>
@@ -85,6 +97,8 @@ export function MyLeaguesPage() {
     queryKey: ['leagues', 'mine'],
     queryFn: () => apiFetch<LeagueSummary[]>('/api/v1/leagues/mine'),
   });
+  const lastViewed = getLastViewedLeague();
+  const orderedLeagues = sortLeaguesByLastViewed(leagues ?? [], lastViewed?.slug ?? null);
 
   return (
     <div className="space-y-6 overflow-x-hidden">
@@ -139,8 +153,12 @@ export function MyLeaguesPage() {
 
       {!isLoading && leagues && leagues.length > 0 && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {leagues.map((l) => (
-            <LeagueCard key={l.slug} league={l} />
+          {orderedLeagues.map((l) => (
+            <LeagueCard
+              key={l.slug}
+              league={l}
+              isLastViewed={lastViewed?.slug === l.slug}
+            />
           ))}
           {/* Global leaderboard card — always shown alongside league cards */}
           <GlobalCard />

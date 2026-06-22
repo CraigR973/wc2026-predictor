@@ -17,6 +17,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { LeagueSwitchStrip } from '../components/LeagueSwitchStrip';
 
 // Distinct palette for up to 15 players. Primary green (#10B981/#22C55E)
 // is reserved for brand surfaces, so player chips avoid the green band
@@ -110,6 +111,7 @@ export function LeaderboardHistoryPage() {
         eyebrow="Standings"
         back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Leaderboard' }}
       />
+      <LeagueSwitchStrip currentSlug={leagueSlug} className="mb-5" />
 
       {data.length === 0 ? (
         <EmptyState

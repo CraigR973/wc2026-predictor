@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LeagueProvider } from '@/contexts/LeagueContext';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
+import { LAST_VIEWED_LEAGUE_KEY } from '@/lib/leagueRecency';
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
@@ -47,15 +48,21 @@ function makeQueryClient() {
 }
 
 function stubAuthStorage() {
+  const store = new Map<string, string>([
+    ['wc2026_player', JSON.stringify(PLAYER)],
+    ['wc2026_access', FAKE_JWT],
+  ]);
   vi.stubGlobal('localStorage', {
-    getItem: (key: string) => {
-      if (key === 'wc2026_player') return JSON.stringify(PLAYER);
-      if (key === 'wc2026_access') return FAKE_JWT;
-      return null;
-    },
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
+    getItem: vi.fn((key: string) => store.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      store.delete(key);
+    }),
+    clear: vi.fn(() => {
+      store.clear();
+    }),
   });
 }
 
@@ -66,10 +73,12 @@ function stubFetch({
     { id: 'p2', display_name: 'Bob Example', role: 'player', joined_at: '2026-01-02T00:00:00Z' },
   ],
   matches = [],
+  leagues = [BASE_LEAGUE],
 }: {
   leaderboard?: Array<Record<string, unknown>>;
   members?: Array<Record<string, unknown>>;
   matches?: Array<Record<string, unknown>>;
+  leagues?: Array<Record<string, unknown>>;
 }) {
   return vi.stubGlobal(
     'fetch',
@@ -96,6 +105,9 @@ function stubFetch({
       }
       if (url.endsWith('/api/v1/matches')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(matches) });
+      }
+      if (url.endsWith('/api/v1/leagues/mine')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(leagues) });
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
     }),
@@ -250,5 +262,50 @@ describe('LeaderboardPage', () => {
 
     await waitFor(() => expect(screen.getByText('Alice E.')).toBeInTheDocument());
     expect(screen.queryByTestId('live-standings-banner')).not.toBeInTheDocument();
+  });
+
+  it('shows a league hop strip for multi-league players and remembers the current league', async () => {
+    stubFetch({
+      leaderboard: [],
+      leagues: [
+        BASE_LEAGUE,
+        {
+          slug: 'aib-sweepstake',
+          name: 'AiB sweepstake',
+          description: null,
+          privacy: 'private',
+          member_count: 4,
+          max_members: null,
+          created_at: '2026-01-02T00:00:00Z',
+        },
+      ],
+    });
+
+    renderLeaderboard();
+
+    const strip = await screen.findByTestId('league-switch-strip');
+    expect(strip).toBeInTheDocument();
+    expect(
+      within(strip).getByText('The Steele Spreadsheet').closest('[aria-current="page"]'),
+    ).toBeTruthy();
+
+    const otherLeagueLink = within(strip).getByRole('link', { name: 'AiB sweepstake' });
+    expect(otherLeagueLink.getAttribute('href')).toBe('/leagues/aib-sweepstake/leaderboard');
+
+    await waitFor(() =>
+      expect(window.localStorage.setItem).toHaveBeenCalledWith(
+        LAST_VIEWED_LEAGUE_KEY,
+        JSON.stringify({ slug: 'steele-spreadsheet', name: 'The Steele Spreadsheet' }),
+      ),
+    );
+  });
+
+  it('does not show the league hop strip for single-league players', async () => {
+    stubFetch({ leaderboard: [], leagues: [BASE_LEAGUE] });
+
+    renderLeaderboard();
+
+    await waitFor(() => expect(screen.getByText('Alice E.')).toBeInTheDocument());
+    expect(screen.queryByTestId('league-switch-strip')).not.toBeInTheDocument();
   });
 });
