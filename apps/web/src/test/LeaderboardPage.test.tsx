@@ -239,7 +239,8 @@ describe('LeaderboardPage', () => {
     renderLeaderboard();
 
     const banner = await screen.findByTestId('live-standings-banner');
-    expect(banner).toHaveTextContent(/standings updating/i);
+    expect(banner).toHaveTextContent(/live/i);
+    expect(banner).not.toHaveTextContent(/standings updating/i);
   });
 
   it('hides the live standings banner when no match is live', async () => {
