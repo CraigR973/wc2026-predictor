@@ -14,6 +14,7 @@ import { FirstRunController } from './components/FirstRunController';
 import { NotificationsPromptController } from './components/NotificationsPromptController';
 import { Week1SurveyController } from './components/Week1SurveyController';
 import { TournamentRevealModal } from './components/TournamentRevealModal';
+import { SurveyEnhancementsController } from './components/SurveyEnhancementsController';
 import { Skeleton } from './components/ui/skeleton';
 import { LoginPage } from './pages/LoginPage';
 import { JoinPage } from './pages/JoinPage';
@@ -132,6 +133,7 @@ export function App() {
           <FirstRunController />
           <NotificationsPromptController />
           <Week1SurveyController />
+          <SurveyEnhancementsController />
           <TournamentRevealModal />
           <Toaster position="bottom-right" richColors closeButton />
           <ErrorBoundary>

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { isKnockoutStage, scoreLiveProvisionalPrediction, type Stage } from '@wc2026/shared';
 import { apiFetch } from '../lib/api';
 import { formatLiveMinute } from '../lib/liveMinute';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
 import { ScoringGuide } from '../components/ScoringGuide';
 import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
@@ -538,14 +539,18 @@ function CompactLeagueCard({ entry }: { entry: PerLeagueEntry }) {
 
 export function DashboardPage() {
   const { player } = useAuth();
+  const queryClient = useQueryClient();
   const timezone = player?.timezone ?? 'UTC';
   const displayName = player?.displayName ?? 'there';
 
   const { data: matches = [] } = useQuery<MatchResponse[]>({
     queryKey: ['matches', 'all'],
     queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches'),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 10_000,
+    refetchInterval: (query) => {
+      const data = (query.state.data as MatchResponse[] | undefined) ?? [];
+      return data.some((match) => match.status === 'live') ? 10_000 : 30_000;
+    },
   });
   const liveMatches = matches.filter((m) => m.status === 'live');
   const hasLiveMatch = liveMatches.length > 0;
@@ -553,10 +558,10 @@ export function DashboardPage() {
   const { data: summary, isLoading: summaryLoading } = useQuery<CrossLeagueSummary>({
     queryKey: ['cross-league-summary'],
     queryFn: () => apiFetch<CrossLeagueSummary>('/api/v1/me/cross-league-summary'),
-    staleTime: 30_000,
+    staleTime: 10_000,
     // While a match is live the snapshot trigger keeps re-ranking every league, so
     // poll the summary to surface the live rank movement on the home cards (U63).
-    refetchInterval: hasLiveMatch ? 30_000 : false,
+    refetchInterval: hasLiveMatch ? 10_000 : false,
   });
 
   const { data: home, isLoading: homeLoading } = useQuery<HomeResponse>({
@@ -589,6 +594,24 @@ export function DashboardPage() {
   );
   const points = summary?.total_points ?? 0;
   const loadingTopRow = summaryLoading || homeLoading;
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-live-updates')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'leaderboard_snapshots' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['cross-league-summary'] });
+          queryClient.invalidateQueries({ queryKey: ['me-home'] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return (
     <div className="space-y-6">

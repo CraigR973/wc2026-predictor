@@ -232,12 +232,12 @@ export function ComparePage() {
 
   return (
     <div className="space-y-6">
+      <LeagueSwitchStrip currentSlug={leagueSlug} className="mb-1" />
       <PageHeader
         title="Head-to-Head"
         eyebrow="Compare"
         back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Leaderboard' }}
       />
-      <LeagueSwitchStrip currentSlug={leagueSlug} />
 
       <p className="text-text-muted text-sm font-sans">
         Pick two players to compare match-by-match. Long-press a row on the leaderboard to

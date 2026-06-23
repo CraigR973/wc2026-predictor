@@ -106,12 +106,12 @@ export function LeaderboardHistoryPage() {
 
   return (
     <div>
+      <LeagueSwitchStrip currentSlug={leagueSlug} className="mb-4" />
       <PageHeader
         title="Rank History"
         eyebrow="Standings"
         back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Leaderboard' }}
       />
-      <LeagueSwitchStrip currentSlug={leagueSlug} className="mb-5" />
 
       {data.length === 0 ? (
         <EmptyState

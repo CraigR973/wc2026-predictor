@@ -323,6 +323,7 @@ function LeagueLeaderboardHeader({ league, slug }: { league?: LeagueDetail; slug
 
   return (
     <div className="mb-5">
+      <LeagueSwitchStrip currentSlug={slug} className="mb-4" />
       <PageHeader
         title={league?.name ?? 'Leaderboard'}
         eyebrow="Standings"
@@ -347,7 +348,6 @@ function LeagueLeaderboardHeader({ league, slug }: { league?: LeagueDetail; slug
         )}
         <LeagueActionsMenu slug={slug} leagueName={league?.name ?? 'League'} isAdmin={isLeagueAdmin} />
       </div>
-      <LeagueSwitchStrip currentSlug={slug} className="mt-4" />
     </div>
   );
 }

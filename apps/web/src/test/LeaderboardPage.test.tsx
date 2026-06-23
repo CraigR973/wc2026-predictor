@@ -288,13 +288,13 @@ describe('LeaderboardPage', () => {
 
     renderLeaderboard();
 
-    const strip = await screen.findByTestId('league-switch-strip');
-    expect(strip).toBeInTheDocument();
+    const switchStrip = await screen.findByTestId('league-switch-strip');
+    expect(switchStrip).toBeInTheDocument();
     expect(
-      within(strip).getByText('The Steele Spreadsheet').closest('[aria-current="page"]'),
+      within(switchStrip).getByText('The Steele Spreadsheet').closest('[aria-current="page"]'),
     ).toBeTruthy();
 
-    const otherLeagueLink = within(strip).getByRole('link', { name: 'AiB sweepstake' });
+    const otherLeagueLink = within(switchStrip).getByRole('link', { name: 'AiB sweepstake' });
     expect(otherLeagueLink.getAttribute('href')).toBe('/leagues/aib-sweepstake/leaderboard');
 
     await waitFor(() =>
@@ -303,6 +303,10 @@ describe('LeaderboardPage', () => {
         JSON.stringify({ slug: 'steele-spreadsheet', name: 'The Steele Spreadsheet' }),
       ),
     );
+
+    const positionedStrip = screen.getByTestId('league-switch-strip');
+    const heading = screen.getByRole('heading', { name: 'The Steele Spreadsheet' });
+    expect(positionedStrip.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('does not show the league hop strip for single-league players', async () => {
