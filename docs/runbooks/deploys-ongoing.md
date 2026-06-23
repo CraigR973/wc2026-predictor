@@ -71,6 +71,11 @@ serving, so a bad migration never half-applies to a live DB.
    git push origin main
    ```
    Vercel auto-deploys to `https://wc2026-prod.vercel.app`. **Live in ~90 s.**
+   Railway can lag behind that frontend flip for a couple of minutes, so do not
+   call prod "shipped" on the first `200 OK`. Wait for the backend SHA from
+   `GET /api/v1/health` to match `main`, confirm `GET /api/v1/health/ready`
+   returns `{"status":"ready","db":"ok"}`, and re-run the prod-origin CORS
+   synthetic if the first poll still shows the previous SHA.
 
 > [!NOTE]
 > Tests + typecheck + lint + alembic-migration-check + Playwright smoke
@@ -181,6 +186,18 @@ deploy briefly interrupts in-flight requests.
 - **Sentry frontend + backend errors**: see project links in
   `~/.claude/projects/-Users-craigrobinson-wc-2026-predictor/memory/`
 - **Supabase tables**: dashboard or use the Supabase MCP.
+
+If prod looks half-shipped, check the planes independently:
+- Vercel can already be serving the new frontend bundle while Railway is still
+  cutting over the previous healthy backend image.
+- The source-of-truth gate is the SHA from `https://wc2026-api-production-a0f4.up.railway.app/api/v1/health`.
+  If it does not equal `main`, prod is still on the older backend even if CI is
+  green and the site loads.
+- Railway CLI verification for this repo:
+  `railway environment config --environment production --json` should show
+  `source.repo=CraigR973/wc2026-predictor`, `source.branch=main`, and
+  `railway service list --environment production --json` should show the latest
+  successful deployment for service `wc2026-api`.
 
 ### Single-replica assumption
 
