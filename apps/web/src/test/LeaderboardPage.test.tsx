@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -37,6 +37,19 @@ const BASE_LEAGUE = {
   created_at: '2026-01-01T00:00:00Z',
   created_by: 'p1',
   join_code: 'STEELE',
+};
+
+const SECOND_LEAGUE = {
+  id: 'league-2',
+  slug: 'aib-sweepstake',
+  name: 'AiB sweepstake',
+  description: 'Private league for bankers',
+  privacy: 'private' as const,
+  member_count: 4,
+  max_members: null,
+  created_at: '2026-01-02T00:00:00Z',
+  created_by: 'p2',
+  join_code: 'AIB123',
 };
 
 function makeQueryClient() {
@@ -84,23 +97,25 @@ function stubFetch({
     'fetch',
     vi.fn((input: string | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes('/api/v1/leagues/steele-spreadsheet/leaderboard')) {
+      if (/\/api\/v1\/leagues\/[^/]+\/leaderboard$/.test(url)) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(leaderboard) });
       }
-      if (url.endsWith('/api/v1/leagues/steele-spreadsheet')) {
+      if (/\/api\/v1\/leagues\/[^/]+$/.test(url) && !url.endsWith('/api/v1/leagues/mine') && init?.method !== 'DELETE') {
+        const slug = url.split('/').at(-1) ?? BASE_LEAGUE.slug;
+        const league = leagues.find((entry) => entry.slug === slug) ?? BASE_LEAGUE;
         return Promise.resolve({
           ok: true,
           json: () =>
             Promise.resolve({
-              ...BASE_LEAGUE,
+              ...league,
               members,
             }),
         });
       }
-      if (url.endsWith('/api/v1/leagues/steele-spreadsheet/membership') && init?.method === 'DELETE') {
+      if (/\/api\/v1\/leagues\/[^/]+\/membership$/.test(url) && init?.method === 'DELETE') {
         return Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve({}) });
       }
-      if (url.endsWith('/api/v1/leagues/steele-spreadsheet') && init?.method === 'DELETE') {
+      if (/\/api\/v1\/leagues\/[^/]+$/.test(url) && !url.endsWith('/api/v1/leagues/mine') && init?.method === 'DELETE') {
         return Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve({}) });
       }
       if (url.endsWith('/api/v1/matches')) {
@@ -134,6 +149,7 @@ function renderLeaderboard() {
 describe('LeaderboardPage', () => {
   beforeEach(() => {
     stubAuthStorage();
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -267,18 +283,7 @@ describe('LeaderboardPage', () => {
   it('shows a league hop strip for multi-league players and remembers the current league', async () => {
     stubFetch({
       leaderboard: [],
-      leagues: [
-        BASE_LEAGUE,
-        {
-          slug: 'aib-sweepstake',
-          name: 'AiB sweepstake',
-          description: null,
-          privacy: 'private',
-          member_count: 4,
-          max_members: null,
-          created_at: '2026-01-02T00:00:00Z',
-        },
-      ],
+      leagues: [BASE_LEAGUE, SECOND_LEAGUE],
     });
 
     renderLeaderboard();
@@ -307,5 +312,32 @@ describe('LeaderboardPage', () => {
 
     await waitFor(() => expect(screen.getByText('Alice E.')).toBeInTheDocument());
     expect(screen.queryByTestId('league-switch-strip')).not.toBeInTheDocument();
+  });
+
+  it('preserves horizontal strip position when hopping between leagues', async () => {
+    const user = userEvent.setup({ delay: null });
+    stubFetch({ leaderboard: [], leagues: [BASE_LEAGUE, SECOND_LEAGUE] });
+
+    renderLeaderboard();
+
+    const scrollNav = await screen.findByTestId('league-switch-scroll');
+    scrollNav.scrollLeft = 84;
+    fireEvent.scroll(scrollNav);
+
+    await user.click(
+      within(screen.getByTestId('league-switch-strip')).getByRole('link', { name: 'AiB sweepstake' }),
+    );
+
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('league-switch-strip'))
+          .getByText('AiB sweepstake')
+          .closest('[aria-current="page"]'),
+      ).toBeTruthy(),
+    );
+
+    expect(window.sessionStorage.getItem('wc2026_league_switch_scroll')).toBe('84');
+    expect(screen.getByTestId('league-switch-scroll').scrollLeft).toBe(84);
+    expect(screen.getByText('Jump between tables')).toBeInTheDocument();
   });
 });
