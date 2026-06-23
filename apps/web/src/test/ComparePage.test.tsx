@@ -6,7 +6,10 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { LeagueProvider } from '@/contexts/LeagueContext';
 import { ComparePage } from '@/pages/ComparePage';
 
-const MOCK_LEAGUE = [{ slug: 'steele-spreadsheet', name: 'The Steele Spreadsheet', description: null, privacy: 'private', member_count: 2, max_members: null, created_at: '2026-01-01T00:00:00Z' }];
+const MOCK_LEAGUE = [
+  { slug: 'steele-spreadsheet', name: 'The Steele Spreadsheet', description: null, privacy: 'private', member_count: 2, max_members: null, created_at: '2026-01-01T00:00:00Z' },
+  { slug: 'aib-sweepstake', name: 'AiB sweepstake', description: null, privacy: 'private', member_count: 4, max_members: null, created_at: '2026-01-02T00:00:00Z' },
+];
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -185,6 +188,13 @@ describe('ComparePage', () => {
   it('renders the page heading', () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Head-to-Head');
+  });
+
+  it('renders the league strip above the heading', async () => {
+    renderPage();
+    const strip = await screen.findByTestId('league-switch-strip');
+    const heading = screen.getByRole('heading', { name: 'Head-to-Head' });
+    expect(strip.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows an empty state when no second player is picked', async () => {

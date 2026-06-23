@@ -70,12 +70,12 @@ export function RoundLeaderboardPage() {
 
   return (
     <div>
+      <LeagueSwitchStrip currentSlug={leagueSlug} className="mb-4" />
       <PageHeader
         title="Round Leaderboard"
         eyebrow="Standings"
         back={{ to: `/leagues/${leagueSlug}/leaderboard`, label: 'Overall' }}
       />
-      <LeagueSwitchStrip currentSlug={leagueSlug} className="mb-5" />
 
       {/* Stage pill scroller */}
       <nav className="-mx-4 sm:-mx-0 mb-5 overflow-x-auto" aria-label="Tournament stage">
