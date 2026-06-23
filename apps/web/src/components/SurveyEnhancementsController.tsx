@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { isTourSeen } from './IntroTour';
 import { SurveyEnhancementsModal } from './SurveyEnhancementsModal';
@@ -23,10 +24,13 @@ function markSeen(): void {
 
 export function SurveyEnhancementsController() {
   const { player } = useAuth();
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(() => !hasSeen());
+  const isSafeLandingRoute = pathname === '/';
 
   if (!player || !open) return null;
   if (!isTourSeen(player.id)) return null;
+  if (!isSafeLandingRoute) return null;
 
   return (
     <SurveyEnhancementsModal
