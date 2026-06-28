@@ -318,6 +318,8 @@ describe('PredictionsPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /Uruguay/i }));
     });
 
+    expect(screen.getByRole('button', { name: /✓ UY Uruguay/i })).toBeTruthy();
+
     await waitFor(() => {
       const putCalls = (fetchMock.mock.calls as unknown as [string, RequestInit][]).filter(
         ([url, opts]) => url.includes('/api/v1/knockout-predictions/m74') && opts?.method === 'PUT',
