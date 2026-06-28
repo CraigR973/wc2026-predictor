@@ -195,7 +195,7 @@ describe('UpcomingMatchesCarousel', () => {
   });
 
   it('includes scheduled knockout matches alongside group matches', async () => {
-    const matches = [baseMatch(1), baseMatch(2, { stage: 'round_of_32' })];
+    const matches = [baseMatch(1), baseMatch(2, { stage: 'r32' })];
     renderCarousel(makeFetch(matches, []));
 
     await waitFor(() => expect(screen.queryByTestId('prediction-card-m1')).toBeTruthy());
@@ -234,7 +234,7 @@ describe('UpcomingMatchesCarousel', () => {
       baseMatch(1, { status: 'locked' }),
       baseMatch(2, { status: 'live', actual_home_score: 1, actual_away_score: 0 }),
       baseMatch(3, { status: 'completed' }),
-      baseMatch(4, { stage: 'round_of_32', status: 'completed' }),
+      baseMatch(4, { stage: 'r32', status: 'completed' }),
     ];
     renderCarousel(makeFetch(matches, []));
 

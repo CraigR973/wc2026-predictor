@@ -14,6 +14,7 @@ import { BracketTeaser } from '../components/BracketTeaser';
 import { PageHeader } from '../components/PageHeader';
 import { PredictionsSubNav } from '../components/PredictionsSubNav';
 import { useCountdown } from '../hooks/useCountdown';
+import { useKnockoutWinnerEditor } from '../hooks/useKnockoutWinnerEditor';
 import { KNOCKOUT_STAGES, type KnockoutStage } from '../lib/stages';
 import { shortPlaceholder } from '../lib/matchTeam';
 import { cn } from '../lib/utils';
@@ -399,7 +400,7 @@ function TeamButton({
 function RoundPanel({
   matches,
   predictions,
-  localWinners,
+  predictionByMatch,
   saving,
   errors,
   timezone,
@@ -408,7 +409,7 @@ function RoundPanel({
 }: {
   matches: MatchResponse[];
   predictions: KnockoutPredictionResponse[];
-  localWinners: Record<string, string | null>;
+  predictionByMatch: Record<string, KnockoutPredictionResponse>;
   saving: Record<string, boolean>;
   errors: Record<string, boolean>;
   timezone: string;
@@ -438,10 +439,7 @@ function RoundPanel({
       <div className="flex flex-col gap-3">
         {matches.map((m) => {
           const pred = predByMatch[m.id];
-          const winnerId =
-            localWinners[m.id] !== undefined
-              ? localWinners[m.id]
-              : (pred?.predicted_winner_id ?? null);
+          const winnerId = predictionByMatch[m.id]?.predicted_winner_id ?? null;
 
           return (
             <KnockoutCard
@@ -475,9 +473,6 @@ export function KnockoutPredictionsPage() {
   // null until the player taps a round pill — until then we follow the
   // smart default (earliest actionable round) computed from the data.
   const [userStage, setUserStage] = useState<number | null>(null);
-  const [localWinners, setLocalWinners] = useState<Record<string, string | null>>({});
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
-  const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [highlightedMatchIds, setHighlightedMatchIds] = useState<Set<string>>(new Set());
   const prevScoresRef = useRef<Record<string, boolean>>({});
 
@@ -493,6 +488,11 @@ export function KnockoutPredictionsPage() {
     queryKey: ['knockout-predictions', 'me'],
     queryFn: () => apiFetch<KnockoutPredictionResponse[]>('/api/v1/knockout-predictions/me'),
     staleTime: 30_000,
+  });
+
+  const { predictionByMatch, saving, errors, pickWinner } = useKnockoutWinnerEditor({
+    knockoutPredictions: predictions,
+    playerId: player?.id,
   });
 
   const knockoutMatches = allMatches.filter(
@@ -566,34 +566,6 @@ export function KnockoutPredictionsPage() {
       void supabase.removeChannel(channel);
     };
   }, [queryClient]);
-
-  async function handlePick(matchId: string, winnerId: string) {
-    setSaving((prev) => ({ ...prev, [matchId]: true }));
-    setErrors((prev) => ({ ...prev, [matchId]: false }));
-    // Optimistic update
-    setLocalWinners((prev) => ({ ...prev, [matchId]: winnerId }));
-
-    try {
-      await apiFetch<KnockoutPredictionResponse>(
-        `/api/v1/knockout-predictions/${matchId}`,
-        {
-          method: 'PUT',
-          body: JSON.stringify({ predicted_winner_id: winnerId }),
-        },
-      );
-      await queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
-    } catch {
-      setErrors((prev) => ({ ...prev, [matchId]: true }));
-      // Revert optimistic update
-      setLocalWinners((prev) => {
-        const pred = predictions.find((p) => p.match_id === matchId);
-        return { ...prev, [matchId]: pred?.predicted_winner_id ?? null };
-      });
-      toast.error('Failed to save pick — please try again');
-    } finally {
-      setSaving((prev) => ({ ...prev, [matchId]: false }));
-    }
-  }
 
   const isLoading = matchesLoading || predsLoading;
 
@@ -675,12 +647,12 @@ export function KnockoutPredictionsPage() {
       <RoundPanel
         matches={activeMatches}
         predictions={predictions}
-        localWinners={localWinners}
+        predictionByMatch={predictionByMatch}
         saving={saving}
         errors={errors}
         timezone={timezone}
         highlightedMatchIds={highlightedMatchIds}
-        onPick={handlePick}
+        onPick={pickWinner}
       />
     </div>
   );
