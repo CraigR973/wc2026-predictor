@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { ArrowRight } from 'lucide-react';
 import { apiFetch } from '../lib/api';
@@ -66,8 +66,18 @@ export function UpcomingMatchesCarousel() {
     staleTime: 30_000,
   });
 
+  const queryClient = useQueryClient();
+
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange } =
     usePredictionEditor({ predictions, matches });
+
+  const handleKnockoutWinnerChange = useCallback(async (matchId: string, winnerId: string) => {
+    await apiFetch('/api/v1/knockout-predictions', {
+      method: 'POST',
+      body: JSON.stringify({ match_id: matchId, predicted_winner_id: winnerId }),
+    });
+    queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
+  }, [queryClient]);
 
   const predByMatch = useMemo(
     () => Object.fromEntries(predictions.map((p) => [p.match_id, p])),
@@ -137,6 +147,7 @@ export function UpcomingMatchesCarousel() {
                   onHomeChange={handleHomeChange}
                   onAwayChange={handleAwayChange}
                   knockoutPrediction={knockoutPredByMatch[m.id]}
+                  onKnockoutWinnerChange={handleKnockoutWinnerChange}
                   compact
                 />
               </div>

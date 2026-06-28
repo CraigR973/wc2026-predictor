@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -69,6 +69,7 @@ export function PredictionsPage() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
   const [filter, setFilter] = useState<FilterValue>('upcoming');
+  const queryClient = useQueryClient();
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<MatchResponse[]>({
     queryKey: ALL_MATCHES_QUERY_KEY,
@@ -90,6 +91,14 @@ export function PredictionsPage() {
   });
 
   const knockoutPredByMatch = Object.fromEntries(knockoutPredictions.map((p) => [p.match_id, p]));
+
+  const handleKnockoutWinnerChange = useCallback(async (matchId: string, winnerId: string) => {
+    await apiFetch('/api/v1/knockout-predictions', {
+      method: 'POST',
+      body: JSON.stringify({ match_id: matchId, predicted_winner_id: winnerId }),
+    });
+    queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
+  }, [queryClient]);
 
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange, handleSaveAll } =
     usePredictionEditor({
@@ -234,6 +243,7 @@ export function PredictionsPage() {
                           onHomeChange={handleHomeChange}
                           onAwayChange={handleAwayChange}
                           knockoutPrediction={knockoutPredByMatch[match.id]}
+                          onKnockoutWinnerChange={handleKnockoutWinnerChange}
                         />
                       </div>
                     ))}

@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, Lock } from 'lucide-react';
@@ -87,6 +86,7 @@ export interface PredictionCardProps {
    */
   compact?: boolean;
   knockoutPrediction?: KnockoutPredictionResponse;
+  onKnockoutWinnerChange?: (matchId: string, winnerId: string) => void;
 }
 
 export function PredictionCard({
@@ -99,6 +99,7 @@ export function PredictionCard({
   onAwayChange,
   compact = false,
   knockoutPrediction,
+  onKnockoutWinnerChange,
 }: PredictionCardProps) {
   const kickoffLocal = formatInTimeZone(
     new Date(match.kickoff_utc),
@@ -142,6 +143,32 @@ export function PredictionCard({
 
   // A complete prediction has both scores entered (locally or saved).
   const hasPrediction = homeVal !== '' && awayVal !== '';
+
+  // Knockout progression logic
+  const isKnockout = match.stage !== 'group';
+  const hScore = homeVal === '' ? null : Number(homeVal);
+  const aScore = awayVal === '' ? null : Number(awayVal);
+  const hasScore = hScore !== null && aScore !== null;
+  const autoWinnerId = isKnockout && hasScore && hScore !== aScore
+    ? (hScore! > aScore! ? match.home_team?.id : match.away_team?.id) ?? null
+    : null;
+
+  // Auto-save the knockout winner when score settles on a clear win (debounced).
+  const prevSentWinnerId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isKnockout || !onKnockoutWinnerChange || !autoWinnerId) {
+      prevSentWinnerId.current = null;
+      return;
+    }
+    if (autoWinnerId === knockoutPrediction?.predicted_winner_id) return;
+    if (autoWinnerId === prevSentWinnerId.current) return;
+    const timer = setTimeout(() => {
+      prevSentWinnerId.current = autoWinnerId;
+      onKnockoutWinnerChange(match.id, autoWinnerId);
+    }, 800);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoWinnerId, knockoutPrediction?.predicted_winner_id]);
 
   return (
     <motion.div
@@ -227,59 +254,57 @@ export function PredictionCard({
         </div>
       </div>
 
+      {/* Who progresses — knockout matches with known teams */}
+      {isKnockout && match.home_team && match.away_team && (
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-text-muted mb-2 text-center">
+            Who progresses{hasScore && hScore === aScore ? ' — draw: tap to pick' : ''}
+          </p>
+          <div className="flex gap-2">
+            {([
+              { team: match.home_team, isHome: true },
+              { team: match.away_team, isHome: false },
+            ] as const).map(({ team }) => {
+              const isAuto = autoWinnerId === team.id;
+              const isManual = !autoWinnerId && knockoutPrediction?.predicted_winner_id === team.id;
+              const isSelected = isAuto || isManual;
+              const label = compact
+                ? `${team.flag_emoji} ${team.code}`
+                : `${team.flag_emoji} ${team.name}`;
+              return (
+                <button
+                  key={team.id}
+                  type="button"
+                  disabled={isAuto || !editable}
+                  onClick={() => onKnockoutWinnerChange?.(match.id, team.id)}
+                  className={cn(
+                    'flex-1 rounded-md px-2 py-1.5 text-xs font-sans transition-colors text-center truncate',
+                    isSelected && isAuto
+                      ? 'bg-success/15 border border-success/50 text-success font-semibold cursor-default'
+                      : isSelected
+                        ? 'bg-primary/15 border border-primary/50 text-primary font-semibold'
+                        : editable
+                          ? 'bg-surface-elevated border border-border text-text-muted hover:border-primary/50 hover:text-text-primary cursor-pointer'
+                          : 'bg-surface border border-border/40 text-text-muted/60',
+                  )}
+                  aria-pressed={isSelected}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {hasScore && hScore === aScore && !knockoutPrediction?.predicted_winner_id && editable && (
+            <p className="mt-1.5 text-[10px] font-sans text-warning text-center">
+              Tap above to pick who goes through
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Footer states — mt-auto pushes this to the bottom so all cards share
           the same height regardless of status. */}
       <div className="mt-auto">
-      {match.stage !== 'group' && editable && (() => {
-        const hScore = homeVal === '' ? null : Number(homeVal);
-        const aScore = awayVal === '' ? null : Number(awayVal);
-        const hasScore = hScore !== null && aScore !== null;
-
-        if (hasScore && hScore !== aScore) {
-          const isHomeWin = hScore > aScore;
-          const team = isHomeWin
-            ? (match.home_team?.name ?? match.home_team_placeholder ?? 'Home team')
-            : (match.away_team?.name ?? match.away_team_placeholder ?? 'Away team');
-          return (
-            <p className="mt-3 text-center text-[10px] font-sans text-success leading-snug">
-              ✓ {team} progresses — no extra pick needed
-            </p>
-          );
-        }
-
-        if (hasScore && hScore === aScore) {
-          const winnerId = knockoutPrediction?.predicted_winner_id;
-          if (winnerId) {
-            const isHome = winnerId === match.home_team?.id;
-            const team = isHome
-              ? (match.home_team?.name ?? match.home_team_placeholder ?? 'Home team')
-              : (match.away_team?.name ?? match.away_team_placeholder ?? 'Away team');
-            return (
-              <p className="mt-3 text-center text-[10px] font-sans text-success leading-snug">
-                ✓ {team} to progress ·{' '}
-                <Link to="/predictions/knockout" className="text-primary hover:underline">
-                  change
-                </Link>
-              </p>
-            );
-          }
-          return (
-            <p className="mt-3 text-center text-[10px] font-sans text-warning font-medium leading-snug">
-              Draw — <Link to="/predictions/knockout" className="text-primary hover:underline font-semibold">pick who progresses</Link>
-            </p>
-          );
-        }
-
-        return (
-          <p className="mt-3 text-center text-[10px] font-sans text-text-muted leading-snug">
-            90-min result ·{' '}
-            <Link to="/predictions/knockout" className="text-primary hover:underline">
-              Knockout Picks
-            </Link>{' '}
-            tab for who progresses
-          </p>
-        );
-      })()}
       {isLocked && (
         <div
           className="mt-3 flex items-center justify-center gap-1.5 text-xs font-sans text-warning"
