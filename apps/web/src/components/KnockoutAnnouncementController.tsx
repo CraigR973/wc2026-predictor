@@ -47,7 +47,6 @@ export function KnockoutAnnouncementController() {
   const isSafeLandingRoute = pathname === '/';
 
   if (!player || !open) return null;
-  if (!isTourSeen(player.id)) return null;
   if (!isSafeLandingRoute) return null;
 
   return (
