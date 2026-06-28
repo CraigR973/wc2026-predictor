@@ -25,7 +25,7 @@ const KNOCKOUT_UPDATES = [
 export function KnockoutAnnouncementModal({ onClose }: Props) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/70 p-2 sm:items-center sm:p-4 backdrop-blur-sm"
+      className="fixed inset-0 top-[56px] z-50 flex items-end justify-center overflow-y-auto bg-black/70 p-2 sm:top-0 sm:items-center sm:p-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
