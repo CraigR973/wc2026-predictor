@@ -25,14 +25,14 @@ const KNOCKOUT_UPDATES = [
 export function KnockoutAnnouncementModal({ onClose }: Props) {
   return (
     <div
-      className="fixed inset-0 top-[56px] z-50 flex items-end justify-center overflow-y-auto bg-black/70 p-2 sm:top-0 sm:items-center sm:p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-2 pt-16 sm:items-center sm:p-4 sm:pt-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Knockout stage update"
     >
       <div
-        className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] shadow-2xl sm:max-h-[90vh]"
+        className="relative flex max-h-[calc(100dvh-4rem)] w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] shadow-2xl sm:max-h-[90vh]"
         onClick={(event) => event.stopPropagation()}
       >
         <div
