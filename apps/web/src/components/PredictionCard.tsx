@@ -141,17 +141,20 @@ export function PredictionCard({
   const points = prediction?.points_awarded ?? null;
   const noSubmission = isCompleted && !prediction;
 
-  // A complete prediction has both scores entered (locally or saved).
-  const hasPrediction = homeVal !== '' && awayVal !== '';
-
   // Knockout progression logic
   const isKnockout = match.stage !== 'group';
   const hScore = homeVal === '' ? null : Number(homeVal);
   const aScore = awayVal === '' ? null : Number(awayVal);
   const hasScore = hScore !== null && aScore !== null;
+  const isDraw = hasScore && hScore === aScore;
   const autoWinnerId = isKnockout && hasScore && hScore !== aScore
     ? (hScore! > aScore! ? match.home_team?.id : match.away_team?.id) ?? null
     : null;
+
+  // A complete prediction has both scores entered.
+  // For knockout draws, also requires a who-progresses pick.
+  const hasPrediction = homeVal !== '' && awayVal !== ''
+    && !(isKnockout && isDraw && !knockoutPrediction?.predicted_winner_id);
 
   // Auto-save the knockout winner when score settles on a clear win (debounced).
   const prevSentWinnerId = useRef<string | null>(null);
@@ -268,9 +271,10 @@ export function PredictionCard({
               const isAuto = autoWinnerId === team.id;
               const isManual = !autoWinnerId && knockoutPrediction?.predicted_winner_id === team.id;
               const isSelected = isAuto || isManual;
-              const label = compact
+              const baseLabel = compact
                 ? `${team.flag_emoji} ${team.code}`
                 : `${team.flag_emoji} ${team.name}`;
+              const label = isSelected ? `✓ ${baseLabel}` : baseLabel;
               return (
                 <button
                   key={team.id}
@@ -278,14 +282,12 @@ export function PredictionCard({
                   disabled={isAuto || !editable}
                   onClick={() => onKnockoutWinnerChange?.(match.id, team.id)}
                   className={cn(
-                    'flex-1 rounded-md px-2 py-1.5 text-xs font-sans transition-colors text-center truncate',
-                    isSelected && isAuto
-                      ? 'bg-success/15 border border-success/50 text-success font-semibold cursor-default'
-                      : isSelected
-                        ? 'bg-primary/15 border border-primary/50 text-primary font-semibold'
-                        : editable
-                          ? 'bg-surface-elevated border border-border text-text-muted hover:border-primary/50 hover:text-text-primary cursor-pointer'
-                          : 'bg-surface border border-border/40 text-text-muted/60',
+                    'flex-1 rounded-md px-2 py-2 text-xs font-sans transition-colors text-center truncate',
+                    isSelected
+                      ? 'bg-success/30 border-2 border-success text-success font-bold shadow-sm cursor-default'
+                      : editable
+                        ? 'bg-surface-elevated border border-border text-text-muted hover:border-primary/50 hover:text-text-primary cursor-pointer'
+                        : 'bg-surface border border-border/40 text-text-muted/60',
                   )}
                   aria-pressed={isSelected}
                 >
