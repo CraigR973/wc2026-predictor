@@ -98,6 +98,7 @@ async def send_notification(
     data: dict[str, Any] | None = None,
     match_id: UUID | None = None,
     tag: str | None = None,
+    force_delivery: bool = False,
 ) -> int:
     """Deliver a push notification to all active subscriptions for player_id.
 
@@ -122,7 +123,9 @@ async def send_notification(
     )
     prefs = prefs_result.scalar_one_or_none()
 
-    if prefs is None:
+    if force_delivery:
+        suppressed = False
+    elif prefs is None:
         # Player hasn't customised preferences — respect model defaults.
         suppressed = not _default_pref_enabled(notification_type)
     else:

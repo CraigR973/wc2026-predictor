@@ -16,7 +16,7 @@ from src.database import get_db
 from src.main import app
 from src.models.notification import DeliveryStatus, NotificationType
 from src.models.prediction import NotificationPreferences, PushSubscription
-from src.models.profile import Profile
+from src.models.profile import Profile, SiteRole
 from src.services.push_notification_service import (
     _is_quiet,
     _pref_enabled,
@@ -279,6 +279,47 @@ async def test_send_notification_suppressed_during_quiet_hours_for_predict_remin
 
 
 @pytest.mark.asyncio
+async def test_send_notification_force_delivery_ignores_preferences() -> None:
+    player_id = uuid.uuid4()
+    sub = _sub(player_id)
+    prefs = _prefs(
+        player_id,
+        global_mute=True,
+        result_detected=False,
+        quiet_hours_start=datetime(2000, 1, 1, 9, 0),
+        quiet_hours_end=datetime(2000, 1, 1, 17, 0),
+    )
+
+    session = AsyncMock()
+    session.execute.side_effect = [
+        MagicMock(scalar_one_or_none=MagicMock(return_value=prefs)),
+        MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[sub])))),
+    ]
+
+    with (
+        patch.object(settings, "vapid_private_key", "priv"),
+        patch.object(settings, "vapid_public_key", "pub"),
+        patch("src.services.push_notification_service._send_push_sync"),
+        patch(
+            "src.services.push_notification_service._utc_now",
+            return_value=datetime(2026, 6, 1, 10, 0),
+        ),
+    ):
+        sent = await send_notification(
+            session,
+            player_id,
+            NotificationType.result_detected,
+            "Title",
+            "Body",
+            force_delivery=True,
+        )
+
+    assert sent == 1
+    log_call = session.add.call_args[0][0]
+    assert log_call.delivery_status == DeliveryStatus.sent
+
+
+@pytest.mark.asyncio
 async def test_send_notification_delivers_and_logs() -> None:
     player_id = uuid.uuid4()
     sub = _sub(player_id)
@@ -492,5 +533,41 @@ async def test_patch_preferences() -> None:
         assert prefs.predict_reminder is False
         assert prefs.pick_confirmation is True
         assert prefs.result_detected is False
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_admin_knockout_broadcast_targets_active_subscribers() -> None:
+    admin = _player("Craig")
+    admin.site_role = SiteRole.superadmin
+    target_a = uuid.uuid4()
+    target_b = uuid.uuid4()
+    mock_db = AsyncMock()
+    mock_db.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[target_a, target_b])))
+    )
+
+    app.dependency_overrides[get_current_player] = lambda: admin
+    app.dependency_overrides[get_db] = _db_with(mock_db)
+    try:
+        with patch(
+            "src.routers.notifications.send_notification",
+            new=AsyncMock(side_effect=[1, 2]),
+        ) as mocked_send:
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                r = await client.post("/api/v1/admin/push/knockout-announcement")
+
+        assert r.status_code == 200
+        assert r.json() == {"players_targeted": 2, "notifications_sent": 3}
+        assert mocked_send.await_count == 2
+        first_call = mocked_send.await_args_list[0].kwargs
+        assert first_call["notification_type"] == NotificationType.specials_revealed
+        assert first_call["force_delivery"] is True
+        assert first_call["data"] == {"url": "/predictions/knockout"}
+        mock_db.add.assert_called_once()
     finally:
         app.dependency_overrides.clear()
