@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { KnockoutAnnouncementModal } from './KnockoutAnnouncementModal';
 
@@ -35,7 +34,6 @@ function resetSeen(playerId?: string): void {
 
 export function KnockoutAnnouncementController() {
   const { player } = useAuth();
-  const { pathname } = useLocation();
   const [open, setOpen] = useState(() => {
     const seen = hasSeen(player?.id);
     if (seen) {
@@ -43,10 +41,8 @@ export function KnockoutAnnouncementController() {
     }
     return true;
   });
-  const isSafeLandingRoute = pathname === '/';
 
   if (!player || !open) return null;
-  if (!isSafeLandingRoute) return null;
 
   return (
     <KnockoutAnnouncementModal
