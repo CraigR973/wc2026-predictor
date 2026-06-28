@@ -559,7 +559,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     render(<Wrapper />);
 
     const scoringRef = await screen.findByTestId('dashboard-scoring-ref');
-    const scoringGuideButton = within(scoringRef).getByRole('button', { name: /^Scoring quick-ref/i });
+    const scoringGuideButton = within(scoringRef).getByRole('button', { name: /Knockout scoring quick-ref/i });
 
     expect(scoringRef).toContainElement(scoringGuideButton);
     expect(screen.getByTestId('dashboard-points-column')).not.toContainElement(scoringGuideButton);

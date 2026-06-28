@@ -111,7 +111,7 @@ export function KnockoutScoringGuide({
           </table>
 
           {/* Winner pick points per round */}
-          <div className="px-4 pb-4">
+          <div className="px-4 pb-3">
             <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-text-muted mb-2">
               Who progresses — points per round
             </p>
@@ -133,6 +133,53 @@ export function KnockoutScoringGuide({
                       </span>
                     </td>
                     <td className="py-1.5 text-right font-mono text-[11px] text-text-muted">{r.max}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Score prediction worked examples */}
+          <div className="px-4 pb-4">
+            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-text-muted mb-2">
+              Score prediction worked examples
+            </p>
+            <table className="w-full text-xs font-sans border-collapse" aria-label="Score prediction worked examples">
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className="text-left py-1 text-text-muted font-medium uppercase tracking-wider text-[10px]">You</th>
+                  <th scope="col" className="text-left py-1 px-2 text-text-muted font-medium uppercase tracking-wider text-[10px]">Actual</th>
+                  <th scope="col" className="text-left py-1 text-text-muted font-medium uppercase tracking-wider text-[10px]">Breakdown</th>
+                  <th scope="col" className="text-right py-1 text-text-muted font-medium uppercase tracking-wider text-[10px] w-12">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {WORKED_EXAMPLES.map((ex) => (
+                  <tr
+                    key={ex.total}
+                    className={cn(
+                      'border-b border-border/30',
+                      ex.total === 10 && 'bg-accent/5',
+                      ex.total === 0 && 'opacity-60',
+                    )}
+                  >
+                    <td className="py-1.5 font-mono text-text-primary">{ex.predicted}</td>
+                    <td className="py-1.5 px-2 font-mono text-text-primary">{ex.actual}</td>
+                    <td className="py-1.5 text-text-muted text-[11px] leading-snug">{ex.breakdown}</td>
+                    <td className="py-1.5 text-right">
+                      <span
+                        className={cn(
+                          'inline-block px-1.5 py-0.5 rounded-full font-mono font-semibold text-[11px] leading-4',
+                          ex.total === 10
+                            ? 'bg-accent/15 text-accent'
+                            : ex.total === 0
+                              ? 'bg-border text-text-muted'
+                              : 'bg-primary/15 text-primary',
+                        )}
+                      >
+                        {ex.total}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
