@@ -55,13 +55,9 @@ export function KnockoutAnnouncementModal({ onClose }: Props) {
           <h2 className="text-2xl font-bold leading-tight text-white">
             The bracket is ready for business
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-white/75">
-            Sorry for the delay. I was obviously deep in the final interview stages for the Scotland
-            job and admin took longer than expected.
-          </p>
         </div>
 
-        <div className="min-h-0 overflow-y-auto overscroll-contain bg-surface">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-surface">
           <div className="space-y-5 px-6 py-5">
             <ul className="space-y-3">
               {KNOCKOUT_UPDATES.map((item) => (
