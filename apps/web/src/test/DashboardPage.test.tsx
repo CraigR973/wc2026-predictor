@@ -345,6 +345,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).toHaveTextContent('Result');
     expect(liveCard).toHaveTextContent('Goals');
     expect(liveCard).toHaveTextContent('Exact');
+    expect(screen.getByTestId('points-tile-live-total')).toHaveTextContent('+10 live');
   });
 
   it('hides the fabricated score and provisional points when a live match has no live score', async () => {
@@ -369,6 +370,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).not.toHaveTextContent('if it stands');
     expect(liveCard).not.toHaveTextContent('0–0');
     expect(screen.queryByTestId('provisional-combined-breakdown')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('points-tile-live-total')).not.toBeInTheDocument();
   });
 
   it('renders a genuine live 0–0 (U54 null-vs-zero guard treats 0 as a real score)', async () => {
@@ -420,6 +422,10 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent(
       'Advancement +10',
     );
+    expect(liveCard).toHaveTextContent('Match-only breakdown');
+    expect(screen.getByTestId('points-tile-live-total')).toHaveTextContent('FRA-USA +20 live');
+    const breakdownRows = within(liveCard).getAllByText(/pts$/);
+    expect(breakdownRows.at(-1)).toHaveTextContent('10 pts');
   });
 
   it('keeps knockout advancement undecided for a level live scoreline', async () => {
@@ -449,8 +455,12 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).toHaveTextContent('+10 if it stands');
     expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent('Match +10');
     expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent(
-      'Advancement undecided',
+      'Advancement points pending',
     );
+    expect(liveCard).toHaveTextContent('Match-only breakdown');
+    expect(screen.getByTestId('points-tile-live-total')).toHaveTextContent('ARG-ENG +10 live');
+    const breakdownRows = within(liveCard).getAllByText(/pts$/);
+    expect(breakdownRows.at(-1)).toHaveTextContent('10 pts');
   });
 
   it('leaves group-stage live provisional scoring unchanged', async () => {
@@ -468,6 +478,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).toHaveTextContent('+10 if it stands');
     expect(screen.queryByTestId('provisional-combined-breakdown')).not.toBeInTheDocument();
     expect(liveCard).not.toHaveTextContent('Advancement');
+    expect(screen.getByTestId('points-tile-live-total')).toHaveTextContent('+10 live');
   });
 
   it('defaults the multi-live carousel to the highest-stake card and exposes dots plus desktop arrows', async () => {
