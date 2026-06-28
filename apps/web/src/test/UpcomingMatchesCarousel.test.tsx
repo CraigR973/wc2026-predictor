@@ -175,12 +175,12 @@ describe('UpcomingMatchesCarousel', () => {
     expect(link.getAttribute('href')).toBe('/schedule');
   });
 
-  it('excludes knockout matches (group-stage scores v1)', async () => {
+  it('includes scheduled knockout matches alongside group matches', async () => {
     const matches = [baseMatch(1), baseMatch(2, { stage: 'round_of_32' })];
     renderCarousel(makeFetch(matches, []));
 
     await waitFor(() => expect(screen.queryByTestId('prediction-card-m1')).toBeTruthy());
-    expect(screen.queryByTestId('prediction-card-m2')).toBeNull();
+    expect(screen.queryByTestId('prediction-card-m2')).toBeTruthy();
   });
 
   it('excludes locked matches (prediction window closed)', async () => {
@@ -215,11 +215,11 @@ describe('UpcomingMatchesCarousel', () => {
       baseMatch(1, { status: 'locked' }),
       baseMatch(2, { status: 'live', actual_home_score: 1, actual_away_score: 0 }),
       baseMatch(3, { status: 'completed' }),
-      baseMatch(4, { stage: 'round_of_32' }),
+      baseMatch(4, { stage: 'round_of_32', status: 'completed' }),
     ];
     renderCarousel(makeFetch(matches, []));
 
-    // No open-to-predict group matches → the whole section unmounts.
+    // No open-to-predict matches across any stage → the whole section unmounts.
     await waitFor(() => expect(screen.queryByText('Upcoming')).toBeNull());
     expect(screen.queryByRole('list', { name: 'Upcoming matches' })).toBeNull();
   });
