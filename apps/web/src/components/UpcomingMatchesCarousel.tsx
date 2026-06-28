@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -48,6 +48,7 @@ function teamName(
 export function UpcomingMatchesCarousel() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
+  const [localKnockoutWinners, setLocalKnockoutWinners] = useState<Record<string, string | null>>({});
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<MatchResponse[]>({
     queryKey: ['matches', 'all'],
@@ -72,18 +73,6 @@ export function UpcomingMatchesCarousel() {
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange } =
     usePredictionEditor({ predictions, matches });
 
-  const handleKnockoutWinnerChange = useCallback(async (matchId: string, winnerId: string) => {
-    try {
-      await apiFetch(`/api/v1/knockout-predictions/${matchId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ predicted_winner_id: winnerId }),
-      });
-      void queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
-    } catch {
-      toast.error('Failed to save who-progresses pick — please try again');
-    }
-  }, [queryClient]);
-
   const predByMatch = useMemo(
     () => Object.fromEntries(predictions.map((p) => [p.match_id, p])),
     [predictions],
@@ -93,6 +82,51 @@ export function UpcomingMatchesCarousel() {
     () => Object.fromEntries(knockoutPredictions.map((p) => [p.match_id, p])),
     [knockoutPredictions],
   );
+  const handleKnockoutWinnerChange = useCallback(async (matchId: string, winnerId: string) => {
+    setLocalKnockoutWinners((prev) => ({ ...prev, [matchId]: winnerId }));
+    try {
+      await apiFetch(`/api/v1/knockout-predictions/${matchId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ predicted_winner_id: winnerId }),
+      });
+      void queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
+    } catch {
+      setLocalKnockoutWinners((prev) => ({
+        ...prev,
+        [matchId]: knockoutPredByMatch[matchId]?.predicted_winner_id ?? null,
+      }));
+      toast.error('Failed to save who-progresses pick — please try again');
+    }
+  }, [knockoutPredByMatch, queryClient]);
+  const displayedKnockoutPredByMatch = useMemo(() => {
+    const next = Object.fromEntries(
+      knockoutPredictions.map((prediction) => [
+        prediction.match_id,
+        {
+          ...prediction,
+          predicted_winner_id:
+            localKnockoutWinners[prediction.match_id] ?? prediction.predicted_winner_id,
+        },
+      ]),
+    ) as Record<string, KnockoutPredictionResponse>;
+
+    for (const [matchId, winnerId] of Object.entries(localKnockoutWinners)) {
+      if (winnerId && !next[matchId]) {
+        next[matchId] = {
+          id: '',
+          player_id: player?.id ?? '',
+          match_id: matchId,
+          predicted_winner_id: winnerId,
+          submitted_at: null,
+          update_count: 0,
+          points_awarded: null,
+          updated_at: '',
+        };
+      }
+    }
+
+    return next;
+  }, [knockoutPredictions, localKnockoutWinners, player?.id]);
 
   // Next N scheduled / locked / live group-stage matches, soonest first.
   const upcoming = useMemo(
@@ -151,7 +185,7 @@ export function UpcomingMatchesCarousel() {
                   highlighted={highlightedMatchIds.has(m.id)}
                   onHomeChange={handleHomeChange}
                   onAwayChange={handleAwayChange}
-                  knockoutPrediction={knockoutPredByMatch[m.id]}
+                  knockoutPrediction={displayedKnockoutPredByMatch[m.id]}
                   onKnockoutWinnerChange={handleKnockoutWinnerChange}
                   compact
                 />

@@ -70,6 +70,7 @@ export function PredictionsPage() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
   const [filter, setFilter] = useState<FilterValue>('upcoming');
+  const [localKnockoutWinners, setLocalKnockoutWinners] = useState<Record<string, string | null>>({});
   const queryClient = useQueryClient();
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<MatchResponse[]>({
@@ -94,6 +95,7 @@ export function PredictionsPage() {
   const knockoutPredByMatch = Object.fromEntries(knockoutPredictions.map((p) => [p.match_id, p]));
 
   const handleKnockoutWinnerChange = useCallback(async (matchId: string, winnerId: string) => {
+    setLocalKnockoutWinners((prev) => ({ ...prev, [matchId]: winnerId }));
     try {
       await apiFetch(`/api/v1/knockout-predictions/${matchId}`, {
         method: 'PUT',
@@ -101,9 +103,13 @@ export function PredictionsPage() {
       });
       void queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
     } catch {
+      setLocalKnockoutWinners((prev) => ({
+        ...prev,
+        [matchId]: knockoutPredByMatch[matchId]?.predicted_winner_id ?? null,
+      }));
       toast.error('Failed to save who-progresses pick — please try again');
     }
-  }, [queryClient]);
+  }, [knockoutPredByMatch, queryClient]);
 
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange, handleSaveAll } =
     usePredictionEditor({
@@ -120,6 +126,31 @@ export function PredictionsPage() {
   useEffect(() => () => setPredictionsDirty(false), []);
 
   const predByMatch = Object.fromEntries(predictions.map((p) => [p.match_id, p]));
+  const displayedKnockoutPredByMatch = Object.fromEntries(
+    knockoutPredictions.map((prediction) => [
+      prediction.match_id,
+      {
+        ...prediction,
+        predicted_winner_id:
+          localKnockoutWinners[prediction.match_id] ?? prediction.predicted_winner_id,
+      },
+    ]),
+  ) as Record<string, KnockoutPredictionResponse>;
+
+  for (const [matchId, winnerId] of Object.entries(localKnockoutWinners)) {
+    if (winnerId && !displayedKnockoutPredByMatch[matchId]) {
+      displayedKnockoutPredByMatch[matchId] = {
+        id: '',
+        player_id: player?.id ?? '',
+        match_id: matchId,
+        predicted_winner_id: winnerId,
+        submitted_at: null,
+        update_count: 0,
+        points_awarded: null,
+        updated_at: '',
+      };
+    }
+  }
 
   const sortedMatches = [...matches].sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc));
   const filteredMatches = sortedMatches.filter((match) => {
@@ -247,7 +278,7 @@ export function PredictionsPage() {
                           highlighted={highlightedMatchIds.has(match.id)}
                           onHomeChange={handleHomeChange}
                           onAwayChange={handleAwayChange}
-                          knockoutPrediction={knockoutPredByMatch[match.id]}
+                          knockoutPrediction={displayedKnockoutPredByMatch[match.id]}
                           onKnockoutWinnerChange={handleKnockoutWinnerChange}
                         />
                       </div>

@@ -53,7 +53,9 @@ function makeFetch(matches: unknown[], predictions: unknown[]) {
   return vi.fn((url: string, opts?: RequestInit) => {
     if (url.includes('/api/v1/matches')) return resolve(matches);
     if (url.includes('/api/v1/predictions/me')) return resolve(predictions);
+    if (url.includes('/api/v1/knockout-predictions/me')) return resolve([]);
     if (url.includes('/api/v1/predictions/') && opts?.method === 'PUT') return resolve({});
+    if (url.includes('/api/v1/knockout-predictions/') && opts?.method === 'PUT') return resolve({});
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
 }
@@ -165,6 +167,23 @@ describe('UpcomingMatchesCarousel', () => {
       },
       { timeout: 2500 },
     );
+  });
+
+  it('highlights a knockout draw winner immediately after tap', async () => {
+    const matches = [baseMatch(73, {
+      stage: 'r32',
+      kickoff_utc: '2026-06-28T19:00:00Z',
+      home_team: { id: 'h73', name: 'Netherlands', code: 'NED', flag_emoji: 'NL' },
+      away_team: { id: 'a73', name: 'Uruguay', code: 'URU', flag_emoji: 'UY' },
+    })];
+    const predictions = [{ match_id: 'm73', predicted_home: 1, predicted_away: 1, points_awarded: null }];
+    renderCarousel(makeFetch(matches, predictions));
+
+    await waitFor(() => expect(screen.getByText(/draw: tap to pick/i)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /UY URU/i }));
+
+    expect(screen.getByRole('button', { name: /✓ UY URU/i })).toBeTruthy();
   });
 
   it('ends with a "See full schedule" card linking to /schedule', async () => {
