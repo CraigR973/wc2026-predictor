@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { isTourSeen } from './IntroTour';
 import { KnockoutAnnouncementModal } from './KnockoutAnnouncementModal';
 
 const SEEN_KEY = 'sss_knockout_announcement_seen_v1';

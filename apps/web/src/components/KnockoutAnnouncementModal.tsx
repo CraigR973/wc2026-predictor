@@ -55,6 +55,9 @@ export function KnockoutAnnouncementModal({ onClose }: Props) {
           <h2 className="text-2xl font-bold leading-tight text-white">
             The bracket is ready for business
           </h2>
+          <p className="mt-2 text-sm leading-relaxed text-white/80">
+            You can now pick knockout winners and advance teams as the rounds unlock.
+          </p>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-surface">
