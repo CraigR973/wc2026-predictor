@@ -72,6 +72,19 @@ describe('KnockoutAnnouncementController', () => {
     expect(screen.queryByText(/the bracket is ready for business/i)).not.toBeInTheDocument();
   });
 
+  it('shows the modal again after a prior dismissal by clearing the stored seen state', async () => {
+    localStorage.setItem('sss_knockout_announcement_seen_v1_p1', 'true');
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <KnockoutAnnouncementController />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/the bracket is ready for business/i)).toBeInTheDocument();
+    expect(localStorage.getItem('sss_knockout_announcement_seen_v1_p1')).toBeNull();
+  });
+
   it('stays hidden for signed-out users', () => {
     mockedUseAuth.mockReturnValue({ ...baseAuth, player: null });
     render(
