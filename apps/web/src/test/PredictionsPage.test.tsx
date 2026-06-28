@@ -84,6 +84,16 @@ const MATCH_KNOCKOUT = {
   away_team_placeholder: 'Best 3rd #1',
 };
 
+const MATCH_KNOCKOUT_DRAW = {
+  ...MATCH_KNOCKOUT,
+  id: 'm74',
+  match_number: 74,
+  home_team: { id: 't11', name: 'Netherlands', code: 'NED', flag_emoji: 'NL' },
+  away_team: { id: 't12', name: 'Uruguay', code: 'URU', flag_emoji: 'UY' },
+  home_team_placeholder: null,
+  away_team_placeholder: null,
+};
+
 const PRED_SCHEDULED = {
   id: 'p1',
   player_id: 'player-1',
@@ -128,10 +138,11 @@ function makeFetch(overrides: Record<string, unknown> = {}) {
     groups: [GROUP_A, GROUP_B],
     matches: [MATCH_SCHEDULED, MATCH_LOCKED, MATCH_CANCELLED, MATCH_COMPLETED],
     predictions: [PRED_SCHEDULED, PRED_COMPLETED, NO_PRED_CANCELLED],
+    knockoutPredictions: [],
   };
   const data = { ...defaults, ...overrides };
 
-  return vi.fn((url: string) => {
+  return vi.fn((url: string, opts?: RequestInit) => {
     if (url.includes('/api/v1/groups')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(data.groups) });
     }
@@ -141,7 +152,13 @@ function makeFetch(overrides: Record<string, unknown> = {}) {
     if (url.includes('/api/v1/predictions/me')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(data.predictions) });
     }
+    if (url.includes('/api/v1/knockout-predictions/me')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(data.knockoutPredictions) });
+    }
     if (url.includes('/api/v1/predictions/')) {
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    }
+    if (url.includes('/api/v1/knockout-predictions/') && opts?.method === 'PUT') {
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
     }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -276,6 +293,34 @@ describe('PredictionsPage', () => {
     await waitFor(() => {
       const putCalls = (fetchMock.mock.calls as unknown as [string, RequestInit][]).filter(
         ([url, opts]) => url.includes('/api/v1/predictions/m1') && opts?.method === 'PUT',
+      );
+      expect(putCalls.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('calls PUT /api/v1/knockout-predictions/{match_id} when a draw needs a who-progresses pick', async () => {
+    const fetchMock = makeFetch({
+      matches: [MATCH_KNOCKOUT_DRAW],
+      predictions: [],
+      knockoutPredictions: [],
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderPage(PredictionsPage);
+
+    await waitFor(() => expect(screen.getByTestId('prediction-card-m74')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Home score for match 74'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Away score for match 74'), { target: { value: '1' } });
+
+    await waitFor(() => expect(screen.getByText(/draw: tap to pick/i)).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Uruguay/i }));
+    });
+
+    await waitFor(() => {
+      const putCalls = (fetchMock.mock.calls as unknown as [string, RequestInit][]).filter(
+        ([url, opts]) => url.includes('/api/v1/knockout-predictions/m74') && opts?.method === 'PUT',
       );
       expect(putCalls.length).toBeGreaterThan(0);
     });

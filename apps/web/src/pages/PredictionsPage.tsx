@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
+import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { MatchResponse, PredictionResponse, KnockoutPredictionResponse } from '../lib/types';
@@ -93,11 +94,15 @@ export function PredictionsPage() {
   const knockoutPredByMatch = Object.fromEntries(knockoutPredictions.map((p) => [p.match_id, p]));
 
   const handleKnockoutWinnerChange = useCallback(async (matchId: string, winnerId: string) => {
-    await apiFetch('/api/v1/knockout-predictions', {
-      method: 'POST',
-      body: JSON.stringify({ match_id: matchId, predicted_winner_id: winnerId }),
-    });
-    queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
+    try {
+      await apiFetch(`/api/v1/knockout-predictions/${matchId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ predicted_winner_id: winnerId }),
+      });
+      void queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
+    } catch {
+      toast.error('Failed to save who-progresses pick — please try again');
+    }
   }, [queryClient]);
 
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange, handleSaveAll } =
