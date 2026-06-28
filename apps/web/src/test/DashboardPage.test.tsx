@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -559,7 +559,7 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     render(<Wrapper />);
 
     const scoringRef = await screen.findByTestId('dashboard-scoring-ref');
-    const scoringGuideButton = screen.getByRole('button', { name: /Scoring quick-ref/i });
+    const scoringGuideButton = within(scoringRef).getByRole('button', { name: /^Scoring quick-ref/i });
 
     expect(scoringRef).toContainElement(scoringGuideButton);
     expect(screen.getByTestId('dashboard-points-column')).not.toContainElement(scoringGuideButton);
