@@ -95,12 +95,12 @@ describe('KnockoutAnnouncementController', () => {
     expect(screen.queryByText(/the bracket is ready for business/i)).not.toBeInTheDocument();
   });
 
-  it('stays hidden away from the dashboard route', () => {
+  it('shows the modal away from the dashboard route', async () => {
     render(
       <MemoryRouter initialEntries={['/predictions/knockout']}>
         <KnockoutAnnouncementController />
       </MemoryRouter>,
     );
-    expect(screen.queryByText(/the bracket is ready for business/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/the bracket is ready for business/i)).toBeInTheDocument();
   });
 });
