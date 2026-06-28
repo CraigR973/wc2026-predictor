@@ -11,7 +11,7 @@ import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { PredictionsSubNav } from '../components/PredictionsSubNav';
 import { PredictionCard } from '../components/PredictionCard';
-import { ScoringGuide } from '../components/ScoringGuide';
+import { ScoringGuide, KnockoutScoringGuide } from '../components/ScoringGuide';
 import { usePredictionEditor } from '../hooks/usePredictionEditor';
 import { setPredictionsDirty } from '../lib/dirtyState';
 import { canEdit } from '../lib/matchStatus';
@@ -131,6 +131,7 @@ export function PredictionsPage() {
       <PageHeader title="My Predictions" eyebrow="All matches" />
       <PredictionsSubNav />
       <ScoringGuide storageKey="sss_scoring_guide_predict_all_open" defaultOpen={false} />
+      <KnockoutScoringGuide storageKey="sss_knockout_scoring_guide_predict_all_open" />
 
       {isLoading && (
         <div className="space-y-4" aria-label="Loading predictions">

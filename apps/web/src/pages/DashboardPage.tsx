@@ -9,7 +9,7 @@ import { formatLiveMinute } from '../lib/liveMinute';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
-import { ScoringGuide } from '../components/ScoringGuide';
+import { ScoringGuide, KnockoutScoringGuide } from '../components/ScoringGuide';
 import { PointsBreakdownRow } from '../components/PointsBreakdownRow';
 import { useCountdown } from '../hooks/useCountdown';
 import { useNow } from '../hooks/useNow';
@@ -653,6 +653,7 @@ export function DashboardPage() {
         </div>
       </div>
 
+      <KnockoutScoringGuide storageKey="sss_knockout_scoring_guide_home_open" />
       <UpcomingMatchesCarousel />
 
       {summaryLoading ? (

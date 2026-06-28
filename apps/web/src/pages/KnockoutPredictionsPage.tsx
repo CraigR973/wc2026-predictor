@@ -17,6 +17,7 @@ import { useCountdown } from '../hooks/useCountdown';
 import { KNOCKOUT_STAGES, type KnockoutStage } from '../lib/stages';
 import { shortPlaceholder } from '../lib/matchTeam';
 import { cn } from '../lib/utils';
+import { KnockoutScoringGuide } from '../components/ScoringGuide';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -280,6 +281,11 @@ function KnockoutCard({
       </div>
 
       {/* Team buttons */}
+      {canPick && (
+        <p className="mb-1.5 text-xs font-sans text-text-muted">
+          Who progresses? {!isCompleted && <span className="text-text-muted/70">(if 90 min draw, pick who goes through)</span>}
+        </p>
+      )}
       <div className="flex items-stretch gap-2">
         <TeamButton
           label={homeLabel}
@@ -631,6 +637,8 @@ export function KnockoutPredictionsPage() {
     <div>
       <PageHeader title="Knockout Picks" eyebrow="Bracket" />
       <PredictionsSubNav />
+
+      <KnockoutScoringGuide storageKey="sss_knockout_scoring_guide_knockout_page_open" />
 
       {/* Round pill scroller */}
       <nav

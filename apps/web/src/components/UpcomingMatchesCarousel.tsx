@@ -49,8 +49,8 @@ export function UpcomingMatchesCarousel() {
   const timezone = player?.timezone ?? 'UTC';
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<MatchResponse[]>({
-    queryKey: ['matches', 'group'],
-    queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches?stage=group'),
+    queryKey: ['matches', 'all'],
+    queryFn: () => apiFetch<MatchResponse[]>('/api/v1/matches'),
     staleTime: 30_000,
   });
 
@@ -72,7 +72,7 @@ export function UpcomingMatchesCarousel() {
   const upcoming = useMemo(
     () =>
       matches
-        .filter((m) => m.stage === 'group' && CAROUSEL_STATUSES.has(m.status))
+        .filter((m) => CAROUSEL_STATUSES.has(m.status))
         .sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc))
         .slice(0, MAX_CARDS),
     [matches],

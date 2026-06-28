@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, Lock } from 'lucide-react';
@@ -227,6 +228,15 @@ export function PredictionCard({
       {/* Footer states — mt-auto pushes this to the bottom so all cards share
           the same height regardless of status. */}
       <div className="mt-auto">
+      {match.stage !== 'group' && editable && (
+        <p className="mt-3 text-center text-[10px] font-sans text-text-muted leading-snug">
+          90-min result ·{' '}
+          <Link to="/predictions/knockout" className="text-primary hover:underline">
+            Knockout Picks
+          </Link>{' '}
+          tab to pick who progresses
+        </p>
+      )}
       {isLocked && (
         <div
           className="mt-3 flex items-center justify-center gap-1.5 text-xs font-sans text-warning"
