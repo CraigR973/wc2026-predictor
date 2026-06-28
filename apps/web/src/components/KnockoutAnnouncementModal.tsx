@@ -13,7 +13,7 @@ const KNOCKOUT_UPDATES = [
     body: 'You can now fill in the bracket matches as they unlock, and keep editing any future tie right up until that specific kickoff.',
   },
   {
-    title: 'Level after 90? Pick who goes through',
+    title: 'Predicted a draw after 90? Pick who goes through',
     body: 'For knockout matches that finish all square in normal time, you now pick the team that advances as well as the 90-minute scoreline.',
   },
   {
