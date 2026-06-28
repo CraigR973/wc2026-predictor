@@ -221,6 +221,11 @@ export function PredictionCard({
       </div>
 
       {/* Teams + score inputs */}
+      {isKnockout && (
+        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-text-muted mb-1.5 text-center">
+          90-min score
+        </p>
+      )}
       <div className="flex items-center gap-3">
         <div
           title={homeTitle}
