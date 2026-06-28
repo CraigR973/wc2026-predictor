@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePredictionEditor } from '../hooks/usePredictionEditor';
 import { PredictionCard } from './PredictionCard';
 import { Skeleton } from './ui/skeleton';
-import type { MatchResponse, PredictionResponse } from '../lib/types';
+import type { MatchResponse, PredictionResponse, KnockoutPredictionResponse } from '../lib/types';
 
 // Cap on how many upcoming cards the carousel shows before the "see full
 // schedule" affordance. The full list lives at /schedule.
@@ -60,12 +60,23 @@ export function UpcomingMatchesCarousel() {
     staleTime: 30_000,
   });
 
+  const { data: knockoutPredictions = [] } = useQuery<KnockoutPredictionResponse[]>({
+    queryKey: ['knockout-predictions', 'me'],
+    queryFn: () => apiFetch<KnockoutPredictionResponse[]>('/api/v1/knockout-predictions/me'),
+    staleTime: 30_000,
+  });
+
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange } =
     usePredictionEditor({ predictions, matches });
 
   const predByMatch = useMemo(
     () => Object.fromEntries(predictions.map((p) => [p.match_id, p])),
     [predictions],
+  );
+
+  const knockoutPredByMatch = useMemo(
+    () => Object.fromEntries(knockoutPredictions.map((p) => [p.match_id, p])),
+    [knockoutPredictions],
   );
 
   // Next N scheduled / locked / live group-stage matches, soonest first.
@@ -125,6 +136,7 @@ export function UpcomingMatchesCarousel() {
                   highlighted={highlightedMatchIds.has(m.id)}
                   onHomeChange={handleHomeChange}
                   onAwayChange={handleAwayChange}
+                  knockoutPrediction={knockoutPredByMatch[m.id]}
                   compact
                 />
               </div>

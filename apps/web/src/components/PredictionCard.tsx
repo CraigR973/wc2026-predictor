@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, Lock } from 'lucide-react';
-import type { MatchResponse, PredictionResponse, PointsBreakdown } from '../lib/types';
+import type { MatchResponse, PredictionResponse, PointsBreakdown, KnockoutPredictionResponse } from '../lib/types';
 import { Badge } from './ui/badge';
 import { PointsBreakdownPopover } from './PointsBreakdownPopover';
 import { ScoreInput } from './ui/score-input';
@@ -86,6 +86,7 @@ export interface PredictionCardProps {
    * full names so the Predictions page is unchanged.
    */
   compact?: boolean;
+  knockoutPrediction?: KnockoutPredictionResponse;
 }
 
 export function PredictionCard({
@@ -97,6 +98,7 @@ export function PredictionCard({
   onHomeChange,
   onAwayChange,
   compact = false,
+  knockoutPrediction,
 }: PredictionCardProps) {
   const kickoffLocal = formatInTimeZone(
     new Date(match.kickoff_utc),
@@ -228,15 +230,56 @@ export function PredictionCard({
       {/* Footer states — mt-auto pushes this to the bottom so all cards share
           the same height regardless of status. */}
       <div className="mt-auto">
-      {match.stage !== 'group' && editable && (
-        <p className="mt-3 text-center text-[10px] font-sans text-text-muted leading-snug">
-          90-min result ·{' '}
-          <Link to="/predictions/knockout" className="text-primary hover:underline">
-            Knockout Picks
-          </Link>{' '}
-          tab to pick who progresses
-        </p>
-      )}
+      {match.stage !== 'group' && editable && (() => {
+        const hScore = homeVal === '' ? null : Number(homeVal);
+        const aScore = awayVal === '' ? null : Number(awayVal);
+        const hasScore = hScore !== null && aScore !== null;
+
+        if (hasScore && hScore !== aScore) {
+          const isHomeWin = hScore > aScore;
+          const team = isHomeWin
+            ? (match.home_team?.name ?? match.home_team_placeholder ?? 'Home team')
+            : (match.away_team?.name ?? match.away_team_placeholder ?? 'Away team');
+          return (
+            <p className="mt-3 text-center text-[10px] font-sans text-success leading-snug">
+              ✓ {team} progresses — no extra pick needed
+            </p>
+          );
+        }
+
+        if (hasScore && hScore === aScore) {
+          const winnerId = knockoutPrediction?.predicted_winner_id;
+          if (winnerId) {
+            const isHome = winnerId === match.home_team?.id;
+            const team = isHome
+              ? (match.home_team?.name ?? match.home_team_placeholder ?? 'Home team')
+              : (match.away_team?.name ?? match.away_team_placeholder ?? 'Away team');
+            return (
+              <p className="mt-3 text-center text-[10px] font-sans text-success leading-snug">
+                ✓ {team} to progress ·{' '}
+                <Link to="/predictions/knockout" className="text-primary hover:underline">
+                  change
+                </Link>
+              </p>
+            );
+          }
+          return (
+            <p className="mt-3 text-center text-[10px] font-sans text-warning font-medium leading-snug">
+              Draw — <Link to="/predictions/knockout" className="text-primary hover:underline font-semibold">pick who progresses</Link>
+            </p>
+          );
+        }
+
+        return (
+          <p className="mt-3 text-center text-[10px] font-sans text-text-muted leading-snug">
+            90-min result ·{' '}
+            <Link to="/predictions/knockout" className="text-primary hover:underline">
+              Knockout Picks
+            </Link>{' '}
+            tab for who progresses
+          </p>
+        );
+      })()}
       {isLocked && (
         <div
           className="mt-3 flex items-center justify-center gap-1.5 text-xs font-sans text-warning"

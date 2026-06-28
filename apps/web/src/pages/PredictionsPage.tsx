@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import type { MatchResponse, PredictionResponse } from '../lib/types';
+import type { MatchResponse, PredictionResponse, KnockoutPredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
@@ -82,6 +82,14 @@ export function PredictionsPage() {
     queryFn: () => apiFetch<PredictionResponse[]>('/api/v1/predictions/me'),
     staleTime: 30_000,
   });
+
+  const { data: knockoutPredictions = [] } = useQuery<KnockoutPredictionResponse[]>({
+    queryKey: ['knockout-predictions', 'me'],
+    queryFn: () => apiFetch<KnockoutPredictionResponse[]>('/api/v1/knockout-predictions/me'),
+    staleTime: 30_000,
+  });
+
+  const knockoutPredByMatch = Object.fromEntries(knockoutPredictions.map((p) => [p.match_id, p]));
 
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange, handleSaveAll } =
     usePredictionEditor({
@@ -225,6 +233,7 @@ export function PredictionsPage() {
                           highlighted={highlightedMatchIds.has(match.id)}
                           onHomeChange={handleHomeChange}
                           onAwayChange={handleAwayChange}
+                          knockoutPrediction={knockoutPredByMatch[match.id]}
                         />
                       </div>
                     ))}
