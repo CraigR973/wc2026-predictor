@@ -14,7 +14,7 @@ from src.auth import AdminPlayer, CurrentPlayer
 from src.config import settings
 from src.database import get_db
 from src.models.match import Match
-from src.models.notification import NotificationType
+from src.models.notification import ActionType, ActorType, AuditLog, NotificationType
 from src.models.prediction import (
     NotificationPreferences,
     Prediction,
@@ -73,6 +73,11 @@ class PreferencesPatch(BaseModel):
     global_mute: bool | None = None
     quiet_hours_start: str | None = None  # "HH:MM" or empty string to clear
     quiet_hours_end: str | None = None
+
+
+class BroadcastAnnouncementResponse(BaseModel):
+    players_targeted: int
+    notifications_sent: int
 
 
 # ── VAPID public key ──────────────────────────────────────────────────────────
@@ -171,6 +176,65 @@ async def test_push(request: Request, player: CurrentPlayer, db: Db) -> dict[str
     )
     await db.commit()
     return {"sent": sent}
+
+
+@router.post("/admin/push/knockout-announcement", response_model=BroadcastAnnouncementResponse)
+async def broadcast_knockout_announcement(
+    admin: AdminPlayer,
+    db: Db,
+) -> BroadcastAnnouncementResponse:
+    """Blast a one-off knockout update push to every player with an active subscription."""
+    player_ids = list(
+        (
+            await db.execute(
+                select(PushSubscription.player_id)
+                .where(PushSubscription.is_active.is_(True))
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    title = "Knockout update is finally here"
+    body = (
+        "Sorry for the delay — I was away applying for the Scotland job. "
+        "Knockout picks are now ready."
+    )
+    sent = 0
+    for player_id in player_ids:
+        sent += await send_notification(
+            session=db,
+            player_id=player_id,
+            notification_type=NotificationType.specials_revealed,
+            title=title,
+            body=body,
+            data={"url": "/predictions/knockout"},
+            tag="announcement-knockout-scotland-job",
+            force_delivery=True,
+        )
+
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action_type=ActionType.sync_triggered,
+            target_table="push_subscriptions",
+            target_id=None,
+            changes={
+                "broadcast": "knockout_announcement",
+                "players_targeted": len(player_ids),
+                "notifications_sent": sent,
+                "title": title,
+            },
+        )
+    )
+    await db.commit()
+
+    return BroadcastAnnouncementResponse(
+        players_targeted=len(player_ids),
+        notifications_sent=sent,
+    )
 
 
 # ── Notification preferences ──────────────────────────────────────────────────

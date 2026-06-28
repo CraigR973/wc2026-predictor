@@ -15,6 +15,7 @@ import { NotificationsPromptController } from './components/NotificationsPromptC
 import { Week1SurveyController } from './components/Week1SurveyController';
 import { TournamentRevealModal } from './components/TournamentRevealModal';
 import { SurveyEnhancementsController } from './components/SurveyEnhancementsController';
+import { KnockoutAnnouncementController } from './components/KnockoutAnnouncementController';
 import { Skeleton } from './components/ui/skeleton';
 import { LoginPage } from './pages/LoginPage';
 import { JoinPage } from './pages/JoinPage';
@@ -134,6 +135,7 @@ export function App() {
           <NotificationsPromptController />
           <Week1SurveyController />
           <SurveyEnhancementsController />
+          <KnockoutAnnouncementController />
           <TournamentRevealModal />
           <Toaster position="bottom-right" richColors closeButton />
           <ErrorBoundary>
