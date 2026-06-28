@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
-import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { MatchResponse, PredictionResponse, KnockoutPredictionResponse } from '../lib/types';
@@ -14,6 +13,7 @@ import { PredictionsSubNav } from '../components/PredictionsSubNav';
 import { PredictionCard } from '../components/PredictionCard';
 import { ScoringGuide, KnockoutScoringGuide } from '../components/ScoringGuide';
 import { usePredictionEditor } from '../hooks/usePredictionEditor';
+import { useKnockoutWinnerEditor } from '../hooks/useKnockoutWinnerEditor';
 import { setPredictionsDirty } from '../lib/dirtyState';
 import { canEdit } from '../lib/matchStatus';
 import { STAGE_LONG } from '../lib/stages';
@@ -70,8 +70,6 @@ export function PredictionsPage() {
   const { player } = useAuth();
   const timezone = player?.timezone ?? 'UTC';
   const [filter, setFilter] = useState<FilterValue>('upcoming');
-  const [localKnockoutWinners, setLocalKnockoutWinners] = useState<Record<string, string | null>>({});
-  const queryClient = useQueryClient();
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<MatchResponse[]>({
     queryKey: ALL_MATCHES_QUERY_KEY,
@@ -92,24 +90,10 @@ export function PredictionsPage() {
     staleTime: 30_000,
   });
 
-  const knockoutPredByMatch = Object.fromEntries(knockoutPredictions.map((p) => [p.match_id, p]));
-
-  const handleKnockoutWinnerChange = useCallback(async (matchId: string, winnerId: string) => {
-    setLocalKnockoutWinners((prev) => ({ ...prev, [matchId]: winnerId }));
-    try {
-      await apiFetch(`/api/v1/knockout-predictions/${matchId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ predicted_winner_id: winnerId }),
-      });
-      void queryClient.invalidateQueries({ queryKey: ['knockout-predictions', 'me'] });
-    } catch {
-      setLocalKnockoutWinners((prev) => ({
-        ...prev,
-        [matchId]: knockoutPredByMatch[matchId]?.predicted_winner_id ?? null,
-      }));
-      toast.error('Failed to save who-progresses pick — please try again');
-    }
-  }, [knockoutPredByMatch, queryClient]);
+  const { predictionByMatch: displayedKnockoutPredByMatch, pickWinner } = useKnockoutWinnerEditor({
+    knockoutPredictions,
+    playerId: player?.id,
+  });
 
   const { local, highlightedMatchIds, handleHomeChange, handleAwayChange, handleSaveAll } =
     usePredictionEditor({
@@ -126,31 +110,6 @@ export function PredictionsPage() {
   useEffect(() => () => setPredictionsDirty(false), []);
 
   const predByMatch = Object.fromEntries(predictions.map((p) => [p.match_id, p]));
-  const displayedKnockoutPredByMatch = Object.fromEntries(
-    knockoutPredictions.map((prediction) => [
-      prediction.match_id,
-      {
-        ...prediction,
-        predicted_winner_id:
-          localKnockoutWinners[prediction.match_id] ?? prediction.predicted_winner_id,
-      },
-    ]),
-  ) as Record<string, KnockoutPredictionResponse>;
-
-  for (const [matchId, winnerId] of Object.entries(localKnockoutWinners)) {
-    if (winnerId && !displayedKnockoutPredByMatch[matchId]) {
-      displayedKnockoutPredByMatch[matchId] = {
-        id: '',
-        player_id: player?.id ?? '',
-        match_id: matchId,
-        predicted_winner_id: winnerId,
-        submitted_at: null,
-        update_count: 0,
-        points_awarded: null,
-        updated_at: '',
-      };
-    }
-  }
 
   const sortedMatches = [...matches].sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc));
   const filteredMatches = sortedMatches.filter((match) => {
@@ -279,7 +238,7 @@ export function PredictionsPage() {
                           onHomeChange={handleHomeChange}
                           onAwayChange={handleAwayChange}
                           knockoutPrediction={displayedKnockoutPredByMatch[match.id]}
-                          onKnockoutWinnerChange={handleKnockoutWinnerChange}
+                          onKnockoutWinnerChange={pickWinner}
                         />
                       </div>
                     ))}

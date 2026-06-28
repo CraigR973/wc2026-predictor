@@ -156,6 +156,13 @@ export function PredictionCard({
   const hasPrediction = homeVal !== '' && awayVal !== ''
     && !(isKnockout && isDraw && !knockoutPrediction?.predicted_winner_id);
 
+  // The who-progresses buttons are interactive only when the player can still
+  // change the pick. A clear 90-min win fixes the progressor from the score, so
+  // both buttons become read-only — tapping the losing team must not overwrite
+  // the auto-saved winner and silently cost the player their progression points
+  // (the scoring trigger grades knockout picks purely on predicted_winner_id).
+  const winnerPickable = editable && autoWinnerId === null;
+
   // Auto-save the knockout winner when score settles on a clear win (debounced).
   const prevSentWinnerId = useRef<string | null>(null);
   useEffect(() => {
@@ -284,13 +291,13 @@ export function PredictionCard({
                 <button
                   key={team.id}
                   type="button"
-                  disabled={isAuto || !editable}
+                  disabled={!winnerPickable}
                   onClick={() => onKnockoutWinnerChange?.(match.id, team.id)}
                   className={cn(
                     'flex-1 rounded-md px-2 py-2 text-xs font-sans transition-colors text-center truncate',
                     isSelected
                       ? 'bg-success/30 border-2 border-success text-success font-bold shadow-sm cursor-default'
-                      : editable
+                      : winnerPickable
                         ? 'bg-surface-elevated border border-border text-text-muted hover:border-primary/50 hover:text-text-primary cursor-pointer'
                         : 'bg-surface border border-border/40 text-text-muted/60',
                   )}
