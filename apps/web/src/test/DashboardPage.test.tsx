@@ -507,6 +507,32 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(screen.getByRole('button', { name: 'Next live match' })).toBeInTheDocument();
   });
 
+  it('falls back to kickoff-derived live minute when the feed omits elapsed minutes', async () => {
+    stubAuth();
+    const matches = [
+      buildMatch('group-earlier', 'live', -5_400_000, {
+        scores: { hs: 1, as: 0 },
+        home: { name: 'Spain', code: 'ESP', flag: '🇪🇸' },
+        away: { name: 'Italy', code: 'ITA', flag: '🇮🇹' },
+      }),
+      buildMatch('group-later', 'live', -4_200_000, {
+        scores: { hs: 0, as: 0 },
+        home: { name: 'Brazil', code: 'BRA', flag: '🇧🇷' },
+        away: { name: 'Mexico', code: 'MEX', flag: '🇲🇽' },
+      }),
+    ];
+    const predictions = [
+      buildPrediction('group-earlier', 1, 0),
+      buildPrediction('group-later', 0, 0),
+    ];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches));
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getAllByTestId('live-match-dot')).toHaveLength(2));
+    expect(screen.getByTestId('match-tile-live-card')).toHaveTextContent('ESP');
+    expect(screen.getByTestId('match-tile-live-card')).not.toHaveTextContent('BRA');
+  });
+
   it('supports swiping between live matches', async () => {
     stubAuth();
     const matches = [

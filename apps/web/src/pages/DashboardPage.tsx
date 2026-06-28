@@ -5,7 +5,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { isKnockoutStage, scoreLiveProvisionalPrediction, type Stage } from '@wc2026/shared';
 import { apiFetch } from '../lib/api';
-import { formatLiveMinute } from '../lib/liveMinute';
+import { approximateLiveMinute, formatLiveMinute } from '../lib/liveMinute';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
@@ -112,7 +112,8 @@ function getLivePriority(match: MatchResponse, prediction: PredictionResponse | 
     prediction.predicted_home !== null &&
     prediction.predicted_away !== null;
 
-  return (hasPrediction ? 10_000 : 0) + (match.elapsed_minutes ?? 0);
+  const liveMinute = match.elapsed_minutes ?? approximateLiveMinute(match.kickoff_utc) ?? 0;
+  return (hasPrediction ? 10_000 : 0) + liveMinute;
 }
 
 function PointsTile({
