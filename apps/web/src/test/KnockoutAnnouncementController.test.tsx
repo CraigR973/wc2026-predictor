@@ -72,7 +72,7 @@ describe('KnockoutAnnouncementController', () => {
     expect(screen.queryByText(/the bracket is ready for business/i)).not.toBeInTheDocument();
   });
 
-  it('shows the modal again after a prior dismissal by clearing the stored seen state', async () => {
+  it('stays hidden after a prior dismissal', async () => {
     localStorage.setItem('sss_knockout_announcement_seen_v1_p1', 'true');
 
     render(
@@ -81,8 +81,7 @@ describe('KnockoutAnnouncementController', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText(/the bracket is ready for business/i)).toBeInTheDocument();
-    expect(localStorage.getItem('sss_knockout_announcement_seen_v1_p1')).toBeNull();
+    expect(screen.queryByText(/the bracket is ready for business/i)).not.toBeInTheDocument();
   });
 
   it('stays hidden for signed-out users', () => {
@@ -95,12 +94,12 @@ describe('KnockoutAnnouncementController', () => {
     expect(screen.queryByText(/the bracket is ready for business/i)).not.toBeInTheDocument();
   });
 
-  it('shows the modal away from the dashboard route', async () => {
+  it('stays hidden away from the dashboard route', () => {
     render(
       <MemoryRouter initialEntries={['/predictions/knockout']}>
         <KnockoutAnnouncementController />
       </MemoryRouter>,
     );
-    expect(await screen.findByText(/the bracket is ready for business/i)).toBeInTheDocument();
+    expect(screen.queryByText(/the bracket is ready for business/i)).not.toBeInTheDocument();
   });
 });
