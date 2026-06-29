@@ -1,7 +1,15 @@
 export function PointsBreakdownRow({
   breakdown,
 }: {
-  breakdown: { result: number; goals: number; exact: number; total: number };
+  breakdown: {
+    result: number;
+    goals: number;
+    exact: number;
+    total: number;
+    // Knockout advancement (who-progresses) points. Omit for group matches so
+    // the chip is hidden; pass it (even 0) on knockout matches to show it.
+    advancement?: number;
+  };
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -10,6 +18,9 @@ export function PointsBreakdownRow({
           { label: 'Result', val: breakdown.result },
           { label: 'Goals', val: breakdown.goals },
           { label: 'Exact', val: breakdown.exact },
+          ...(breakdown.advancement !== undefined
+            ? [{ label: 'Advancement', val: breakdown.advancement }]
+            : []),
         ] as const
       ).map(({ label, val }) => (
         <span key={label} className="flex items-center gap-1 font-sans text-xs">

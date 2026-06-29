@@ -370,6 +370,9 @@ export interface HomeRollupMatch {
   predicted_home: number | null;
   predicted_away: number | null;
   points_breakdown: PointsBreakdown | null;
+  // Knockout advancement points for this match (null for group matches). The
+  // rollup's points_gained total already includes this.
+  advancement_points: number | null;
 }
 
 export interface HomeRollup {

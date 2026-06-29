@@ -20,6 +20,7 @@ from src.auth import get_current_player
 from src.database import get_db
 from src.main import app
 from src.models.profile import Profile
+from src.models.team import TournamentStage
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -82,6 +83,7 @@ def _make_match(
     away_placeholder: str | None = "Away FC",
     actual_home: int | None = None,
     actual_away: int | None = None,
+    stage: TournamentStage = TournamentStage.group,
 ) -> MagicMock:
     m = MagicMock()
     m.id = uuid.uuid4()
@@ -92,6 +94,9 @@ def _make_match(
     m.away_team_placeholder = away_placeholder
     m.actual_home_score = actual_home
     m.actual_away_score = actual_away
+    # Group by default so the rollup skips the knockout-advancement lookup;
+    # knockout-rollup tests pass an explicit knockout stage.
+    m.stage = stage
     m.deleted_at = None
     return m
 
@@ -442,3 +447,55 @@ async def test_home_rollup_uses_team_labels_when_team_ids_present() -> None:
     assert rm["away_label"] == "🇫🇷 France"
     assert rm["home_flag"] == "🇧🇷"
     assert rm["away_flag"] == "🇫🇷"
+
+
+@pytest.mark.asyncio
+async def test_home_rollup_includes_knockout_advancement() -> None:
+    """A knockout match folds advancement points into the match and the day total."""
+    home_id = uuid.uuid4()
+    away_id = uuid.uuid4()
+    m = _make_match(
+        hours_offset=-5.0,
+        actual_home=0,
+        actual_away=1,
+        stage=TournamentStage.r32,
+    )
+    m.home_team_id = home_id
+    m.away_team_id = away_id
+
+    home_team = MagicMock()
+    home_team.id = home_id
+    home_team.name = "South Africa"
+    home_team.flag_emoji = "🇿🇦"
+    away_team = MagicMock()
+    away_team.id = away_id
+    away_team.name = "Canada"
+    away_team.flag_emoji = "🇨🇦"
+
+    bd = {"result": 3, "goals": 2, "exact": 5, "total": 10}
+    p = _make_prediction(
+        match=m, predicted_home=0, predicted_away=1, points_awarded=10, points_breakdown=bd
+    )
+
+    ko = MagicMock()
+    ko.match_id = m.id
+    ko.points_awarded = 5
+
+    db = _mock_db(
+        [
+            _row(None),
+            _count(0),
+            _count(0),
+            _row(None),
+            _all([(p, m)]),  # rollup rows
+            _scalars([home_team, away_team]),  # rollup team lookup
+            _scalars([ko]),  # knockout advancement lookup
+        ]
+    )
+    data = await _call_home(db)
+
+    rollup = data["rollup"]
+    assert rollup["points_gained"] == 15  # 10 score + 5 advancement
+    rm = rollup["matches"][0]
+    assert rm["advancement_points"] == 5
+    assert rm["points_breakdown"]["total"] == 10  # base score figure unchanged

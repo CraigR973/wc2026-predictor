@@ -15,8 +15,13 @@ from src.database import get_db
 from src.models.league import League
 from src.models.league_membership import LeagueMembership
 from src.models.match import Match, MatchStatus
-from src.models.prediction import LeaderboardSnapshot, Prediction, SpecialPrediction
-from src.models.team import Team
+from src.models.prediction import (
+    KnockoutPrediction,
+    LeaderboardSnapshot,
+    Prediction,
+    SpecialPrediction,
+)
+from src.models.team import Team, TournamentStage
 from src.rate_limit import limiter, per_player_key
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -214,6 +219,10 @@ class RollupMatch(BaseModel):
     predicted_home: int | None
     predicted_away: int | None
     points_breakdown: dict[str, Any] | None
+    # Knockout advancement (who-progresses) points for this match, when it is a
+    # knockout fixture the player also made an advancer pick on. None for group
+    # matches. The day total (points_gained) already includes this.
+    advancement_points: int | None = None
 
 
 class HomeRollupBlock(BaseModel):
@@ -422,7 +431,34 @@ async def me_home(
 
         first_match = rollup_rows[0][1]
         matchday_str = first_match.kickoff_utc.date().isoformat()
-        total_pts = sum(p.points_awarded or 0 for p, _ in rollup_rows)
+
+        # Knockout matches score from two tables — the scoreline
+        # (predictions.points_awarded) and the advancer pick
+        # (knockout_predictions.points_awarded). Fetch the advancement points for
+        # any knockout matches in this rollup so both the per-match figure and
+        # the day total include them.
+        ko_match_ids = [m.id for _, m in rollup_rows if m.stage != TournamentStage.group]
+        advancement_by_match: dict[uuid.UUID, int] = {}
+        if ko_match_ids:
+            ko_rows = (
+                (
+                    await db.execute(
+                        select(KnockoutPrediction).where(
+                            KnockoutPrediction.player_id == player.id,
+                            KnockoutPrediction.match_id.in_(ko_match_ids),
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            advancement_by_match = {
+                kp.match_id: kp.points_awarded for kp in ko_rows if kp.points_awarded is not None
+            }
+
+        total_pts = sum(p.points_awarded or 0 for p, _ in rollup_rows) + sum(
+            advancement_by_match.values()
+        )
 
         rollup_matches: list[RollupMatch] = []
         for pred, match in rollup_rows:
@@ -447,6 +483,7 @@ async def me_home(
                     predicted_home=pred.predicted_home,
                     predicted_away=pred.predicted_away,
                     points_breakdown=pred.points_breakdown,
+                    advancement_points=advancement_by_match.get(match.id),
                 )
             )
 
