@@ -14,7 +14,7 @@ from src.auth import get_current_player
 from src.database import get_db
 from src.main import app
 from src.models.match import Match, MatchStatus
-from src.models.prediction import Prediction
+from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import PlayerRole, Profile
 from src.models.team import TournamentStage
 
@@ -271,6 +271,116 @@ async def test_upsert_prediction_match_not_found() -> None:
             )
 
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Server-authoritative knockout advancer sync (a non-draw knockout scoreline
+# fixes who-progresses so a failed client sync can't cost advancement points).
+# ---------------------------------------------------------------------------
+
+
+def _make_ko_match(
+    *,
+    status: MatchStatus = MatchStatus.scheduled,
+    stage: TournamentStage = TournamentStage.r32,
+) -> Match:
+    m = _make_match(status)
+    m.stage = stage
+    m.home_team_id = uuid.uuid4()
+    m.away_team_id = uuid.uuid4()
+    return m
+
+
+def _make_ko_pred(
+    player_id: uuid.UUID,
+    match_id: uuid.UUID,
+    predicted_winner_id: uuid.UUID | None,
+    update_count: int = 0,
+) -> KnockoutPrediction:
+    kp = MagicMock(spec=KnockoutPrediction)
+    kp.id = uuid.uuid4()
+    kp.player_id = player_id
+    kp.match_id = match_id
+    kp.predicted_winner_id = predicted_winner_id
+    kp.update_count = update_count
+    return kp
+
+
+@pytest.mark.asyncio
+async def test_knockout_score_creates_missing_advancer() -> None:
+    """A non-draw knockout score with no advancer row creates one from the score."""
+    player = _make_player()
+    match = _make_ko_match()
+    pred = _make_prediction(player.id, match.id)
+    # match, existing score pred (None), existing knockout pred (None)
+    db = _stub_db([_scalar_one(match), _scalar_one(None), _scalar_one(None)])
+    db.refresh = AsyncMock(side_effect=lambda obj: _patch_pred(obj, pred))
+
+    async with _override(db, player):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # home wins 2-1 → home is the advancer
+            resp = await client.put(
+                f"/api/v1/predictions/{match.id}",
+                json={"predicted_home": 2, "predicted_away": 1},
+                headers={"Authorization": "Bearer x"},
+            )
+
+    assert resp.status_code == 200
+    added = [c.args[0] for c in db.add.call_args_list]
+    ko_added = [o for o in added if isinstance(o, KnockoutPrediction)]
+    assert len(ko_added) == 1
+    assert ko_added[0].predicted_winner_id == match.home_team_id
+
+
+@pytest.mark.asyncio
+async def test_knockout_score_corrects_wrong_advancer() -> None:
+    """A non-draw score whose advancer contradicts it is corrected (and counted)."""
+    player = _make_player()
+    match = _make_ko_match()
+    existing_pred = _make_prediction(player.id, match.id, update_count=0)
+    # Advancer currently points at home, but the score says away wins.
+    wrong_ko = _make_ko_pred(player.id, match.id, predicted_winner_id=match.home_team_id)
+    updated = _make_prediction(player.id, match.id, update_count=1)
+    db = _stub_db([_scalar_one(match), _scalar_one(existing_pred), _scalar_one(wrong_ko)])
+    db.refresh = AsyncMock(side_effect=lambda obj: _patch_pred(obj, updated))
+
+    async with _override(db, player):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # away wins 0-1 → away is the advancer
+            resp = await client.put(
+                f"/api/v1/predictions/{match.id}",
+                json={"predicted_home": 0, "predicted_away": 1},
+                headers={"Authorization": "Bearer x"},
+            )
+
+    assert resp.status_code == 200
+    assert wrong_ko.predicted_winner_id == match.away_team_id
+    assert wrong_ko.update_count == 1
+    db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_knockout_draw_score_leaves_advancer_untouched() -> None:
+    """A draw scoreline does not sync the advancer (it's a manual penalty pick)."""
+    player = _make_player()
+    match = _make_ko_match()
+    pred = _make_prediction(player.id, match.id)
+    # Only match + score pred are fetched; the sync must short-circuit before a
+    # third execute (so a draw can never overwrite the manual penalty pick).
+    db = _stub_db([_scalar_one(match), _scalar_one(None)])
+    db.refresh = AsyncMock(side_effect=lambda obj: _patch_pred(obj, pred))
+
+    async with _override(db, player):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.put(
+                f"/api/v1/predictions/{match.id}",
+                json={"predicted_home": 1, "predicted_away": 1},
+                headers={"Authorization": "Bearer x"},
+            )
+
+    assert resp.status_code == 200
+    added = [c.args[0] for c in db.add.call_args_list]
+    assert all(not isinstance(o, KnockoutPrediction) for o in added)
 
 
 # ---------------------------------------------------------------------------

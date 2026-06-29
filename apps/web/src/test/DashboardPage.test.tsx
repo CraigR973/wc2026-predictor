@@ -64,6 +64,7 @@ const HOME_WITH_ROLLUP = {
         predicted_home: 2,
         predicted_away: 1,
         points_breakdown: { result: 3, goals: 2, exact: 5, total: 10 },
+        advancement_points: null,
       },
       {
         match_id: 'match-2',
@@ -77,6 +78,7 @@ const HOME_WITH_ROLLUP = {
         predicted_home: 2,
         predicted_away: 0,
         points_breakdown: { result: 3, goals: 1, exact: 0, total: 4 },
+        advancement_points: null,
       },
     ],
   },
@@ -326,6 +328,68 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     await waitFor(() => expect(screen.getByTestId('match-tile-last')).toBeInTheDocument());
     expect(screen.getByTestId('match-tile-last')).toHaveTextContent('Latest final');
     expect(screen.getByTestId('match-tile-last')).toHaveTextContent('2–1');
+  });
+
+  it('folds knockout advancement into the Latest final tile', async () => {
+    stubAuth();
+    const matches = [
+      buildMatch('ko-last', 'completed', -3_600_000, { stage: 'r32', scores: { hs: 0, as: 1 } }),
+    ];
+    const prediction = {
+      ...buildPrediction('ko-last', 0, 1),
+      points_awarded: 10,
+      points_breakdown: { result: 3, goals: 2, exact: 5, total: 10, no_prediction: false },
+    };
+    // Player picked the away team (the actual winner) — +5 advancement.
+    const ko = { ...buildKnockoutPrediction('ko-last', 'away-ko-last'), points_awarded: 5 };
+    const Wrapper = makeWrapper(
+      mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [prediction], matches, [ko]),
+    );
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('match-tile-last')).toBeInTheDocument());
+    const tile = screen.getByTestId('match-tile-last');
+    expect(tile).toHaveTextContent('Advancement');
+    expect(tile).toHaveTextContent('15 pts'); // 10 score + 5 advancement
+  });
+
+  it('adds knockout advancement to the daily-summary per-match total', async () => {
+    stubAuth();
+    const home = {
+      todo: {
+        specials_submitted: true,
+        specials_lock_at: null,
+        upcoming_unpredicted: 0,
+        next_match: null,
+      },
+      rollup: {
+        matchday: '2026-06-28',
+        points_gained: 15,
+        match_count: 1,
+        matches: [
+          {
+            match_id: 'ko-1',
+            kickoff_utc: '2026-06-28T20:00:00Z',
+            home_label: '🇿🇦 South Africa',
+            away_label: '🇨🇦 Canada',
+            home_flag: '🇿🇦',
+            away_flag: '🇨🇦',
+            actual_home: 0,
+            actual_away: 1,
+            predicted_home: 0,
+            predicted_away: 1,
+            points_breakdown: { result: 3, goals: 2, exact: 5, total: 10 },
+            advancement_points: 5,
+          },
+        ],
+      },
+    };
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, home, [], []));
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('points-tile')).toBeInTheDocument());
+    // 10 score + 5 advancement shown as the per-match figure (not the base 10).
+    expect(screen.getByTestId('points-tile')).toHaveTextContent('+15');
   });
 
   it('shows the live state with provisional points breakdown when a live prediction exists', async () => {
@@ -635,5 +699,21 @@ describe('PointsBreakdownRow', () => {
     render(<PointsBreakdownRow breakdown={{ result: 0, goals: 0, exact: 0, total: 0 }} />);
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBe(3);
+  });
+
+  it('shows an Advancement chip when advancement points are provided', () => {
+    render(
+      <PointsBreakdownRow
+        breakdown={{ result: 3, goals: 2, exact: 0, total: 10, advancement: 5 }}
+      />,
+    );
+    expect(screen.getByText('Advancement')).toBeTruthy();
+    expect(screen.getByText('+5')).toBeTruthy(); // unique to the advancement chip
+    expect(screen.getByText('10 pts')).toBeTruthy();
+  });
+
+  it('hides the Advancement chip for group matches (no advancement field)', () => {
+    render(<PointsBreakdownRow breakdown={{ result: 3, goals: 2, exact: 0, total: 5 }} />);
+    expect(screen.queryByText('Advancement')).toBeNull();
   });
 });

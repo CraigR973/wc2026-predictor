@@ -144,9 +144,70 @@ async def upsert_prediction(
         pred.predicted_away = body.predicted_away
         pred.update_count = pred.update_count + 1
 
+    await _sync_knockout_advancer(match, body, player.id, now, db)
+
     await db.commit()
     await db.refresh(pred)
     return _to_response(pred)
+
+
+async def _sync_knockout_advancer(
+    match: Match,
+    body: PredictionRequest,
+    player_id: uuid.UUID,
+    now: datetime,
+    db: AsyncSession,
+) -> None:
+    """Keep the knockout advancer in sync with a non-draw scoreline.
+
+    For a clear (non-draw) knockout result the team that wins the match is the
+    team that advances, so the "who progresses" pick is fully determined by the
+    score — the prediction UI derives it client-side and never lets the player
+    pick otherwise. That client-side sync can silently fail (a changed score
+    that doesn't re-save, or a score saved without the advancer ever being
+    written), leaving ``knockout_predictions`` stale, wrong, or absent. The
+    scoring trigger grades advancement purely on
+    ``knockout_predictions.predicted_winner_id``, so a missed sync costs the
+    player the advancement points their scoreline earned.
+
+    Making the server authoritative here closes that gap: every non-draw
+    knockout score upsert writes the matching advancer (insert if absent).
+    Draw scorelines are left untouched — the advancer is then a genuine manual
+    penalty pick owned by the knockout-predictions endpoint.
+    """
+    if match.stage == TournamentStage.group:
+        return
+    if body.predicted_home == body.predicted_away:
+        return
+    score_winner_id = (
+        match.home_team_id if body.predicted_home > body.predicted_away else match.away_team_id
+    )
+    if score_winner_id is None:
+        return
+
+    ko_pred = (
+        await db.execute(
+            select(KnockoutPrediction).where(
+                KnockoutPrediction.player_id == player_id,
+                KnockoutPrediction.match_id == match.id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if ko_pred is None:
+        db.add(
+            KnockoutPrediction(
+                id=uuid.uuid4(),
+                player_id=player_id,
+                match_id=match.id,
+                predicted_winner_id=score_winner_id,
+                submitted_at=now,
+                update_count=0,
+            )
+        )
+    elif ko_pred.predicted_winner_id != score_winner_id:
+        ko_pred.predicted_winner_id = score_winner_id
+        ko_pred.update_count = ko_pred.update_count + 1
 
 
 # ---------------------------------------------------------------------------

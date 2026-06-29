@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { isKnockoutStage, scoreLiveProvisionalPrediction, type Stage } from '@wc2026/shared';
+import { scoreLiveProvisionalPrediction, type Stage } from '@wc2026/shared';
 import { apiFetch } from '../lib/api';
 import { approximateLiveMinute, formatLiveMinute } from '../lib/liveMinute';
 import { useAuth } from '../contexts/AuthContext';
@@ -177,16 +177,22 @@ function PointsTile({
               </p>
             </div>
             <div className="space-y-1">
-              {rollup.matches.slice(0, 4).map((m) => (
-                <div key={m.match_id} className="flex items-center justify-between gap-1">
-                  <p className="min-w-0 truncate font-mono text-xs tabular-nums text-text-primary">
-                    {rollupTeam(m.home_flag, m.home_label)} {m.actual_home ?? 0}–{m.actual_away ?? 0} {rollupTeam(m.away_flag, m.away_label)}
-                  </p>
-                  <p className={`shrink-0 font-mono text-xs tabular-nums font-medium ${(m.points_breakdown?.total ?? 0) > 0 ? 'text-primary' : 'text-text-muted'}`}>
-                    {(m.points_breakdown?.total ?? 0) > 0 ? `+${m.points_breakdown!.total}` : '—'}
-                  </p>
-                </div>
-              ))}
+              {rollup.matches.slice(0, 4).map((m) => {
+                // Knockout matches earn score + advancement; sum both so the
+                // per-match figure matches the day total (which already does).
+                const matchTotal =
+                  (m.points_breakdown?.total ?? 0) + (m.advancement_points ?? 0);
+                return (
+                  <div key={m.match_id} className="flex items-center justify-between gap-1">
+                    <p className="min-w-0 truncate font-mono text-xs tabular-nums text-text-primary">
+                      {rollupTeam(m.home_flag, m.home_label)} {m.actual_home ?? 0}–{m.actual_away ?? 0} {rollupTeam(m.away_flag, m.away_label)}
+                    </p>
+                    <p className={`shrink-0 font-mono text-xs tabular-nums font-medium ${matchTotal > 0 ? 'text-primary' : 'text-text-muted'}`}>
+                      {matchTotal > 0 ? `+${matchTotal}` : '—'}
+                    </p>
+                  </div>
+                );
+              })}
               {rollup.matches.length > 4 && (
                 <p className="font-mono text-[10px] text-text-muted">+{rollup.matches.length - 4} more</p>
               )}
@@ -359,11 +365,16 @@ function MatchTileFixtureCard({
   kind,
   match,
   prediction,
+  advancementPoints,
   timezone,
 }: {
   kind: 'next' | 'last';
   match: MatchResponse;
   prediction?: PredictionResponse;
+  // Settled knockout advancement points for this match, when it is a completed
+  // knockout fixture the player picked an advancer on. Folded into the breakdown
+  // and the tile's total so the "Latest final" card matches the real score.
+  advancementPoints?: number | null;
   timezone: string;
 }) {
   const countdown = useCountdown(match.kickoff_utc);
@@ -418,7 +429,17 @@ function MatchTileFixtureCard({
                 {prediction!.predicted_home}–{prediction!.predicted_away}
               </span>
             </p>
-            <PointsBreakdownRow breakdown={prediction!.points_breakdown} />
+            <PointsBreakdownRow
+              breakdown={
+                advancementPoints != null
+                  ? {
+                      ...prediction!.points_breakdown,
+                      advancement: advancementPoints,
+                      total: prediction!.points_breakdown.total + advancementPoints,
+                    }
+                  : prediction!.points_breakdown
+              }
+            />
           </div>
         ) : (
           <p className="text-sm text-text-muted">
@@ -623,11 +644,12 @@ export function DashboardPage() {
     staleTime: 30_000,
   });
 
-  const liveHasKnockout = liveMatches.some((m) => isKnockoutStage(m.stage as Stage));
+  // Always fetch the player's knockout picks: the live card needs them for the
+  // provisional advancement line, and the "Latest final" tile + daily-summary
+  // rollup need the settled advancement points for completed knockout matches.
   const { data: knockoutPredictions = [] } = useQuery<KnockoutPredictionResponse[]>({
     queryKey: ['knockout-predictions', 'me'],
     queryFn: () => apiFetch<KnockoutPredictionResponse[]>('/api/v1/knockout-predictions/me'),
-    enabled: liveHasKnockout,
     staleTime: 30_000,
   });
 
@@ -713,7 +735,7 @@ export function DashboardPage() {
                 timezone={timezone}
               />
             ) : inlineSlot ? (
-              <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} prediction={predByMatch[inlineSlot.match.id]} timezone={timezone} />
+              <MatchTileFixtureCard kind={inlineSlot.kind} match={inlineSlot.match} prediction={predByMatch[inlineSlot.match.id]} advancementPoints={knockoutPredByMatch[inlineSlot.match.id]?.points_awarded} timezone={timezone} />
             ) : (
               <Skeleton className="h-full min-h-[184px] rounded-[1.25rem]" />
             )}
