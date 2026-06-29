@@ -311,11 +311,17 @@ function ComparisonTable({ response, currentPlayerId }: ComparisonTableProps) {
                     : <span className="text-text-muted">–</span>}
                 </td>
                 <td className="px-4 py-3 text-center font-mono text-text-primary tabular-nums">
-                  {item.points_awarded !== null ? (
-                    <PointsBreakdownPopover breakdown={item.points_breakdown}>
-                      <span>{item.points_awarded}</span>
-                    </PointsBreakdownPopover>
-                  ) : (
+                  {item.points_awarded !== null ? (() => {
+                    const total = (item.points_awarded ?? 0) + (item.advancement_points ?? 0);
+                    const breakdown = item.points_breakdown && item.advancement_points != null
+                      ? { ...item.points_breakdown, advancement: item.advancement_points, total }
+                      : item.points_breakdown;
+                    return (
+                      <PointsBreakdownPopover breakdown={breakdown}>
+                        <span>{total}</span>
+                      </PointsBreakdownPopover>
+                    );
+                  })() : (
                     <span className="text-text-muted">–</span>
                   )}
                 </td>

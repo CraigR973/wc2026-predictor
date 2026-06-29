@@ -20,6 +20,7 @@ export function PointsBreakdownPopover({ breakdown, children }: Props) {
   if (breakdown.goals > 0) parts.push(`Goals ${breakdown.goals}`);
   if (breakdown.result > 0) parts.push(`Result ${breakdown.result}`);
   if (breakdown.exact > 0) parts.push(`Exact ${breakdown.exact}`);
+  if ((breakdown.advancement ?? 0) > 0) parts.push(`Advancement ${breakdown.advancement}`);
   const detail = parts.length > 0 ? parts.join(' · ') : '—';
 
   return (

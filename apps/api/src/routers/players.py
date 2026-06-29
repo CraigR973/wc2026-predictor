@@ -113,6 +113,7 @@ class RecentPredictionItem(BaseModel):
     predicted_away: int | None
     points_awarded: int | None
     points_breakdown: dict[str, Any] | None = None
+    advancement_points: int | None = None
 
 
 @router.get("/{player_id}/predictions/recent", response_model=list[RecentPredictionItem])
@@ -162,6 +163,21 @@ async def get_recent_predictions(
         team_result = await db.execute(select(Team).where(Team.id.in_(team_ids)))
         teams = {str(t.id): t for t in team_result.scalars().all()}
 
+    # For any knockout matches in the recent list, fetch advancement points
+    ko_match_ids_recent = [
+        m.id for _, m in pred_rows if m.stage != TournamentStage.group
+    ]
+    recent_ko_pts: dict[uuid.UUID, int | None] = {}
+    if ko_match_ids_recent:
+        ko_result = await db.execute(
+            select(KnockoutPrediction).where(
+                KnockoutPrediction.player_id == player_id,
+                KnockoutPrediction.match_id.in_(ko_match_ids_recent),
+            )
+        )
+        for kp in ko_result.scalars().all():
+            recent_ko_pts[kp.match_id] = kp.points_awarded
+
     return [
         RecentPredictionItem(
             match_id=str(match.id),
@@ -185,6 +201,7 @@ async def get_recent_predictions(
             predicted_away=pred.predicted_away,
             points_awarded=pred.points_awarded,
             points_breakdown=pred.points_breakdown,
+            advancement_points=recent_ko_pts.get(match.id),
         )
         for pred, match in pred_rows
     ]
@@ -231,6 +248,7 @@ class KnockoutProfilePrediction(BaseModel):
     predicted_winner_id: str | None
     predicted_winner_name: str | None
     points_awarded: int | None
+    score_points: int | None = None
 
 
 class SpecialProfilePrediction(BaseModel):
@@ -310,6 +328,21 @@ async def get_profile_predictions(
     ).all()
     ko_rows = [(p, m) for (p, m) in ko_raw if match_prediction_revealed(m, now)]
 
+    # Fetch score prediction points for each revealed knockout match so we can
+    # show the combined (score + advancement) total on the profile.
+    ko_score_pts: dict[uuid.UUID, int | None] = {}
+    if ko_rows:
+        ko_match_ids = [m.id for _, m in ko_rows]
+        score_pred_result = await db.execute(
+            select(Prediction).where(
+                Prediction.player_id == player_id,
+                Prediction.match_id.in_(ko_match_ids),
+                Prediction.deleted_at.is_(None),
+            )
+        )
+        for sp in score_pred_result.scalars().all():
+            ko_score_pts[sp.match_id] = sp.points_awarded
+
     # --- Specials: revealed as a set once the tournament has started --------
     opening_match = (
         await db.execute(
@@ -386,6 +419,7 @@ async def get_profile_predictions(
             if kpred.predicted_winner_id
             else None,
             points_awarded=kpred.points_awarded,
+            score_points=ko_score_pts.get(match.id),
         )
         for kpred, match in ko_rows
     ]

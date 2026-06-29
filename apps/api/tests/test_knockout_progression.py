@@ -81,24 +81,23 @@ def test_bracket_covers_all_32_knockout_matches() -> None:
     assert len(KNOCKOUT_BRACKET) == 32
 
 
-def test_bracket_r32_matches_legacy_pairing() -> None:
-    """The seeded R32 sources are derived from BRACKET_R32 — they can't drift."""
+def test_bracket_r32_is_the_real_fifa_wiring() -> None:
+    """R32 source refs are the real FIFA 2026 bracket (by group), not synthetic."""
+    assert KNOCKOUT_BRACKET[73] == ("runner_up_group_a", "runner_up_group_b")
+    assert KNOCKOUT_BRACKET[74] == ("winner_group_c", "runner_up_group_f")
+    assert KNOCKOUT_BRACKET[75] == ("winner_group_e", "third_group_d")
+    assert KNOCKOUT_BRACKET[85] == ("winner_group_b", "third_group_j")
+    assert KNOCKOUT_BRACKET[88] == ("winner_group_k", "third_group_l")
 
-    def src(slot: str) -> str:
-        kind, rest = slot[0], slot[1:]
-        return {
-            "1": f"winner_group_{rest.lower()}",
-            "2": f"runner_up_group_{rest.lower()}",
-            "T": f"best_third_{rest}",
-        }[kind]
 
-    for i, (home_slot, away_slot) in enumerate(BRACKET_R32):
-        assert KNOCKOUT_BRACKET[73 + i] == (src(home_slot), src(away_slot))
+def test_legacy_bracket_r32_still_importable() -> None:
+    """BRACKET_R32 (synthetic) is retained for the deprecated advance_to_r32 path."""
+    assert len(BRACKET_R32) == 16
 
 
 def test_bracket_later_rounds_reference_prior_match_winners() -> None:
-    assert KNOCKOUT_BRACKET[89] == ("winner_match_73", "winner_match_74")
-    assert KNOCKOUT_BRACKET[96] == ("winner_match_87", "winner_match_88")
+    assert KNOCKOUT_BRACKET[89] == ("winner_match_74", "winner_match_77")
+    assert KNOCKOUT_BRACKET[96] == ("winner_match_85", "winner_match_87")
     assert KNOCKOUT_BRACKET[97] == ("winner_match_89", "winner_match_90")
     assert KNOCKOUT_BRACKET[101] == ("winner_match_97", "winner_match_98")
     assert KNOCKOUT_BRACKET[102] == ("winner_match_99", "winner_match_100")
@@ -160,6 +159,7 @@ def test_stage_for_match_number_rejects_non_knockout(bad: int) -> None:
     [
         ("winner_group_a", "Winner Group A"),
         ("runner_up_group_b", "Runner-up Group B"),
+        ("third_group_d", "3rd Place Group D"),
         ("best_third_1", "Best 3rd #1"),
         ("winner_match_73", "Winner of Match 73"),
         ("loser_match_101", "Loser of Match 101"),
@@ -253,6 +253,14 @@ def test_resolve_source_best_third_uses_ranked_list() -> None:
     assert resolve_source("best_third_1", groups, [], {}) is None
 
 
+def test_resolve_source_third_group_uses_group_third() -> None:
+    groups = _twelve_complete_groups()
+    # third_group_<x> resolves to group X's 3rd-placed team once X is complete,
+    # independent of the cross-group best-third ranking (empty list passed).
+    assert resolve_source("third_group_d", groups, [], {}) == _tid(groups["D"][2])
+    assert resolve_source("third_group_l", groups, [], {}) == _tid(groups["L"][2])
+
+
 def test_resolve_source_match_winner_and_loser() -> None:
     h, a = uuid.uuid4(), uuid.uuid4()
     outcomes = {73: MatchOutcome(home_team_id=h, away_team_id=a, home_score=3, away_score=0)}
@@ -299,23 +307,22 @@ def test_resolve_bracket_empty_state_resolves_nothing() -> None:
     assert all(not r.fully_resolved for r in resolved.values())
 
 
-def test_resolve_bracket_r32_maps_winners_runners_and_best_thirds() -> None:
+def test_resolve_bracket_r32_maps_real_fifa_positions() -> None:
     groups = _twelve_complete_groups()
-    ranked_thirds = rank_third_place_teams(groups)
     resolved = resolve_bracket(groups, {})
 
-    # Matches 73..80: group winner A..H (home) vs best thirds #1..#8 (away).
-    for i in range(8):
-        letter = _LETTERS[i]
-        assert resolved[73 + i].home_team_id == _tid(groups[letter][0])
-        assert resolved[73 + i].away_team_id == _tid(ranked_thirds[i])
-
-    # Match 81: winner I vs runner-up A.
-    assert resolved[81].home_team_id == _tid(groups["I"][0])
-    assert resolved[81].away_team_id == _tid(groups["A"][1])
-    # Match 88: runner-up K vs runner-up L.
-    assert resolved[88].home_team_id == _tid(groups["K"][1])
-    assert resolved[88].away_team_id == _tid(groups["L"][1])
+    # Match 73: runner-up A vs runner-up B.
+    assert resolved[73].home_team_id == _tid(groups["A"][1])
+    assert resolved[73].away_team_id == _tid(groups["B"][1])
+    # Match 75: winner E vs third-placed team of group D.
+    assert resolved[75].home_team_id == _tid(groups["E"][0])
+    assert resolved[75].away_team_id == _tid(groups["D"][2])
+    # Match 82: winner D vs third-placed team of group B.
+    assert resolved[82].home_team_id == _tid(groups["D"][0])
+    assert resolved[82].away_team_id == _tid(groups["B"][2])
+    # Match 88: winner K vs third-placed team of group L.
+    assert resolved[88].home_team_id == _tid(groups["K"][0])
+    assert resolved[88].away_team_id == _tid(groups["L"][2])
 
     # Every R32 match is fully resolved; later rounds are still unknown.
     assert all(resolved[n].fully_resolved for n in range(73, 89))
@@ -326,12 +333,14 @@ def test_resolve_bracket_r32_unresolved_while_one_group_pending() -> None:
     groups = _twelve_complete_groups()
     groups["A"][0] = _standing(position=1, code="A1", points=9, played=2)
     resolved = resolve_bracket(groups, {})
-    # Group A not final → its winner slot and ALL best-third slots stay unknown.
-    assert resolved[73].home_team_id is None  # winner_group_a
-    assert resolved[73].away_team_id is None  # best_third_1 (needs all groups)
-    assert resolved[80].away_team_id is None  # best_third_8
-    # A fully-finished group unrelated to thirds still resolves its winner.
-    assert resolved[88].home_team_id == _tid(groups["K"][1])
+    # Group A not final → any slot sourced from group A stays unknown...
+    assert resolved[73].home_team_id is None  # runner_up_group_a
+    assert resolved[79].home_team_id is None  # winner_group_a
+    # ...but slots from finished groups still resolve, including their thirds.
+    assert resolved[73].away_team_id == _tid(groups["B"][1])  # runner_up_group_b
+    assert resolved[79].away_team_id == _tid(groups["E"][2])  # third_group_e
+    assert resolved[88].home_team_id == _tid(groups["K"][0])  # winner_group_k
+    assert resolved[88].away_team_id == _tid(groups["L"][2])  # third_group_l
 
 
 # ---------------------------------------------------------------------------
@@ -360,11 +369,12 @@ def test_resolve_bracket_cascades_through_every_round() -> None:
     r32 = resolve_bracket(groups, {})
     outcomes = _home_wins(r32, range(73, 89))
 
-    # R16 now resolves from R32 winners.
+    # R16 now resolves from R32 winners (real FIFA wiring: 89←74,77; 96←85,87).
     r16 = resolve_bracket(groups, outcomes)
-    assert r16[89].home_team_id == r32[73].home_team_id
-    assert r16[89].away_team_id == r32[74].home_team_id
-    assert r16[96].home_team_id == r32[87].home_team_id
+    assert r16[89].home_team_id == r32[74].home_team_id
+    assert r16[89].away_team_id == r32[77].home_team_id
+    assert r16[96].home_team_id == r32[85].home_team_id
+    assert r16[96].away_team_id == r32[87].home_team_id
     assert all(r16[n].fully_resolved for n in range(89, 97))
     outcomes |= _home_wins(r16, range(89, 97))
 
@@ -398,23 +408,24 @@ def test_resolve_bracket_cascades_through_every_round() -> None:
 def test_resolve_bracket_penalty_winner_advances() -> None:
     groups = _twelve_complete_groups()
     r32 = resolve_bracket(groups, {})
-    # Match 73 drawn, decided on penalties for the away team.
-    away = r32[73].away_team_id
+    # Real wiring feeds match 89 from the winners of matches 74 and 77.
+    # Match 74 drawn, decided on penalties for the away team; match 77 home win.
+    away_74 = r32[74].away_team_id
     outcomes = {
-        73: MatchOutcome(
-            home_team_id=r32[73].home_team_id,
-            away_team_id=away,
-            home_score=1,
-            away_score=1,
-            penalty_winner_id=away,
-        ),
         74: MatchOutcome(
             home_team_id=r32[74].home_team_id,
-            away_team_id=r32[74].away_team_id,
+            away_team_id=away_74,
+            home_score=1,
+            away_score=1,
+            penalty_winner_id=away_74,
+        ),
+        77: MatchOutcome(
+            home_team_id=r32[77].home_team_id,
+            away_team_id=r32[77].away_team_id,
             home_score=2,
             away_score=0,
         ),
     }
     r16 = resolve_bracket(groups, outcomes)
-    assert r16[89].home_team_id == away  # penalty winner advanced
-    assert r16[89].away_team_id == r32[74].home_team_id
+    assert r16[89].home_team_id == away_74  # penalty winner advanced
+    assert r16[89].away_team_id == r32[77].home_team_id

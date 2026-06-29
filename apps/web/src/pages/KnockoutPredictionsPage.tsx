@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import type { MatchResponse, KnockoutPredictionResponse } from '../lib/types';
+import type { MatchResponse, KnockoutPredictionResponse, PredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { BracketTeaser } from '../components/BracketTeaser';
@@ -401,6 +401,7 @@ function RoundPanel({
   matches,
   predictions,
   predictionByMatch,
+  scorePtsByMatch,
   saving,
   errors,
   timezone,
@@ -410,6 +411,7 @@ function RoundPanel({
   matches: MatchResponse[];
   predictions: KnockoutPredictionResponse[];
   predictionByMatch: Record<string, KnockoutPredictionResponse>;
+  scorePtsByMatch: Record<string, number>;
   saving: Record<string, boolean>;
   errors: Record<string, boolean>;
   timezone: string;
@@ -419,10 +421,10 @@ function RoundPanel({
   const predByMatch = Object.fromEntries(predictions.map((p) => [p.match_id, p]));
   const roundLocked = isRoundLocked(matches);
 
-  // Points total for the round (completed matches)
+  // Points total for the round: advancement pick + score prediction combined
   const roundPoints = predictions
     .filter((p) => matches.some((m) => m.id === p.match_id))
-    .reduce((sum, p) => sum + (p.points_awarded ?? 0), 0);
+    .reduce((sum, p) => sum + (p.points_awarded ?? 0) + (scorePtsByMatch[p.match_id] ?? 0), 0);
   const hasCompletedMatches = matches.some((m) => m.status === 'completed');
 
   return (
@@ -440,13 +442,16 @@ function RoundPanel({
         {matches.map((m) => {
           const pred = predByMatch[m.id];
           const winnerId = predictionByMatch[m.id]?.predicted_winner_id ?? null;
+          const combinedPts = pred != null
+            ? (pred.points_awarded ?? 0) + (scorePtsByMatch[m.id] ?? 0)
+            : undefined;
 
           return (
             <KnockoutCard
               key={m.id}
               match={m}
               localWinnerId={winnerId}
-              pointsAwarded={pred?.points_awarded}
+              pointsAwarded={combinedPts}
               saving={saving[m.id] ?? false}
               error={errors[m.id] ?? false}
               timezone={timezone}
@@ -489,6 +494,16 @@ export function KnockoutPredictionsPage() {
     queryFn: () => apiFetch<KnockoutPredictionResponse[]>('/api/v1/knockout-predictions/me'),
     staleTime: 30_000,
   });
+
+  // Fetch my score predictions so we can add them to the advancement-pick total
+  const { data: scorePredictions = [] } = useQuery<PredictionResponse[]>({
+    queryKey: ['predictions', 'me'],
+    queryFn: () => apiFetch<PredictionResponse[]>('/api/v1/predictions/me'),
+    staleTime: 30_000,
+  });
+  const scorePtsByMatch = Object.fromEntries(
+    scorePredictions.map((p) => [p.match_id, p.points_awarded ?? 0]),
+  );
 
   const { predictionByMatch, saving, errors, pickWinner } = useKnockoutWinnerEditor({
     knockoutPredictions: predictions,
@@ -648,6 +663,7 @@ export function KnockoutPredictionsPage() {
         matches={activeMatches}
         predictions={predictions}
         predictionByMatch={predictionByMatch}
+        scorePtsByMatch={scorePtsByMatch}
         saving={saving}
         errors={errors}
         timezone={timezone}

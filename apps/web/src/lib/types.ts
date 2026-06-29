@@ -57,6 +57,7 @@ export interface PointsBreakdown {
   exact: number;
   total: number;
   no_prediction: boolean;
+  advancement?: number;
 }
 
 export interface PredictionResponse {
@@ -79,6 +80,7 @@ export interface MatchPredictionItem {
   predicted_away: number | null;
   points_awarded: number | null;
   points_breakdown: PointsBreakdown | null;
+  advancement_points: number | null;
 }
 
 export interface MatchPredictionsResponse {
@@ -396,6 +398,7 @@ export interface RecentPrediction {
   predicted_away: number | null;
   points_awarded: number | null;
   points_breakdown: PointsBreakdown | null;
+  advancement_points: number | null;
 }
 
 // U24 — reveal-gated player-profile prediction board. Every item the backend
@@ -429,6 +432,7 @@ export interface KnockoutProfilePrediction {
   predicted_winner_id: string | null;
   predicted_winner_name: string | null;
   points_awarded: number | null;
+  score_points: number | null;
 }
 
 export interface SpecialProfilePrediction {

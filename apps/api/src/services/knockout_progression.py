@@ -17,17 +17,22 @@ Source ref grammar (stored in ``matches.home_source`` / ``matches.away_source``)
 
 * ``winner_group_<x>``     — winner of group X (``a``..``l``)
 * ``runner_up_group_<x>``  — runner-up of group X
-* ``best_third_<n>``       — the n-th best third-placed team (1..8), ranked
-                             across all twelve groups with FIFA tiebreakers
+* ``third_group_<x>``      — third-placed team of group X. The real R32 bracket
+                             assigns its eight winner-vs-third matches by group
+                             (FIFA Annex C, this tournament's qualifying-third
+                             combination {B,D,E,F,I,J,K,L}), not by rank.
+* ``best_third_<n>``       — the n-th best third-placed team (1..8). Retained for
+                             the legacy :func:`advance_to_r32` path only; unused
+                             by the live :data:`KNOCKOUT_BRACKET`.
 * ``winner_match_<n>``     — winner of knockout match number N
 * ``loser_match_<n>``      — loser of knockout match number N (used only by the
                              third-place play-off)
 
-The R32 pairing is derived from :data:`BRACKET_R32` so the resolver, the seed,
-and the legacy admin advancement path can never drift. As in Phase 7.1 the
-pairing is a deterministic, balanced bracket (winners avoid winners, the eight
-best thirds feed the first eight matches) rather than FIFA's official
-third-placed combination table — see :data:`BRACKET_R32` for the rationale.
+:data:`KNOCKOUT_BRACKET` is the authoritative FIFA 2026 wiring used by both the
+resolver and the seed, verified against the live kickoff schedule. The older
+:data:`BRACKET_R32` (a synthetic balanced template) is retained only for the
+deprecated :func:`advance_to_r32` admin path and must not be used to reason
+about real fixtures.
 """
 
 from __future__ import annotations
@@ -149,75 +154,61 @@ def assign_r32_slots(
 
 _WINNER_GROUP = "winner_group_"
 _RUNNER_UP_GROUP = "runner_up_group_"
+_THIRD_GROUP = "third_group_"
 _BEST_THIRD = "best_third_"
 _WINNER_MATCH = "winner_match_"
 _LOSER_MATCH = "loser_match_"
 
 
-def _slot_to_source(slot: str) -> str:
-    """Convert a BRACKET_R32 slot label (``1A``/``2B``/``T3``) to a source ref."""
-    kind, rest = slot[0], slot[1:]
-    if kind == "1":
-        return f"{_WINNER_GROUP}{rest.lower()}"
-    if kind == "2":
-        return f"{_RUNNER_UP_GROUP}{rest.lower()}"
-    if kind == "T":
-        return f"{_BEST_THIRD}{rest}"
-    raise ValueError(f"Unknown R32 slot label: {slot!r}")
+#: Real FIFA 2026 R32 bracket: match_number → (home_source, away_source).
+#: The eight winner-vs-third matches are assigned *by group* (FIFA Annex C, for
+#: this tournament's qualifying-third combination {B,D,E,F,I,J,K,L}), not by
+#: rank. Verified against the live kickoff schedule (e.g. match 74 = winner C v
+#: runner-up F = Brazil v Japan @ noon Houston). Authoritative — do not reorder.
+_R32_BRACKET: dict[int, tuple[str, str]] = {
+    73: ("runner_up_group_a", "runner_up_group_b"),
+    74: ("winner_group_c", "runner_up_group_f"),
+    75: ("winner_group_e", "third_group_d"),
+    76: ("winner_group_f", "runner_up_group_c"),
+    77: ("runner_up_group_e", "runner_up_group_i"),
+    78: ("winner_group_i", "third_group_f"),
+    79: ("winner_group_a", "third_group_e"),
+    80: ("winner_group_l", "third_group_k"),
+    81: ("winner_group_g", "third_group_i"),
+    82: ("winner_group_d", "third_group_b"),
+    83: ("winner_group_h", "runner_up_group_j"),
+    84: ("runner_up_group_k", "runner_up_group_l"),
+    85: ("winner_group_b", "third_group_j"),
+    86: ("runner_up_group_d", "runner_up_group_g"),
+    87: ("winner_group_j", "runner_up_group_h"),
+    88: ("winner_group_k", "third_group_l"),
+}
 
-
-def _build_bracket() -> dict[int, tuple[str, str]]:
-    """match_number → (home_source, away_source) for all 32 knockout matches."""
-    bracket: dict[int, tuple[str, str]] = {}
-
-    # R32 (73–88) derived from BRACKET_R32 so the two never drift.
-    for i, (home_slot, away_slot) in enumerate(BRACKET_R32):
-        bracket[R32_FIRST_MATCH_NUMBER + i] = (
-            _slot_to_source(home_slot),
-            _slot_to_source(away_slot),
-        )
-
-    # R16 (89–96): pair consecutive R32 winners.
-    for i in range(8):
-        home = R32_FIRST_MATCH_NUMBER + i * 2
-        bracket[R16_FIRST_MATCH_NUMBER + i] = (
-            f"{_WINNER_MATCH}{home}",
-            f"{_WINNER_MATCH}{home + 1}",
-        )
-
-    # QF (97–100): pair consecutive R16 winners.
-    for i in range(4):
-        home = R16_FIRST_MATCH_NUMBER + i * 2
-        bracket[QF_FIRST_MATCH_NUMBER + i] = (
-            f"{_WINNER_MATCH}{home}",
-            f"{_WINNER_MATCH}{home + 1}",
-        )
-
-    # SF (101–102): pair consecutive QF winners.
-    for i in range(2):
-        home = QF_FIRST_MATCH_NUMBER + i * 2
-        bracket[SF_FIRST_MATCH_NUMBER + i] = (
-            f"{_WINNER_MATCH}{home}",
-            f"{_WINNER_MATCH}{home + 1}",
-        )
-
-    # Third-place play-off (103): the two semi-final losers.
-    bracket[THIRD_PLACE_MATCH_NUMBER] = (
-        f"{_LOSER_MATCH}{SF_FIRST_MATCH_NUMBER}",
-        f"{_LOSER_MATCH}{SF_FIRST_MATCH_NUMBER + 1}",
-    )
-
-    # Final (104): the two semi-final winners.
-    bracket[FINAL_MATCH_NUMBER] = (
-        f"{_WINNER_MATCH}{SF_FIRST_MATCH_NUMBER}",
-        f"{_WINNER_MATCH}{SF_FIRST_MATCH_NUMBER + 1}",
-    )
-
-    return bracket
-
+#: Real FIFA 2026 wiring for R16 → Final: match_number → (home_source, away).
+#: Fixed (result-independent); the third-place play-off (103) takes the two
+#: semi-final losers. Verified temporally consistent against the KO schedule —
+#: every match kicks off after both of its feeder matches finish.
+_LATER_ROUNDS_BRACKET: dict[int, tuple[str, str]] = {
+    89: ("winner_match_74", "winner_match_77"),
+    90: ("winner_match_73", "winner_match_75"),
+    91: ("winner_match_76", "winner_match_78"),
+    92: ("winner_match_79", "winner_match_80"),
+    93: ("winner_match_83", "winner_match_84"),
+    94: ("winner_match_81", "winner_match_82"),
+    95: ("winner_match_86", "winner_match_88"),
+    96: ("winner_match_85", "winner_match_87"),
+    97: ("winner_match_89", "winner_match_90"),
+    98: ("winner_match_93", "winner_match_94"),
+    99: ("winner_match_91", "winner_match_92"),
+    100: ("winner_match_95", "winner_match_96"),
+    101: ("winner_match_97", "winner_match_98"),
+    102: ("winner_match_99", "winner_match_100"),
+    103: ("loser_match_101", "loser_match_102"),
+    104: ("winner_match_101", "winner_match_102"),
+}
 
 #: match_number → (home_source, away_source) for all 32 knockout matches.
-KNOCKOUT_BRACKET: dict[int, tuple[str, str]] = _build_bracket()
+KNOCKOUT_BRACKET: dict[int, tuple[str, str]] = {**_R32_BRACKET, **_LATER_ROUNDS_BRACKET}
 
 
 def stage_for_match_number(match_number: int) -> TournamentStage:
@@ -243,6 +234,8 @@ def placeholder_label(source: str) -> str:
         return f"Winner Group {source[len(_WINNER_GROUP) :].upper()}"
     if source.startswith(_RUNNER_UP_GROUP):
         return f"Runner-up Group {source[len(_RUNNER_UP_GROUP) :].upper()}"
+    if source.startswith(_THIRD_GROUP):
+        return f"3rd Place Group {source[len(_THIRD_GROUP) :].upper()}"
     if source.startswith(_BEST_THIRD):
         return f"Best 3rd #{source[len(_BEST_THIRD) :]}"
     if source.startswith(_WINNER_MATCH):
@@ -353,6 +346,8 @@ def resolve_source(
         return _group_position(group_standings, source[len(_WINNER_GROUP) :].upper(), 0)
     if source.startswith(_RUNNER_UP_GROUP):
         return _group_position(group_standings, source[len(_RUNNER_UP_GROUP) :].upper(), 1)
+    if source.startswith(_THIRD_GROUP):
+        return _group_position(group_standings, source[len(_THIRD_GROUP) :].upper(), 2)
     if source.startswith(_BEST_THIRD):
         n = int(source[len(_BEST_THIRD) :])
         if 1 <= n <= len(ranked_thirds):

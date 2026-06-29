@@ -293,7 +293,9 @@ function KnockoutPredictionsSection({ data }: { data: ProfilePredictions['knocko
                 <td
                   className={`py-2 pr-4 text-center font-bold ${outcomeClass(p.points_awarded, p.points_awarded === null)}`}
                 >
-                  {p.points_awarded ?? '—'}
+                  {p.points_awarded != null
+                    ? (p.points_awarded + (p.score_points ?? 0))
+                    : '—'}
                 </td>
               </tr>
             ))}
@@ -723,11 +725,17 @@ export function PlayerProfilePage() {
                       </td>
                       <td className={`py-2 pr-4 text-center font-bold ${outcomeClass(p.points_awarded, unfinished)}`}>
                         {unfinished ? '—' : (
-                          p.points_awarded != null ? (
-                            <PointsBreakdownPopover breakdown={p.points_breakdown}>
-                              <span>{p.points_awarded}</span>
-                            </PointsBreakdownPopover>
-                          ) : '—'
+                          p.points_awarded != null ? (() => {
+                            const total = (p.points_awarded ?? 0) + (p.advancement_points ?? 0);
+                            const breakdown = p.points_breakdown && p.advancement_points != null
+                              ? { ...p.points_breakdown, advancement: p.advancement_points, total }
+                              : p.points_breakdown;
+                            return (
+                              <PointsBreakdownPopover breakdown={breakdown}>
+                                <span>{total}</span>
+                              </PointsBreakdownPopover>
+                            );
+                          })() : '—'
                         )}
                       </td>
                     </tr>
