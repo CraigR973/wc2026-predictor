@@ -409,7 +409,6 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).toHaveTextContent('Result');
     expect(liveCard).toHaveTextContent('Goals');
     expect(liveCard).toHaveTextContent('Exact');
-    expect(screen.getByTestId('points-tile-live-total')).toHaveTextContent('+10 live');
   });
 
   it('hides the fabricated score and provisional points when a live match has no live score', async () => {
@@ -433,8 +432,8 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).toHaveTextContent('Result & points at full-time');
     expect(liveCard).not.toHaveTextContent('if it stands');
     expect(liveCard).not.toHaveTextContent('0–0');
-    expect(screen.queryByTestId('provisional-combined-breakdown')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('points-tile-live-total')).not.toBeInTheDocument();
+    // No live score → no provisional breakdown row at all.
+    expect(liveCard).not.toHaveTextContent('Exact');
   });
 
   it('renders a genuine live 0–0 (U54 null-vs-zero guard treats 0 as a real score)', async () => {
@@ -482,17 +481,18 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     );
     const liveCard = screen.getByTestId('match-tile-live-card');
     expect(liveCard).toHaveTextContent('+20 if it stands');
-    expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent('Match +10');
-    expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent(
-      'Advancement +10',
-    );
-    expect(liveCard).toHaveTextContent('Match-only breakdown');
-    expect(screen.getByTestId('points-tile-live-total')).toHaveTextContent('FRA-USA +20 live');
+    // Single combined breakdown row: Result/Goals/Exact plus the Advancement
+    // chip, with the total folding in the advancement points.
+    expect(liveCard).toHaveTextContent('Result');
+    expect(liveCard).toHaveTextContent('Goals');
+    expect(liveCard).toHaveTextContent('Exact');
+    expect(liveCard).toHaveTextContent('Advancement');
+    expect(liveCard).not.toHaveTextContent('Match-only breakdown');
     const breakdownRows = within(liveCard).getAllByText(/pts$/);
-    expect(breakdownRows.at(-1)).toHaveTextContent('10 pts');
+    expect(breakdownRows.at(-1)).toHaveTextContent('20 pts');
   });
 
-  it('keeps knockout advancement undecided for a level live scoreline', async () => {
+  it('shows advancement as unearned for a level live knockout scoreline', async () => {
     stubAuth();
     const matches = [
       buildMatch('ko-live-level', 'live', -600_000, {
@@ -517,12 +517,11 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     );
     const liveCard = screen.getByTestId('match-tile-live-card');
     expect(liveCard).toHaveTextContent('+10 if it stands');
-    expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent('Match +10');
-    expect(screen.getByTestId('provisional-combined-breakdown')).toHaveTextContent(
-      'Advancement points pending',
-    );
-    expect(liveCard).toHaveTextContent('Match-only breakdown');
-    expect(screen.getByTestId('points-tile-live-total')).toHaveTextContent('ARG-ENG +10 live');
+    // A level knockout scoreline earns no advancement yet: the chip is shown but
+    // unearned (no "points pending" copy), and the total stays match-only.
+    expect(liveCard).toHaveTextContent('Advancement');
+    expect(liveCard).not.toHaveTextContent('Advancement points pending');
+    expect(liveCard).not.toHaveTextContent('Match-only breakdown');
     const breakdownRows = within(liveCard).getAllByText(/pts$/);
     expect(breakdownRows.at(-1)).toHaveTextContent('10 pts');
   });
@@ -540,9 +539,12 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     await waitFor(() => expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument());
     const liveCard = screen.getByTestId('match-tile-live-card');
     expect(liveCard).toHaveTextContent('+10 if it stands');
-    expect(screen.queryByTestId('provisional-combined-breakdown')).not.toBeInTheDocument();
+    // Group match: the single breakdown row shows Result/Goals/Exact with no
+    // Advancement chip, and the total is match-only.
+    expect(liveCard).toHaveTextContent('Exact');
     expect(liveCard).not.toHaveTextContent('Advancement');
-    expect(screen.getByTestId('points-tile-live-total')).toHaveTextContent('+10 live');
+    const breakdownRows = within(liveCard).getAllByText(/pts$/);
+    expect(breakdownRows.at(-1)).toHaveTextContent('10 pts');
   });
 
   it('defaults the multi-live carousel to the highest-stake card and exposes dots plus desktop arrows', async () => {
