@@ -89,8 +89,8 @@ export function TabBar() {
       <nav
         aria-label="Primary"
         className={cn(
-          'fixed bottom-0 inset-x-0 z-tabbar md:hidden',
-          'bg-surface/95 backdrop-blur border-t border-border',
+          'w-full shrink-0 md:hidden',
+          'bg-surface border-t border-border',
           'pb-safe',
         )}
       >
