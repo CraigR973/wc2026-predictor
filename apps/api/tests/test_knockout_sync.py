@@ -19,7 +19,6 @@ from src.routers.groups import TeamStanding
 from src.services import knockout_advancement
 from src.services.knockout_progression import (
     MatchOutcome,
-    rank_third_place_teams,
     resolve_bracket,
     stage_for_match_number,
 )
@@ -98,7 +97,6 @@ def _patch_loaders(
 
 async def test_sync_resolves_r32_from_complete_standings(monkeypatch: pytest.MonkeyPatch) -> None:
     groups = _twelve_complete_groups()
-    ranked = rank_third_place_teams(groups)
     ko_matches = [_seed_ko_match(n) for n in range(73, 105)]
     _patch_loaders(monkeypatch, groups, {})
 
@@ -107,9 +105,12 @@ async def test_sync_resolves_r32_from_complete_standings(monkeypatch: pytest.Mon
 
     by_num = {m.match_number: m for m in ko_matches}
     assert updated == 16  # all 16 R32 rows newly filled
-    assert by_num[73].home_team_id == uuid.UUID(groups["A"][0].team_id)
-    assert by_num[73].away_team_id == uuid.UUID(ranked[0].team_id)
-    assert by_num[80].away_team_id == uuid.UUID(ranked[7].team_id)
+    # Real bracket: match 73 = runner-up A v runner-up B; match 75's away is the
+    # third-placed team of group D; match 80's away is group K's third.
+    assert by_num[73].home_team_id == uuid.UUID(groups["A"][1].team_id)
+    assert by_num[73].away_team_id == uuid.UUID(groups["B"][1].team_id)
+    assert by_num[75].away_team_id == uuid.UUID(groups["D"][2].team_id)
+    assert by_num[80].away_team_id == uuid.UUID(groups["K"][2].team_id)
     # Later rounds remain unresolved until results settle.
     assert by_num[89].home_team_id is None
     assert by_num[104].home_team_id is None
@@ -144,9 +145,9 @@ async def test_sync_cascades_to_next_round(monkeypatch: pytest.MonkeyPatch) -> N
     by_num = {m.match_number: m for m in ko_matches}
     # Only the 8 R16 rows are newly filled; the already-set R32 rows aren't recounted.
     assert updated == 8
-    assert by_num[89].home_team_id == r32[73].home_team_id
-    assert by_num[89].away_team_id == r32[74].home_team_id
-    assert by_num[96].away_team_id == r32[88].home_team_id
+    assert by_num[89].home_team_id == r32[74].home_team_id
+    assert by_num[89].away_team_id == r32[77].home_team_id
+    assert by_num[96].away_team_id == r32[87].home_team_id
     db.commit.assert_awaited_once()
 
 
@@ -182,8 +183,9 @@ async def test_sync_no_op_before_group_stage_completes(
     updated = await knockout_advancement.sync_knockout_bracket(db)
 
     by_num = {m.match_number: m for m in ko_matches}
-    # Group A's winner slot and all best-third slots stay unknown; other group
-    # winners/runners-up still resolve, so some R32 rows fill.
-    assert by_num[73].home_team_id is None  # winner_group_a
-    assert by_num[73].away_team_id is None  # best_third_1
-    assert updated > 0  # e.g. match 88 (runner-up K vs runner-up L) resolves
+    # Any slot sourced from the unfinished group A stays unknown; slots from
+    # finished groups (incl. their thirds) still resolve, so some R32 rows fill.
+    assert by_num[73].home_team_id is None  # runner_up_group_a
+    assert by_num[79].home_team_id is None  # winner_group_a
+    assert by_num[88].home_team_id is not None  # winner_group_k resolves
+    assert updated > 0
