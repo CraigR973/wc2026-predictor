@@ -121,7 +121,6 @@ function PointsTile({
   points,
   rollup,
   inlineSlot,
-  liveSummary,
   timezone,
   isLoading,
 }: {
@@ -129,13 +128,6 @@ function PointsTile({
   points: number;
   rollup: HomeResponse['rollup'];
   inlineSlot: InlineSlot | null;
-  liveSummary:
-    | {
-        homeCode: string;
-        awayCode: string;
-        provisionalTotal: number;
-      }
-    | null;
   timezone: string;
   isLoading: boolean;
 }) {
@@ -155,14 +147,6 @@ function PointsTile({
           {points}
         </p>
         <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.25em] text-text-muted">Points</p>
-        {liveSummary && (
-          <p
-            className="mt-2 font-mono text-[11px] font-semibold tabular-nums text-primary"
-            data-testid="points-tile-live-total"
-          >
-            {liveSummary.homeCode}-{liveSummary.awayCode} +{liveSummary.provisionalTotal} live
-          </p>
-        )}
       </div>
 
       <div className="space-y-2 border-t border-border/60 pt-3">
@@ -315,46 +299,22 @@ function MatchTileLiveCard({
             {hasPrediction ? 'Result & points at full-time' : 'Result at full-time'}
           </p>
         )}
-        {showProvisional && provisionalBreakdown.advancement.status !== 'not_applicable' && (
-          <div
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 font-mono text-[11px] tabular-nums"
-            data-testid="provisional-combined-breakdown"
-          >
-            <span className="text-text-muted">
-              Match{' '}
-              <span className="font-semibold text-text-primary">
-                +{provisionalBreakdown.match.total}
-              </span>
-            </span>
-            {provisionalBreakdown.advancement.status === 'determined' ? (
-              <span className="text-text-muted">
-                Advancement{' '}
-                <span className="font-semibold text-text-primary">
-                  +{provisionalBreakdown.advancement.points}
-                </span>
-              </span>
-            ) : (
-              <span className="text-live">Advancement points pending</span>
-            )}
-            <span className="ml-auto font-semibold text-primary">{provisionalBreakdown.total} pts</span>
-          </div>
-        )}
         {showProvisional && (
-          <>
-            {provisionalBreakdown.advancement.status !== 'not_applicable' && (
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-muted">
-                Match-only breakdown
-              </p>
-            )}
-            <PointsBreakdownRow
-              breakdown={{
-                result: provisionalBreakdown.match.correctResult,
-                goals: provisionalBreakdown.match.totalGoals,
-                exact: provisionalBreakdown.match.exactScore,
-                total: provisionalBreakdown.match.total,
-              }}
-            />
-          </>
+          <PointsBreakdownRow
+            breakdown={{
+              result: provisionalBreakdown.match.correctResult,
+              goals: provisionalBreakdown.match.totalGoals,
+              exact: provisionalBreakdown.match.exactScore,
+              // Treat advancement as just another provisional line on knockout
+              // matches: it shows +N when your pick is currently advancing and
+              // "—" when it's behind or the tie is level. Group matches have no
+              // winner pick, so omit the chip entirely.
+              ...(provisionalBreakdown.advancement.status !== 'not_applicable'
+                ? { advancement: provisionalBreakdown.advancement.points }
+                : {}),
+              total: provisionalBreakdown.total,
+            }}
+          />
         )}
       </div>
     </Link>
@@ -459,13 +419,11 @@ function LiveMatchCarousel({
   matches,
   predByMatch,
   knockoutPredByMatch,
-  onActiveMatchChange,
   timezone,
 }: {
   matches: MatchResponse[];
   predByMatch: Record<string, PredictionResponse>;
   knockoutPredByMatch: Record<string, KnockoutPredictionResponse>;
-  onActiveMatchChange?: (match: MatchResponse) => void;
   timezone: string;
 }) {
   const orderedMatches = [...matches].sort(
@@ -481,12 +439,6 @@ function LiveMatchCarousel({
 
   const canPage = orderedMatches.length > 1;
   const currentMatch = orderedMatches[activeIndex] ?? orderedMatches[0];
-
-  useEffect(() => {
-    if (currentMatch) {
-      onActiveMatchChange?.(currentMatch);
-    }
-  }, [currentMatch, onActiveMatchChange]);
 
   const move = (delta: number) => {
     setActiveIndex((value) => {
@@ -663,28 +615,6 @@ export function DashboardPage() {
   );
   const points = summary?.total_points ?? 0;
   const loadingTopRow = summaryLoading || homeLoading;
-  const orderedLiveMatches = [...liveMatches].sort(
-    (a, b) => getLivePriority(b, predByMatch[b.id]) - getLivePriority(a, predByMatch[a.id]),
-  );
-  const [activeLiveMatchId, setActiveLiveMatchId] = useState<string | null>(null);
-  const activeLiveMatch =
-    orderedLiveMatches.find((match) => match.id === activeLiveMatchId) ?? orderedLiveMatches[0] ?? null;
-  const activeLiveBreakdown =
-    activeLiveMatch == null
-      ? null
-      : getLiveProvisionalBreakdown(
-          activeLiveMatch,
-          predByMatch[activeLiveMatch.id],
-          knockoutPredByMatch[activeLiveMatch.id],
-        );
-  const activeLiveSummary =
-    activeLiveMatch != null && activeLiveBreakdown != null && !activeLiveBreakdown.match.noPrediction
-      ? {
-          homeCode: chipTeam(activeLiveMatch.home_team, activeLiveMatch.home_team_placeholder).code,
-          awayCode: chipTeam(activeLiveMatch.away_team, activeLiveMatch.away_team_placeholder).code,
-          provisionalTotal: activeLiveBreakdown.total,
-        }
-      : null;
 
   useEffect(() => {
     const channel = supabase
@@ -720,7 +650,6 @@ export function DashboardPage() {
               points={points}
               rollup={home?.rollup ?? null}
               inlineSlot={inlineSlot}
-              liveSummary={activeLiveSummary}
               timezone={timezone}
               isLoading={loadingTopRow}
             />
@@ -731,7 +660,6 @@ export function DashboardPage() {
                 matches={liveMatches}
                 predByMatch={predByMatch}
                 knockoutPredByMatch={knockoutPredByMatch}
-                onActiveMatchChange={(match) => setActiveLiveMatchId(match.id)}
                 timezone={timezone}
               />
             ) : inlineSlot ? (
