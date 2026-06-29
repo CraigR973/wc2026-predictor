@@ -164,9 +164,7 @@ async def get_recent_predictions(
         teams = {str(t.id): t for t in team_result.scalars().all()}
 
     # For any knockout matches in the recent list, fetch advancement points
-    ko_match_ids_recent = [
-        m.id for _, m in pred_rows if m.stage != TournamentStage.group
-    ]
+    ko_match_ids_recent = [m.id for _, m in pred_rows if m.stage != TournamentStage.group]
     recent_ko_pts: dict[uuid.UUID, int | None] = {}
     if ko_match_ids_recent:
         ko_result = await db.execute(
