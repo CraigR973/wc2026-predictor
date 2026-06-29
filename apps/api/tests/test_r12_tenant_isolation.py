@@ -25,6 +25,7 @@ from src.models.league import League, LeaguePrivacy
 from src.models.league_membership import LeagueMembership
 from src.models.match import Match, MatchStatus
 from src.models.profile import PlayerRole, Profile
+from src.models.team import TournamentStage
 from src.routers.leagues import require_league_member
 
 # ---------------------------------------------------------------------------
@@ -239,6 +240,8 @@ async def test_match_predictions_filters_cross_league_players() -> None:
     match.status = MatchStatus.completed
     # Completed ⇒ already kicked off; the shared reveal gate keys on kickoff.
     match.kickoff_utc = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
+    # Group stage so the endpoint skips the extra knockout-advancement lookup.
+    match.stage = TournamentStage.group
 
     shared_pred = MagicMock()
     shared_pred.player_id = shared_id

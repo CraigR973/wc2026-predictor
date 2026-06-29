@@ -176,6 +176,7 @@ async def _call(
       0: target profile lookup       (scalar_one_or_none)
       1: group rows                  (.all)
       2: knockout rows               (.all)
+      2.5: ko score predictions      (.scalars().all)   [only if ko_rows non-empty]
       3: opening match               (scalar_one_or_none)
       4: specials rows               (.scalars().all)   [only if tournament started]
       5: teams batch                 (.scalars().all)   [only if any team referenced]
@@ -341,8 +342,8 @@ async def test_post_lock_predictions_visible_to_league_mate() -> None:
     home = _make_team(HOME_TEAM_ID, "Brazil", "🇧🇷")
     away = _make_team(AWAY_TEAM_ID, "Germany", "🇩🇪")
 
-    # Execute order: profile, group rows, ko rows, opening match, specials rows,
-    # teams batch (all revealed → team set non-empty).
+    # Execute order: profile, group rows, ko rows, ko score predictions,
+    # opening match, specials rows, teams batch (all revealed → non-empty).
     status_code, body = await _call(
         target,
         requester,
@@ -350,6 +351,7 @@ async def test_post_lock_predictions_visible_to_league_mate() -> None:
             _scalar_one(target),
             _rows([(group_pred, past_group)]),
             _rows([(ko_pred, past_ko)]),
+            _scalars([]),  # score predictions for revealed ko matches
             _scalar_one(past_opening),
             _scalars([special]),
             _scalars([home, away]),
