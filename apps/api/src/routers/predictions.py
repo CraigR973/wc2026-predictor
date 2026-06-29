@@ -14,8 +14,9 @@ from src.auth import CurrentPlayer
 from src.database import get_db
 from src.deps import shared_league_player_ids
 from src.models.match import Match, MatchStatus
-from src.models.prediction import Prediction
+from src.models.prediction import KnockoutPrediction, Prediction
 from src.models.profile import Profile
+from src.models.team import TournamentStage
 from src.rate_limit import limiter, per_player_key
 from src.reveal_gate import match_prediction_revealed
 
@@ -58,6 +59,7 @@ class MatchPredictionItem(BaseModel):
     predicted_away: int | None
     points_awarded: int | None
     points_breakdown: dict[str, Any] | None = None
+    advancement_points: int | None = None
 
 
 class MatchPredictionsResponse(BaseModel):
@@ -200,6 +202,16 @@ async def match_predictions(
     )
     rows = result.all()
 
+    # For knockout matches, also fetch advancement (winner-pick) points so the
+    # per-player total includes both the score and progression components.
+    ko_pts: dict[uuid.UUID, int | None] = {}
+    if match.stage != TournamentStage.group:
+        ko_result = await db.execute(
+            select(KnockoutPrediction).where(KnockoutPrediction.match_id == match_id)
+        )
+        for kp in ko_result.scalars().all():
+            ko_pts[kp.player_id] = kp.points_awarded
+
     shared = await shared_league_player_ids(player.id, db)
     items = [
         MatchPredictionItem(
@@ -209,6 +221,7 @@ async def match_predictions(
             predicted_away=pred.predicted_away,
             points_awarded=pred.points_awarded,
             points_breakdown=pred.points_breakdown,
+            advancement_points=ko_pts.get(pred.player_id),
         )
         for pred, prof in rows
         if pred.player_id in shared
