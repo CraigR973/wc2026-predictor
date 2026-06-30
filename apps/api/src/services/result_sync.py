@@ -36,6 +36,7 @@ run.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
@@ -247,8 +248,8 @@ async def _sync_one_match(
         if _apply_finished(session, match, fd_match, now):
             return True, _base(
                 "finished",
-                home_score=fd_match.score.fullTime.home,
-                away_score=fd_match.score.fullTime.away,
+                home_score=match.actual_home_score,
+                away_score=match.actual_away_score,
             )
         return False, None
 
@@ -365,13 +366,75 @@ def _maybe_backfill_match_id(match: Match, fd_match_id: int) -> None:
         )
 
 
+def _grading_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
+    """The end-of-normal-time scoreline used to grade predictions.
+
+    football-data's ``fullTime`` is the *aggregate* for knockout matches decided
+    in extra time or on penalties (regulation + extra time + the shootout tally),
+    so it is NOT the real scoreline. The score at the end of 90 minutes lives in
+    ``regularTime`` — and that is what predictions are scored on (§7: extra time
+    does not change the score for prediction purposes). For ordinary matches the
+    feed omits ``regularTime`` and ``fullTime`` already holds the real score.
+    """
+    rt = fd_match.score.regularTime
+    if rt is not None and rt.home is not None and rt.away is not None:
+        return rt.home, rt.away
+    return fd_match.score.fullTime.home, fd_match.score.fullTime.away
+
+
+def _advancer_id(match: Match, fd_match: FDMatch) -> uuid.UUID | None:
+    """The team that progressed, when a knockout went to extra time or penalties.
+
+    A level 90-minute scoreline is broken downstream by ``penalty_winner_id`` —
+    both the scoring trigger and the bracket resolver consult it — so we record
+    the feed's winner there. This also covers an extra-time-decided win, whose
+    ``regularTime`` is level even though the match produced a winner.
+    """
+    if fd_match.score.duration not in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}:
+        return None
+    if fd_match.score.winner == "HOME_TEAM":
+        return match.home_team_id
+    if fd_match.score.winner == "AWAY_TEAM":
+        return match.away_team_id
+    return None
+
+
+def _extra_time_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
+    """The cumulative score at the end of extra time, for display.
+
+    football-data reports ``extraTime`` as the goals scored *during* extra time,
+    so the end-of-ET scoreline is ``regularTime + extraTime``. Returns
+    ``(None, None)`` when the match did not reach extra time (or the feed lacks
+    the regulation breakdown to compute it).
+    """
+    score = fd_match.score
+    if score.duration not in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}:
+        return None, None
+    reg = score.regularTime
+    if reg is None or reg.home is None or reg.away is None:
+        return None, None
+    et = score.extraTime
+    et_home = et.home if et is not None and et.home is not None else 0
+    et_away = et.away if et is not None and et.away is not None else 0
+    return reg.home + et_home, reg.away + et_away
+
+
+def _penalty_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
+    """The penalty shootout tally, for display. ``(None, None)`` when no shootout."""
+    if fd_match.score.duration != "PENALTY_SHOOTOUT":
+        return None, None
+    pens = fd_match.score.penalties
+    if pens is None:
+        return None, None
+    return pens.home, pens.away
+
+
 def _apply_finished(session: AsyncSession, match: Match, fd_match: FDMatch, now: datetime) -> bool:
     # Idempotent: a prior auto/manual/override write owns the result.
     if match.result_source is not None:
         return False
 
-    home = fd_match.score.fullTime.home
-    away = fd_match.score.fullTime.away
+    home, away = _grading_scoreline(fd_match)
     if home is None or away is None:
         log.warning("finished match missing score", fd_id=fd_match.id)
         return False
@@ -390,6 +453,9 @@ def _apply_finished(session: AsyncSession, match: Match, fd_match: FDMatch, now:
     match.actual_away_score = away
     match.extra_time = fd_match.score.duration in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}
     match.penalties = fd_match.score.duration == "PENALTY_SHOOTOUT"
+    match.penalty_winner_id = _advancer_id(match, fd_match)
+    match.extra_time_home_score, match.extra_time_away_score = _extra_time_scoreline(fd_match)
+    match.penalty_home_score, match.penalty_away_score = _penalty_scoreline(fd_match)
     match.result_source = ResultSource.auto
     match.result_entered_by = None
     match.status = MatchStatus.completed
@@ -405,6 +471,9 @@ def _apply_finished(session: AsyncSession, match: Match, fd_match: FDMatch, now:
             changes={
                 "actual_home_score": home,
                 "actual_away_score": away,
+                "penalty_winner_id": (
+                    str(match.penalty_winner_id) if match.penalty_winner_id else None
+                ),
                 "result_source": ResultSource.auto.value,
             },
         )
@@ -470,8 +539,7 @@ def _apply_live(session: AsyncSession, match: Match, fd_match: FDMatch, now: dat
     # NULL: the result isn't final until FINISHED, and _apply_finished's
     # idempotency guard (result_source IS NOT NULL) must still let the final
     # whistle through to settle status/extra_time/penalties.
-    home = fd_match.score.fullTime.home
-    away = fd_match.score.fullTime.away
+    home, away = _grading_scoreline(fd_match)
     if (
         home is not None
         and away is not None

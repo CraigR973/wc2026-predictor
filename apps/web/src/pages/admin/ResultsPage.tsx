@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { matchResultExtraLine } from '@/lib/matchResult';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +37,10 @@ interface AdminMatchResult {
   actual_away_score: number | null;
   extra_time: boolean;
   penalties: boolean;
+  extra_time_home_score: number | null;
+  extra_time_away_score: number | null;
+  penalty_home_score: number | null;
+  penalty_away_score: number | null;
   result_source: 'auto' | 'manual' | 'override' | null;
   result_entered_at: string | null;
 }
@@ -76,6 +81,10 @@ interface ResultForm {
   extraTime: boolean;
   penalties: boolean;
   penaltyWinnerId: string | null;
+  etHome: string;
+  etAway: string;
+  penHome: string;
+  penAway: string;
 }
 
 type OpsAction = 'lock' | 'postpone' | 'reschedule' | 'cancel';
@@ -116,6 +125,10 @@ export function AdminResultsPage() {
       extraTime: false,
       penalties: false,
       penaltyWinnerId: null,
+      etHome: '',
+      etAway: '',
+      penHome: '',
+      penAway: '',
     });
   }
 
@@ -128,6 +141,10 @@ export function AdminResultsPage() {
       extraTime: m.extra_time,
       penalties: m.penalties,
       penaltyWinnerId: null,
+      etHome: m.extra_time_home_score != null ? String(m.extra_time_home_score) : '',
+      etAway: m.extra_time_away_score != null ? String(m.extra_time_away_score) : '',
+      penHome: m.penalty_home_score != null ? String(m.penalty_home_score) : '',
+      penAway: m.penalty_away_score != null ? String(m.penalty_away_score) : '',
     });
   }
 
@@ -142,6 +159,10 @@ export function AdminResultsPage() {
         extra_time: f.extraTime,
         penalties: f.penalties,
         penalty_winner_id: f.penalties ? f.penaltyWinnerId : null,
+        extra_time_home_score: f.extraTime && f.etHome !== '' ? Number(f.etHome) : null,
+        extra_time_away_score: f.extraTime && f.etAway !== '' ? Number(f.etAway) : null,
+        penalty_home_score: f.penalties && f.penHome !== '' ? Number(f.penHome) : null,
+        penalty_away_score: f.penalties && f.penAway !== '' ? Number(f.penAway) : null,
       };
       return apiFetch(`/api/v1/admin/results/${f.match.match_id}`, {
         method: f.mode === 'enter' ? 'POST' : 'PUT',
@@ -438,11 +459,8 @@ export function AdminResultsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {m.extra_time && !m.penalties && (
-                        <Badge variant="muted">AET</Badge>
-                      )}
-                      {m.penalties && (
-                        <Badge variant="muted">Pens</Badge>
+                      {matchResultExtraLine(m) && (
+                        <Badge variant="muted">{matchResultExtraLine(m)}</Badge>
                       )}
                       <Badge variant={sourceVariant(m.result_source)}>
                         {sourceLabel(m.result_source)}
@@ -512,6 +530,25 @@ export function AdminResultsPage() {
                   />
                 </div>
 
+                {form.extraTime && (
+                  <div className="space-y-2">
+                    <Label>Score after extra time</Label>
+                    <div className="flex items-center justify-center gap-4">
+                      <ScoreInput
+                        value={form.etHome}
+                        onChange={(v) => setForm({ ...form, etHome: v })}
+                        aria-label="Home score after extra time"
+                      />
+                      <span className="text-text-muted font-mono">–</span>
+                      <ScoreInput
+                        value={form.etAway}
+                        onChange={(v) => setForm({ ...form, etAway: v })}
+                        aria-label="Away score after extra time"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <Label htmlFor="pens-toggle">Decided on penalties</Label>
                   <Toggle
@@ -527,6 +564,25 @@ export function AdminResultsPage() {
                     label="Decided on penalties"
                   />
                 </div>
+
+                {form.penalties && (
+                  <div className="space-y-2">
+                    <Label>Penalty shootout score</Label>
+                    <div className="flex items-center justify-center gap-4">
+                      <ScoreInput
+                        value={form.penHome}
+                        onChange={(v) => setForm({ ...form, penHome: v })}
+                        aria-label="Home penalty shootout score"
+                      />
+                      <span className="text-text-muted font-mono">–</span>
+                      <ScoreInput
+                        value={form.penAway}
+                        onChange={(v) => setForm({ ...form, penAway: v })}
+                        aria-label="Away penalty shootout score"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {needsWinner && (
                   <div className="space-y-2">

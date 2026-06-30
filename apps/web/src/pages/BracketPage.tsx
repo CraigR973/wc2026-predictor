@@ -165,7 +165,10 @@ function MatchBox({
         >
           <span className="truncate" title={match.home_team ? undefined : (match.home_team_placeholder ?? undefined)}>{homeLabel}</span>
           {isCompleted && match.actual_home_score !== null && (
-            <span className="font-mono text-text-muted shrink-0">{match.actual_home_score}</span>
+            <span className="font-mono text-text-muted shrink-0">
+              {match.actual_home_score}
+              {match.penalties && match.penalty_home_score != null && ` (${match.penalty_home_score})`}
+            </span>
           )}
         </div>
         <div className="h-px bg-border" />
@@ -179,7 +182,10 @@ function MatchBox({
         >
           <span className="truncate" title={match.away_team ? undefined : (match.away_team_placeholder ?? undefined)}>{awayLabel}</span>
           {isCompleted && match.actual_away_score !== null && (
-            <span className="font-mono text-text-muted shrink-0">{match.actual_away_score}</span>
+            <span className="font-mono text-text-muted shrink-0">
+              {match.actual_away_score}
+              {match.penalties && match.penalty_away_score != null && ` (${match.penalty_away_score})`}
+            </span>
           )}
         </div>
       </div>

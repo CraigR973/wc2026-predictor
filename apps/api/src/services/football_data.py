@@ -43,8 +43,13 @@ class FDScoreLine(BaseModel):
 class FDScore(BaseModel):
     winner: str | None = None  # "HOME_TEAM", "AWAY_TEAM", "DRAW", or null
     duration: str = "REGULAR"  # "REGULAR", "EXTRA_TIME", "PENALTY_SHOOTOUT"
+    # NB: for EXTRA_TIME / PENALTY_SHOOTOUT matches ``fullTime`` is the *aggregate*
+    # (regulation + extra time + the shootout tally), NOT the scoreline. The score
+    # at the end of normal time lives in ``regularTime`` — that is what we grade
+    # predictions on. For ordinary matches the feed omits ``regularTime``.
     fullTime: FDScoreLine = Field(default_factory=FDScoreLine)
     halfTime: FDScoreLine | None = None
+    regularTime: FDScoreLine | None = None
     extraTime: FDScoreLine | None = None
     penalties: FDScoreLine | None = None
 

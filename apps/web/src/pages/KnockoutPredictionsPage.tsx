@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { matchResultExtraLine } from '../lib/matchResult';
 import type { MatchResponse, KnockoutPredictionResponse, PredictionResponse } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
@@ -334,10 +335,10 @@ function KnockoutCard({
         </div>
       )}
 
-      {/* Penalties / AET note */}
-      {isCompleted && (match.penalties || match.extra_time) && (
-        <div className="mt-2 text-center text-xs font-mono text-text-muted">
-          {match.penalties ? '(pens)' : '(aet)'}
+      {/* Extra time / penalties detail */}
+      {isCompleted && (match.extra_time || match.penalties) && (
+        <div className="mt-2 text-center text-xs font-mono text-text-muted tabular-nums">
+          {matchResultExtraLine(match) || (match.penalties ? '(pens)' : '(aet)')}
         </div>
       )}
     </motion.div>

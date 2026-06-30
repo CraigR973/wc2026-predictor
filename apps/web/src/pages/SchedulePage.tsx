@@ -5,6 +5,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { MatchResponse, PredictionResponse } from '../lib/types';
+import { MatchResult } from '../components/MatchResult';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
@@ -125,9 +126,10 @@ function MatchCard({
           </span>
 
           {isResult ? (
-            <span className="font-mono text-sm font-semibold text-text-primary tabular-nums shrink-0">
-              {match.actual_home_score} – {match.actual_away_score}
-            </span>
+            <MatchResult
+              match={match}
+              className="font-mono text-sm font-semibold text-text-primary tabular-nums shrink-0"
+            />
           ) : (
             <span className="text-[10px] text-text-muted font-mono shrink-0">vs</span>
           )}

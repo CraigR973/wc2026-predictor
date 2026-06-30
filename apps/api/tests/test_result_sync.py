@@ -72,6 +72,11 @@ def _make_match(
     m.actual_away_score = None
     m.extra_time = False
     m.penalties = False
+    m.penalty_winner_id = None
+    m.extra_time_home_score = None
+    m.extra_time_away_score = None
+    m.penalty_home_score = None
+    m.penalty_away_score = None
     m.result_source = result_source
     m.result_entered_by = None
     m.last_synced_at = None
@@ -88,6 +93,13 @@ def _fd_match(
     home_score: int | None = 2,
     away_score: int | None = 1,
     duration: str = "REGULAR",
+    winner: str | None = None,
+    regular_home: int | None = None,
+    regular_away: int | None = None,
+    et_home: int | None = None,
+    et_away: int | None = None,
+    pen_home: int | None = None,
+    pen_away: int | None = None,
     home_team_id: int | None = 1,
     away_team_id: int | None = 2,
     home_tla: str | None = "HOM",
@@ -104,9 +116,24 @@ def _fd_match(
         homeTeam=FDTeam(id=home_team_id, name=home_name, tla=home_tla),
         awayTeam=FDTeam(id=away_team_id, name=away_name, tla=away_tla),
         score=FDScore(
-            winner=None,
+            winner=winner,
             duration=duration,
             fullTime=FDScoreLine(home=home_score, away=away_score),
+            regularTime=(
+                FDScoreLine(home=regular_home, away=regular_away)
+                if regular_home is not None or regular_away is not None
+                else None
+            ),
+            extraTime=(
+                FDScoreLine(home=et_home, away=et_away)
+                if et_home is not None or et_away is not None
+                else None
+            ),
+            penalties=(
+                FDScoreLine(home=pen_home, away=pen_away)
+                if pen_home is not None or pen_away is not None
+                else None
+            ),
         ),
     )
 
@@ -213,6 +240,149 @@ async def test_finished_match_writes_score_and_audit() -> None:
     assert audit.actor_type == ActorType.system
     assert audit.action_type == ActionType.result_auto_fetched
     assert audit.target_id == match.id
+
+
+# ---------------------------------------------------------------------------
+# FINISHED — extra time / penalties: store the regulation score, not fullTime
+# ---------------------------------------------------------------------------
+
+
+async def test_finished_penalty_shootout_stores_regulation_score_and_advancer() -> None:
+    """football-data's fullTime for a shootout is the aggregate (regulation +
+    the shootout tally). We must store ``regularTime`` (the 90-minute score) and
+    record the shootout winner as the advancer, or both the scoreline and the
+    bracket go wrong (the 2026-06-30 Ger-Par / Ned-Mar prod incident)."""
+    match = _make_match(
+        status=MatchStatus.locked,
+        stage=TournamentStage.r32,
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    fd = _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_32",
+        duration="PENALTY_SHOOTOUT",
+        winner="AWAY_TEAM",
+        home_score=4,  # fullTime aggregate = regulation 1 + pens 3
+        away_score=5,  # fullTime aggregate = regulation 1 + pens 4
+        regular_home=1,
+        regular_away=1,
+        pen_home=3,
+        pen_away=4,
+    )
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.actual_home_score == 1
+    assert match.actual_away_score == 1
+    assert match.extra_time is True
+    assert match.penalties is True
+    assert match.penalty_winner_id == match.away_team_id
+    assert match.extra_time_home_score == 1  # regulation 1-1, goalless ET
+    assert match.extra_time_away_score == 1
+    assert match.penalty_home_score == 3
+    assert match.penalty_away_score == 4
+    assert match.result_source == ResultSource.auto
+
+
+async def test_finished_extra_time_win_stores_regulation_score_and_advancer() -> None:
+    """A knockout settled by an extra-time goal: ``regularTime`` is level but the
+    match has a winner, so we still record the advancer from ``winner``."""
+    match = _make_match(
+        status=MatchStatus.locked,
+        stage=TournamentStage.r16,
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    fd = _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_16",
+        duration="EXTRA_TIME",
+        winner="HOME_TEAM",
+        home_score=2,  # fullTime includes the extra-time goal
+        away_score=1,
+        regular_home=1,
+        regular_away=1,
+        et_home=1,  # the winning goal, scored in extra time
+        et_away=0,
+    )
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.actual_home_score == 1
+    assert match.actual_away_score == 1
+    assert match.extra_time is True
+    assert match.penalties is False
+    assert match.penalty_winner_id == match.home_team_id
+    assert match.extra_time_home_score == 2  # regulation 1 + the extra-time goal
+    assert match.extra_time_away_score == 1
+    assert match.penalty_home_score is None
+    assert match.penalty_away_score is None
+
+
+async def test_finished_regular_match_uses_fulltime_and_no_advancer() -> None:
+    """Ordinary 90-minute matches: the feed omits ``regularTime``, so ``fullTime``
+    is the real score and there is no penalty advancer to record."""
+    match = _make_match(
+        status=MatchStatus.locked,
+        stage=TournamentStage.r32,
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    fd = _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_32",
+        duration="REGULAR",
+        winner="HOME_TEAM",
+        home_score=2,
+        away_score=1,
+    )
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert match.actual_home_score == 2
+    assert match.actual_away_score == 1
+    assert match.extra_time is False
+    assert match.penalties is False
+    assert match.penalty_winner_id is None
+    assert match.extra_time_home_score is None
+    assert match.extra_time_away_score is None
+    assert match.penalty_home_score is None
+    assert match.penalty_away_score is None
+
+
+async def test_live_extra_time_uses_regulation_score() -> None:
+    """During extra time the running ``fullTime`` climbs past the 90-minute score;
+    the in-play write must track ``regularTime`` so live grading matches the
+    eventual final result."""
+    match = _make_match(status=MatchStatus.live, stage=TournamentStage.r32)
+    match.actual_home_score = 1
+    match.actual_away_score = 0
+    fd = _fd_match(
+        status=FDMatchStatus.IN_PLAY,
+        stage="LAST_32",
+        duration="EXTRA_TIME",
+        home_score=3,  # climbing aggregate — storing this would be the bug
+        away_score=1,
+        regular_home=1,
+        regular_away=1,
+    )
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert match.actual_home_score == 1
+    assert match.actual_away_score == 1
+    assert match.result_source is None  # not final yet
 
 
 # ---------------------------------------------------------------------------

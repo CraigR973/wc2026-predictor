@@ -22,6 +22,15 @@ export interface MatchResponse {
   actual_away_score: number | null;
   extra_time: boolean;
   penalties: boolean;
+  // Who advanced when a knockout was level after 90 (+ET). Optional so older
+  // cached payloads stay valid.
+  penalty_winner_id?: string | null;
+  // Display-only phase scorelines: cumulative score at end of extra time, and
+  // the penalty shootout tally. Null/absent when the match never reached them.
+  extra_time_home_score?: number | null;
+  extra_time_away_score?: number | null;
+  penalty_home_score?: number | null;
+  penalty_away_score?: number | null;
   postponed_reason: string | null;
   // U27.B1 — live elapsed minute. Currently always null (the result-fetcher's
   // upstream feed carries no per-match minute); the live hub omits the minute
