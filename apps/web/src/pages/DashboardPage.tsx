@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { scoreLiveProvisionalPrediction, type Stage } from '@wc2026/shared';
 import { apiFetch } from '../lib/api';
 import { approximateLiveMinute, formatLiveMinute } from '../lib/liveMinute';
+import { matchResultExtraLine } from '../lib/matchResult';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { UpcomingMatchesCarousel } from '../components/UpcomingMatchesCarousel';
@@ -340,6 +341,9 @@ function MatchTileFixtureCard({
   const countdown = useCountdown(match.kickoff_utc);
   const home = chipTeam(match.home_team, match.home_team_placeholder);
   const away = chipTeam(match.away_team, match.away_team_placeholder);
+  // Extra-time / penalty phases as a compact caption under the 90' score, for a
+  // completed knockout that went the distance. Empty string for 90-minute results.
+  const extraLine = kind === 'last' ? matchResultExtraLine(match) : '';
 
   const hasPrediction =
     kind === 'last' &&
@@ -370,10 +374,17 @@ function MatchTileFixtureCard({
         <span className="min-w-0 font-mono text-base font-semibold text-text-primary sm:text-lg">
           {home.flag} {home.code}
         </span>
-        <span className="shrink-0 font-mono text-3xl font-semibold tabular-nums text-primary sm:text-[2rem]">
-          {kind === 'next'
-            ? 'v'
-            : `${match.actual_home_score ?? 0}–${match.actual_away_score ?? 0}`}
+        <span className="flex shrink-0 flex-col items-center leading-none">
+          <span className="font-mono text-3xl font-semibold tabular-nums text-primary sm:text-[2rem]">
+            {kind === 'next'
+              ? 'v'
+              : `${match.actual_home_score ?? 0}–${match.actual_away_score ?? 0}`}
+          </span>
+          {extraLine && (
+            <span className="mt-1 font-mono text-[10px] uppercase tracking-wide text-text-muted">
+              {extraLine}
+            </span>
+          )}
         </span>
         <span className="min-w-0 text-right font-mono text-base font-semibold text-text-primary sm:text-lg">
           {away.code} {away.flag}
