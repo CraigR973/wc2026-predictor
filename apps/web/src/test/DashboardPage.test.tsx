@@ -203,6 +203,8 @@ function buildMatch(
     elapsed?: number;
     extraTime?: boolean;
     penalties?: boolean;
+    etScores?: { hs: number; as: number };
+    penScores?: { hs: number; as: number };
     home?: { name: string; code: string; flag: string };
     away?: { name: string; code: string; flag: string };
   },
@@ -233,6 +235,10 @@ function buildMatch(
     actual_away_score: options?.scores?.as ?? null,
     extra_time: options?.extraTime ?? false,
     penalties: options?.penalties ?? false,
+    extra_time_home_score: options?.etScores?.hs ?? null,
+    extra_time_away_score: options?.etScores?.as ?? null,
+    penalty_home_score: options?.penScores?.hs ?? null,
+    penalty_away_score: options?.penScores?.as ?? null,
     postponed_reason: null,
     elapsed_minutes: options?.elapsed ?? null,
   };
@@ -328,6 +334,27 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     await waitFor(() => expect(screen.getByTestId('match-tile-last')).toBeInTheDocument());
     expect(screen.getByTestId('match-tile-last')).toHaveTextContent('Latest final');
     expect(screen.getByTestId('match-tile-last')).toHaveTextContent('2–1');
+  });
+
+  it('shows the ET / penalty breakdown on the Latest final tile', async () => {
+    stubAuth();
+    const matches = [
+      buildMatch('last-pens', 'completed', -3_600_000, {
+        stage: 'r32',
+        scores: { hs: 1, as: 1 },
+        extraTime: true,
+        penalties: true,
+        etScores: { hs: 1, as: 1 },
+        penScores: { hs: 3, as: 4 },
+      }),
+    ];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, [], matches));
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('match-tile-last')).toBeInTheDocument());
+    const tile = screen.getByTestId('match-tile-last');
+    expect(tile).toHaveTextContent('AET');
+    expect(tile).toHaveTextContent(/Pens 3.4/); // shootout tally, en-dash tolerant
   });
 
   it('folds knockout advancement into the Latest final tile', async () => {
