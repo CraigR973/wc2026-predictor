@@ -484,6 +484,49 @@ describe('DashboardPage — U40 home dashboard redesign', () => {
     expect(liveCard).not.toHaveTextContent('Result & points at full-time');
   });
 
+  it('shows a live AET caption when a knockout match is mid-extra-time', async () => {
+    // U64: _apply_live now mirrors the running ET scoreline live, so the same
+    // caption helper used on the finished tile renders "AET 2–1" mid-match.
+    const matches = [
+      buildMatch('live-aet', 'live', -600_000, {
+        stage: 'r16',
+        scores: { hs: 1, as: 1 },
+        extraTime: true,
+        etScores: { hs: 2, as: 1 },
+      }),
+    ];
+    const predictions = [buildPrediction('live-aet', 1, 1)];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches));
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument());
+    const liveCard = screen.getByTestId('match-tile-live-card');
+    expect(liveCard).toHaveTextContent('1–1');
+    expect(liveCard).toHaveTextContent('AET 2–1');
+  });
+
+  it('shows a live Pens caption with the running shootout tally', async () => {
+    const matches = [
+      buildMatch('live-pens', 'live', -600_000, {
+        stage: 'r16',
+        scores: { hs: 1, as: 1 },
+        extraTime: true,
+        etScores: { hs: 1, as: 1 },
+        penalties: true,
+        penScores: { hs: 3, as: 2 },
+      }),
+    ];
+    const predictions = [buildPrediction('live-pens', 1, 1)];
+    const Wrapper = makeWrapper(mockFetch(SUMMARY_ONE_LEAGUE, HOME_WITH_ROLLUP, predictions, matches));
+    render(<Wrapper />);
+
+    await waitFor(() => expect(screen.getByTestId('match-tile-live-carousel')).toBeInTheDocument());
+    const liveCard = screen.getByTestId('match-tile-live-card');
+    expect(liveCard).toHaveTextContent('1–1');
+    expect(liveCard).toHaveTextContent('AET 1–1');
+    expect(liveCard).toHaveTextContent('Pens 3–2');
+  });
+
   it('adds projected knockout advancement points for a decisive live scoreline', async () => {
     stubAuth();
     const matches = [
