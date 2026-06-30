@@ -222,6 +222,31 @@ async def _set_live_score(conn: AsyncConnection, match_id: uuid.UUID, home: int,
     )
 
 
+async def _settle_on_penalties_keeping_score(
+    conn: AsyncConnection, match_id: uuid.UUID, *, penalty_winner_id: uuid.UUID
+) -> None:
+    """Simulate the final whistle of a shootout that live sync already drew level.
+
+    Mirrors ``result_sync._apply_finished`` when the in-play score already equals
+    the 90-minute scoreline: it sets ``penalty_winner_id`` and the ET/penalty
+    flags but writes no new ``actual_*`` value, so the only scoring input that
+    moves is ``penalty_winner_id``.
+    """
+    await _exec(
+        conn,
+        """
+        UPDATE matches
+        SET penalty_winner_id = :pw,
+            extra_time = TRUE,
+            penalties = TRUE,
+            status = 'completed'
+        WHERE id = :id
+        """,
+        id=match_id,
+        pw=penalty_winner_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Group-stage match — predictions + leaderboard snapshot
 # ---------------------------------------------------------------------------
@@ -619,6 +644,61 @@ async def test_knockout_draw_winner_is_penalty_winner(
     by_name = {r["display_name"]: r for r in rows}
     assert by_name["alice"]["points_awarded"] == 0
     assert by_name["bob"]["points_awarded"] == 15
+
+
+async def _ko_points_by_name(db_conn: AsyncConnection, match_id: uuid.UUID) -> dict[str, int]:
+    rows = await _fetchall(
+        db_conn,
+        """
+        SELECT kp.points_awarded, pf.display_name
+        FROM knockout_predictions kp JOIN profiles pf ON pf.id = kp.player_id
+        WHERE kp.match_id = :m
+        """,
+        m=match_id,
+    )
+    return {r["display_name"]: r["points_awarded"] for r in rows}
+
+
+async def test_knockout_penalty_winner_awards_points_after_live_draw(
+    db_conn: AsyncConnection,
+) -> None:
+    """The production auto-sync sequence for a penalty shootout.
+
+    Live in-play sync draws the match level (1-1), then the final whistle records
+    ``penalty_winner_id`` *without* moving the 90-minute score. The advancer is
+    the only scoring input that changes, so the trigger must re-fire on it — or
+    the round points are silently lost (the bug migration 037 fixes).
+    """
+    g = await _insert_group(db_conn, "A")
+    home = await _insert_team(db_conn, g, "Home A", "HMA")
+    away = await _insert_team(db_conn, g, "Away A", "AWA")
+    alice = await _insert_profile(db_conn, "alice")
+    bob = await _insert_profile(db_conn, "bob")
+    match = await _insert_match(
+        db_conn,
+        stage="qf",  # 15 pts per correct pick
+        match_number=99,
+        home_team_id=home,
+        away_team_id=away,
+    )
+    await _insert_knockout_prediction(
+        db_conn, player_id=alice, match_id=match, predicted_winner_id=home
+    )
+    await _insert_knockout_prediction(
+        db_conn, player_id=bob, match_id=match, predicted_winner_id=away
+    )
+
+    # 1. Live sync draws the match level — advancement undecided, graded 0.
+    await _set_live_score(db_conn, match, 1, 1)
+    live_points = await _ko_points_by_name(db_conn, match)
+    assert live_points == {"alice": 0, "bob": 0}
+
+    # 2. Final whistle: away win on penalties, 90-minute score unchanged at 1-1.
+    await _settle_on_penalties_keeping_score(db_conn, match, penalty_winner_id=away)
+
+    final_points = await _ko_points_by_name(db_conn, match)
+    assert final_points["alice"] == 0
+    assert final_points["bob"] == 15
 
 
 async def test_knockout_exact_draw_scores_10_via_trigger(
