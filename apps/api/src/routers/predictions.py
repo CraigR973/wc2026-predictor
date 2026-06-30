@@ -60,6 +60,7 @@ class MatchPredictionItem(BaseModel):
     points_awarded: int | None
     points_breakdown: dict[str, Any] | None = None
     advancement_points: int | None = None
+    predicted_winner_team_id: str | None = None
 
 
 class MatchPredictionsResponse(BaseModel):
@@ -263,15 +264,18 @@ async def match_predictions(
     )
     rows = result.all()
 
-    # For knockout matches, also fetch advancement (winner-pick) points so the
-    # per-player total includes both the score and progression components.
+    # For knockout matches, also fetch advancement (winner-pick) points and the
+    # picked team so the comparison table can show both the score and who each
+    # player predicted to advance.
     ko_pts: dict[uuid.UUID, int | None] = {}
+    ko_winner: dict[uuid.UUID, uuid.UUID | None] = {}
     if match.stage != TournamentStage.group:
         ko_result = await db.execute(
             select(KnockoutPrediction).where(KnockoutPrediction.match_id == match_id)
         )
         for kp in ko_result.scalars().all():
             ko_pts[kp.player_id] = kp.points_awarded
+            ko_winner[kp.player_id] = kp.predicted_winner_id
 
     shared = await shared_league_player_ids(player.id, db)
     items = [
@@ -283,6 +287,9 @@ async def match_predictions(
             points_awarded=pred.points_awarded,
             points_breakdown=pred.points_breakdown,
             advancement_points=ko_pts.get(pred.player_id),
+            predicted_winner_team_id=(
+                str(team_id) if (team_id := ko_winner.get(pred.player_id)) else None
+            ),
         )
         for pred, prof in rows
         if pred.player_id in shared

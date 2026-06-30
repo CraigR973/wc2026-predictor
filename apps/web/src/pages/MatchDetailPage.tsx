@@ -11,6 +11,7 @@ import type {
   MatchResponse,
   PredictionResponse,
   MatchPredictionsResponse,
+  TeamRef,
 } from '../lib/types';
 import { Badge } from '../components/ui/badge';
 import { SaveButton, type SaveButtonState } from '../components/ui/save-button';
@@ -262,9 +263,18 @@ function PredictionForm({ matchId, existing }: PredictionFormProps) {
 interface ComparisonTableProps {
   response: MatchPredictionsResponse;
   currentPlayerId: string;
+  homeTeam: TeamRef | null;
+  awayTeam: TeamRef | null;
+  isKnockout: boolean;
 }
 
-function ComparisonTable({ response, currentPlayerId }: ComparisonTableProps) {
+function ComparisonTable({
+  response,
+  currentPlayerId,
+  homeTeam,
+  awayTeam,
+  isKnockout,
+}: ComparisonTableProps) {
   if (response.predictions.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-surface p-4 text-center">
@@ -272,6 +282,13 @@ function ComparisonTable({ response, currentPlayerId }: ComparisonTableProps) {
       </div>
     );
   }
+
+  const advancerName = (teamId: string | null): string | null => {
+    if (!teamId) return null;
+    if (homeTeam?.id === teamId) return homeTeam.name;
+    if (awayTeam?.id === teamId) return awayTeam.name;
+    return null;
+  };
 
   return (
     <div className="rounded-lg border border-border bg-surface overflow-hidden">
@@ -288,6 +305,11 @@ function ComparisonTable({ response, currentPlayerId }: ComparisonTableProps) {
               <th className="text-center px-4 py-2 text-text-muted font-mono text-xs uppercase tracking-wider">
                 Prediction
               </th>
+              {isKnockout && (
+                <th className="text-center px-4 py-2 text-text-muted font-mono text-xs uppercase tracking-wider">
+                  To Advance
+                </th>
+              )}
               <th className="text-center px-4 py-2 text-text-muted font-mono text-xs uppercase tracking-wider">
                 Points
               </th>
@@ -312,6 +334,13 @@ function ComparisonTable({ response, currentPlayerId }: ComparisonTableProps) {
                     ? `${item.predicted_home} – ${item.predicted_away}`
                     : <span className="text-text-muted">–</span>}
                 </td>
+                {isKnockout && (
+                  <td className="px-4 py-3 text-center text-text-primary">
+                    {advancerName(item.predicted_winner_team_id) ?? (
+                      <span className="text-text-muted">–</span>
+                    )}
+                  </td>
+                )}
                 <td className="px-4 py-3 text-center font-mono text-text-primary tabular-nums">
                   {item.points_awarded !== null ? (() => {
                     const total = (item.points_awarded ?? 0) + (item.advancement_points ?? 0);
@@ -421,6 +450,9 @@ export function MatchDetailPage() {
             <ComparisonTable
               response={matchPredsQuery.data}
               currentPlayerId={player?.id ?? ''}
+              homeTeam={match.home_team}
+              awayTeam={match.away_team}
+              isKnockout={match.stage !== 'group'}
             />
           )}
         </>
@@ -431,6 +463,9 @@ export function MatchDetailPage() {
           <ComparisonTable
             response={matchPredsQuery.data}
             currentPlayerId={player?.id ?? ''}
+            homeTeam={match.home_team}
+            awayTeam={match.away_team}
+            isKnockout={match.stage !== 'group'}
           />
         </div>
       )}

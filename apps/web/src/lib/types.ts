@@ -90,6 +90,7 @@ export interface MatchPredictionItem {
   points_awarded: number | null;
   points_breakdown: PointsBreakdown | null;
   advancement_points: number | null;
+  predicted_winner_team_id: string | null;
 }
 
 export interface MatchPredictionsResponse {
