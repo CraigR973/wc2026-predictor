@@ -5,6 +5,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { shortPlaceholder } from '../lib/matchTeam';
+import { MatchResult } from '../components/MatchResult';
 import { useAuth } from '../contexts/AuthContext';
 import type {
   MatchResponse,
@@ -88,9 +89,10 @@ function MatchHeader({ match, timezone }: { match: MatchResponse; timezone: stri
         </span>
 
         {isResult ? (
-          <span className="font-mono text-3xl font-bold text-text-primary tabular-nums shrink-0">
-            {match.actual_home_score} – {match.actual_away_score}
-          </span>
+          <MatchResult
+            match={match}
+            className="font-mono text-3xl font-bold text-text-primary tabular-nums shrink-0"
+          />
         ) : (
           <span className="text-text-muted font-mono text-xl shrink-0">vs</span>
         )}

@@ -9,7 +9,7 @@ from typing import Annotated, Any, Literal
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -118,6 +118,24 @@ class ResultRequest(BaseModel):
     extra_time: bool = False
     penalties: bool = False
     penalty_winner_id: str | None = None  # UUID string for the winning team
+    # Display-only phase scorelines. ET is the cumulative score at the end of
+    # extra time; pens is the shootout tally. Optional even when the flag is set.
+    extra_time_home_score: int | None = Field(default=None, ge=0)
+    extra_time_away_score: int | None = Field(default=None, ge=0)
+    penalty_home_score: int | None = Field(default=None, ge=0)
+    penalty_away_score: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _phase_scores_need_flags(self) -> "ResultRequest":
+        if (
+            self.extra_time_home_score is not None or self.extra_time_away_score is not None
+        ) and not self.extra_time:
+            raise ValueError("extra_time scores require extra_time=true")
+        if (
+            self.penalty_home_score is not None or self.penalty_away_score is not None
+        ) and not self.penalties:
+            raise ValueError("penalty scores require penalties=true")
+        return self
 
 
 class ResultResponse(BaseModel):
@@ -127,6 +145,10 @@ class ResultResponse(BaseModel):
     extra_time: bool
     penalties: bool
     penalty_winner_id: str | None
+    extra_time_home_score: int | None = None
+    extra_time_away_score: int | None = None
+    penalty_home_score: int | None = None
+    penalty_away_score: int | None = None
     result_source: str
     result_entered_at: datetime | None
     result_entered_by: str | None
@@ -173,6 +195,10 @@ class AdminMatchResultResponse(BaseModel):
     actual_away_score: int | None
     extra_time: bool
     penalties: bool
+    extra_time_home_score: int | None = None
+    extra_time_away_score: int | None = None
+    penalty_home_score: int | None = None
+    penalty_away_score: int | None = None
     result_source: str | None
     result_entered_at: datetime | None
 
@@ -939,6 +965,10 @@ async def enter_result(
     match.extra_time = body.extra_time
     match.penalties = body.penalties
     match.penalty_winner_id = penalty_winner_id
+    match.extra_time_home_score = body.extra_time_home_score
+    match.extra_time_away_score = body.extra_time_away_score
+    match.penalty_home_score = body.penalty_home_score
+    match.penalty_away_score = body.penalty_away_score
     match.result_source = ResultSource.manual
     match.result_entered_by = admin.id
     match.status = MatchStatus.completed
@@ -1014,6 +1044,10 @@ async def override_result(
     match.extra_time = body.extra_time
     match.penalties = body.penalties
     match.penalty_winner_id = penalty_winner_id
+    match.extra_time_home_score = body.extra_time_home_score
+    match.extra_time_away_score = body.extra_time_away_score
+    match.penalty_home_score = body.penalty_home_score
+    match.penalty_away_score = body.penalty_away_score
     match.result_source = ResultSource.override
     match.result_entered_by = admin.id
     match.status = MatchStatus.completed
@@ -1146,6 +1180,10 @@ async def get_dashboard(
                 actual_away_score=m.actual_away_score,
                 extra_time=m.extra_time,
                 penalties=m.penalties,
+                extra_time_home_score=m.extra_time_home_score,
+                extra_time_away_score=m.extra_time_away_score,
+                penalty_home_score=m.penalty_home_score,
+                penalty_away_score=m.penalty_away_score,
                 result_source=m.result_source.value if m.result_source else None,
                 result_entered_at=m.result_entered_at,
             )
@@ -1278,6 +1316,10 @@ async def _build_match_result_responses(
             actual_away_score=m.actual_away_score,
             extra_time=m.extra_time,
             penalties=m.penalties,
+            extra_time_home_score=m.extra_time_home_score,
+            extra_time_away_score=m.extra_time_away_score,
+            penalty_home_score=m.penalty_home_score,
+            penalty_away_score=m.penalty_away_score,
             result_source=m.result_source.value if m.result_source else None,
             result_entered_at=m.result_entered_at,
         )
@@ -1509,6 +1551,10 @@ def _to_result_response(match: Match) -> ResultResponse:
         extra_time=match.extra_time,
         penalties=match.penalties,
         penalty_winner_id=str(match.penalty_winner_id) if match.penalty_winner_id else None,
+        extra_time_home_score=match.extra_time_home_score,
+        extra_time_away_score=match.extra_time_away_score,
+        penalty_home_score=match.penalty_home_score,
+        penalty_away_score=match.penalty_away_score,
         result_source=match.result_source.value if match.result_source else "manual",
         result_entered_at=match.result_entered_at,
         result_entered_by=str(match.result_entered_by) if match.result_entered_by else None,

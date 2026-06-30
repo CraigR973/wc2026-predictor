@@ -49,6 +49,15 @@ class MatchResponse(BaseModel):
     actual_away_score: int | None
     extra_time: bool
     penalties: bool
+    # Who progressed when a knockout was level after 90 (+ET) — set for ET/pens
+    # matches so the bracket and knockout surfaces can name the advancer.
+    penalty_winner_id: str | None = None
+    # Display-only scorelines: cumulative score at end of ET, and the shootout
+    # tally. NULL when the match never reached that phase.
+    extra_time_home_score: int | None = None
+    extra_time_away_score: int | None = None
+    penalty_home_score: int | None = None
+    penalty_away_score: int | None = None
     postponed_reason: str | None
     # Live elapsed minute (U27.B1). The football-data.org v4 competition-matches
     # feed the result-fetcher consumes does not carry a per-match minute, and the
@@ -104,6 +113,11 @@ def _to_response(
         actual_away_score=m.actual_away_score,
         extra_time=m.extra_time,
         penalties=m.penalties,
+        penalty_winner_id=str(m.penalty_winner_id) if m.penalty_winner_id else None,
+        extra_time_home_score=m.extra_time_home_score,
+        extra_time_away_score=m.extra_time_away_score,
+        penalty_home_score=m.penalty_home_score,
+        penalty_away_score=m.penalty_away_score,
         postponed_reason=m.postponed_reason,
     )
 

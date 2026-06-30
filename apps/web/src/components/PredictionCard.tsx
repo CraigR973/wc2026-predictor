@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, Lock } from 'lucide-react';
 import type { MatchResponse, PredictionResponse, PointsBreakdown, KnockoutPredictionResponse } from '../lib/types';
+import { MatchResult } from './MatchResult';
 import { Badge } from './ui/badge';
 import { PointsBreakdownPopover } from './PointsBreakdownPopover';
 import { ScoreInput } from './ui/score-input';
@@ -374,10 +375,9 @@ export function PredictionCard({
       )}
 
       {isCompleted && match.actual_home_score !== null && match.actual_away_score !== null && (
-        <div className="mt-3 text-center text-xs font-mono text-text-muted tabular-nums">
-          Result: {match.actual_home_score} – {match.actual_away_score}
-          {match.penalties && ' (pens)'}
-          {match.extra_time && !match.penalties && ' (aet)'}
+        <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-mono text-text-muted tabular-nums">
+          <span>Result:</span>
+          <MatchResult match={match} />
         </div>
       )}
 

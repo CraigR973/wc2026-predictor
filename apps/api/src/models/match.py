@@ -83,6 +83,14 @@ class Match(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
     penalty_winner_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("teams.id", ondelete="SET NULL"), nullable=True
     )
+    # Display-only scorelines for knockout matches that went the distance. NULL
+    # when the match never reached that phase. Prediction scoring keys off the
+    # 90-minute ``actual_*_score`` only (§7); these are purely for showing the
+    # full result. ``extra_time_*`` is the cumulative score at the end of ET.
+    extra_time_home_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    extra_time_away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    penalty_home_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    penalty_away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     result_source: Mapped[ResultSource | None] = mapped_column(
         Enum(ResultSource, name="result_source", create_type=False),
         nullable=True,
