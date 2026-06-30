@@ -477,6 +477,41 @@ async def test_match_predictions_post_lock() -> None:
 
 
 @pytest.mark.asyncio
+async def test_match_predictions_knockout_includes_advancer_pick() -> None:
+    """Knockout matches surface each player's predicted_winner_team_id."""
+    player = _make_player()
+    match = _make_ko_match(status=MatchStatus.locked, stage=TournamentStage.r32)
+    match.kickoff_utc = _now() - timedelta(minutes=5)
+    pred = _make_prediction(player.id, match.id)
+    profile = _make_player(player.id)
+    ko_pred = _make_ko_pred(player.id, match.id, predicted_winner_id=match.home_team_id)
+    db = _stub_db(
+        [
+            _scalar_one(match),
+            _rows([(pred, profile)]),
+            _scalars([ko_pred]),
+        ]
+    )
+
+    with patch(
+        "src.routers.predictions.shared_league_player_ids",
+        return_value=frozenset({player.id}),
+    ):
+        async with _override(db, player):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.get(
+                    f"/api/v1/predictions/match/{match.id}",
+                    headers={"Authorization": "Bearer x"},
+                )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["predictions"][0]["predicted_winner_team_id"] == str(match.home_team_id)
+
+
+@pytest.mark.asyncio
 async def test_match_predictions_pre_lock_returns_403() -> None:
     player = _make_player()
     match = _make_match(MatchStatus.scheduled)
