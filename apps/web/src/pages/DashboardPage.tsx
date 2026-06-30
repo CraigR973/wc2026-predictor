@@ -225,6 +225,11 @@ function MatchTileLiveCard({
   // the scoreline + provisional "if it stands" points on a real score being present.
   const hasLiveScore =
     match.actual_home_score !== null && match.actual_away_score !== null;
+  // U64 mirrors live extra-time/penalty phase data into the same columns the
+  // finished-match caption reads, so the same helper renders "AET …" / "Pens …"
+  // as the match progresses. Empty until the feed actually reports a phase past
+  // 90 minutes — see _apply_live in result_sync.py for what's captured live.
+  const extraLine = matchResultExtraLine(match);
   // The feed carries no match clock, so the minute is approximated from kickoff
   // (see formatLiveMinute). Tick so it advances between the 60s data polls.
   const now = useNow(30_000);
@@ -261,8 +266,15 @@ function MatchTileLiveCard({
           {home.flag} {home.code}
         </span>
         {hasLiveScore ? (
-          <span className="shrink-0 font-mono text-3xl font-semibold tabular-nums text-primary sm:text-[2rem]">
-            {match.actual_home_score}–{match.actual_away_score}
+          <span className="flex shrink-0 flex-col items-center leading-none">
+            <span className="font-mono text-3xl font-semibold tabular-nums text-primary sm:text-[2rem]">
+              {match.actual_home_score}–{match.actual_away_score}
+            </span>
+            {extraLine && (
+              <span className="mt-1 font-mono text-[10px] uppercase tracking-wide text-text-muted">
+                {extraLine}
+              </span>
+            )}
           </span>
         ) : (
           <span className="shrink-0 font-mono text-sm font-medium uppercase tracking-[0.15em] text-text-muted">

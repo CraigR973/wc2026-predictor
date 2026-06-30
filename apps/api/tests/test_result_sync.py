@@ -385,6 +385,73 @@ async def test_live_extra_time_uses_regulation_score() -> None:
     assert match.result_source is None  # not final yet
 
 
+async def test_live_captures_extra_time_phase_for_display() -> None:
+    """U64: while a knockout match is live and into extra time, _apply_live mirrors
+    the AET scoreline into extra_time_*_score (for the dashboard's live caption)
+    without setting penalty_winner_id or result_source — those stay for full-time."""
+    match = _make_match(status=MatchStatus.live, stage=TournamentStage.r32)
+    match.actual_home_score = 1
+    match.actual_away_score = 1
+    fd = _fd_match(
+        status=FDMatchStatus.IN_PLAY,
+        stage="LAST_32",
+        duration="EXTRA_TIME",
+        home_score=2,
+        away_score=1,
+        regular_home=1,
+        regular_away=1,
+        et_home=1,
+        et_away=0,
+    )
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.extra_time is True
+    assert match.penalties is False
+    assert match.extra_time_home_score == 2
+    assert match.extra_time_away_score == 1
+    assert match.penalty_winner_id is None
+    assert match.result_source is None
+
+
+async def test_live_captures_penalty_tally_for_display() -> None:
+    """During a live shootout, the running penalty tally is mirrored for display
+    even though the match (and the advancer pick) is not yet settled."""
+    match = _make_match(status=MatchStatus.live, stage=TournamentStage.r32)
+    match.actual_home_score = 1
+    match.actual_away_score = 1
+    match.extra_time = True
+    match.extra_time_home_score = 1
+    match.extra_time_away_score = 1
+    fd = _fd_match(
+        status=FDMatchStatus.IN_PLAY,
+        stage="LAST_32",
+        duration="PENALTY_SHOOTOUT",
+        home_score=1,
+        away_score=1,
+        regular_home=1,
+        regular_away=1,
+        et_home=0,
+        et_away=0,
+        pen_home=3,
+        pen_away=2,
+    )
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.penalties is True
+    assert match.penalty_home_score == 3
+    assert match.penalty_away_score == 2
+    assert match.penalty_winner_id is None
+    assert match.result_source is None
+
+
 # ---------------------------------------------------------------------------
 # Idempotency — no-op when result_source is already set
 # ---------------------------------------------------------------------------

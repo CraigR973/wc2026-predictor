@@ -549,6 +549,30 @@ def _apply_live(session: AsyncSession, match: Match, fd_match: FDMatch, now: dat
         match.actual_away_score = away
         changed = True
 
+    # Mirror the live phase (AET / shootout tally) for the in-progress card.
+    # These columns are outside the matches_score_results trigger's OF list
+    # (migration 037), so writing them never re-fires scoring — only
+    # actual_*_score and penalty_winner_id do that, and penalty_winner_id is
+    # deliberately left untouched here until _apply_finished settles it.
+    live_extra_time = fd_match.score.duration in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}
+    live_penalties = fd_match.score.duration == "PENALTY_SHOOTOUT"
+    if match.extra_time != live_extra_time:
+        match.extra_time = live_extra_time
+        changed = True
+    if match.penalties != live_penalties:
+        match.penalties = live_penalties
+        changed = True
+    et_home, et_away = _extra_time_scoreline(fd_match)
+    if match.extra_time_home_score != et_home or match.extra_time_away_score != et_away:
+        match.extra_time_home_score = et_home
+        match.extra_time_away_score = et_away
+        changed = True
+    pen_home, pen_away = _penalty_scoreline(fd_match)
+    if match.penalty_home_score != pen_home or match.penalty_away_score != pen_away:
+        match.penalty_home_score = pen_home
+        match.penalty_away_score = pen_away
+        changed = True
+
     match.last_synced_at = now
     return changed
 
