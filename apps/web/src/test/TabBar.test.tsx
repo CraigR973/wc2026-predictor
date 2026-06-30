@@ -30,7 +30,7 @@ vi.mock('@/components/ui/sheet', () => ({
 }));
 
 describe('TabBar mobile positioning', () => {
-  it('scrolls with the page instead of sticking to the viewport', () => {
+  it('stays pinned to the bottom of the mobile viewport', () => {
     const { container } = render(
       <MemoryRouter>
         <TabBar />
@@ -39,10 +39,9 @@ describe('TabBar mobile positioning', () => {
 
     const nav = container.querySelector('nav[aria-label="Primary"]');
 
-    expect(nav?.className).toContain('w-full');
-    expect(nav?.className).toContain('shrink-0');
-    expect(nav?.className).not.toContain('fixed');
-    expect(nav?.className).not.toContain('bottom-0');
-    expect(nav?.className).not.toContain('inset-x-0');
+    expect(nav?.className).toContain('fixed');
+    expect(nav?.className).toContain('bottom-0');
+    expect(nav?.className).toContain('inset-x-0');
+    expect(nav?.className).toContain('z-tabbar');
   });
 });
