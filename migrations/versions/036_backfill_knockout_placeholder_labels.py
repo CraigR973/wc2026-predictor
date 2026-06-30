@@ -39,7 +39,9 @@ depends_on = None
 # Mirrors placeholder_label()'s match-ref grammar:
 #   winner_match_<n> -> "Winner of Match <n>"
 #   loser_match_<n>  -> "Loser of Match <n>"
-_UPGRADE = """
+# Kept as two single-statement executes: the async (asyncpg) driver used for
+# migrations rejects multiple ;-separated commands in one prepared statement.
+_UPGRADE_HOME = """
     UPDATE matches
     SET home_team_placeholder = CASE
             WHEN home_source LIKE 'winner_match_%'
@@ -47,8 +49,10 @@ _UPGRADE = """
             WHEN home_source LIKE 'loser_match_%'
                 THEN replace(home_source, 'loser_match_', 'Loser of Match ')
         END
-    WHERE home_source LIKE 'winner_match_%' OR home_source LIKE 'loser_match_%';
+    WHERE home_source LIKE 'winner_match_%' OR home_source LIKE 'loser_match_%'
+"""
 
+_UPGRADE_AWAY = """
     UPDATE matches
     SET away_team_placeholder = CASE
             WHEN away_source LIKE 'winner_match_%'
@@ -56,12 +60,13 @@ _UPGRADE = """
             WHEN away_source LIKE 'loser_match_%'
                 THEN replace(away_source, 'loser_match_', 'Loser of Match ')
         END
-    WHERE away_source LIKE 'winner_match_%' OR away_source LIKE 'loser_match_%';
+    WHERE away_source LIKE 'winner_match_%' OR away_source LIKE 'loser_match_%'
 """
 
 
 def upgrade() -> None:
-    op.execute(_UPGRADE)
+    op.execute(_UPGRADE_HOME)
+    op.execute(_UPGRADE_AWAY)
 
 
 def downgrade() -> None:
