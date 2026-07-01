@@ -119,11 +119,13 @@ async def _leaderboard_entries(
 ) -> list[LeaderboardEntryOut]:
     """Latest snapshot per player within one league.
 
-    Postgres ``DISTINCT ON`` picks exactly one snapshot per player. Multiple
-    recomputes inside one transaction (e.g. trigger + specials helper) share
-    ``transaction_timestamp()``, so ``snapshot_at`` ties are real; the
-    secondary ``id DESC`` sort breaks them deterministically. ``league_id``
-    is already filtered, so ``player_id`` alone keys the DISTINCT ON.
+    Postgres ``DISTINCT ON`` picks exactly one snapshot per player, the most
+    recent by ``snapshot_at``. Since migration 038 each generation is stamped
+    with a distinct ``statement_timestamp()`` (was ``now()``, which tied every
+    generation written in one transaction), so ``snapshot_at DESC`` reliably
+    selects the latest standing; the secondary ``id DESC`` is a deterministic
+    tiebreak should two generations ever share a statement. ``league_id`` is
+    already filtered, so ``player_id`` alone keys the DISTINCT ON.
     """
     latest_per_player = (
         select(LeaderboardSnapshot)

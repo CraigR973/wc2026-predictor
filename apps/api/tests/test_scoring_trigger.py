@@ -13,11 +13,13 @@ import json
 import uuid
 from datetime import datetime
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
+from src.services.notification_triggers import notify_leaderboard_shifts
 from tests.conftest import ensure_default_league_membership
 
 
@@ -1104,3 +1106,128 @@ async def test_atomicity_all_writes_visible_after_update(
     assert counts2[0]["scored"] == 1
     assert counts2[0]["snaps"] == 1
     assert counts2[0]["rea"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Multi-match sync cycle — snapshot generations must stay orderable.
+# Regression for wrong "was #N" in post-result rank-move notifications: the
+# auto-sync commits a whole cycle at once, so every finished match's scoring
+# trigger fires in ONE transaction. Under now()/transaction_timestamp() all the
+# generations shared a single snapshot_at, so callers couldn't tell them apart
+# by recency. Migration 038 stamps statement_timestamp() instead.
+# ---------------------------------------------------------------------------
+
+
+async def test_two_matches_one_transaction_get_distinct_snapshot_at(
+    db_conn: AsyncConnection,
+) -> None:
+    """Each match scored in a shared transaction gets its own snapshot_at."""
+    g = await _insert_group(db_conn, "A")
+    home = await _insert_team(db_conn, g, "Home A", "HMA")
+    away = await _insert_team(db_conn, g, "Away A", "AWA")
+    alice = await _insert_profile(db_conn, "alice")
+    m1 = await _insert_match(
+        db_conn,
+        stage="group",
+        match_number=1,
+        home_team_id=home,
+        away_team_id=away,
+        group_id=g,
+    )
+    m2 = await _insert_match(
+        db_conn,
+        stage="group",
+        match_number=2,
+        home_team_id=home,
+        away_team_id=away,
+        group_id=g,
+    )
+    await _insert_prediction(db_conn, player_id=alice, match_id=m1, home=1, away=0)
+    await _insert_prediction(db_conn, player_id=alice, match_id=m2, home=2, away=2)
+
+    # Two UPDATE statements, one (uncommitted) transaction — the sync cycle.
+    await _enter_result(db_conn, m1, 1, 0)
+    await _enter_result(db_conn, m2, 2, 2)
+
+    rows = await _fetchall(
+        db_conn,
+        """
+        SELECT triggered_by_match_id AS m, snapshot_at
+        FROM leaderboard_snapshots
+        WHERE player_id = :p AND triggered_by_match_id IN (:m1, :m2)
+        """,
+        p=alice,
+        m1=m1,
+        m2=m2,
+    )
+    at = {r["m"]: r["snapshot_at"] for r in rows}
+    assert set(at) == {m1, m2}
+    assert at[m1] != at[m2], "same-transaction generations must not share snapshot_at"
+    assert at[m1] < at[m2], "the later-scored match must carry the later timestamp"
+
+
+async def test_leaderboard_shift_reports_immediately_preceding_generation(
+    db_conn: AsyncConnection,
+) -> None:
+    """The rank-move push compares against the generation exactly one step back.
+
+    A baseline result (m0) then two more (mA, mB) are scored in one transaction;
+    mA and mB swap alice and bob back and forth. The push for mB must report
+    alice's pre-mB rank (from mA's generation), not the m0 baseline and not an
+    arbitrary same-cycle sibling. With the old now()-tied timestamps the "was"
+    baseline was nondeterministic; here it must be exact.
+    """
+    g = await _insert_group(db_conn, "A")
+    home = await _insert_team(db_conn, g, "Home A", "HMA")
+    away = await _insert_team(db_conn, g, "Away A", "AWA")
+    alice = await _insert_profile(db_conn, "alice")
+    bob = await _insert_profile(db_conn, "bob")
+
+    async def _mk(n: int) -> uuid.UUID:
+        return await _insert_match(
+            db_conn,
+            stage="group",
+            match_number=n,
+            home_team_id=home,
+            away_team_id=away,
+            group_id=g,
+        )
+
+    m0 = await _mk(1)
+    ma = await _mk(2)
+    mb = await _mk(3)
+
+    # m0 (2-1): alice exact -> 10 (#1); bob result+goals -> 5 (#2).
+    await _insert_prediction(db_conn, player_id=alice, match_id=m0, home=2, away=1)
+    await _insert_prediction(db_conn, player_id=bob, match_id=m0, home=3, away=0)
+    # mA (1-0): bob exact -> +10 = 15 (#1); alice 0 -> 10 (#2). Swap.
+    await _insert_prediction(db_conn, player_id=bob, match_id=ma, home=1, away=0)
+    await _insert_prediction(db_conn, player_id=alice, match_id=ma, home=0, away=2)
+    # mB (3-0): alice exact -> +10 = 20 (#1); bob 0 -> 15 (#2). Swap back.
+    await _insert_prediction(db_conn, player_id=alice, match_id=mb, home=3, away=0)
+    await _insert_prediction(db_conn, player_id=bob, match_id=mb, home=0, away=1)
+
+    # One transaction, three statements — the multi-match cycle.
+    await _enter_result(db_conn, m0, 2, 1)
+    await _enter_result(db_conn, ma, 1, 0)
+    await _enter_result(db_conn, mb, 3, 0)
+
+    session = AsyncSession(bind=db_conn, expire_on_commit=False)
+    try:
+        with patch(
+            "src.services.notification_triggers.send_notification",
+            new_callable=AsyncMock,
+        ) as mock_send:
+            moved = await notify_leaderboard_shifts(session, mb)
+    finally:
+        await session.close()
+
+    assert moved == {alice, bob}
+    # send_notification(session, player_id, type, title, body, ...)
+    sent = {c.args[1]: (c.args[3], c.args[4]) for c in mock_send.call_args_list}
+    # mB moved alice 2 -> 1 and bob 1 -> 2, measured against mA's generation
+    # (the immediately-preceding one) — not the m0 baseline.
+    assert sent[alice][0].startswith("📈 Up to #1")
+    assert "was #2" in sent[alice][1]
+    assert sent[bob][0].startswith("📉 Down to #2")
+    assert "was #1" in sent[bob][1]
