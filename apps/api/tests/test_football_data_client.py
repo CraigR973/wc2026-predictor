@@ -58,6 +58,24 @@ _IN_PLAY_MATCH = {
     },
 }
 
+_LIVE_MATCH = {
+    "id": 537426,
+    "utcDate": "2026-07-01T16:00:00Z",
+    # football-data.org emits "LIVE" interchangeably with "IN_PLAY" for an
+    # in-progress match (observed in prod 2026-07-01, ENG v COD).
+    "status": "LIVE",
+    "stage": "LAST_32",
+    "lastUpdated": "2026-07-01T16:30:00Z",
+    "homeTeam": {"id": 1, "name": "England", "tla": "ENG"},
+    "awayTeam": {"id": 99, "name": "DR Congo", "tla": "COD"},
+    "score": {
+        "winner": "AWAY_TEAM",
+        "duration": "REGULAR",
+        "fullTime": {"home": 0, "away": 1},
+        "halfTime": {"home": 0, "away": 1},
+    },
+}
+
 _SCHEDULED_MATCH = {
     "id": 419667,
     "utcDate": "2026-06-15T18:00:00Z",  # shifted kickoff
@@ -189,6 +207,47 @@ async def test_in_play_match_parses_correctly() -> None:
     assert in_play.score.fullTime.home is None
     assert in_play.score.fullTime.away is None
     assert in_play.score.winner is None
+
+
+@pytest.mark.asyncio
+async def test_live_status_parses_as_live() -> None:
+    """A "LIVE" status must parse (not just "IN_PLAY").
+
+    Regression: football-data.org emitted status="LIVE" for a live match on
+    2026-07-01. That value was absent from ``FDMatchStatus``, so the whole-feed
+    ``FDMatchesResponse`` validation raised and every 5-minute sync cycle crashed
+    for ~55 min — freezing the live hub for the entire league — until the match
+    changed to a modelled state. LIVE is handled exactly like IN_PLAY.
+    """
+    response_body = {"count": 1, "matches": [_LIVE_MATCH]}
+    client = _make_client([_ok(response_body)])
+    result = await client.get_competition_matches()
+
+    m = result.matches[0]
+    assert m.status == FDMatchStatus.LIVE
+    assert m.score.fullTime.home == 0
+    assert m.score.fullTime.away == 1
+
+
+@pytest.mark.asyncio
+async def test_unknown_status_degrades_and_does_not_abort_feed() -> None:
+    """One unmodelled status must coerce to UNKNOWN, not drop the whole feed.
+
+    Belt-and-suspenders for the LIVE incident: whatever novel status the feed
+    invents next, a single bad value must never block sync for every other match.
+    The valid matches alongside it still parse.
+    """
+    weird = {**_IN_PLAY_MATCH, "id": 999999, "status": "SOMETHING_NEW"}
+    response_body = {"count": 2, "matches": [weird, _FINISHED_MATCH]}
+    client = _make_client([_ok(response_body)])
+    result = await client.get_competition_matches()
+
+    assert len(result.matches) == 2
+    unknown = next(m for m in result.matches if m.id == 999999)
+    assert unknown.status == FDMatchStatus.UNKNOWN
+    # The valid match in the same response is unaffected.
+    finished = next(m for m in result.matches if m.id == 419665)
+    assert finished.status == FDMatchStatus.FINISHED
 
 
 @pytest.mark.asyncio

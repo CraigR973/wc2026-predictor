@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 import structlog
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -28,11 +28,20 @@ class FDMatchStatus(StrEnum):
     SCHEDULED = "SCHEDULED"
     TIMED = "TIMED"
     IN_PLAY = "IN_PLAY"
+    # football-data.org emits ``LIVE`` interchangeably with ``IN_PLAY`` for an
+    # in-progress match (observed live in prod 2026-07-01). It is handled exactly
+    # like IN_PLAY — see ``_LIVE_STATUSES`` in result_sync.
+    LIVE = "LIVE"
     PAUSED = "PAUSED"
     FINISHED = "FINISHED"
     POSTPONED = "POSTPONED"
     CANCELLED = "CANCELLED"
     SUSPENDED = "SUSPENDED"
+    # Internal sentinel for any status string the feed sends that we don't model.
+    # A single unrecognised value must never abort parsing of the whole feed
+    # (which blocks sync for *every* match), so ``FDMatch`` coerces unknowns to
+    # this and ``_sync_one_match`` treats it as a no-op.
+    UNKNOWN = "UNKNOWN"
 
 
 class FDScoreLine(BaseModel):
@@ -71,6 +80,25 @@ class FDMatch(BaseModel):
     homeTeam: FDTeam
     awayTeam: FDTeam
     score: FDScore
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _coerce_unknown_status(cls, value: object) -> object:
+        """Map any status string we don't model to the UNKNOWN sentinel.
+
+        Without this a single unrecognised value (e.g. the feed emitting a status
+        not in ``FDMatchStatus``) raises a ValidationError for the *entire*
+        ``FDMatchesResponse``, silently blocking sync for every match until the
+        offending match changes state. Coerce-and-warn keeps the rest of the feed
+        flowing; the unknown match is a no-op in ``_sync_one_match``.
+        """
+        if isinstance(value, str):
+            try:
+                return FDMatchStatus(value)
+            except ValueError:
+                log.warning("unknown football-data match status", status=value)
+                return FDMatchStatus.UNKNOWN
+        return value
 
 
 class FDMatchesResponse(BaseModel):

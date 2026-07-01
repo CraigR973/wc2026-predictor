@@ -544,6 +544,28 @@ async def test_in_play_transitions_locked_to_live() -> None:
     assert match.status == MatchStatus.live
 
 
+async def test_live_status_transitions_locked_to_live_and_writes_score() -> None:
+    """football-data's "LIVE" status is handled exactly like IN_PLAY.
+
+    Regression for the 2026-07-01 prod incident: the feed reported status="LIVE"
+    for an in-progress match, a value that was neither modelled nor in
+    ``_LIVE_STATUSES``, so the match never flipped to live and its score never
+    synced.
+    """
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.LIVE, home_score=0, away_score=1)
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.status == MatchStatus.live
+    assert match.actual_home_score == 0
+    assert match.actual_away_score == 1
+    assert match.result_source is None  # not a final result yet
+
+
 async def test_in_play_writes_live_score() -> None:
     """U63: a live match writes the running in-play score so predictions and the
     leaderboard update during the match — result_source stays NULL (not final)."""

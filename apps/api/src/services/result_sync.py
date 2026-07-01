@@ -6,7 +6,7 @@ and applies a status delta per match:
 
 * ``FINISHED`` → score + status=completed + result_source=auto (skipped if a
   manual or override result already exists).
-* ``IN_PLAY``/``PAUSED``/``SUSPENDED`` → status=live.
+* ``IN_PLAY``/``LIVE``/``PAUSED``/``SUSPENDED`` → status=live.
 * ``POSTPONED`` → status=postponed.
 * ``CANCELLED`` → status=cancelled.
 * ``TIMED``/``SCHEDULED`` → kickoff drift detection — when the upstream
@@ -73,6 +73,7 @@ log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 _LIVE_STATUSES = {
     FDMatchStatus.IN_PLAY,
+    FDMatchStatus.LIVE,
     FDMatchStatus.PAUSED,
     FDMatchStatus.SUSPENDED,
 }
