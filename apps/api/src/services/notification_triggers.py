@@ -231,10 +231,18 @@ async def notify_leaderboard_shifts(
     than one at once. The old code keyed snapshots by player alone, silently
     dropping all but one league and sending an unlabelled "you moved to #N" — so
     a multi-league player couldn't tell which table changed. This groups the
-    result's snapshots per league, compares each against that league's previous
-    snapshot, and sends ONE notification that names the league(s) and deep-links
-    to the leaderboard. Returns the set of notified player ids so the caller can
-    suppress the generic result broadcast for them.
+    result's snapshots per league, compares each against that league's
+    immediately-preceding generation, and sends ONE notification that names the
+    league(s) and deep-links to the leaderboard. Returns the set of notified
+    player ids so the caller can suppress the generic result broadcast for them.
+
+    "Immediately-preceding" is per-match incremental: each finished match's push
+    reports the move that match caused. When a sync cycle finishes several
+    matches at once they are scored in one transaction as a sequence of
+    generations (migration 038 stamps each with a distinct
+    ``statement_timestamp()``), and the ``snapshot_at <`` lookup walks that
+    sequence one step back — so match B compares against the post-A standing,
+    not against an arbitrary same-cycle sibling.
     """
     new_snaps_result = await session.execute(
         select(LeaderboardSnapshot).where(LeaderboardSnapshot.triggered_by_match_id == match_id)
@@ -255,14 +263,28 @@ async def notify_leaderboard_shifts(
     for player_id, snaps in snaps_by_player.items():
         moves: list[_RankMove] = []
         for snap in snaps:
+            # The baseline is the generation immediately *before* this one for
+            # the same player+league — i.e. the most recent snapshot strictly
+            # earlier than this match's. We must NOT key off
+            # ``triggered_by_match_id != match_id``: when several matches finish
+            # in one sync transaction their generations are siblings, and that
+            # filter would let a same-cycle sibling become the baseline, giving
+            # a wrong/nondeterministic "was #N". ``snapshot_at <`` excludes this
+            # generation and every later sibling; migration 038's
+            # ``statement_timestamp()`` makes those siblings strictly ordered so
+            # this picks the true predecessor. ``id DESC`` only breaks a genuine
+            # same-statement tie (trigger + recompute helper in one txn).
             prev_result = await session.execute(
                 select(LeaderboardSnapshot)
                 .where(
                     LeaderboardSnapshot.player_id == player_id,
                     LeaderboardSnapshot.league_id == snap.league_id,
-                    LeaderboardSnapshot.triggered_by_match_id != match_id,
+                    LeaderboardSnapshot.snapshot_at < snap.snapshot_at,
                 )
-                .order_by(LeaderboardSnapshot.snapshot_at.desc())
+                .order_by(
+                    LeaderboardSnapshot.snapshot_at.desc(),
+                    LeaderboardSnapshot.id.desc(),
+                )
                 .limit(1)
             )
             prev = prev_result.scalar_one_or_none()

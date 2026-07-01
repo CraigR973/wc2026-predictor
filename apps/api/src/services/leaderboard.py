@@ -99,7 +99,12 @@ async def recompute_leaderboard_snapshot(
                         player_totals.ko_winner_correct_count DESC,
                         tbo.manual_order ASC NULLS LAST
                 ),
-                now(),
+                -- statement_timestamp() (not now()) so generations written in
+                -- the same transaction get distinct, strictly-increasing
+                -- timestamps — matching migration 038's trigger and letting
+                -- snapshot_at order generations by recency. now() is constant
+                -- per transaction and would tie same-cycle generations.
+                statement_timestamp(),
                 :triggered_by_match_id
             FROM league_memberships lm
             JOIN (
