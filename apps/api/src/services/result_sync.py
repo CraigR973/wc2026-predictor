@@ -56,6 +56,8 @@ from src.models.team import Team, TournamentStage
 from src.services.football_data import (
     FDMatch,
     FDMatchStatus,
+    FDScore,
+    FDScoreLine,
     FootballDataClient,
     FootballDataError,
 )
@@ -367,6 +369,40 @@ def _maybe_backfill_match_id(match: Match, fd_match_id: int) -> None:
         )
 
 
+def _has_goals(scoreline: FDScoreLine | None) -> bool:
+    """True when football-data actually populated a sub-scoreline (even ``0-0``).
+
+    A sub-score can be missing two ways — the field is absent (``None``) or present
+    but empty (``{home: null, away: null}``). Both mean "no data"; a real ``0-0``
+    (either side ``0``, not ``None``) counts as present.
+    """
+    return scoreline is not None and (scoreline.home is not None or scoreline.away is not None)
+
+
+def _went_to_penalties(score: FDScore) -> bool:
+    """Whether a shootout decided the tie.
+
+    ``duration`` alone is NOT trusted: football-data can briefly serve
+    ``duration="REGULAR"`` for a knockout it has already recorded extra-time /
+    shootout goals for (observed in prod in the minutes after full time, before
+    the feed self-corrects). The presence of ``penalties`` goals is authoritative.
+    """
+    return score.duration == "PENALTY_SHOOTOUT" or _has_goals(score.penalties)
+
+
+def _went_to_extra_time(score: FDScore) -> bool:
+    """Whether the tie went past 90 minutes (extra time and/or a shootout).
+
+    As with :func:`_went_to_penalties`, recorded ``extraTime`` goals (or a
+    shootout) override a ``duration`` string that still reads ``REGULAR``.
+    """
+    return (
+        score.duration in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}
+        or _has_goals(score.extraTime)
+        or _went_to_penalties(score)
+    )
+
+
 def _grading_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
     """The end-of-normal-time scoreline used to grade predictions.
 
@@ -376,11 +412,28 @@ def _grading_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
     ``regularTime`` — and that is what predictions are scored on (§7: extra time
     does not change the score for prediction purposes). For ordinary matches the
     feed omits ``regularTime`` and ``fullTime`` already holds the real score.
+
+    When the feed omits ``regularTime`` but *has* recorded extra-time / shootout
+    goals (the transient inconsistency where ``duration`` still reads ``REGULAR``),
+    we back the 90-minute score out of the aggregate: ``fullTime − extraTime −
+    penalties``. Without this the aggregate is stored as the scoreline and every
+    prediction on the match is graded against the wrong result.
     """
-    rt = fd_match.score.regularTime
+    score = fd_match.score
+    rt = score.regularTime
     if rt is not None and rt.home is not None and rt.away is not None:
         return rt.home, rt.away
-    return fd_match.score.fullTime.home, fd_match.score.fullTime.away
+
+    home, away = score.fullTime.home, score.fullTime.away
+    if home is None or away is None:
+        return home, away
+    if _went_to_extra_time(score):
+        et, pens = score.extraTime, score.penalties
+        home -= (et.home or 0) if et is not None else 0
+        away -= (et.away or 0) if et is not None else 0
+        home -= (pens.home or 0) if pens is not None else 0
+        away -= (pens.away or 0) if pens is not None else 0
+    return home, away
 
 
 def _advancer_id(match: Match, fd_match: FDMatch) -> uuid.UUID | None:
@@ -391,7 +444,7 @@ def _advancer_id(match: Match, fd_match: FDMatch) -> uuid.UUID | None:
     the feed's winner there. This also covers an extra-time-decided win, whose
     ``regularTime`` is level even though the match produced a winner.
     """
-    if fd_match.score.duration not in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}:
+    if not _went_to_extra_time(fd_match.score):
         return None
     if fd_match.score.winner == "HOME_TEAM":
         return match.home_team_id
@@ -404,25 +457,26 @@ def _extra_time_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
     """The cumulative score at the end of extra time, for display.
 
     football-data reports ``extraTime`` as the goals scored *during* extra time,
-    so the end-of-ET scoreline is ``regularTime + extraTime``. Returns
-    ``(None, None)`` when the match did not reach extra time (or the feed lacks
-    the regulation breakdown to compute it).
+    so the end-of-ET scoreline is ``(90-min score) + extraTime``. The 90-min base
+    comes from :func:`_grading_scoreline`, so this still resolves when the feed
+    omits ``regularTime`` and the base is derived from the aggregate. Returns
+    ``(None, None)`` when the match did not reach extra time.
     """
     score = fd_match.score
-    if score.duration not in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}:
+    if not _went_to_extra_time(score):
         return None, None
-    reg = score.regularTime
-    if reg is None or reg.home is None or reg.away is None:
+    reg_home, reg_away = _grading_scoreline(fd_match)
+    if reg_home is None or reg_away is None:
         return None, None
     et = score.extraTime
     et_home = et.home if et is not None and et.home is not None else 0
     et_away = et.away if et is not None and et.away is not None else 0
-    return reg.home + et_home, reg.away + et_away
+    return reg_home + et_home, reg_away + et_away
 
 
 def _penalty_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
     """The penalty shootout tally, for display. ``(None, None)`` when no shootout."""
-    if fd_match.score.duration != "PENALTY_SHOOTOUT":
+    if not _went_to_penalties(fd_match.score):
         return None, None
     pens = fd_match.score.penalties
     if pens is None:
@@ -452,8 +506,8 @@ def _apply_finished(session: AsyncSession, match: Match, fd_match: FDMatch, now:
 
     match.actual_home_score = home
     match.actual_away_score = away
-    match.extra_time = fd_match.score.duration in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}
-    match.penalties = fd_match.score.duration == "PENALTY_SHOOTOUT"
+    match.extra_time = _went_to_extra_time(fd_match.score)
+    match.penalties = _went_to_penalties(fd_match.score)
     match.penalty_winner_id = _advancer_id(match, fd_match)
     match.extra_time_home_score, match.extra_time_away_score = _extra_time_scoreline(fd_match)
     match.penalty_home_score, match.penalty_away_score = _penalty_scoreline(fd_match)
@@ -555,8 +609,8 @@ def _apply_live(session: AsyncSession, match: Match, fd_match: FDMatch, now: dat
     # (migration 037), so writing them never re-fires scoring — only
     # actual_*_score and penalty_winner_id do that, and penalty_winner_id is
     # deliberately left untouched here until _apply_finished settles it.
-    live_extra_time = fd_match.score.duration in {"EXTRA_TIME", "PENALTY_SHOOTOUT"}
-    live_penalties = fd_match.score.duration == "PENALTY_SHOOTOUT"
+    live_extra_time = _went_to_extra_time(fd_match.score)
+    live_penalties = _went_to_penalties(fd_match.score)
     if match.extra_time != live_extra_time:
         match.extra_time = live_extra_time
         changed = True

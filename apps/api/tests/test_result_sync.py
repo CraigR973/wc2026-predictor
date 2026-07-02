@@ -326,6 +326,49 @@ async def test_finished_extra_time_win_stores_regulation_score_and_advancer() ->
     assert match.penalty_away_score is None
 
 
+async def test_finished_extra_time_with_lying_duration_derives_regulation_score() -> None:
+    """Regression (Belgium–Senegal R32, 2026-07-01): in the minutes after full time
+    football-data served an *inconsistent* payload — ``duration="REGULAR"`` and
+    ``regularTime=null``, yet ``extraTime`` goals recorded and ``fullTime`` the ET
+    aggregate (3-2). Trusting ``duration`` stored the aggregate as the 90-minute
+    score, so every draw prediction was graded a loss. We must detect the extra
+    time from the ``extraTime`` goals and back the regulation score out of
+    ``fullTime`` (3-2 − 1-0 = 2-2)."""
+    match = _make_match(
+        status=MatchStatus.locked,
+        stage=TournamentStage.r32,
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    fd = _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_32",
+        duration="REGULAR",  # the feed's lie — it really went to extra time
+        winner="HOME_TEAM",
+        home_score=3,  # fullTime aggregate = regulation 2 + extra-time 1
+        away_score=2,  # fullTime aggregate = regulation 2 + extra-time 0
+        regular_home=None,  # feed omitted the 90-minute breakdown
+        regular_away=None,
+        et_home=1,  # but recorded the extra-time goal
+        et_away=0,
+    )
+    factory, _ = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.actual_home_score == 2  # the 90-min draw, not the 3-2 aggregate
+    assert match.actual_away_score == 2
+    assert match.extra_time is True  # detected from extraTime goals, not duration
+    assert match.penalties is False
+    assert match.penalty_winner_id == match.home_team_id  # HOME advanced in ET
+    assert match.extra_time_home_score == 3  # regulation 2 + the extra-time goal
+    assert match.extra_time_away_score == 2
+    assert match.penalty_home_score is None
+    assert match.penalty_away_score is None
+
+
 async def test_finished_regular_match_uses_fulltime_and_no_advancer() -> None:
     """Ordinary 90-minute matches: the feed omits ``regularTime``, so ``fullTime``
     is the real score and there is no penalty advancer to record."""
