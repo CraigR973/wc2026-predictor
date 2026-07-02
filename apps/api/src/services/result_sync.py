@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import func, select
@@ -94,6 +94,15 @@ _FD_STAGE_TO_LOCAL_STAGE = {
 }
 
 _FAILURE_ALERT_THRESHOLD = 3
+
+# How long after finalization an *auto* result may still be revised by the feed.
+# football-data can serve a transient/incomplete payload right at full time (e.g.
+# the extra-time aggregate before ``regularTime`` is populated — the Belgium–Senegal
+# R32 incident, 2026-07-01) and correct it minutes later. Our finished-write is
+# otherwise idempotent, so without this the first (possibly wrong) read is frozen.
+# Bounded so a late upstream revision of a long-settled match can't reshuffle the
+# leaderboard days later. Manual/override results are never revised.
+_AUTO_RESULT_REVISE_WINDOW = timedelta(minutes=30)
 
 # Process-lifetime counter. None means "not yet loaded from DB this process".
 # Persists across job invocations within a single process (fast path) and is
@@ -197,8 +206,9 @@ async def sync_results(
         # result has settled — group results fill the R32, knockout results
         # cascade to the next round. This is the auto path's equivalent of the
         # ``_maybe_resync_knockout`` call the manual admin result endpoints make.
+        # A ``result_corrected`` event can flip the advancer, so it re-resolves too.
         # Best-effort: bracket resolution must never abort the sync cycle.
-        if any(u.event_type == "finished" for u in match_updates):
+        if any(u.event_type in {"finished", "result_corrected"} for u in match_updates):
             try:
                 await sync_knockout_bracket(session)
             except Exception:
@@ -248,9 +258,12 @@ async def _sync_one_match(
         )
 
     if fd_status == FDMatchStatus.FINISHED:
-        if _apply_finished(session, match, fd_match, now):
+        outcome = _apply_finished(session, match, fd_match, now)
+        # "finished" fires the result-detected push; "result_corrected" is a silent
+        # in-window revision (no re-notify) that still re-runs the bracket resolver.
+        if outcome in {"finalized", "corrected"}:
             return True, _base(
-                "finished",
+                "finished" if outcome == "finalized" else "result_corrected",
                 home_score=match.actual_home_score,
                 away_score=match.actual_away_score,
             )
@@ -484,38 +497,131 @@ def _penalty_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
     return pens.home, pens.away
 
 
-def _apply_finished(session: AsyncSession, match: Match, fd_match: FDMatch, now: datetime) -> bool:
-    # Idempotent: a prior auto/manual/override write owns the result.
-    if match.result_source is not None:
-        return False
+def _write_result_fields(
+    match: Match,
+    home: int,
+    away: int,
+    extra_time: bool,
+    penalties: bool,
+    advancer: uuid.UUID | None,
+    et_home: int | None,
+    et_away: int | None,
+    pen_home: int | None,
+    pen_away: int | None,
+) -> None:
+    """Write the grading-relevant result columns.
 
+    Shared by the first finalization and an in-window correction so the two paths
+    can never drift into writing different field sets.
+    """
+    match.actual_home_score = home
+    match.actual_away_score = away
+    match.extra_time = extra_time
+    match.penalties = penalties
+    match.penalty_winner_id = advancer
+    match.extra_time_home_score = et_home
+    match.extra_time_away_score = et_away
+    match.penalty_home_score = pen_home
+    match.penalty_away_score = pen_away
+
+
+def _apply_finished(
+    session: AsyncSession, match: Match, fd_match: FDMatch, now: datetime
+) -> str | None:
+    """Settle a FINISHED feed entry. Returns the event kind, or None for no-op.
+
+    * ``"finalized"`` — first time we record this result (fires notifications).
+    * ``"corrected"`` — an *auto* result revised inside the self-heal window
+      because the feed changed the grading scoreline / advancer (no re-notify).
+    * ``None`` — nothing to do: a bad payload, an unexpected local status, a
+      manual/override result, a frozen (out-of-window) auto result, or an
+      in-window auto result the feed left unchanged.
+    """
     home, away = _grading_scoreline(fd_match)
     if home is None or away is None:
         log.warning("finished match missing score", fd_id=fd_match.id)
-        return False
+        return None
 
-    # Match must be locked/live/completed to accept a result, mirroring
-    # the admin manual entry validation in routers.admin.
-    if match.status not in {MatchStatus.locked, MatchStatus.live, MatchStatus.completed}:
-        log.warning(
-            "finished match has unexpected local status",
-            fd_id=fd_match.id,
-            local_status=match.status,
+    # Derive the full target result once — used by both the first-write and the
+    # correction path (via _write_result_fields).
+    extra_time = _went_to_extra_time(fd_match.score)
+    penalties = _went_to_penalties(fd_match.score)
+    advancer = _advancer_id(match, fd_match)
+    et_home, et_away = _extra_time_scoreline(fd_match)
+    pen_home, pen_away = _penalty_scoreline(fd_match)
+
+    if match.result_source is None:
+        # First finalization. Match must be locked/live/completed to accept a
+        # result, mirroring the admin manual entry validation in routers.admin.
+        if match.status not in {MatchStatus.locked, MatchStatus.live, MatchStatus.completed}:
+            log.warning(
+                "finished match has unexpected local status",
+                fd_id=fd_match.id,
+                local_status=match.status,
+            )
+            return None
+        _write_result_fields(
+            match, home, away, extra_time, penalties, advancer, et_home, et_away, pen_home, pen_away
         )
-        return False
+        match.result_source = ResultSource.auto
+        match.result_entered_by = None
+        match.status = MatchStatus.completed
+        match.result_finalized_at = now
+        match.last_synced_at = now
+        session.add(
+            AuditLog(
+                actor_id=None,
+                actor_type=ActorType.system,
+                action_type=ActionType.result_auto_fetched,
+                target_table="matches",
+                target_id=match.id,
+                changes={
+                    "actual_home_score": home,
+                    "actual_away_score": away,
+                    "penalty_winner_id": str(advancer) if advancer else None,
+                    "result_source": ResultSource.auto.value,
+                },
+            )
+        )
+        return "finalized"
 
-    match.actual_home_score = home
-    match.actual_away_score = away
-    match.extra_time = _went_to_extra_time(fd_match.score)
-    match.penalties = _went_to_penalties(fd_match.score)
-    match.penalty_winner_id = _advancer_id(match, fd_match)
-    match.extra_time_home_score, match.extra_time_away_score = _extra_time_scoreline(fd_match)
-    match.penalty_home_score, match.penalty_away_score = _penalty_scoreline(fd_match)
-    match.result_source = ResultSource.auto
-    match.result_entered_by = None
-    match.status = MatchStatus.completed
+    # A result already exists. Only an *auto* result, still inside the self-heal
+    # window, may be revised — never manual/override, and never a match settled
+    # long enough ago that a late upstream revision would just be noise.
+    if match.result_source is not ResultSource.auto:
+        return None
+    if match.result_finalized_at is None or now - match.result_finalized_at > (
+        _AUTO_RESULT_REVISE_WINDOW
+    ):
+        return None
+
     match.last_synced_at = now
+    if (
+        match.actual_home_score == home
+        and match.actual_away_score == away
+        and match.extra_time == extra_time
+        and match.penalties == penalties
+        and match.penalty_winner_id == advancer
+        and match.extra_time_home_score == et_home
+        and match.extra_time_away_score == et_away
+        and match.penalty_home_score == pen_home
+        and match.penalty_away_score == pen_away
+    ):
+        return None  # feed unchanged — nothing to correct
 
+    prev_home, prev_away = match.actual_home_score, match.actual_away_score
+    _write_result_fields(
+        match, home, away, extra_time, penalties, advancer, et_home, et_away, pen_home, pen_away
+    )
+    # result_finalized_at is deliberately NOT refreshed: the window is measured
+    # from the first finalization, so a self-correcting feed cannot extend it.
+    log.info(
+        "auto result corrected within self-heal window",
+        fd_id=fd_match.id,
+        match_id=str(match.id),
+        previous=f"{prev_home}-{prev_away}",
+        corrected=f"{home}-{away}",
+    )
     session.add(
         AuditLog(
             actor_id=None,
@@ -524,16 +630,17 @@ def _apply_finished(session: AsyncSession, match: Match, fd_match: FDMatch, now:
             target_table="matches",
             target_id=match.id,
             changes={
+                "corrected": True,
+                "previous_home_score": prev_home,
+                "previous_away_score": prev_away,
                 "actual_home_score": home,
                 "actual_away_score": away,
-                "penalty_winner_id": (
-                    str(match.penalty_winner_id) if match.penalty_winner_id else None
-                ),
+                "penalty_winner_id": str(advancer) if advancer else None,
                 "result_source": ResultSource.auto.value,
             },
         )
     )
-    return True
+    return "corrected"
 
 
 def _apply_postponed(session: AsyncSession, match: Match, now: datetime) -> bool:
@@ -591,9 +698,10 @@ def _apply_live(session: AsyncSession, match: Match, fd_match: FDMatch, now: dat
     # real score (0-0 onward) once underway, so only write when both halves are
     # present — and only when the score actually moved, so no-op sync ticks
     # don't re-fire the scoring trigger. We deliberately leave result_source
-    # NULL: the result isn't final until FINISHED, and _apply_finished's
-    # idempotency guard (result_source IS NOT NULL) must still let the final
-    # whistle through to settle status/extra_time/penalties.
+    # NULL: the result isn't final until FINISHED, so the finish handler treats
+    # the final whistle as the first finalization (settling status / extra_time /
+    # penalties and opening the self-heal window) rather than an in-window
+    # correction of an already-settled result.
     home, away = _grading_scoreline(fd_match)
     if (
         home is not None
