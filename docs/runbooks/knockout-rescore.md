@@ -4,6 +4,10 @@ Use this when a **knockout match decided on penalties (or by an extra-time goal)
 shows the correct bracket progression but awards 0 advancement points** to the
 players who picked the team that went through.
 
+> Wrong **90-minute scoreline** instead (e.g. the extra-time *aggregate* stored as
+> the regulation result, so scoreline points are wrong for everyone)? That is a
+> different symptom — see [`transient-et-score-correction.md`](transient-et-score-correction.md).
+
 ---
 
 ## Root cause
