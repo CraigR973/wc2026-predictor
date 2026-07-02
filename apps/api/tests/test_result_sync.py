@@ -51,6 +51,7 @@ def _make_match(
     stage: TournamentStage = TournamentStage.group,
     kickoff: datetime | None = None,
     result_source: ResultSource | None = None,
+    result_finalized_at: datetime | None = None,
     original_kickoff: datetime | None = None,
     home_team_id: uuid.UUID | None = None,
     away_team_id: uuid.UUID | None = None,
@@ -78,6 +79,7 @@ def _make_match(
     m.penalty_home_score = None
     m.penalty_away_score = None
     m.result_source = result_source
+    m.result_finalized_at = result_finalized_at
     m.result_entered_by = None
     m.last_synced_at = None
     m.deleted_at = None
@@ -236,6 +238,7 @@ async def test_finished_match_writes_score_and_audit() -> None:
     assert match.result_source == ResultSource.auto
     assert match.status == MatchStatus.completed
     assert match.result_entered_by is None
+    assert match.result_finalized_at is not None  # anchors the self-heal window
     audit = next(c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], AuditLog))
     assert audit.actor_type == ActorType.system
     assert audit.action_type == ActionType.result_auto_fetched
@@ -520,6 +523,167 @@ async def test_finished_match_with_existing_result_is_noop() -> None:
         for c in session.add.call_args_list
         if isinstance(c.args[0], AuditLog) and c.args[0].action_type != ActionType.sync_triggered
     ]
+
+
+# ---------------------------------------------------------------------------
+# Self-heal window — an auto result may be revised while the feed settles
+# ---------------------------------------------------------------------------
+
+
+def _recent_now(minutes_ago: int) -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=minutes_ago)
+
+
+def _corrected_et_payload() -> FDMatch:
+    """The Belgium–Senegal result *after* football-data self-corrected: an
+    extra-time win whose regulation score (the grading score) is a 2-2 draw."""
+    return _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_32",
+        duration="EXTRA_TIME",
+        winner="HOME_TEAM",
+        home_score=3,  # aggregate
+        away_score=2,
+        regular_home=2,  # the true 90-minute draw
+        regular_away=2,
+        et_home=1,
+        et_away=0,
+    )
+
+
+async def test_auto_result_corrected_within_window(_no_bracket_sync: AsyncMock) -> None:
+    """An auto result first stored wrong (the transient 3-2 aggregate) is revised
+    to the true 2-2 draw when the feed corrects itself inside the window — silently
+    (no re-notify), and the bracket resolver re-runs in case the advancer changed."""
+    match = _make_match(
+        status=MatchStatus.completed,
+        stage=TournamentStage.r32,
+        result_source=ResultSource.auto,
+        result_finalized_at=_recent_now(5),
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    # The bad first read: the ET aggregate, stored as if a clean 3-2 regulation win.
+    match.actual_home_score = 3
+    match.actual_away_score = 2
+    match.extra_time = False
+    finalized_before = match.result_finalized_at
+    factory, session = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([_corrected_et_payload()])
+
+    with patch(
+        "src.services.result_sync.notify_result_detected", new_callable=AsyncMock
+    ) as mock_notify:
+        count = await result_sync.sync_results(
+            session_factory=factory, client_factory=client_factory
+        )
+
+    assert count == 1
+    assert match.actual_home_score == 2  # corrected to the 90-minute draw
+    assert match.actual_away_score == 2
+    assert match.extra_time is True
+    assert match.penalty_winner_id == match.home_team_id
+    assert match.extra_time_home_score == 3  # end-of-ET scoreline for display
+    assert match.extra_time_away_score == 2
+    # The window is anchored to the first finalization — a correction never extends it.
+    assert match.result_finalized_at == finalized_before
+    # Silent: no second "result is in!" push on a correction.
+    mock_notify.assert_not_called()
+    # Bracket re-resolves in case the advancer flipped.
+    _no_bracket_sync.assert_awaited()
+    audit = next(
+        c.args[0]
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].changes.get("corrected")
+    )
+    assert audit.changes["previous_home_score"] == 3
+    assert audit.changes["actual_home_score"] == 2
+
+
+async def test_auto_result_frozen_after_window() -> None:
+    """Past the window, a settled auto result is frozen — a late feed change is
+    ignored so it can't reshuffle the leaderboard long after the fact."""
+    match = _make_match(
+        status=MatchStatus.completed,
+        stage=TournamentStage.r32,
+        result_source=ResultSource.auto,
+        result_finalized_at=_recent_now(40),  # outside the 30-minute window
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    match.actual_home_score = 3
+    match.actual_away_score = 2
+    match.extra_time = False
+    factory, session = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([_corrected_et_payload()])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.actual_home_score == 3  # unchanged — frozen
+    assert match.actual_away_score == 2
+    assert match.extra_time is False
+    assert not [
+        c
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].action_type != ActionType.sync_triggered
+    ]
+
+
+async def test_auto_result_within_window_unchanged_is_noop() -> None:
+    """Inside the window but the feed agrees with what we stored: no rewrite, no
+    audit — the common case where the first read was already correct."""
+    match = _make_match(
+        status=MatchStatus.completed,
+        stage=TournamentStage.r32,
+        result_source=ResultSource.auto,
+        result_finalized_at=_recent_now(5),
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    # Already the corrected result.
+    match.actual_home_score = 2
+    match.actual_away_score = 2
+    match.extra_time = True
+    match.penalty_winner_id = match.home_team_id
+    match.extra_time_home_score = 3
+    match.extra_time_away_score = 2
+    factory, session = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([_corrected_et_payload()])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.actual_home_score == 2
+    assert match.actual_away_score == 2
+    assert not [
+        c
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].action_type != ActionType.sync_triggered
+    ]
+
+
+async def test_manual_result_never_corrected_within_window() -> None:
+    """A manual/override result is authoritative — the self-heal window never
+    touches it, even if the feed disagrees inside the window."""
+    match = _make_match(
+        status=MatchStatus.completed,
+        stage=TournamentStage.r32,
+        result_source=ResultSource.override,
+        result_finalized_at=_recent_now(5),
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    match.actual_home_score = 3
+    match.actual_away_score = 2
+    factory, session = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([_corrected_et_payload()])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.actual_home_score == 3
+    assert match.result_source == ResultSource.override
 
 
 # ---------------------------------------------------------------------------

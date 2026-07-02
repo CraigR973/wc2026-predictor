@@ -103,6 +103,13 @@ class Match(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
     result_entered_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True
     )
+    # Stamped once, when ``result_source`` first becomes non-null (the full-time
+    # settle). Anchors the auto-result self-heal window in ``result_sync`` — unlike
+    # ``result_entered_at``, which the live-score sync stamps mid-match. NULL for
+    # results finalized before migration 039 (treated as outside the window).
+    result_finalized_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     postponed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
