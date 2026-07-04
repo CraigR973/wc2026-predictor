@@ -97,6 +97,8 @@ def test_legacy_bracket_r32_still_importable() -> None:
 
 def test_bracket_later_rounds_reference_prior_match_winners() -> None:
     assert KNOCKOUT_BRACKET[89] == ("winner_match_73", "winner_match_76")
+    # Match 95 is ARG-home (winner_match_87), EGY-away (winner_match_86).
+    assert KNOCKOUT_BRACKET[95] == ("winner_match_87", "winner_match_86")
     assert KNOCKOUT_BRACKET[96] == ("winner_match_85", "winner_match_88")
     assert KNOCKOUT_BRACKET[97] == ("winner_match_89", "winner_match_90")
     assert KNOCKOUT_BRACKET[101] == ("winner_match_97", "winner_match_98")
