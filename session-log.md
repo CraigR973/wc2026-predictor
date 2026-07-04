@@ -2198,3 +2198,16 @@ _Retro-documented 2026-06-18 — shipped to staging 2026-06-17._
 - **Results runbook:** `docs/runbooks/survey-results.md` — the per-league rating breakdown is the key cut. Planned 2nd pulse before the Round-of-32.
 
 **Next:** U61 — Platform-wide player profiles (🟢 Sonnet)
+
+---
+
+## fix/r16-match95-orientation — R16 match 95 ARG-home orientation
+**Commits:** 3e473d5, fac0506 · CI ✅
+
+### Key facts for future sessions
+- `KNOCKOUT_BRACKET[95]` already resolved the correct two teams, but in the wrong home/away order; the official bracket for the current resolved tie is Argentina home vs Egypt away (`winner_match_87` before `winner_match_86`).
+- The bug was not cosmetic only: `sync_knockout_bracket` treats the wiring as source of truth, so any manual/live correction to match 95 would drift back to the reversed orientation until the bracket constant changed.
+- Regression coverage now guards both the pure resolver path and the DB-backed sync path (`test_knockout_progression.py` + `test_knockout_sync.py`).
+- Shipped to `staging` in merge `fac0506`; `/ship-prod` remains a separate step.
+
+**Next:** U61 — Platform-wide player profiles (🟢 Sonnet)
