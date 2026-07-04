@@ -6,7 +6,7 @@ from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,6 +78,13 @@ class PreferencesPatch(BaseModel):
 class BroadcastAnnouncementResponse(BaseModel):
     players_targeted: int
     notifications_sent: int
+
+
+class BroadcastRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=300)
+    url: str = "/"
+    tag: str | None = None
 
 
 # ── VAPID public key ──────────────────────────────────────────────────────────
@@ -226,6 +233,67 @@ async def broadcast_knockout_announcement(
                 "players_targeted": len(player_ids),
                 "notifications_sent": sent,
                 "title": title,
+            },
+        )
+    )
+    await db.commit()
+
+    return BroadcastAnnouncementResponse(
+        players_targeted=len(player_ids),
+        notifications_sent=sent,
+    )
+
+
+@router.post("/admin/push/broadcast", response_model=BroadcastAnnouncementResponse)
+async def broadcast_custom_announcement(
+    payload: BroadcastRequest,
+    admin: AdminPlayer,
+    db: Db,
+) -> BroadcastAnnouncementResponse:
+    """Blast a custom one-off push to every player with an active subscription (admin-only).
+
+    Generalises ``broadcast_knockout_announcement`` (whose copy is hardcoded) so an
+    admin can send arbitrary title/body/url without a code change. Same delivery
+    path: ``force_delivery=True`` bypasses per-type mute prefs for a genuine one-off,
+    and every blast is written to ``audit_log``.
+    """
+    player_ids = list(
+        (
+            await db.execute(
+                select(PushSubscription.player_id)
+                .where(PushSubscription.is_active.is_(True))
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    sent = 0
+    for player_id in player_ids:
+        sent += await send_notification(
+            session=db,
+            player_id=player_id,
+            notification_type=NotificationType.specials_revealed,
+            title=payload.title,
+            body=payload.body,
+            data={"url": payload.url},
+            tag=payload.tag,
+            force_delivery=True,
+        )
+
+    db.add(
+        AuditLog(
+            actor_id=admin.id,
+            actor_type=ActorType.admin,
+            action_type=ActionType.sync_triggered,
+            target_table="push_subscriptions",
+            target_id=None,
+            changes={
+                "broadcast": "custom",
+                "players_targeted": len(player_ids),
+                "notifications_sent": sent,
+                "title": payload.title,
             },
         )
     )

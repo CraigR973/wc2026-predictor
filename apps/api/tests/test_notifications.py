@@ -571,3 +571,68 @@ async def test_admin_knockout_broadcast_targets_active_subscribers() -> None:
         mock_db.add.assert_called_once()
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_admin_custom_broadcast_uses_request_copy() -> None:
+    admin = _player("Craig")
+    admin.site_role = SiteRole.superadmin
+    target_a = uuid.uuid4()
+    target_b = uuid.uuid4()
+    mock_db = AsyncMock()
+    mock_db.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[target_a, target_b])))
+    )
+
+    app.dependency_overrides[get_current_player] = lambda: admin
+    app.dependency_overrides[get_db] = _db_with(mock_db)
+    try:
+        with patch(
+            "src.routers.notifications.send_notification",
+            new=AsyncMock(side_effect=[1, 1]),
+        ) as mocked_send:
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                r = await client.post(
+                    "/api/v1/admin/push/broadcast",
+                    json={
+                        "title": "Check your R16 picks",
+                        "body": "Please double-check your Round of 16 predictions.",
+                        "url": "/predictions/knockout",
+                        "tag": "r16-double-check",
+                    },
+                )
+
+        assert r.status_code == 200
+        assert r.json() == {"players_targeted": 2, "notifications_sent": 2}
+        assert mocked_send.await_count == 2
+        # The player-supplied copy — not any hardcoded string — is what gets sent.
+        call = mocked_send.await_args_list[0].kwargs
+        assert call["title"] == "Check your R16 picks"
+        assert call["body"] == "Please double-check your Round of 16 predictions."
+        assert call["data"] == {"url": "/predictions/knockout"}
+        assert call["tag"] == "r16-double-check"
+        assert call["notification_type"] == NotificationType.specials_revealed
+        assert call["force_delivery"] is True
+        mock_db.add.assert_called_once()
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_admin_custom_broadcast_rejects_empty_title() -> None:
+    admin = _player("Craig")
+    admin.site_role = SiteRole.superadmin
+    app.dependency_overrides[get_current_player] = lambda: admin
+    app.dependency_overrides[get_db] = _db_with(AsyncMock())
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r = await client.post(
+                "/api/v1/admin/push/broadcast",
+                json={"title": "", "body": "hello"},
+            )
+        assert r.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
