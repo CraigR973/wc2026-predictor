@@ -188,7 +188,7 @@ export function usePredictionEditor({
           ...prev,
           [matchId]: { ...prev[matchId], dirty: false, saving: false },
         }));
-      } catch {
+      } catch (e) {
         // If the fetch failed because we went offline mid-request, enqueue rather
         // than roll back. Otherwise (server error while online) roll back to last
         // server-confirmed values and notify the user to retry.
@@ -201,6 +201,12 @@ export function usePredictionEditor({
           toast.success('Saved offline — will sync when you’re back online');
           return;
         }
+        const errorMessage = e instanceof Error ? e.message : '';
+        if (errorMessage === 'PREDICTION_LOCKED') {
+          toast.error('Prediction not saved — lock has started. Refresh the page to see the latest match status.');
+          return;
+        }
+
         const serverPreds =
           queryClient.getQueryData<PredictionResponse[]>(['predictions', 'me']) ?? [];
         const sp = serverPreds.find((p) => p.match_id === matchId);
@@ -256,7 +262,7 @@ export function usePredictionEditor({
   const handleSaveAll = useCallback(
     (groupMatches: MatchResponse[]) => {
       for (const match of groupMatches) {
-        if (!canEdit(match.status)) continue;
+        if (!canEdit(match)) continue;
         const l = local[match.id];
         if (!l || l.home === '' || l.away === '') continue;
         clearTimeout(debounceTimers.current[match.id]);

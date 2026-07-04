@@ -111,7 +111,7 @@ export function PredictionCard({
   const countdown = useCountdown(match.kickoff_utc);
   const prefersReducedMotion = useReducedMotion();
 
-  const editable = canEdit(match.status);
+  const editable = canEdit(match);
   const isVoided = match.status === 'cancelled' || match.status === 'postponed';
   const isCompleted = match.status === 'completed';
   const isLocked = match.status === 'locked';

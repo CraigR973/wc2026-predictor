@@ -115,7 +115,7 @@ export function PredictionsPage() {
   const filteredMatches = sortedMatches.filter((match) => {
     const predicted = hasPrediction(predByMatch[match.id], local[match.id]);
 
-    if (filter === 'needs-picks') return canEdit(match.status) && !predicted;
+    if (filter === 'needs-picks') return canEdit(match) && !predicted;
     if (filter === 'upcoming') return match.status === 'scheduled';
     if (filter === 'live-locked') return match.status === 'live' || match.status === 'locked';
     if (filter === 'completed') return match.status === 'completed';
@@ -124,7 +124,7 @@ export function PredictionsPage() {
 
   const visibleDirtyMatches = filteredMatches.filter((match) => {
     const values = getPredictionValues(predByMatch[match.id], local[match.id]);
-    return canEdit(match.status) && local[match.id]?.dirty && values.home !== '' && values.away !== '';
+    return canEdit(match) && local[match.id]?.dirty && values.home !== '' && values.away !== '';
   });
   const visibleSavingAny = filteredMatches.some((match) => local[match.id]?.saving);
 

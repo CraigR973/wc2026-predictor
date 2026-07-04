@@ -81,7 +81,7 @@ function MatchCard({
       label: `Predicted ${prediction.predicted_home}-${prediction.predicted_away}`,
       variant: 'default',
     };
-  } else if (canEdit(match.status)) {
+  } else if (canEdit(match)) {
     personalStatus = { label: 'Missing', variant: 'warning' };
   } else if (match.status === 'locked' || match.status === 'live' || match.status === 'completed') {
     personalStatus = { label: 'No entry', variant: 'muted' };

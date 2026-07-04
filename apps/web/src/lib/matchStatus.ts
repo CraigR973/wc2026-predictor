@@ -7,8 +7,13 @@ import type { MatchResponse } from './types';
 /** Statuses for which a player may still enter or change a score prediction. */
 export const EDITABLE_STATUSES = new Set<MatchResponse['status']>(['scheduled']);
 
-export function canEdit(status: MatchResponse['status']): boolean {
-  return EDITABLE_STATUSES.has(status);
+export function canEdit(status: MatchResponse['status']): boolean;
+export function canEdit(match: MatchResponse): boolean;
+export function canEdit(statusOrMatch: MatchResponse['status'] | MatchResponse): boolean {
+  if (typeof statusOrMatch === 'string') {
+    return EDITABLE_STATUSES.has(statusOrMatch);
+  }
+  return statusOrMatch.status === 'scheduled' && new Date(statusOrMatch.kickoff_utc).getTime() > Date.now();
 }
 
 export function statusLabel(status: MatchResponse['status']): string {

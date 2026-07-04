@@ -42,7 +42,7 @@ function GroupPanel({
   const groupMatches = matches.filter((m) => m.group_id === group.id);
   const dirtyCount = groupMatches.filter((m) => local[m.id]?.dirty).length;
   const savingAny = groupMatches.some((m) => local[m.id]?.saving);
-  const editableMatches = groupMatches.filter((m) => canEdit(m.status));
+  const editableMatches = groupMatches.filter((m) => canEdit(m));
 
   return (
     <div>
