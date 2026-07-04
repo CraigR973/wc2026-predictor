@@ -145,9 +145,9 @@ async def test_sync_cascades_to_next_round(monkeypatch: pytest.MonkeyPatch) -> N
     by_num = {m.match_number: m for m in ko_matches}
     # Only the 8 R16 rows are newly filled; the already-set R32 rows aren't recounted.
     assert updated == 8
-    assert by_num[89].home_team_id == r32[74].home_team_id
-    assert by_num[89].away_team_id == r32[77].home_team_id
-    assert by_num[96].away_team_id == r32[87].home_team_id
+    assert by_num[89].home_team_id == r32[73].home_team_id
+    assert by_num[89].away_team_id == r32[76].home_team_id
+    assert by_num[96].away_team_id == r32[88].home_team_id
     db.commit.assert_awaited_once()
 
 

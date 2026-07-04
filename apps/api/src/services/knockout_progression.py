@@ -186,17 +186,21 @@ _R32_BRACKET: dict[int, tuple[str, str]] = {
 
 #: Real FIFA 2026 wiring for R16 → Final: match_number → (home_source, away).
 #: Fixed (result-independent); the third-place play-off (103) takes the two
-#: semi-final losers. Verified temporally consistent against the KO schedule —
-#: every match kicks off after both of its feeder matches finish.
+#: semi-final losers. R16 entries (89-96) corrected 2026-07-03 against the
+#: published FIFA schedule (Sky Sports + ESPN cross-checked to the minute) —
+#: the prior wiring had 89/90/91 and 95/96 pairing the wrong feeder matches,
+#: and 93/94 with home/away reversed. Match 95 home/away further corrected
+#: 2026-07-04 to ARG-home (winner_match_87) per the published bracket — the
+#: 07-03 pass had the right teams (86,87) but left EGY as home.
 _LATER_ROUNDS_BRACKET: dict[int, tuple[str, str]] = {
-    89: ("winner_match_74", "winner_match_77"),
-    90: ("winner_match_73", "winner_match_75"),
-    91: ("winner_match_76", "winner_match_78"),
+    89: ("winner_match_73", "winner_match_76"),
+    90: ("winner_match_75", "winner_match_78"),
+    91: ("winner_match_74", "winner_match_77"),
     92: ("winner_match_79", "winner_match_80"),
-    93: ("winner_match_83", "winner_match_84"),
-    94: ("winner_match_81", "winner_match_82"),
-    95: ("winner_match_86", "winner_match_88"),
-    96: ("winner_match_85", "winner_match_87"),
+    93: ("winner_match_84", "winner_match_83"),
+    94: ("winner_match_82", "winner_match_81"),
+    95: ("winner_match_87", "winner_match_86"),
+    96: ("winner_match_85", "winner_match_88"),
     97: ("winner_match_89", "winner_match_90"),
     98: ("winner_match_93", "winner_match_94"),
     99: ("winner_match_91", "winner_match_92"),

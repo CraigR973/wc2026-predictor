@@ -96,8 +96,10 @@ def test_legacy_bracket_r32_still_importable() -> None:
 
 
 def test_bracket_later_rounds_reference_prior_match_winners() -> None:
-    assert KNOCKOUT_BRACKET[89] == ("winner_match_74", "winner_match_77")
-    assert KNOCKOUT_BRACKET[96] == ("winner_match_85", "winner_match_87")
+    assert KNOCKOUT_BRACKET[89] == ("winner_match_73", "winner_match_76")
+    # Match 95 is ARG-home (winner_match_87), EGY-away (winner_match_86).
+    assert KNOCKOUT_BRACKET[95] == ("winner_match_87", "winner_match_86")
+    assert KNOCKOUT_BRACKET[96] == ("winner_match_85", "winner_match_88")
     assert KNOCKOUT_BRACKET[97] == ("winner_match_89", "winner_match_90")
     assert KNOCKOUT_BRACKET[101] == ("winner_match_97", "winner_match_98")
     assert KNOCKOUT_BRACKET[102] == ("winner_match_99", "winner_match_100")
@@ -369,12 +371,12 @@ def test_resolve_bracket_cascades_through_every_round() -> None:
     r32 = resolve_bracket(groups, {})
     outcomes = _home_wins(r32, range(73, 89))
 
-    # R16 now resolves from R32 winners (real FIFA wiring: 89←74,77; 96←85,87).
+    # R16 now resolves from R32 winners (real FIFA wiring: 89←73,76; 96←85,88).
     r16 = resolve_bracket(groups, outcomes)
-    assert r16[89].home_team_id == r32[74].home_team_id
-    assert r16[89].away_team_id == r32[77].home_team_id
+    assert r16[89].home_team_id == r32[73].home_team_id
+    assert r16[89].away_team_id == r32[76].home_team_id
     assert r16[96].home_team_id == r32[85].home_team_id
-    assert r16[96].away_team_id == r32[87].home_team_id
+    assert r16[96].away_team_id == r32[88].home_team_id
     assert all(r16[n].fully_resolved for n in range(89, 97))
     outcomes |= _home_wins(r16, range(89, 97))
 
@@ -408,24 +410,24 @@ def test_resolve_bracket_cascades_through_every_round() -> None:
 def test_resolve_bracket_penalty_winner_advances() -> None:
     groups = _twelve_complete_groups()
     r32 = resolve_bracket(groups, {})
-    # Real wiring feeds match 89 from the winners of matches 74 and 77.
-    # Match 74 drawn, decided on penalties for the away team; match 77 home win.
-    away_74 = r32[74].away_team_id
+    # Real wiring feeds match 89 from the winners of matches 73 and 76.
+    # Match 73 drawn, decided on penalties for the away team; match 76 home win.
+    away_73 = r32[73].away_team_id
     outcomes = {
-        74: MatchOutcome(
-            home_team_id=r32[74].home_team_id,
-            away_team_id=away_74,
+        73: MatchOutcome(
+            home_team_id=r32[73].home_team_id,
+            away_team_id=away_73,
             home_score=1,
             away_score=1,
-            penalty_winner_id=away_74,
+            penalty_winner_id=away_73,
         ),
-        77: MatchOutcome(
-            home_team_id=r32[77].home_team_id,
-            away_team_id=r32[77].away_team_id,
+        76: MatchOutcome(
+            home_team_id=r32[76].home_team_id,
+            away_team_id=r32[76].away_team_id,
             home_score=2,
             away_score=0,
         ),
     }
     r16 = resolve_bracket(groups, outcomes)
-    assert r16[89].home_team_id == away_74  # penalty winner advanced
-    assert r16[89].away_team_id == r32[77].home_team_id
+    assert r16[89].home_team_id == away_73  # penalty winner advanced
+    assert r16[89].away_team_id == r32[76].home_team_id
