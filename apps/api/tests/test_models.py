@@ -381,9 +381,17 @@ def test_prediction_columns() -> None:
     }.issubset(cols)
 
 
-def test_prediction_unique_constraint() -> None:
-    constraint_names = {c.name for c in Prediction.__table__.constraints}
-    assert "uq_predictions_player_match" in constraint_names
+def test_prediction_unique_is_partial_on_deleted_at() -> None:
+    # predictions is soft-deleted, so (player_id, match_id) uniqueness MUST be a
+    # partial unique index excluding deleted rows -- a plain UNIQUE constraint lets
+    # a soft-deleted row wedge the player out of re-predicting (migration 040).
+    indexes = {i.name: i for i in Prediction.__table__.indexes}
+    assert "uq_predictions_player_match" in indexes, "unique index missing"
+    ux = indexes["uq_predictions_player_match"]
+    assert ux.unique is True
+    assert ux.dialect_options["postgresql"]["where"] is not None, "must be partial (WHERE)"
+    # And it must NOT still be a plain table-level UNIQUE constraint.
+    assert "uq_predictions_player_match" not in {c.name for c in Prediction.__table__.constraints}
 
 
 def test_prediction_indexes() -> None:

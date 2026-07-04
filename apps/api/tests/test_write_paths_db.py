@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -375,3 +376,92 @@ async def test_rejoin_after_leave_restores_soft_deleted_row(db_conn: AsyncConnec
         )
     ).scalar_one()
     assert deleted_at is None, "re-joined membership was not reactivated (deleted_at still set)"
+
+
+# ---------------------------------------------------------------------------
+# Re-predict after soft-delete: the incident regression (migration 040)
+# ---------------------------------------------------------------------------
+
+
+async def test_repredict_after_soft_delete_succeeds(db_conn: AsyncConnection) -> None:
+    """A player with a soft-deleted prediction can still predict the match.
+
+    Reproduces the 2026-07-04 incident: the 07-03 R16 bracket-fix purge
+    *soft-deleted* wrong-team predictions, but ``uq_predictions_player_match`` was
+    a plain ``UNIQUE (player_id, match_id)`` that still indexed the dead row. The
+    upsert (which filters ``deleted_at IS NULL``) then took the INSERT path and
+    collided with the soft-deleted row -> IntegrityError -> 500, shown to players
+    as "Prediction not saved -- check your connection". Migration 040 makes the
+    index partial (``WHERE deleted_at IS NULL``) so the live INSERT is allowed.
+    """
+    sfx = _suffix()
+    player_id = await _insert_profile(
+        db_conn,
+        display_name=f"RP Player {sfx}",
+        email=f"rp-player-{sfx}@writeguard.invalid",
+    )
+    # A scheduled match, still open for predictions (kickoff in the future).
+    match_id = (
+        await db_conn.execute(
+            text(
+                """
+                INSERT INTO matches (id, stage, match_number, kickoff_utc, status)
+                VALUES (gen_random_uuid(), CAST('group' AS tournament_stage), :mn,
+                        :ko, CAST('scheduled' AS match_status))
+                RETURNING id
+                """
+            ),
+            {
+                "mn": uuid.uuid4().int % 2_000_000_000,  # unique, avoids seeded 1..104
+                "ko": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
+            },
+        )
+    ).scalar_one()
+
+    # Simulate the purge: a soft-deleted (wrong-team) prediction for this player.
+    await db_conn.execute(
+        text(
+            """
+            INSERT INTO predictions (id, player_id, match_id, predicted_home,
+                                     predicted_away, submitted_at, update_count, deleted_at)
+            VALUES (gen_random_uuid(), :p, :m, 3, 0, now(), 0, now())
+            """
+        ),
+        {"p": str(player_id), "m": str(match_id)},
+    )
+
+    token = create_access_token(player_id, PlayerRole.player)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    session = _savepoint_session(db_conn)
+    app.dependency_overrides[get_db] = _override_db(session)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.put(
+                f"/api/v1/predictions/{match_id}",
+                json={"predicted_home": 2, "predicted_away": 1},
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.clear()
+        await session.close()
+
+    # Pre-fix this was a 500 from the unique violation.
+    assert resp.status_code == 200, resp.text
+
+    rows = (
+        await db_conn.execute(
+            text(
+                """
+                SELECT predicted_home, predicted_away, deleted_at
+                FROM predictions WHERE player_id = :p AND match_id = :m
+                """
+            ),
+            {"p": str(player_id), "m": str(match_id)},
+        )
+    ).all()
+    live = [r for r in rows if r.deleted_at is None]
+    dead = [r for r in rows if r.deleted_at is not None]
+    assert len(live) == 1, "expected exactly one live prediction after re-predict"
+    assert (live[0].predicted_home, live[0].predicted_away) == (2, 1)
+    assert len(dead) == 1, "the soft-deleted row should remain alongside the new live one"

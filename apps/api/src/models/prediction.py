@@ -12,6 +12,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -31,7 +32,17 @@ class SpecialPredictionType(StrEnum):
 class Prediction(Base, UUIDPrimaryKeyMixin, UpdatedAtMixin):
     __tablename__ = "predictions"
     __table_args__ = (
-        UniqueConstraint("player_id", "match_id", name="uq_predictions_player_match"),
+        # Partial unique: excludes soft-deleted rows (deleted_at IS NOT NULL) so a
+        # player can re-predict after an old row is soft-deleted. A plain
+        # UNIQUE(player_id, match_id) here wedged 71 players out of re-predicting
+        # the 2026-07-03 R16 bracket-fix purge (migration 040).
+        Index(
+            "uq_predictions_player_match",
+            "player_id",
+            "match_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
         Index("ix_predictions_player_id", "player_id"),
         Index("ix_predictions_match_id", "match_id"),
     )
