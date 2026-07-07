@@ -28,6 +28,16 @@ manually entered a result (only the manual admin paths called it before).
 The bracket resolver is idempotent and monotonic, so the call is a cheap
 no-op when nothing new has settled.
 
+Fixtures are matched to the feed by ``football_data_match_id``, which is
+orientation-independent — the feed's home/away can disagree with the order we
+store. Every FINISHED/LIVE write is therefore reconciled against the feed by
+team identity (``_resolve_orientation``): an aligned fixture writes positionally,
+a reversed one swaps the score tuples and maps the advancer by identity, and a
+genuine mismatch (or unresolved/placeholder teams) refuses to write and audits a
+``sync_failed`` row *without* tripping the consecutive-failure counter. This
+guarantees a stored orientation can never persist a scoreline backwards or
+advance the wrong team (the R16 match-95 incident).
+
 On three consecutive API failures we write an ``auto_sync_failed``
 notification for every admin and an ``audit_log`` row with
 ``action_type = sync_failed``. The counter resets on the next successful
@@ -39,6 +49,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 
 import structlog
 from sqlalchemy import func, select
@@ -58,6 +69,7 @@ from src.services.football_data import (
     FDMatchStatus,
     FDScore,
     FDScoreLine,
+    FDTeam,
     FootballDataClient,
     FootballDataError,
 )
@@ -92,6 +104,21 @@ _FD_STAGE_TO_LOCAL_STAGE = {
     "THIRD_PLACE": TournamentStage.third_place,
     "FINAL": TournamentStage.final,
 }
+
+
+class _Orientation(StrEnum):
+    """How our stored home/away maps onto the feed's for a resolved fixture.
+
+    A fixture is matched by ``football_data_match_id`` (orientation-independent),
+    so the feed's home/away can disagree with the order we store. Every score /
+    advancer write is otherwise positional, so a disagreement would persist the
+    scoreline backwards or advance the wrong team (the R16 match-95 incident).
+    """
+
+    aligned = "aligned"  # feed home == our home — write positionally (no-op)
+    reversed_ = "reversed"  # feed home == our away — swap before writing
+    mismatch = "mismatch"  # feed pair matches neither of ours — fail-safe, refuse
+
 
 _FAILURE_ALERT_THRESHOLD = 3
 
@@ -258,7 +285,13 @@ async def _sync_one_match(
         )
 
     if fd_status == FDMatchStatus.FINISHED:
-        outcome = _apply_finished(session, match, fd_match, now)
+        orientation = await _resolve_orientation(session, match, fd_match)
+        if orientation is _Orientation.mismatch:
+            _record_orientation_failure(session, match, fd_match)
+            return False, None
+        outcome = _apply_finished(
+            session, match, fd_match, now, reversed_=orientation is _Orientation.reversed_
+        )
         # "finished" fires the result-detected push; "result_corrected" is a silent
         # in-window revision (no re-notify) that still re-runs the bracket resolver.
         if outcome in {"finalized", "corrected"}:
@@ -278,7 +311,13 @@ async def _sync_one_match(
         return _apply_cancelled(session, match, now), None
 
     if fd_status in _LIVE_STATUSES:
-        return _apply_live(session, match, fd_match, now), None
+        orientation = await _resolve_orientation(session, match, fd_match)
+        if orientation is _Orientation.mismatch:
+            _record_orientation_failure(session, match, fd_match)
+            return False, None
+        return _apply_live(
+            session, match, fd_match, now, reversed_=orientation is _Orientation.reversed_
+        ), None
 
     if fd_status in _SCHEDULED_STATUSES:
         old_kickoff = match.kickoff_utc
@@ -382,6 +421,92 @@ def _maybe_backfill_match_id(match: Match, fd_match_id: int) -> None:
         )
 
 
+def _same_team(team: Team, fd_team: FDTeam) -> bool:
+    """Whether ``fd_team`` from the feed is our ``team``.
+
+    TLA ↔ ``Team.code`` is the primary signal — it is always present upstream and
+    needs no backfill. ``football_data_team_id`` is a corroborating fallback for
+    the rare case where the feed omits a ``tla`` (both sides must carry an id).
+    """
+    if fd_team.tla and team.code:
+        return fd_team.tla == team.code
+    if team.football_data_team_id is not None and fd_team.id is not None:
+        return team.football_data_team_id == fd_team.id
+    return False
+
+
+def _orientation(home_team: Team, away_team: Team, fd_match: FDMatch) -> _Orientation:
+    """Reconcile our stored home/away against the feed's homeTeam/awayTeam."""
+    fd_home, fd_away = fd_match.homeTeam, fd_match.awayTeam
+    if _same_team(home_team, fd_home) and _same_team(away_team, fd_away):
+        return _Orientation.aligned
+    if _same_team(home_team, fd_away) and _same_team(away_team, fd_home):
+        return _Orientation.reversed_
+    return _Orientation.mismatch
+
+
+async def _resolve_orientation(
+    session: AsyncSession, match: Match, fd_match: FDMatch
+) -> _Orientation:
+    """Load the two team rows and compute the feed↔stored orientation.
+
+    Issued only from the FINISHED/LIVE branches (``Match`` has no team
+    relationship), so idle scheduled ticks add no query. Returns ``mismatch`` —
+    the fail-safe — when the fixture's teams are unresolved/placeholder or the
+    feed pair matches neither of ours; the caller then refuses to write and audits.
+    """
+    if match.home_team_id is None or match.away_team_id is None:
+        return _Orientation.mismatch
+    rows = await session.execute(
+        select(Team).where(Team.id.in_([match.home_team_id, match.away_team_id]))
+    )
+    teams = {team.id: team for team in rows.scalars().all()}
+    home_team = teams.get(match.home_team_id)
+    away_team = teams.get(match.away_team_id)
+    if home_team is None or away_team is None:
+        return _Orientation.mismatch
+    return _orientation(home_team, away_team, fd_match)
+
+
+def _record_orientation_failure(session: AsyncSession, match: Match, fd_match: FDMatch) -> None:
+    """Audit a per-match orientation anomaly without tripping the failure counter.
+
+    A *reversed* fixture is corrected silently; this fires only on a genuine
+    MISMATCH (or unresolved/placeholder teams) where we refuse to write. It is a
+    per-match data anomaly, **not** a feed outage, so it deliberately leaves
+    ``_consecutive_failures`` untouched (bumping it would alert admins about a
+    perfectly healthy feed). The row omits the ``consecutive_failures`` key that
+    :func:`_record_failure` writes — so the two are distinguishable — and it
+    always precedes the cycle's ``sync_triggered`` row, so the DB recovery count
+    in :func:`_load_consecutive_failures` never counts it.
+    """
+    log.warning(
+        "auto sync orientation mismatch — refusing to write",
+        fd_id=fd_match.id,
+        match_id=str(match.id),
+        match_number=match.match_number,
+        our_home_team_id=str(match.home_team_id),
+        our_away_team_id=str(match.away_team_id),
+        fd_home_tla=fd_match.homeTeam.tla,
+        fd_away_tla=fd_match.awayTeam.tla,
+    )
+    session.add(
+        AuditLog(
+            actor_id=None,
+            actor_type=ActorType.system,
+            action_type=ActionType.sync_failed,
+            target_table="matches",
+            target_id=match.id,
+            changes={
+                "reason": "orientation_mismatch",
+                "fd_match_id": fd_match.id,
+                "fd_home_tla": fd_match.homeTeam.tla,
+                "fd_away_tla": fd_match.awayTeam.tla,
+            },
+        )
+    )
+
+
 def _has_goals(scoreline: FDScoreLine | None) -> bool:
     """True when football-data actually populated a sub-scoreline (even ``0-0``).
 
@@ -449,20 +574,25 @@ def _grading_scoreline(fd_match: FDMatch) -> tuple[int | None, int | None]:
     return home, away
 
 
-def _advancer_id(match: Match, fd_match: FDMatch) -> uuid.UUID | None:
+def _advancer_id(match: Match, fd_match: FDMatch, reversed_: bool = False) -> uuid.UUID | None:
     """The team that progressed, when a knockout went to extra time or penalties.
 
     A level 90-minute scoreline is broken downstream by ``penalty_winner_id`` —
     both the scoring trigger and the bracket resolver consult it — so we record
     the feed's winner there. This also covers an extra-time-decided win, whose
     ``regularTime`` is level even though the match produced a winner.
+
+    ``reversed_`` reflects that our stored home/away is the feed's away/home, so
+    the feed's ``HOME_TEAM`` winner is our *away* team (and vice-versa): map the
+    winner to a team id by identity, never positionally.
     """
     if not _went_to_extra_time(fd_match.score):
         return None
-    if fd_match.score.winner == "HOME_TEAM":
-        return match.home_team_id
-    if fd_match.score.winner == "AWAY_TEAM":
-        return match.away_team_id
+    winner = fd_match.score.winner
+    if winner == "HOME_TEAM":
+        return match.away_team_id if reversed_ else match.home_team_id
+    if winner == "AWAY_TEAM":
+        return match.home_team_id if reversed_ else match.away_team_id
     return None
 
 
@@ -526,7 +656,12 @@ def _write_result_fields(
 
 
 def _apply_finished(
-    session: AsyncSession, match: Match, fd_match: FDMatch, now: datetime
+    session: AsyncSession,
+    match: Match,
+    fd_match: FDMatch,
+    now: datetime,
+    *,
+    reversed_: bool = False,
 ) -> str | None:
     """Settle a FINISHED feed entry. Returns the event kind, or None for no-op.
 
@@ -546,9 +681,17 @@ def _apply_finished(
     # correction path (via _write_result_fields).
     extra_time = _went_to_extra_time(fd_match.score)
     penalties = _went_to_penalties(fd_match.score)
-    advancer = _advancer_id(match, fd_match)
+    advancer = _advancer_id(match, fd_match, reversed_)
     et_home, et_away = _extra_time_scoreline(fd_match)
     pen_home, pen_away = _penalty_scoreline(fd_match)
+    if reversed_:
+        # Our stored home/away is the feed's away/home — flip every feed-order
+        # tuple so the write (and the self-heal equality check below, which
+        # compares against columns already in our orientation) lands correctly.
+        # ``advancer`` is already mapped by identity above.
+        home, away = away, home
+        et_home, et_away = et_away, et_home
+        pen_home, pen_away = pen_away, pen_home
 
     if match.result_source is None:
         # First finalization. Match must be locked/live/completed to accept a
@@ -682,7 +825,14 @@ def _apply_cancelled(session: AsyncSession, match: Match, now: datetime) -> bool
     return True
 
 
-def _apply_live(session: AsyncSession, match: Match, fd_match: FDMatch, now: datetime) -> bool:
+def _apply_live(
+    session: AsyncSession,
+    match: Match,
+    fd_match: FDMatch,
+    now: datetime,
+    *,
+    reversed_: bool = False,
+) -> bool:
     if match.status not in {MatchStatus.locked, MatchStatus.scheduled, MatchStatus.live}:
         # Already completed/postponed/cancelled — feed must catch up.
         match.last_synced_at = now
@@ -703,6 +853,9 @@ def _apply_live(session: AsyncSession, match: Match, fd_match: FDMatch, now: dat
     # penalties and opening the self-heal window) rather than an in-window
     # correction of an already-settled result.
     home, away = _grading_scoreline(fd_match)
+    if reversed_:
+        # Store live scores in our orientation, not the feed's (see _apply_finished).
+        home, away = away, home
     if (
         home is not None
         and away is not None
@@ -726,11 +879,15 @@ def _apply_live(session: AsyncSession, match: Match, fd_match: FDMatch, now: dat
         match.penalties = live_penalties
         changed = True
     et_home, et_away = _extra_time_scoreline(fd_match)
+    if reversed_:
+        et_home, et_away = et_away, et_home
     if match.extra_time_home_score != et_home or match.extra_time_away_score != et_away:
         match.extra_time_home_score = et_home
         match.extra_time_away_score = et_away
         changed = True
     pen_home, pen_away = _penalty_scoreline(fd_match)
+    if reversed_:
+        pen_home, pen_away = pen_away, pen_home
     if match.penalty_home_score != pen_home or match.penalty_away_score != pen_away:
         match.penalty_home_score = pen_home
         match.penalty_away_score = pen_away

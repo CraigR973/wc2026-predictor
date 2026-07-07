@@ -120,6 +120,9 @@ function renderPage() {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  // Pin "now" to before the June/July fixtures so `canEdit` (scheduled &&
+  // kickoff > Date.now()) stays deterministic as the real tournament dates pass.
+  vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-06-01T12:00:00Z').getTime());
 });
 
 describe('SchedulePage knockout skeleton', () => {
