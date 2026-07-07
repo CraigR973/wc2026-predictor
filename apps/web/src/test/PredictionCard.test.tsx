@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PredictionCard } from '@/components/PredictionCard';
 import type {
@@ -86,6 +86,12 @@ function renderCard(props: Partial<React.ComponentProps<typeof PredictionCard>>)
     />,
   );
 }
+
+beforeEach(() => {
+  // Pin "now" to before the July fixture so `canEdit` (scheduled && kickoff >
+  // Date.now()) stays deterministic as the real tournament dates pass.
+  vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-06-01T12:00:00Z').getTime());
+});
 
 describe('PredictionCard — knockout who-progresses', () => {
   it('predicted draw: both team buttons are tappable and a tap reports the picked team', () => {
