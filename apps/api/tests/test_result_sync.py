@@ -155,6 +155,44 @@ def _scalars(items: list[Any]) -> MagicMock:
     return r
 
 
+def _orient(match: MagicMock, fd: FDMatch, *, mode: str = "aligned") -> MagicMock:
+    """Return the ``_scalars`` result that ``_resolve_orientation``'s team-load
+    query replays, with the loaded teams shaped to the requested orientation.
+
+    Appended to a session factory's execute queue after the match-resolve result:
+    ``_mock_session_factory([_scalars([match]), _orient(match, fd)])``.
+
+    It preserves ``match``'s existing ``home_team_id``/``away_team_id`` (only
+    filling them when unset), so a test that derived another field from them
+    (e.g. ``penalty_winner_id = match.home_team_id``) keeps that identity intact —
+    it points the loaded team rows at those ids instead of the reverse.
+
+    ``mode``:
+      * ``"aligned"``  — stored home/away match the feed's order (positional write).
+      * ``"reversed"`` — stored home/away are the feed's away/home (swap on write).
+      * ``"mismatch"`` — stored teams are neither of the feed's (fail-safe / audit).
+    """
+    if match.home_team_id is None:
+        match.home_team_id = uuid.uuid4()
+    if match.away_team_id is None:
+        match.away_team_id = uuid.uuid4()
+
+    if mode == "mismatch":
+        # Two teams that match neither of the feed's, keyed to the stored ids.
+        home = _make_team(code="XXX", fd_team_id=9911)
+        away = _make_team(code="YYY", fd_team_id=9922)
+    else:
+        home = _make_team(code=fd.homeTeam.tla or "HOM", fd_team_id=fd.homeTeam.id)
+        away = _make_team(code=fd.awayTeam.tla or "AWY", fd_team_id=fd.awayTeam.id)
+
+    if mode == "reversed":
+        # Our stored home is the feed's away team (and vice-versa).
+        away.id, home.id = match.home_team_id, match.away_team_id
+    else:
+        home.id, away.id = match.home_team_id, match.away_team_id
+    return _scalars([home, away])
+
+
 def _mock_session_factory(execute_results: list[MagicMock]) -> tuple[MagicMock, AsyncMock]:
     """Build a session_factory whose session.execute replays the given results."""
     session = AsyncMock()
@@ -227,7 +265,7 @@ def _no_bracket_sync() -> Iterator[AsyncMock]:
 async def test_finished_match_writes_score_and_audit() -> None:
     match = _make_match(status=MatchStatus.locked)
     fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=3, away_score=1)
-    factory, session = _mock_session_factory([_scalars([match])])
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -273,7 +311,7 @@ async def test_finished_penalty_shootout_stores_regulation_score_and_advancer() 
         pen_home=3,
         pen_away=4,
     )
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -312,7 +350,7 @@ async def test_finished_extra_time_win_stores_regulation_score_and_advancer() ->
         et_home=1,  # the winning goal, scored in extra time
         et_away=0,
     )
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -355,7 +393,7 @@ async def test_finished_extra_time_with_lying_duration_derives_regulation_score(
         et_home=1,  # but recorded the extra-time goal
         et_away=0,
     )
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -389,7 +427,7 @@ async def test_finished_regular_match_uses_fulltime_and_no_advancer() -> None:
         home_score=2,
         away_score=1,
     )
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -421,7 +459,7 @@ async def test_live_extra_time_uses_regulation_score() -> None:
         regular_home=1,
         regular_away=1,
     )
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -449,7 +487,7 @@ async def test_live_captures_extra_time_phase_for_display() -> None:
         et_home=1,
         et_away=0,
     )
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -485,7 +523,7 @@ async def test_live_captures_penalty_tally_for_display() -> None:
         pen_home=3,
         pen_away=2,
     )
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -499,6 +537,169 @@ async def test_live_captures_penalty_tally_for_display() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Orientation reconciliation (U65) — a stored home/away that disagrees with the
+# feed must never persist the scoreline backwards or advance the wrong team.
+# ---------------------------------------------------------------------------
+
+
+async def test_aligned_finished_writes_positionally() -> None:
+    """The ALIGNED path — every current fixture, including the re-oriented m95 — is
+    a pure no-op: the scoreline is written in feed order exactly as before U65."""
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=3, away_score=1)
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd, mode="aligned")])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.actual_home_score == 3
+    assert match.actual_away_score == 1
+
+
+async def test_reversed_finished_stores_scoreline_in_our_orientation() -> None:
+    """Feed order disagrees with our stored home/away: the 3-1 feed scoreline must
+    be persisted as 1-3 so it lands on the team that actually scored the goals."""
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=3, away_score=1)
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd, mode="reversed")])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.actual_home_score == 1  # feed away (1) is our home
+    assert match.actual_away_score == 3  # feed home (3) is our away
+    assert match.result_source == ResultSource.auto
+    assert match.status == MatchStatus.completed
+
+
+async def test_reversed_finished_penalty_winner_mapped_by_identity() -> None:
+    """A reversed knockout: every score tuple is swapped into our orientation and
+    the shootout winner is mapped to a team id by identity, never positionally."""
+    match = _make_match(status=MatchStatus.locked, stage=TournamentStage.r32)
+    fd = _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_32",
+        duration="PENALTY_SHOOTOUT",
+        winner="AWAY_TEAM",  # the feed's away team won the shootout
+        home_score=5,  # fullTime aggregate (regulation 2 + pens 3)
+        away_score=5,  # fullTime aggregate (regulation 1 + pens 4)
+        regular_home=2,
+        regular_away=1,
+        pen_home=3,
+        pen_away=4,
+    )
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd, mode="reversed")])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    # Feed regulation 2-1 stored as our 1-2; shootout tally 3-4 stored as our 4-3.
+    assert match.actual_home_score == 1
+    assert match.actual_away_score == 2
+    assert match.extra_time is True
+    assert match.penalties is True
+    assert match.extra_time_home_score == 1  # ET base = regulation, goalless ET
+    assert match.extra_time_away_score == 2
+    assert match.penalty_home_score == 4
+    assert match.penalty_away_score == 3
+    # Feed AWAY_TEAM won → in our reversed orientation that is our HOME team.
+    assert match.penalty_winner_id == match.home_team_id
+
+
+async def test_reversed_live_swaps_running_score() -> None:
+    """A reversed fixture's live in-play score is stored in our orientation too, so
+    live grading matches the eventual final result."""
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=2, away_score=0)
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd, mode="reversed")])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 1
+    assert match.status == MatchStatus.live
+    assert match.actual_home_score == 0  # feed away (0) is our home
+    assert match.actual_away_score == 2
+    assert match.result_source is None
+
+
+async def test_mismatch_finished_refuses_write_and_audits() -> None:
+    """When the feed's teams match neither of ours, we refuse to write and log a
+    sync_failed audit — a per-match anomaly, so the failure counter is untouched."""
+    match = _make_match(status=MatchStatus.locked)
+    fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=3, away_score=1)
+    factory, session = _mock_session_factory(
+        [_scalars([match]), _orient(match, fd, mode="mismatch")]
+    )
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.actual_home_score is None  # nothing written
+    assert match.actual_away_score is None
+    assert match.result_source is None
+    assert match.status == MatchStatus.locked
+    audit = next(
+        c.args[0]
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].action_type == ActionType.sync_failed
+    )
+    assert audit.target_id == match.id
+    assert audit.changes["reason"] == "orientation_mismatch"
+    # Distinguishable from a feed-outage failure (which carries this key), so the
+    # DB failure-recovery count never mistakes it for an outage.
+    assert "consecutive_failures" not in audit.changes
+    # No admin alert: a per-match data anomaly is not a feed outage.
+    assert not [
+        c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], NotificationLog)
+    ]
+
+
+async def test_unresolved_teams_finished_refuses_write_and_audits() -> None:
+    """A knockout slot whose teams are still unresolved placeholders (home_team_id
+    NULL) can't be oriented, so we refuse to write and audit rather than guess."""
+    match = _make_match(status=MatchStatus.locked, stage=TournamentStage.r16)
+    # home_team_id / away_team_id left as None — the placeholder knockout slot.
+    fd = _fd_match(status=FDMatchStatus.FINISHED, stage="LAST_16", home_score=2, away_score=0)
+    # No team-load result queued: _resolve_orientation short-circuits on NULL ids.
+    factory, session = _mock_session_factory([_scalars([match])])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.actual_home_score is None
+    assert match.result_source is None
+    audit = next(
+        c.args[0]
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].action_type == ActionType.sync_failed
+    )
+    assert audit.changes["reason"] == "orientation_mismatch"
+
+
+async def test_repeated_mismatch_never_alerts_admins() -> None:
+    """Three feed-outage failures alert admins; orientation mismatches must not —
+    they never touch the consecutive-failure counter that gates the alert."""
+    with patch("src.services.result_sync.notify_auto_sync_failed", new_callable=AsyncMock) as alert:
+        for _ in range(result_sync._FAILURE_ALERT_THRESHOLD + 1):
+            match = _make_match(status=MatchStatus.locked)
+            fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=3, away_score=1)
+            factory, _ = _mock_session_factory(
+                [_scalars([match]), _orient(match, fd, mode="mismatch")]
+            )
+            client_factory = _mock_client_factory([fd])
+            await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    alert.assert_not_awaited()
+    assert result_sync._consecutive_failures == 0
+
+
+# ---------------------------------------------------------------------------
 # Idempotency — no-op when result_source is already set
 # ---------------------------------------------------------------------------
 
@@ -508,7 +709,7 @@ async def test_finished_match_with_existing_result_is_noop() -> None:
     match.actual_home_score = 1
     match.actual_away_score = 0
     fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=3, away_score=1)
-    factory, session = _mock_session_factory([_scalars([match])])
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -568,8 +769,9 @@ async def test_auto_result_corrected_within_window(_no_bracket_sync: AsyncMock) 
     match.actual_away_score = 2
     match.extra_time = False
     finalized_before = match.result_finalized_at
-    factory, session = _mock_session_factory([_scalars([match])])
-    client_factory = _mock_client_factory([_corrected_et_payload()])
+    fd = _corrected_et_payload()
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
+    client_factory = _mock_client_factory([fd])
 
     with patch(
         "src.services.result_sync.notify_result_detected", new_callable=AsyncMock
@@ -614,8 +816,9 @@ async def test_auto_result_frozen_after_window() -> None:
     match.actual_home_score = 3
     match.actual_away_score = 2
     match.extra_time = False
-    factory, session = _mock_session_factory([_scalars([match])])
-    client_factory = _mock_client_factory([_corrected_et_payload()])
+    fd = _corrected_et_payload()
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
+    client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
 
@@ -648,8 +851,9 @@ async def test_auto_result_within_window_unchanged_is_noop() -> None:
     match.penalty_winner_id = match.home_team_id
     match.extra_time_home_score = 3
     match.extra_time_away_score = 2
-    factory, session = _mock_session_factory([_scalars([match])])
-    client_factory = _mock_client_factory([_corrected_et_payload()])
+    fd = _corrected_et_payload()
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
+    client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
 
@@ -676,8 +880,9 @@ async def test_manual_result_never_corrected_within_window() -> None:
     )
     match.actual_home_score = 3
     match.actual_away_score = 2
-    factory, session = _mock_session_factory([_scalars([match])])
-    client_factory = _mock_client_factory([_corrected_et_payload()])
+    fd = _corrected_et_payload()
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
+    client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
 
@@ -697,7 +902,7 @@ async def test_race_with_manual_entry_skipped() -> None:
     match.actual_home_score = 2
     match.actual_away_score = 2
     fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=4, away_score=0)
-    factory, session = _mock_session_factory([_scalars([match])])
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -716,7 +921,7 @@ async def test_race_with_manual_entry_skipped() -> None:
 async def test_postponed_transitions_status_and_audits() -> None:
     match = _make_match(status=MatchStatus.scheduled)
     fd = _fd_match(status=FDMatchStatus.POSTPONED, home_score=None, away_score=None)
-    factory, session = _mock_session_factory([_scalars([match])])
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -731,7 +936,7 @@ async def test_postponed_transitions_status_and_audits() -> None:
 async def test_cancelled_transitions_status() -> None:
     match = _make_match(status=MatchStatus.scheduled)
     fd = _fd_match(status=FDMatchStatus.CANCELLED, home_score=None, away_score=None)
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -742,7 +947,7 @@ async def test_cancelled_transitions_status() -> None:
 async def test_in_play_transitions_locked_to_live() -> None:
     match = _make_match(status=MatchStatus.locked)
     fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=None, away_score=None)
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -761,7 +966,7 @@ async def test_live_status_transitions_locked_to_live_and_writes_score() -> None
     """
     match = _make_match(status=MatchStatus.locked)
     fd = _fd_match(status=FDMatchStatus.LIVE, home_score=0, away_score=1)
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -778,7 +983,7 @@ async def test_in_play_writes_live_score() -> None:
     leaderboard update during the match — result_source stays NULL (not final)."""
     match = _make_match(status=MatchStatus.locked)
     fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=1, away_score=0)
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -795,7 +1000,7 @@ async def test_in_play_without_score_does_not_write_score() -> None:
     a 0-0 (that is the bug U54 guarded against on the frontend)."""
     match = _make_match(status=MatchStatus.locked)
     fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=None, away_score=None)
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -813,7 +1018,7 @@ async def test_in_play_already_live_updates_changed_score() -> None:
     match.actual_home_score = 0
     match.actual_away_score = 0
     fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=1, away_score=0)
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -830,7 +1035,7 @@ async def test_in_play_already_live_unchanged_score_is_noop() -> None:
     match.actual_home_score = 1
     match.actual_away_score = 0
     fd = _fd_match(status=FDMatchStatus.IN_PLAY, home_score=1, away_score=0)
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -855,7 +1060,7 @@ async def test_kickoff_change_updates_kickoff_and_preserves_original() -> None:
         home_score=None,
         away_score=None,
     )
-    factory, session = _mock_session_factory([_scalars([match])])
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -882,7 +1087,7 @@ async def test_kickoff_unchanged_is_noop() -> None:
         home_score=None,
         away_score=None,
     )
-    factory, session = _mock_session_factory([_scalars([match])])
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -1000,6 +1205,7 @@ async def test_unknown_fd_match_id_backfills_ids_via_team_codes() -> None:
             _scalars([]),
             _scalars([home_team, away_team]),
             _scalars([match]),
+            _scalars([home_team, away_team]),  # _resolve_orientation team-load (aligned)
         ]
     )
     client_factory = _mock_client_factory([fd])
@@ -1025,7 +1231,7 @@ async def test_push_failure_does_not_block_match_commit(caplog: pytest.LogCaptur
     """A raising notify provider must not prevent the match result from being committed."""
     match = _make_match(status=MatchStatus.locked)
     fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=2, away_score=0)
-    factory, session = _mock_session_factory([_scalars([match])])
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     with (
@@ -1071,7 +1277,7 @@ async def test_finished_result_triggers_knockout_bracket_sync(
     """
     match = _make_match(status=MatchStatus.locked)
     fd = _fd_match(status=FDMatchStatus.FINISHED, home_score=2, away_score=1)
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
@@ -1093,7 +1299,7 @@ async def test_no_finished_result_skips_knockout_bracket_sync(
         home_score=None,
         away_score=None,
     )
-    factory, _ = _mock_session_factory([_scalars([match])])
+    factory, _ = _mock_session_factory([_scalars([match]), _orient(match, fd)])
     client_factory = _mock_client_factory([fd])
 
     count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
