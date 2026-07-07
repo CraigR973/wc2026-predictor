@@ -2211,3 +2211,17 @@ _Retro-documented 2026-06-18 — shipped to staging 2026-06-17._
 - Shipped to `staging` in merge `fac0506`; `/ship-prod` remains a separate step.
 
 **Next:** U61 — Platform-wide player profiles (🟢 Sonnet)
+
+---
+
+## Polish batch U65 — Orientation-agnostic result-sync
+**Commits:** 3d6f5d8, a307922 · CI ✅
+
+### Key facts for future sessions
+- Orientation reconciled by `tla`↔`Team.code` (primary) + `football_data_team_id` fallback, only on the FINISHED/LIVE branches (idle ticks add no query). ALIGNED path — every current fixture incl. the re-oriented m95 — is a pure no-op → clean `git revert`.
+- MISMATCH / unresolved-placeholder teams: refuse to write + `AuditLog(sync_failed)` that omits the `consecutive_failures` key and never bumps `_consecutive_failures`, so a per-match data anomaly can't trip the feed-outage alarm or inflate the DB recovery count.
+- Surfaced pre-existing frontend vitest date-drift (June/July fixtures + `canEdit` uses `Date.now()`): 10 tests reddened `test-web` and blocked the staging deploy though `apps/web` was byte-identical to `main`. Fixed by pinning `Date.now()`=2026-06-01 in 4 test files (a307922); other files with later fixtures drift next. See memory `project_frontend_test_date_drift`.
+- Still-open operational task (NOT this batch): notify the 8 m95 inference-rewritten players before the 2026-07-07 16:00 UTC lock — U65 only prevents recurrence, it doesn't do that comms.
+- Shipped to `staging` (merge 2f7668d); `/ship-prod` promotion is a separate step.
+
+**Next:** U61 — Platform-wide player profiles (🟢 Sonnet)
