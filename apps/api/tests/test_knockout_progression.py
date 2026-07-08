@@ -100,7 +100,8 @@ def test_bracket_later_rounds_reference_prior_match_winners() -> None:
     # Match 95 is ARG-home (winner_match_87), EGY-away (winner_match_86).
     assert KNOCKOUT_BRACKET[95] == ("winner_match_87", "winner_match_86")
     assert KNOCKOUT_BRACKET[96] == ("winner_match_85", "winner_match_88")
-    assert KNOCKOUT_BRACKET[97] == ("winner_match_89", "winner_match_90")
+    # Match 97 is FRA-home (winner_match_90), MAR-away (winner_match_89) per official bracket.
+    assert KNOCKOUT_BRACKET[97] == ("winner_match_90", "winner_match_89")
     assert KNOCKOUT_BRACKET[101] == ("winner_match_97", "winner_match_98")
     assert KNOCKOUT_BRACKET[102] == ("winner_match_99", "winner_match_100")
     # Third place = the two semi-final losers; final = the two semi-final winners.
@@ -382,8 +383,9 @@ def test_resolve_bracket_cascades_through_every_round() -> None:
 
     # QF.
     qf = resolve_bracket(groups, outcomes)
-    assert qf[97].home_team_id == r16[89].home_team_id
-    assert qf[97].away_team_id == r16[90].home_team_id
+    # QF97 is FRA-home (winner_match_90), MAR-away (winner_match_89) — official bracket order.
+    assert qf[97].home_team_id == r16[90].home_team_id
+    assert qf[97].away_team_id == r16[89].home_team_id
     assert all(qf[n].fully_resolved for n in range(97, 101))
     outcomes |= _home_wins(qf, range(97, 101))
 
