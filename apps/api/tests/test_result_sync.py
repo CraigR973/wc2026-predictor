@@ -892,6 +892,188 @@ async def test_manual_result_never_corrected_within_window() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Incomplete-knockout self-heal — a level knockout with no advancer is impossible
+# and stays revisable past the window until the feed backfills the decider
+# (the Switzerland–Colombia R16 incident, 2026-07-08).
+# ---------------------------------------------------------------------------
+
+
+def _incomplete_knockout_payload() -> FDMatch:
+    """A knockout football-data reports FINISHED *before* it has the shootout: a
+    bare 0-0 with duration=REGULAR and no extraTime/penalties sub-scores — the
+    payload that first froze Switzerland–Colombia as a plain 0-0."""
+    return _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_16",
+        home_score=0,
+        away_score=0,
+        duration="REGULAR",
+        winner=None,
+    )
+
+
+def _shootout_decider_payload() -> FDMatch:
+    """The same knockout after football-data backfills the shootout: 0-0 at 90'
+    (and after extra time), HOME_TEAM winning 4-3 on penalties."""
+    return _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_16",
+        duration="PENALTY_SHOOTOUT",
+        winner="HOME_TEAM",
+        home_score=4,  # aggregate: 0 reg + 0 ET + 4 pens
+        away_score=3,
+        regular_home=0,
+        regular_away=0,
+        et_home=0,
+        et_away=0,
+        pen_home=4,
+        pen_away=3,
+    )
+
+
+async def test_incomplete_knockout_corrected_after_window(_no_bracket_sync: AsyncMock) -> None:
+    """A knockout first stored level 0-0 with no advancer (incomplete feed) is still
+    corrected once the feed backfills the shootout — *even long past the 30-minute
+    window* — because a level knockout with no advancer is an impossible result we
+    keep open until the decider lands. Correcting only *adds* the advancer."""
+    match = _make_match(
+        status=MatchStatus.completed,
+        stage=TournamentStage.r16,
+        result_source=ResultSource.auto,
+        result_finalized_at=_recent_now(60),  # long past the 30-minute window
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    match.actual_home_score = 0
+    match.actual_away_score = 0  # the frozen-looking bare draw, no advancer
+    fd = _shootout_decider_payload()
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
+    client_factory = _mock_client_factory([fd])
+
+    with patch(
+        "src.services.result_sync.notify_result_detected", new_callable=AsyncMock
+    ) as mock_notify:
+        count = await result_sync.sync_results(
+            session_factory=factory, client_factory=client_factory
+        )
+
+    assert count == 1
+    assert match.actual_home_score == 0  # 90-minute score unchanged
+    assert match.actual_away_score == 0
+    assert match.extra_time is True
+    assert match.penalties is True
+    assert match.penalty_winner_id == match.home_team_id  # advancer finally set
+    assert match.penalty_home_score == 4
+    assert match.penalty_away_score == 3
+    mock_notify.assert_not_called()  # silent correction, not a fresh result push
+    _no_bracket_sync.assert_awaited()  # bracket re-resolves so the QF slot fills
+    audit = next(
+        c.args[0]
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].changes.get("corrected")
+    )
+    assert audit.changes["actual_home_score"] == 0
+
+
+async def test_incomplete_knockout_still_incomplete_after_window_is_noop() -> None:
+    """While the feed still lacks the decider, re-reading the incomplete knockout is
+    a clean no-op (no rewrite, no audit): the freeze is lifted but there is nothing
+    to apply yet, so it never churns — it simply keeps watching for the backfill."""
+    match = _make_match(
+        status=MatchStatus.completed,
+        stage=TournamentStage.r16,
+        result_source=ResultSource.auto,
+        result_finalized_at=_recent_now(60),
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    match.actual_home_score = 0
+    match.actual_away_score = 0
+    fd = _incomplete_knockout_payload()
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.penalty_winner_id is None  # still no advancer — nothing to apply
+    assert not [
+        c
+        for c in session.add.call_args_list
+        if isinstance(c.args[0], AuditLog) and c.args[0].action_type != ActionType.sync_triggered
+    ]
+
+
+async def test_group_draw_frozen_after_window() -> None:
+    """The relaxation is knockout-only: a group-stage draw is a legitimate final
+    result, so past the window it freezes normally and a late feed revision is
+    ignored — the knockout exception must not leak to the group stage."""
+    match = _make_match(
+        status=MatchStatus.completed,
+        stage=TournamentStage.group,
+        result_source=ResultSource.auto,
+        result_finalized_at=_recent_now(60),
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    match.actual_home_score = 1
+    match.actual_away_score = 1
+    fd = _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="GROUP_STAGE",
+        home_score=2,
+        away_score=2,  # a late revision we must ignore
+    )
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.actual_home_score == 1  # frozen — unchanged
+    assert match.actual_away_score == 1
+
+
+async def test_knockout_with_advancer_frozen_after_window() -> None:
+    """Once the advancer is known the knockout is complete, so the exception no
+    longer applies: past the window it freezes like any other result. Pins that the
+    relaxation keys on a *missing* advancer, not merely a level scoreline."""
+    match = _make_match(
+        status=MatchStatus.completed,
+        stage=TournamentStage.r16,
+        result_source=ResultSource.auto,
+        result_finalized_at=_recent_now(60),
+        home_team_id=uuid.uuid4(),
+        away_team_id=uuid.uuid4(),
+    )
+    match.actual_home_score = 1
+    match.actual_away_score = 1
+    match.penalty_winner_id = match.home_team_id  # already decided
+    # A late feed that would flip the advancer to the away team, were we not frozen.
+    fd = _fd_match(
+        status=FDMatchStatus.FINISHED,
+        stage="LAST_16",
+        duration="PENALTY_SHOOTOUT",
+        winner="AWAY_TEAM",
+        home_score=5,
+        away_score=6,
+        regular_home=1,
+        regular_away=1,
+        et_home=0,
+        et_away=0,
+        pen_home=4,
+        pen_away=5,
+    )
+    factory, session = _mock_session_factory([_scalars([match]), _orient(match, fd)])
+    client_factory = _mock_client_factory([fd])
+
+    count = await result_sync.sync_results(session_factory=factory, client_factory=client_factory)
+
+    assert count == 0
+    assert match.penalty_winner_id == match.home_team_id  # frozen — advancer unchanged
+
+
+# ---------------------------------------------------------------------------
 # Race condition — admin manual entry between rows
 # ---------------------------------------------------------------------------
 

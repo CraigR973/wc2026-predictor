@@ -128,7 +128,11 @@ _FAILURE_ALERT_THRESHOLD = 3
 # R32 incident, 2026-07-01) and correct it minutes later. Our finished-write is
 # otherwise idempotent, so without this the first (possibly wrong) read is frozen.
 # Bounded so a late upstream revision of a long-settled match can't reshuffle the
-# leaderboard days later. Manual/override results are never revised.
+# leaderboard days later. Manual/override results are never revised. One exception
+# outlives the window: a knockout stored level with no advancer is an *impossible*
+# result the feed hasn't finished publishing, so it stays revisable until the
+# decider lands (see _is_knockout_missing_advancer) — a correction there only *adds*
+# the missing advancer, never reshuffles an already-complete result.
 _AUTO_RESULT_REVISE_WINDOW = timedelta(minutes=30)
 
 # Process-lifetime counter. None means "not yet loaded from DB this process".
@@ -655,6 +659,30 @@ def _write_result_fields(
     match.penalty_away_score = pen_away
 
 
+def _is_knockout_missing_advancer(match: Match) -> bool:
+    """A knockout match stored level after 90' with no advancer — an impossible result.
+
+    Someone must progress from a knockout tie, so a completed non-group match whose
+    ``actual_*_score`` is level and whose ``penalty_winner_id`` is NULL is not a real
+    result — it is an *incomplete* one. football-data can report a knockout as
+    FINISHED before it has computed the shootout: the payload carries no
+    ``extraTime``/``penalties`` sub-scores and ``duration`` still reads ``REGULAR``,
+    so we store the bare draw with no decider, and the feed backfills the shootout
+    only later — sometimes hours later, long past the normal self-heal window (the
+    Switzerland–Colombia R16 incident, 2026-07-08: the decider arrived ~9h after full
+    time). While a result sits in this state the freeze is lifted so a late backfill
+    can still supply the advancer. Group-stage ties are legitimately level with no
+    advancer, hence the knockout-only guard.
+    """
+    return (
+        match.stage is not TournamentStage.group
+        and match.actual_home_score is not None
+        and match.actual_away_score is not None
+        and match.actual_home_score == match.actual_away_score
+        and match.penalty_winner_id is None
+    )
+
+
 def _apply_finished(
     session: AsyncSession,
     match: Match,
@@ -706,6 +734,17 @@ def _apply_finished(
         _write_result_fields(
             match, home, away, extra_time, penalties, advancer, et_home, et_away, pen_home, pen_away
         )
+        if _is_knockout_missing_advancer(match):
+            # We just stored a knockout as level with no advancer — an incomplete
+            # payload (football-data hasn't published the shootout yet). The freeze
+            # stays lifted for this state so a later backfill supplies the decider.
+            log.warning(
+                "knockout finished level with no advancer — awaiting feed decider",
+                fd_id=fd_match.id,
+                match_id=str(match.id),
+                match_number=match.match_number,
+                score=f"{home}-{away}",
+            )
         match.result_source = ResultSource.auto
         match.result_entered_by = None
         match.status = MatchStatus.completed
@@ -733,9 +772,15 @@ def _apply_finished(
     # long enough ago that a late upstream revision would just be noise.
     if match.result_source is not ResultSource.auto:
         return None
-    if match.result_finalized_at is None or now - match.result_finalized_at > (
-        _AUTO_RESULT_REVISE_WINDOW
-    ):
+    # The window normally freezes an auto result 30 minutes after finalization.
+    # Exception: a knockout stored level with no advancer is an impossible,
+    # incomplete result — keep it revisable regardless of age so a late feed
+    # backfill can still land the decider (see _is_knockout_missing_advancer).
+    # Once the advancer is set the state clears and the normal freeze resumes.
+    frozen = match.result_finalized_at is None or (
+        now - match.result_finalized_at > _AUTO_RESULT_REVISE_WINDOW
+    )
+    if frozen and not _is_knockout_missing_advancer(match):
         return None
 
     match.last_synced_at = now
