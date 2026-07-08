@@ -201,7 +201,7 @@ _LATER_ROUNDS_BRACKET: dict[int, tuple[str, str]] = {
     94: ("winner_match_82", "winner_match_81"),
     95: ("winner_match_87", "winner_match_86"),
     96: ("winner_match_85", "winner_match_88"),
-    97: ("winner_match_89", "winner_match_90"),
+    97: ("winner_match_90", "winner_match_89"),
     98: ("winner_match_93", "winner_match_94"),
     99: ("winner_match_91", "winner_match_92"),
     100: ("winner_match_95", "winner_match_96"),
